@@ -8,6 +8,7 @@ cons = []
 
 
 def nda_is_signed():
+    print("NDA signature is ", signature)
     return signature == 'jason'
 
 
