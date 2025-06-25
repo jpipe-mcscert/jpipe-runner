@@ -15,17 +15,19 @@ from ..utils import sanitize_string
 
 class PipelineEngine:
     """
-    PipelineEngine orchestrates loading pipeline configuration, parsing a justification
-    file to determine dependencies among pipeline steps, validating the pipeline (checking
-    variable availability and order constraints), and producing a valid execution order
-    for pipeline functions.
+    Orchestrates the loading, validation, and execution of a pipeline based on a justification graph.
+
+    Responsibilities:
+    - Load configuration and justification files
+    - Construct and validate dependency graphs
+    - Ensure proper execution order of functions
+    - Execute functions using a provided runtime
 
     Attributes:
-        execution_order (list[str]): The computed order of function keys to execute.
-        graph (dict): TODO
+        execution_order (list[str]): The topologically sorted order of functions to execute.
+        graph (nx.DiGraph): A directed graph representing dependencies between justification elements.
+        justification_name (str): Human-readable name of the justification.
     """
-
-    # BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
     def __init__(self, config_path: str, justification_path: str) -> None:
         """
@@ -61,7 +63,6 @@ class PipelineEngine:
         """
         GLOBAL_LOGGER.info("Loading config from: %s", path)
         try:
-            # with open(PipelineEngine.BASE_DIR / path, 'r') as f:
             with open(path, 'r') as f:
                 config = yaml.safe_load(f)
                 for key, value in config.items():
@@ -73,14 +74,18 @@ class PipelineEngine:
     @staticmethod
     def parse_justification(path: str) -> nx.DiGraph:
         """
-        Parse the justification JSON file and build a directed dependency graph.
+        Parse a justification JSON file into a directed graph of pipeline elements.
 
-        Nodes: element IDs from "elements"
-        Edges: from each source to target in "relations"
+        Graph nodes represent justification elements (e.g., evidence, strategy).
+        Graph edges represent logical dependencies between elements.
+
+        :param path: Path to the justification JSON file.
+        :type path: str
+        :return: A directed graph (DiGraph) representing the justification.
+        :rtype: nx.DiGraph
         """
         GLOBAL_LOGGER.info("Parsing justification JSON from: %s", path)
         try:
-            # with open(PipelineEngine.BASE_DIR / path, 'r') as f:
             with open(path, 'r') as f:
                 data = json.load(f)
         except Exception as e:
@@ -105,15 +110,11 @@ class PipelineEngine:
     @staticmethod
     def _get_producer_key(var: str) -> str | None:
         """
-        Find which function key in ctx._vars produces the given variable.
-        Returns:
-          - "main" if ctx._vars["main"] produces it,
-          - the function key string if found in another function's PRODUCE map,
-          - None if not found anywhere.
+        Determine which function or context produces a given variable.
 
-        :param var: The variable name to find the producer for.
+        :param var: Variable name to locate.
         :type var: str
-        :return: The function key or "main" if that context produces it, or None if not found.
+        :return: Function key, or None if not found.
         :rtype: str | None
         """
         # Check other functions in ctx._vars
@@ -173,7 +174,10 @@ class PipelineEngine:
 
     def get_execution_order(self) -> list[str]:
         """
-        Compute execution order using topological sort over the justification graph.
+        Compute a valid execution order using topological sorting.
+
+        :return: A list of node keys in execution order.
+        :rtype: list[str]
         """
         try:
             order = list(nx.topological_sort(self.graph))
@@ -184,6 +188,16 @@ class PipelineEngine:
             return []
 
     def is_order_valid(self) -> bool:
+        """
+        Check that the computed execution order satisfies variable dependency rules.
+
+        Specifically ensures:
+        - Producers appear before consumers.
+        - No invalid forward references or cycles exist.
+
+        :return: True if the order is valid, False otherwise.
+        :rtype: bool
+        """
         GLOBAL_LOGGER.info("Validating execution order...")
         order_index = {key: idx for idx, key in enumerate(self.execution_order)}
 
@@ -222,8 +236,23 @@ class PipelineEngine:
 
     def justify(self, runtime: PythonRuntime, dry_run: bool = False) -> Iterator[dict]:
         """
-        Execute the pipeline using topological execution order.
-        Yields execution results per node.
+        Execute the pipeline based on the computed execution order.
+
+        Execution can be skipped using `dry_run=True`. Function failures result in `FAIL` status.
+
+        Each yielded dictionary represents the result for a justification element:
+            - name: element ID
+            - label: human-readable name
+            - var_type: type (e.g., evidence, strategy, conclusion)
+            - status: execution status (PASS, FAIL, SKIP)
+            - exception: error message if applicable
+
+        :param runtime: A PythonRuntime instance to call functions from.
+        :type runtime: PythonRuntime
+        :param dry_run: If True, skips actual function calls and marks all as PASS.
+        :type dry_run: bool
+        :yield: Execution results for each node.
+        :rtype: Iterator[dict]
         """
         GLOBAL_LOGGER.info("Running pipeline...")
 

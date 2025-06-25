@@ -31,7 +31,25 @@ JPIPE_RUNNER_ASCII = r"""
 """
 
 
-def parse_args(argv=None):
+def parse_args(argv: list[str] | None = None):
+    """
+    Parses command-line arguments for the jPipe Runner.
+
+    Available arguments:
+        --variable, -v: Define variables in the format NAME:VALUE (can be used multiple times).\n
+        --library, -l: Path pattern to Python libraries to load (can be used multiple times).\n
+        --diagram, -d: Wildcard pattern for diagram selection.\n
+        --output, -o: Output path for the generated diagram image (optional).\n
+        --dry-run: Simulate execution without performing actual justifications.\n
+        --verbose, -V: Enable verbose logging.\n
+        --config-file: Path to a YAML configuration file.\n
+        jd_file: Path to the justification (.jd) file.\n
+
+    :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
+    :type argv: list[str] or None
+    :return: Parsed arguments namespace.
+    :rtype: argparse.Namespace
+    """
     parser = argparse.ArgumentParser(prog="jpipe-runner",
                                      description=("McMaster University - McSCert (c) 2023-..."
                                                   + JPIPE_RUNNER_ASCII),
@@ -57,6 +75,18 @@ def parse_args(argv=None):
 
 
 def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> [int, int, int, int]:
+    """
+    Prints a formatted, colorized summary of justification results to the terminal.
+
+    For each justification:
+    - Displays variable name, label, status (PASS, FAIL, SKIP)
+    - Counts totals and returns summary statistics
+
+    :param diagrams: Iterable of tuples containing justification names and result data.
+    :type diagrams: Iterable[tuple[str, Iterable[dict]]]
+    :return: Tuple containing total, passed, failed, and skipped justification counts.
+    :rtype: tuple[int, int, int, int]
+    """
     terminal_width, _ = shutil.get_terminal_size((78, 30))
     width = 78 if terminal_width > 78 else terminal_width
 
