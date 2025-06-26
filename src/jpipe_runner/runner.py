@@ -30,6 +30,12 @@ JPIPE_RUNNER_ASCII = r"""
  |__/        |_|                                                                                     
 """
 
+IMAGE_EXPORT_FORMAT = ['canon', 'cmap', 'cmapx', 'cmapx_np', 'dia', 'dot',
+                       'fig', 'gd', 'gd2', 'gif', 'hpgl', 'imap', 'imap_np',
+                       'ismap', 'jpe', 'jpeg', 'jpg', 'mif', 'mp', 'pcl', 'pdf',
+                       'pic', 'plain', 'plain-ext', 'png', 'ps', 'ps2', 'svg',
+                       'svgz', 'vml', 'vmlz', 'vrml', 'vtx', 'wbmp', 'xdot', 'xlib']
+
 
 def parse_args(argv: list[str] | None = None):
     """
@@ -61,7 +67,12 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument("--diagram", "-d", metavar="PATTERN", default="*",
                         help="Specify diagram pattern or wildcard")
     parser.add_argument("--output", "-o", metavar="FILE",
-                        help="Output file for generated diagram image")
+                        help=(
+                            "Output file for generated diagram image. The format is inferred from the file extension.\n"
+                            "Supported formats include: canon, cmap, cmapx, cmapx_np, dia, dot, fig, gd, gd2, gif, hpgl,\n"
+                            "imap, imap_np, ismap, jpe, jpeg, jpg, mif, mp, pcl, pdf, pic, plain, plain-ext, png, ps,\n"
+                            "ps2, svg, svgz, vml, vmlz, vrml, vtx, wbmp, xdot, xlib."
+                        ))
     parser.add_argument("--dry-run", action="store_true",
                         help="Perform a dry run without actually executing justifications")
     parser.add_argument("--verbose", "-V", action="store_true",
@@ -171,7 +182,7 @@ def main():
         sys.exit(1)
 
     # Run justification logic and gather results
-    justification_result = jpipe.justify(dry_run=args.dry_run, runtime=runtime)
+    justification_result = list(jpipe.justify(dry_run=args.dry_run, runtime=runtime))
 
     # Generate pretty terminal summary
     m, n, _, s = pretty_display([(jpipe.justification_name, justification_result)])
@@ -186,9 +197,9 @@ def main():
         # Convert result to a status dictionary for visualization
         status_dict = {item["name"]: item["status"].value for item in justification_result}
 
-        if output_path.endswith(".svg"):
-            jpipe.export_to_svg(status_dict=status_dict, output_path=args.output)
-            print(f"SVG diagram saved to: {args.output}", file=sys.stderr)
+        if output_path.endswith(tuple(IMAGE_EXPORT_FORMAT)):
+            jpipe.export_to_svg(status_dict=status_dict, output_path=args.output, format=output_path.split('.')[-1])
+            print(f"{output_path.split('.')[-1]} diagram saved to: {args.output}", file=sys.stderr)
         else:
             print(f"Unsupported output format: {args.output}", file=sys.stderr)
             sys.exit(1)

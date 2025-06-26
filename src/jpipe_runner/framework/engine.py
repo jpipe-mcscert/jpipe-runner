@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 from typing import Iterator
 
@@ -242,6 +243,7 @@ class PipelineEngine:
             node_data["status"] = status
 
             # Yield with expected format
+            print(f"Node: {node}, Type: {node_type}, Status: {status}, Exception: {exception}")
             yield {
                 "name": node,
                 "label": label,
@@ -250,7 +252,7 @@ class PipelineEngine:
                 "exception": exception,
             }
 
-    def export_to_svg(self, status_dict: dict[str, str], output_path: str) -> None:
+    def export_to_svg(self, status_dict: dict[str, str], output_path: str, format: str) -> None:
         """
         Export the justification graph to SVG, styling nodes by VariableType and edges by status.
 
@@ -300,18 +302,24 @@ class PipelineEngine:
 
             # Add node border color based on status (optional)
             status = status_dict.get(node_id, "UNKNOWN")
+            logging.info("Setting node color for %s with status %s", node_id, status)
             if status == "PASS":
                 n.attr['color'] = "black"
             elif status == "FAIL":
-                n.attr['color'] = "red"
+                n.attr["style"] = "filled,dashed"
+                n.attr["fillcolor"] = "red"
+                n.attr["color"] = "red"  # border
             elif status == "SKIP":
-                n.attr['color'] = "orange"
+                n.attr["style"] = "filled,dashed"
+                n.attr["fillcolor"] = "#ff7d08"
+                n.attr["color"] = "#ff7d08"
             else:
                 n.attr['color'] = "gray"
 
         # Color edges based on source node status
         for source, target in G.edges():
             status = status_dict.get(source, "UNKNOWN")
+            logging.info("Setting edge color for %s -> %s with status %s", source, target, status)
             e = A.get_edge(source, target)
 
             if status == "PASS":
@@ -319,8 +327,8 @@ class PipelineEngine:
             elif status == "FAIL":
                 e.attr['color'] = "red"
             elif status == "SKIP":
-                e.attr['color'] = "orange"
+                e.attr['color'] = "#ff7d08"
             else:
                 e.attr['color'] = "gray"
 
-        A.draw(output_path, format="svg", prog="dot")
+        A.draw(output_path, format=format, prog="dot")
