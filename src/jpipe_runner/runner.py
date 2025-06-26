@@ -31,7 +31,25 @@ JPIPE_RUNNER_ASCII = r"""
 """
 
 
-def parse_args(argv=None):
+def parse_args(argv: list[str] | None = None):
+    """
+    Parses command-line arguments for the jPipe Runner.
+
+    Available arguments:
+        --variable, -v: Define variables in the format NAME:VALUE (can be used multiple times).\n
+        --library, -l: Path pattern to Python libraries to load (can be used multiple times).\n
+        --diagram, -d: Wildcard pattern for diagram selection.\n
+        --output, -o: Output path for the generated diagram image (optional).\n
+        --dry-run: Simulate execution without performing actual justifications.\n
+        --verbose, -V: Enable verbose logging.\n
+        --config-file: Path to a YAML configuration file.\n
+        jd_file: Path to the justification (.jd) file.\n
+
+    :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
+    :type argv: list[str] or None
+    :return: Parsed arguments namespace.
+    :rtype: argparse.Namespace
+    """
     parser = argparse.ArgumentParser(prog="jpipe-runner",
                                      description=("McMaster University - McSCert (c) 2023-..."
                                                   + JPIPE_RUNNER_ASCII),
@@ -57,6 +75,18 @@ def parse_args(argv=None):
 
 
 def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> [int, int, int, int]:
+    """
+    Prints a formatted, colorized summary of justification results to the terminal.
+
+    For each justification:
+    - Displays variable name, label, status (PASS, FAIL, SKIP)
+    - Counts totals and returns summary statistics
+
+    :param diagrams: Iterable of tuples containing justification names and result data.
+    :type diagrams: Iterable[tuple[str, Iterable[dict]]]
+    :return: Tuple containing total, passed, failed, and skipped justification counts.
+    :rtype: tuple[int, int, int, int]
+    """
     terminal_width, _ = shutil.get_terminal_size((78, 30))
     width = 78 if terminal_width > 78 else terminal_width
 
@@ -140,21 +170,28 @@ def main():
         print(f"No justification diagram found: {args.diagram}", file=sys.stderr)
         sys.exit(1)
 
-    if args.output:
-        print("Output is set, generating diagram image...", file=sys.stderr)
-        match args.output:
-            case "stdout" | "STDOUT":
-                args.output = sys.stdout.buffer
-            case "stderr" | "STDERR":
-                args.output = sys.stderr.buffer
-        # jpipe.export_to_image(path=args.output, format="png")
-        raise NotImplementedError("Image generation not implemented yet")
-        sys.exit(1)
+    # Run justification logic and gather results
+    justification_result = jpipe.justify(dry_run=args.dry_run, runtime=runtime)
 
-    # This mirrors the old logic: justify each diagram and collect results
-    m, n, _, s = pretty_display([
-        (jpipe.justification_name, jpipe.justify(dry_run=args.dry_run, runtime=runtime))
-    ])
+    # Generate pretty terminal summary
+    m, n, _, s = pretty_display([(jpipe.justification_name, justification_result)])
+
+    # If an output file is requested, handle export
+    if args.output:
+        output_path = args.output.lower()
+        if output_path in {"stdout", "stderr"}:
+            print("Streamed diagram output is not supported yet.", file=sys.stderr)
+            sys.exit(1)
+
+        # Convert result to a status dictionary for visualization
+        status_dict = {item["name"]: item["status"].value for item in justification_result}
+
+        if output_path.endswith(".svg"):
+            jpipe.export_to_svg(status_dict=status_dict, output_path=args.output)
+            print(f"SVG diagram saved to: {args.output}", file=sys.stderr)
+        else:
+            print(f"Unsupported output format: {args.output}", file=sys.stderr)
+            sys.exit(1)
 
     # exit 0 only when all justifications passed/skipped
     sys.exit(m - n - s)
