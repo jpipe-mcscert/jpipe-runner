@@ -24,9 +24,14 @@ python = ">=3.10"
 lark = "^1.2.2"
 networkx = "^3.4.2"
 termcolor = "^2.5.0"
+pygraphviz = "^1.11"
 
 [tool.poetry.scripts]
 jpipe-runner = "jpipe_runner.runner:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-mock = "^3.14.1"
 
 [build-system]
 requires = ["poetry-core"]
