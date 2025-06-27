@@ -198,7 +198,7 @@ def main():
         status_dict = {item["name"]: item["status"].value for item in justification_result}
 
         if output_path.endswith(tuple(IMAGE_EXPORT_FORMAT)):
-            jpipe.export_to_svg(status_dict=status_dict, output_path=args.output, format=output_path.split('.')[-1])
+            jpipe.export_to_format(status_dict=status_dict, output_path=args.output, format=output_path.split('.')[-1])
             print(f"{output_path.split('.')[-1]} diagram saved to: {args.output}", file=sys.stderr)
         else:
             print(f"Unsupported output format: {args.output}", file=sys.stderr)

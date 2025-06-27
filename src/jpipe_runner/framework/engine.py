@@ -72,7 +72,7 @@ class PipelineEngine:
             for key, value in config.items():
                 ctx.set_from_config(key, value)
         except Exception as e:
-            GLOBAL_LOGGER.error("Failed to set context variables from config: %s", e)
+            GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
             return
 
     def parse_justification(self, path: str) -> nx.DiGraph:
@@ -247,7 +247,6 @@ class PipelineEngine:
             node_data["status"] = status
 
             # Yield with expected format
-            print(f"Node: {node}, Type: {node_type}, Status: {status}, Exception: {exception}")
             yield {
                 "name": node,
                 "label": label,
@@ -256,7 +255,7 @@ class PipelineEngine:
                 "exception": exception,
             }
 
-    def export_to_svg(self, status_dict: dict[str, str], output_path: str, format: str) -> None:
+    def export_to_format(self, status_dict: dict[str, str], output_path: str, format: str) -> None:
         """
         Export the justification graph to SVG, styling nodes by VariableType and edges by status.
 
@@ -273,7 +272,7 @@ class PipelineEngine:
         node_attr_map = {
             "conclusion": dict(fillcolor="lightgrey", shape="rect", style="filled"),
             "strategy": dict(fillcolor="palegreen", shape="parallelogram", style="filled"),
-            "sub_conclusion": dict(color="dodgerblue", shape="rect"),
+            "sub-conclusion": dict(color="dodgerblue", shape="rect"),
             "evidence": dict(fillcolor="lightskyblue2", shape="rect", style="filled"),
             "support": dict(fillcolor="lightcoral", shape="rect", style="filled"),
         }
@@ -289,14 +288,9 @@ class PipelineEngine:
             size="15,15",
         )
 
-        # Force conclusion nodes to bottom (rank=sink)
-        conclusion_nodes = [n for n, d in G.nodes(data=True) if d.get("type", "").lower() == "conclusion"]
-        if conclusion_nodes:
-            A.add_subgraph(conclusion_nodes, rank='sink')
-
         for node in G.nodes(data=True):
             node_id, attrs = node
-            var_type = attrs.get("type", "").lower()  # assuming your graph stores type in "type"
+            var_type = attrs.get("type", "").lower()
 
             # Apply node style based on VariableType
             style = node_attr_map.get(var_type, dict(fillcolor="white", shape="ellipse", style="filled"))
@@ -304,21 +298,19 @@ class PipelineEngine:
             for k, v in style.items():
                 n.attr[k] = v
 
-            # Add node border color based on status (optional)
+            # Add node border color based on status
             status = status_dict.get(node_id, "UNKNOWN")
             logging.info("Setting node color for %s with status %s", node_id, status)
-            if status == "PASS":
-                n.attr['color'] = "black"
-            elif status == "FAIL":
-                n.attr["style"] = "filled,dashed"
+            if status == StatusType.FAIL.name:
+                n.attr["style"] = "filled"
                 n.attr["fillcolor"] = "red"
-                n.attr["color"] = "red"  # border
-            elif status == "SKIP":
-                n.attr["style"] = "filled,dashed"
+                n.attr["fontcolor"] = "white"
+                n.attr["fontname"] = "Helvetica-Bold"
+            elif status == StatusType.SKIP.name:
+                n.attr["style"] = "filled"
                 n.attr["fillcolor"] = "#ff7d08"
-                n.attr["color"] = "#ff7d08"
-            else:
-                n.attr['color'] = "gray"
+                n.attr["fontcolor"] = "white"
+                n.attr["fontname"] = "Helvetica-Bold"
 
         # Color edges based on source node status
         for source, target in G.edges():
@@ -326,11 +318,11 @@ class PipelineEngine:
             logging.info("Setting edge color for %s -> %s with status %s", source, target, status)
             e = A.get_edge(source, target)
 
-            if status == "PASS":
+            if status == StatusType.PASS.name:
                 e.attr['color'] = "black"
-            elif status == "FAIL":
+            elif status == StatusType.FAIL.name:
                 e.attr['color'] = "red"
-            elif status == "SKIP":
+            elif status == StatusType.SKIP.name:
                 e.attr['color'] = "#ff7d08"
             else:
                 e.attr['color'] = "gray"
