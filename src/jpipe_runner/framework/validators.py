@@ -1,3 +1,5 @@
+from typing import Any
+
 from jpipe_runner.framework.context import RuntimeContext, ctx
 from .logger import GLOBAL_LOGGER
 
@@ -194,3 +196,117 @@ class OrderValidator(BaseValidator):
                     )
         GLOBAL_LOGGER.info(f"OrderValidator completed with {len(errors)} error(s).")
         return errors
+
+
+class JustificationSchemaValidator:
+    """
+    Validates the structure and contents of a justification JSON definition.
+
+    This validator checks that:
+    - All required top-level keys are present (`name`, `type`, `elements`, `relations`).
+    - The `elements` list contains objects with the required fields (`id`, `label`, `type`).
+    - Element types are among the allowed types: `evidence`, `strategy`, `conclusion`, `sub-conclusion`.
+    - Element IDs are unique.
+    - The `relations` list contains valid `source` and `target` keys.
+    - Each `source` and `target` ID in `relations` must refer to an existing element ID.
+
+    This class is intended to be used before constructing the justification graph,
+    ensuring that the input JSON is well-structured and logically valid.
+
+    Raises:
+        ValueError: If any structural validation check fails.
+    """
+
+    REQUIRED_TOP_KEYS = {"name", "type", "elements", "relations"}
+    VALID_TYPES = {"evidence", "strategy", "conclusion", "sub-conclusion"}
+
+    def __init__(self, data: dict[str, Any]):
+        """
+         Initialize the validator with parsed justification JSON data.
+
+         :param data: Dictionary representing the justification JSON content.
+         :type data: dict[str, Any]
+         """
+        self.data = data
+        self.element_ids = set()
+
+    def validate(self):
+        """
+         Executes the full validation pipeline on the justification structure.
+
+         Steps:
+         - Verifies the presence of top-level keys.
+         - Validates individual elements for required structure and valid types.
+         - Validates that relations correctly reference existing element IDs.
+
+         :raises ValueError: If any of the structural checks fail.
+         """
+        GLOBAL_LOGGER.debug("Starting justification schema validation")
+
+        # Check top-level keys
+        missing = self.REQUIRED_TOP_KEYS - self.data.keys()
+        if missing:
+            raise ValueError(f"Missing top-level key(s): {missing}")
+        GLOBAL_LOGGER.info("Top-level keys validated")
+
+        # Validate elements
+        self._validate_elements()
+
+        # Validate relations
+        self._validate_relations()
+
+        GLOBAL_LOGGER.info("Justification schema validation completed successfully")
+
+    def _validate_elements(self):
+        """
+        Validates the structure of each element in the justification.
+
+        Each element must:
+        - Be a dictionary with `id`, `label`, and `type` keys.
+        - Have a `type` that is among the allowed VALID_TYPES.
+        - Use a unique `id` across all elements.
+
+        :raises ValueError: If any element is invalid or duplicates are found.
+        """
+        elements = self.data.get("elements", [])
+        if not isinstance(elements, list):
+            raise ValueError("'elements' must be a list")
+
+        for i, element in enumerate(elements):
+            for key in ["id", "label", "type"]:
+                if key not in element:
+                    raise ValueError(f"Element {i} is missing required key '{key}'")
+
+            if element["type"] not in self.VALID_TYPES:
+                raise ValueError(f"Invalid type '{element['type']}' in element '{element['id']}'")
+
+            if element["id"] in self.element_ids:
+                raise ValueError(f"Duplicate element id: '{element['id']}'")
+
+            self.element_ids.add(element["id"])
+
+        GLOBAL_LOGGER.debug("All elements validated: %s", self.element_ids)
+
+    def _validate_relations(self):
+        """
+        Validates the structure and references of each relation in the justification.
+
+        Each relation must:
+        - Be a dictionary with `source` and `target` keys.
+        - Reference only valid element IDs defined in the `elements` section.
+
+        :raises ValueError: If relations are malformed or refer to unknown elements.
+        """
+        relations = self.data.get("relations", [])
+        if not isinstance(relations, list):
+            raise ValueError("'relations' must be a list")
+
+        for i, rel in enumerate(relations):
+            for key in ["source", "target"]:
+                if key not in rel:
+                    raise ValueError(f"Relation {i} is missing required key '{key}'")
+
+                if rel[key] not in self.element_ids:
+                    raise ValueError(f"Relation {i} refers to unknown {key} id '{rel[key]}'")
+
+        GLOBAL_LOGGER.debug("All relations validated: %d total", len(relations))

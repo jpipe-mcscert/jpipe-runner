@@ -173,6 +173,14 @@ def main():
                                        for i in args.variable
                                        if i.find(':')])
 
+    if not args.jd_file:
+        print("No justification json file provided. Please specify a .json file.", file=sys.stderr)
+        sys.exit(1)
+
+    if not args.jd_file.endswith('.json'):
+        print("The provided justification file is not a .json file.", file=sys.stderr)
+        sys.exit(1)
+
     jpipe = PipelineEngine(config_path=args.config_file, justification_path=args.jd_file)
 
     diagrams = [(jpipe.justification_name, jpipe.graph)]

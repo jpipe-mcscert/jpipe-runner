@@ -8,7 +8,7 @@ import yaml
 
 from .context import ctx, RuntimeContext
 from .logger import GLOBAL_LOGGER
-from .validators import MissingVariableValidator, OrderValidator, SelfDependencyValidator
+from .validators import MissingVariableValidator, OrderValidator, SelfDependencyValidator, JustificationSchemaValidator
 from ..enums import StatusType
 from ..exceptions import FunctionException
 from ..runtime import PythonRuntime
@@ -95,6 +95,13 @@ class PipelineEngine:
             GLOBAL_LOGGER.error("Failed to load JSON justification: %s", e)
             return nx.DiGraph()
 
+        # Validate the structure
+        try:
+            JustificationSchemaValidator(data).validate()
+        except ValueError as e:
+            GLOBAL_LOGGER.error("Justification validation failed: %s", e)
+            return nx.DiGraph()
+
         # Check if the justification has a name
         if "name" in data:
             self.justification_name = data["name"]
@@ -102,7 +109,7 @@ class PipelineEngine:
 
         G = nx.DiGraph()
 
-        # Add all nodes (you can store attributes if needed)
+        # Add all nodes
         for element in data.get("elements", []):
             G.add_node(element["id"], **element)
 
