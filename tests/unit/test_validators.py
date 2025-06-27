@@ -8,7 +8,7 @@ from jpipe_runner.framework.validators import (
     SelfDependencyValidator,
     OrderValidator,
     ProducedButNotConsumedValidator,
-    JustificationSchemaValidator
+    JustificationSchemaValidator, DuplicateProducerValidator
 )
 
 
@@ -186,6 +186,61 @@ class TestProducedButNotConsumedValidator(unittest.TestCase):
         self.assertIn("produced variable not consumed", errors[0].lower())
         self.assertIn("var1", errors[0])
         self.assertIn("func1", errors[0])
+
+
+class TestDuplicateProducerValidator(unittest.TestCase):
+
+    def setUp(self):
+        # Patch ctx globally where DuplicateProducerValidator is defined
+        patcher = patch('jpipe_runner.framework.context.ctx')
+        self.mock_ctx = patcher.start()
+        self.addCleanup(patcher.stop)
+
+        # Create a fake pipeline object
+        self.mock_pipeline = MagicMock()
+        self.validator = DuplicateProducerValidator(pipeline=self.mock_pipeline, ctx=self.mock_ctx)
+
+    def test_no_duplicate_producers(self):
+        # Simulate context: one function produces 'x', another produces 'y'
+        self.mock_ctx._vars = {
+            'func_a': {RuntimeContext.PRODUCE: {'x': None}},
+            'func_b': {RuntimeContext.PRODUCE: {'y': None}},
+        }
+
+        errors = self.validator.validate()
+        self.assertEqual(errors, [])
+
+    def test_single_duplicate_variable(self):
+        # Simulate two functions producing 'x'
+        self.mock_ctx._vars = {
+            'func_a': {RuntimeContext.PRODUCE: {'x': None}},
+            'func_b': {RuntimeContext.PRODUCE: {'x': None}},
+        }
+
+        errors = self.validator.validate()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Variable 'x' is produced by multiple functions", errors[0])
+        self.assertIn("func_a", errors[0])
+        self.assertIn("func_b", errors[0])
+
+    def test_multiple_duplicates(self):
+        # Simulate multiple variables with duplicate producers
+        self.mock_ctx._vars = {
+            'func_a': {RuntimeContext.PRODUCE: {'x': None, 'y': None}},
+            'func_b': {RuntimeContext.PRODUCE: {'y': None, 'z': None}},
+            'func_c': {RuntimeContext.PRODUCE: {'x': None}},
+        }
+
+        errors = self.validator.validate()
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("Variable 'x'" in e for e in errors))
+        self.assertTrue(any("Variable 'y'" in e for e in errors))
+
+    def test_empty_context(self):
+        self.mock_ctx._vars = {}
+
+        errors = self.validator.validate()
+        self.assertEqual(errors, [])
 
 
 class TestJustificationSchemaValidator(unittest.TestCase):

@@ -9,7 +9,7 @@ import yaml
 from .context import ctx, RuntimeContext
 from .logger import GLOBAL_LOGGER
 from .validators import MissingVariableValidator, OrderValidator, SelfDependencyValidator, JustificationSchemaValidator, \
-    ProducedButNotConsumedValidator
+    ProducedButNotConsumedValidator, DuplicateProducerValidator
 from ..enums import StatusType
 from ..exceptions import FunctionException
 from ..runtime import PythonRuntime
@@ -163,6 +163,7 @@ class PipelineEngine:
             SelfDependencyValidator(self, ctx),
             OrderValidator(self, ctx),
             ProducedButNotConsumedValidator(self, ctx),
+            DuplicateProducerValidator(self, ctx),
         ]
 
         all_passed = True
