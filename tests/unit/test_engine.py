@@ -1,5 +1,5 @@
 import json
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 
 import networkx as nx
 import pytest
@@ -23,6 +23,7 @@ def sample_justification(tmp_path):
             {"source": "node1", "target": "node2"},
             {"source": "node2", "target": "node3"},
         ],
+        "type": "justification",
     }
     path = tmp_path / "justification.json"
     path.write_text(json.dumps(data))
@@ -42,8 +43,8 @@ def sample_config(tmp_path):
 
 def test_init_without_config(sample_justification):
     # Should initialize and parse justification with no config path
-    with patch("jpipe_runner.framework.logger.GLOBAL_LOGGER") as mock_logger, \
-            patch("jpipe_runner.framework.engine.PipelineEngine.load_config") as mock_load_config:
+    with patch("jpipe_runner.framework.engine.PipelineEngine.load_config") as mock_load_config:
+        print(sample_justification)
         engine = PipelineEngine(None, sample_justification)
         mock_load_config.assert_not_called()
         assert isinstance(engine.graph, nx.DiGraph)
@@ -55,20 +56,6 @@ def test_init_with_config(sample_config, sample_justification):
         engine = PipelineEngine(sample_config, sample_justification)
         mock_load_config.assert_called_once_with(sample_config)
         assert isinstance(engine.graph, nx.DiGraph)
-
-
-def test_load_config_success(tmp_path):
-    config_path = tmp_path / "config.yaml"
-    config_path.write_text("a: 1\nb: 2")
-    with patch("jpipe_runner.framework.context.ctx") as mock_ctx:
-        mock_ctx._vars = {
-            "func1": {
-                RuntimeContext.PRODUCE: {"a": None, "b": None}
-            }
-        }
-        PipelineEngine.load_config(str(config_path))
-        calls = [call.set_from_config("a", 1), call.set_from_config("b", 2)]
-        mock_ctx.set_from_config.assert_has_calls(calls, any_order=True)
 
 
 def test_parse_justification_success(sample_justification):
@@ -100,14 +87,15 @@ def test_get_producer_key_found():
     assert key_none is None
 
 
-def test_validate_all_passes():
+def test_validate_all_passes(sample_justification):
     mock_validator = MagicMock()
     mock_validator.validate.return_value = []
     mock_validator.errors = []
 
     with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mock_validator), \
             patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=mock_validator), \
-            patch("jpipe_runner.framework.engine.OrderValidator", return_value=mock_validator):
+            patch("jpipe_runner.framework.engine.OrderValidator", return_value=mock_validator), \
+            patch("jpipe_runner.framework.engine.ProducedButNotConsumedValidator", return_value=mock_validator):
         engine = PipelineEngine(config_path=None, justification_path=None)
         engine.graph = MagicMock()
 

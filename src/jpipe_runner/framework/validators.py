@@ -1,6 +1,6 @@
 from typing import Any
 
-from jpipe_runner.framework.context import RuntimeContext, ctx
+from jpipe_runner.framework.context import RuntimeContext
 from .logger import GLOBAL_LOGGER
 
 
@@ -15,8 +15,9 @@ class BaseValidator:
     :type pipeline: PipelineEngine
     """
 
-    def __init__(self, pipeline: "PipelineEngine"):
+    def __init__(self, pipeline: "PipelineEngine", ctx: "RuntimeContext"):
         self.pipeline = pipeline
+        self.ctx = ctx
         self.errors: list[str] = []
 
     def validate(self) -> bool:
@@ -53,7 +54,7 @@ class MissingVariableValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running MissingVariableValidator...")
         errors = []
-        for func_key, var_maps in ctx._vars.items():
+        for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}")
             for var in consume_vars:
@@ -99,7 +100,7 @@ class SelfDependencyValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running SelfDependencyValidator...")
         errors = []
-        for func_key, var_maps in ctx._vars.items():
+        for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' for self-dependencies.")
             for var in consume_vars:
@@ -151,7 +152,7 @@ class OrderValidator(BaseValidator):
         order_index = {k: i for i, k in enumerate(order)}
 
         for func_key in order:
-            consume_vars = ctx._vars.get(func_key, {}).get(RuntimeContext.CONSUME, {})
+            consume_vars = self.ctx._vars.get(func_key, {}).get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking order for function '{func_key}'")
             for var in consume_vars:
                 producer = self.pipeline.get_producer_key(var)
@@ -195,6 +196,51 @@ class OrderValidator(BaseValidator):
                         f"Order violation: '{func_key}' consumes '{var}' before '{producer}' has produced it."
                     )
         GLOBAL_LOGGER.info(f"OrderValidator completed with {len(errors)} error(s).")
+        return errors
+
+
+class ProducedButNotConsumedValidator(BaseValidator):
+    """
+    Validator that checks whether variables produced by functions are actually consumed by others.
+
+    This helps detect variables that are produced but never used downstream, which may indicate
+    redundant or misconfigured pipeline steps.
+    """
+
+    def validate(self) -> list[str]:
+        """
+        Validate that all produced variables by functions are consumed by at least one other function.
+
+        :return: A list of error messages for produced variables that are not consumed.
+        :rtype: list[str]
+        """
+        GLOBAL_LOGGER.info("Running ProducedButNotConsumedValidator...")
+        errors = []
+
+        # Collect all consumed variables across the pipeline
+        consumed_vars = set()
+        for func_key, var_maps in self.ctx._vars.items():
+            consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
+            consumed_vars.update(consume_vars.keys())
+
+        # Check each produced variable to ensure it's consumed somewhere else
+        for func_key, var_maps in self.ctx._vars.items():
+            produce_vars = var_maps.get(RuntimeContext.PRODUCE, {})
+            for var in produce_vars:
+                if var not in consumed_vars:
+                    errors.append(
+                        (
+                            f"Pipeline validation error: produced variable not consumed.\n"
+                            f"  • Variable '{var}' is produced by function '{func_key}' but is never consumed by any function.\n"
+                            f"  • This may indicate redundant computation or misconfiguration.\n"
+                            f"  • Consider removing the production of '{var}' if unused, or verify downstream usage.\n"
+                        )
+                    )
+                    GLOBAL_LOGGER.warning(
+                        f"Produced variable '{var}' by '{func_key}' is not consumed by any other function."
+                    )
+
+        GLOBAL_LOGGER.info(f"ProducedButNotConsumedValidator completed with {len(errors)} error(s).")
         return errors
 
 

@@ -8,7 +8,8 @@ import yaml
 
 from .context import ctx, RuntimeContext
 from .logger import GLOBAL_LOGGER
-from .validators import MissingVariableValidator, OrderValidator, SelfDependencyValidator, JustificationSchemaValidator
+from .validators import MissingVariableValidator, OrderValidator, SelfDependencyValidator, JustificationSchemaValidator, \
+    ProducedButNotConsumedValidator
 from ..enums import StatusType
 from ..exceptions import FunctionException
 from ..runtime import PythonRuntime
@@ -97,6 +98,7 @@ class PipelineEngine:
 
         # Validate the structure
         try:
+            GLOBAL_LOGGER.debug("Validating justification schema...")
             JustificationSchemaValidator(data).validate()
         except ValueError as e:
             GLOBAL_LOGGER.error("Justification validation failed: %s", e)
@@ -157,9 +159,10 @@ class PipelineEngine:
         GLOBAL_LOGGER.info("Validating pipeline...")
 
         validators = [
-            MissingVariableValidator(self),
-            SelfDependencyValidator(self),
-            OrderValidator(self)
+            MissingVariableValidator(self, ctx),
+            SelfDependencyValidator(self, ctx),
+            OrderValidator(self, ctx),
+            ProducedButNotConsumedValidator(self, ctx),
         ]
 
         all_passed = True
