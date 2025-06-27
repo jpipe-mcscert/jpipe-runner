@@ -133,6 +133,8 @@ class RuntimeContext:
         :type decorator: str
         """
         for func in self._vars:
+            if decorator not in self._vars[func]:
+                continue
             if key in self._vars[func][decorator]:
                 self._vars[func][decorator][key] = value
                 GLOBAL_LOGGER.debug(f"Set variable '{key}' to '{value}' in function '{func}'")

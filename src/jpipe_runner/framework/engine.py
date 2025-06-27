@@ -65,10 +65,14 @@ class PipelineEngine:
         try:
             with open(path, 'r') as f:
                 config = yaml.safe_load(f)
-                for key, value in config.items():
-                    ctx.set_from_config(key, value)
         except Exception as e:
             GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
+            return
+        try:
+            for key, value in config.items():
+                ctx.set_from_config(key, value)
+        except Exception as e:
+            GLOBAL_LOGGER.error("Failed to set context variables from config: %s", e)
             return
 
     def parse_justification(self, path: str) -> nx.DiGraph:
