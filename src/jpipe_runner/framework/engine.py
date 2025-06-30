@@ -244,8 +244,22 @@ class PipelineEngine:
                         GLOBAL_LOGGER.debug("Calling function '%s' with runtime.", fn_name)
                         result = runtime.call_function(fn_name)
                         GLOBAL_LOGGER.debug("Function '%s' returned: %s", fn_name, result)
+                        # if the result is something else than True or False, raise an exception
+                        if not isinstance(result, bool):
+                            raise FunctionException(
+                                f"Function '{fn_name}' returned an unexpected type: {type(result).__name__}.\n"
+                                f"  - The function associated with node '{node}' (label: '{label}') must return either True or False.\n"
+                                f"  - Received: {result!r} ({type(result).__name__})\n"
+                                f"  - Please ensure the function implementation returns a boolean to indicate pass/fail status correctly."
+                            )
                         if not result:
-                            raise FunctionException(f"Function '{fn_name}' returned false: {result}")
+                            raise FunctionException(
+                                f"\nFunction '{fn_name}' returned False, indicating failure.\n"
+                                f"  - The function associated with node '{node}' (label: '{label}') executed but did not pass its check.\n"
+                                f"  - Please review the implementation and input data for this function.\n"
+                                f"  - Returned value: {result!r}\n"
+                                f"  - The function must return True to indicate a successful check."
+                            )
                         status = StatusType.PASS
                     except Exception as e:
                         status = StatusType.FAIL
