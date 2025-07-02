@@ -117,6 +117,8 @@ class GraphWorkflowVisualizer:
         self.substatus = {}
         self.subgraph_nodes = {}
 
+        self.master.protocol("WM_DELETE_WINDOW", self.on_close)
+
         self.fig.canvas.mpl_connect("button_press_event", self.on_click)
         self.master.bind("<Escape>", lambda e: self.back_one_level())
 
@@ -267,3 +269,7 @@ class GraphWorkflowVisualizer:
             Patch(facecolor='gold', label='Skipped'),
         ]
         self.ax.legend(handles=legend_elements, loc='lower right')
+
+    def on_close(self):
+        self.master.quit()
+        self.master.destroy()
