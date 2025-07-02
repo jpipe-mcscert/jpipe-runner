@@ -1,7 +1,8 @@
-from typing import Any
+from typing import Any, Callable
 
 from jpipe_runner.framework.context import RuntimeContext
 from .logger import GLOBAL_LOGGER
+from ..GraphWorkflowVisualizer import GraphWorkflowVisualizer
 
 
 class BaseValidator:
@@ -310,17 +311,20 @@ class JustificationSchemaValidator:
     REQUIRED_TOP_KEYS = {"name", "type", "elements", "relations"}
     VALID_TYPES = {"evidence", "strategy", "conclusion", "sub-conclusion"}
 
-    def __init__(self, data: dict[str, Any]):
+    def __init__(self, data: dict[str, Any], mark_substep: Callable[[str, str, str], None]) -> None:
         """
          Initialize the validator with parsed justification JSON data.
 
          :param data: Dictionary representing the justification JSON content.
          :type data: dict[str, Any]
-         """
+         :param mark_substep: Function to mark validation steps in the workflow visualizer.
+         :type mark_substep: Callable[[str, str, str], None]
+        """
         self.data = data
+        self.mark_substep = mark_substep
         self.element_ids = set()
 
-    def validate(self):
+    def validate(self) -> None:
         """
          Executes the full validation pipeline on the justification structure.
 
@@ -333,11 +337,27 @@ class JustificationSchemaValidator:
          """
         GLOBAL_LOGGER.debug("Starting justification schema validation")
 
+        self.mark_substep(
+            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+            "Checking Top-level keys",
+            GraphWorkflowVisualizer.CURRENT
+        )
+
         # Check top-level keys
         missing = self.REQUIRED_TOP_KEYS - self.data.keys()
         if missing:
+            self.mark_substep(
+                GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                "Checking Top-level keys",
+                GraphWorkflowVisualizer.FAIL
+            )
             raise ValueError(f"Missing top-level key(s): {missing}")
         GLOBAL_LOGGER.info("Top-level keys validated")
+        self.mark_substep(
+            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+            "Checking Top-level keys",
+            GraphWorkflowVisualizer.DONE
+        )
 
         # Validate elements
         self._validate_elements()
@@ -358,24 +378,54 @@ class JustificationSchemaValidator:
 
         :raises ValueError: If any element is invalid or duplicates are found.
         """
+        self.mark_substep(
+            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+            GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
+            GraphWorkflowVisualizer.CURRENT
+        )
         elements = self.data.get("elements", [])
         if not isinstance(elements, list):
+            self.mark_substep(
+                GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
+                GraphWorkflowVisualizer.FAIL
+            )
             raise ValueError("'elements' must be a list")
 
         for i, element in enumerate(elements):
             for key in ["id", "label", "type"]:
                 if key not in element:
+                    self.mark_substep(
+                        GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                        GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
+                        GraphWorkflowVisualizer.FAIL
+                    )
                     raise ValueError(f"Element {i} is missing required key '{key}'")
 
             if element["type"] not in self.VALID_TYPES:
+                self.mark_substep(
+                    GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                    GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
+                    GraphWorkflowVisualizer.FAIL
+                )
                 raise ValueError(f"Invalid type '{element['type']}' in element '{element['id']}'")
 
             if element["id"] in self.element_ids:
+                self.mark_substep(
+                    GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                    GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
+                    GraphWorkflowVisualizer.FAIL
+                )
                 raise ValueError(f"Duplicate element id: '{element['id']}'")
 
             self.element_ids.add(element["id"])
 
         GLOBAL_LOGGER.debug("All elements validated: %s", self.element_ids)
+        self.mark_substep(
+            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+            GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
+            GraphWorkflowVisualizer.DONE
+        )
 
     def _validate_relations(self):
         """
@@ -387,16 +437,41 @@ class JustificationSchemaValidator:
 
         :raises ValueError: If relations are malformed or refer to unknown elements.
         """
+        self.mark_substep(
+            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+            GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
+            GraphWorkflowVisualizer.CURRENT
+        )
         relations = self.data.get("relations", [])
         if not isinstance(relations, list):
+            self.mark_substep(
+                GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
+                GraphWorkflowVisualizer.FAIL
+            )
             raise ValueError("'relations' must be a list")
 
         for i, rel in enumerate(relations):
             for key in ["source", "target"]:
                 if key not in rel:
+                    self.mark_substep(
+                        GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                        GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
+                        GraphWorkflowVisualizer.FAIL
+                    )
                     raise ValueError(f"Relation {i} is missing required key '{key}'")
 
                 if rel[key] not in self.element_ids:
+                    self.mark_substep(
+                        GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+                        GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
+                        GraphWorkflowVisualizer.FAIL
+                    )
                     raise ValueError(f"Relation {i} refers to unknown {key} id '{rel[key]}'")
 
         GLOBAL_LOGGER.debug("All relations validated: %d total", len(relations))
+        self.mark_substep(
+            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
+            GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
+            GraphWorkflowVisualizer.DONE
+        )

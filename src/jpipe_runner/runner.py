@@ -10,10 +10,13 @@ import glob
 import logging
 import shutil
 import sys
+import threading
+import tkinter as tk
 from typing import Iterable
 
 from termcolor import colored
 
+from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from jpipe_runner.enums import StatusType
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER
@@ -81,11 +84,14 @@ def parse_args(argv: list[str] | None = None):
                         help="Path to the config .yaml file")
     parser.add_argument("jd_file",
                         help="Path to the justification .jd file")
+    # argument to enable GUI
+    parser.add_argument("--gui", action="store_true",
+                        help="Enable GUI mode for visualizing workflow steps")
 
     return parser.parse_args(argv)
 
 
-def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> [int, int, int, int]:
+def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int, int, int, int]:
     """
     Prints a formatted, colorized summary of justification results to the terminal.
 
@@ -160,28 +166,62 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> [int, int,
     return total_justifications, passed_justifications, failed_justifications, skipped_justifications
 
 
-def main():
+workflow_ui: GraphWorkflowVisualizer | None = None
+
+
+def mark_step(step, status):
+    global workflow_ui
+    if workflow_ui:
+        workflow_ui.master.after(0, lambda: workflow_ui.mark_step(step, status=status))
+
+
+def mark_substep(node, substep_name, status):
+    global workflow_ui
+    if workflow_ui:
+        workflow_ui.master.after(0, lambda: workflow_ui.mark_substep(node, substep_name, status=status))
+
+
+def mark_node_as_graph(parent_node: str, substep_name: str):
+    global workflow_ui
+    if workflow_ui:
+        workflow_ui.master.after(0, lambda: workflow_ui.mark_node_as_graph(parent_node, substep_name))
+
+
+def run_workflow_logic():
+    mark_step(GraphWorkflowVisualizer.PARSE_CLI_ARGS, status=GraphWorkflowVisualizer.CURRENT)
+
     args = parse_args(sys.argv[1:])
 
-    # if verbose
+    mark_step(GraphWorkflowVisualizer.PARSE_CLI_ARGS, status=GraphWorkflowVisualizer.DONE)
+    mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.CURRENT)
+
     if args.verbose:
         GLOBAL_LOGGER.setLevel(logging.INFO)
+
+    mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.DONE)
+    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)
 
     runtime = PythonRuntime(libraries=[i for l in args.library
                                        for i in glob.glob(l)],
                             variables=[i.split(':', maxsplit=1)
                                        for i in args.variable
                                        if i.find(':')])
+    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
+    mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.CURRENT)
 
     if not args.jd_file:
         print("No justification json file provided. Please specify a .json file.", file=sys.stderr)
+        mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.FAIL)
         sys.exit(1)
 
     if not args.jd_file.endswith('.json'):
         print("The provided justification file is not a .json file.", file=sys.stderr)
+        mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.FAIL)
         sys.exit(1)
 
-    jpipe = PipelineEngine(config_path=args.config_file, justification_path=args.jd_file)
+    mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.DONE)
+    jpipe = PipelineEngine(config_path=args.config_file, justification_path=args.jd_file, mark_step=mark_step,
+                           mark_substep=mark_substep, mark_node_as_graph=mark_node_as_graph)
 
     diagrams = [(jpipe.justification_name, jpipe.graph)]
 
@@ -192,28 +232,46 @@ def main():
     # Run justification logic and gather results
     justification_result = list(jpipe.justify(dry_run=args.dry_run, runtime=runtime))
 
-    # Generate pretty terminal summary
+    mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.CURRENT)
+
     m, n, _, s = pretty_display([(jpipe.justification_name, justification_result)])
 
-    # If an output file is requested, handle export
+    mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
+
     if args.output:
+        mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
         output_path = args.output.lower()
         if output_path in {"stdout", "stderr"}:
             print("Streamed diagram output is not supported yet.", file=sys.stderr)
+            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             sys.exit(1)
 
-        # Convert result to a status dictionary for visualization
         status_dict = {item["name"]: item["status"].value for item in justification_result}
 
         if output_path.endswith(tuple(IMAGE_EXPORT_FORMAT)):
-            jpipe.export_to_format(status_dict=status_dict, output_path=args.output, format=output_path.split('.')[-1])
+            jpipe.export_to_format(status_dict=status_dict, output_path=args.output,
+                                   format=output_path.split('.')[-1])
             print(f"{output_path.split('.')[-1]} diagram saved to: {args.output}", file=sys.stderr)
+            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.DONE)
         else:
             print(f"Unsupported output format: {args.output}", file=sys.stderr)
+            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             sys.exit(1)
 
-    # exit 0 only when all justifications passed/skipped
     sys.exit(m - n - s)
+
+
+def main():
+    if "--gui" in sys.argv:
+        root = tk.Tk()
+        global workflow_ui
+        workflow_ui = GraphWorkflowVisualizer(root)
+
+        root.after(300, lambda: threading.Thread(target=run_workflow_logic, daemon=True).start())
+
+        root.mainloop()
+    else:
+        run_workflow_logic()
 
 
 if __name__ == '__main__':

@@ -25,6 +25,7 @@ lark = "^1.2.2"
 networkx = "^3.4.2"
 termcolor = "^2.5.0"
 pygraphviz = "^1.11"
+matplotlib = "^3.10.3"
 
 [tool.poetry.scripts]
 jpipe-runner = "jpipe_runner.runner:main"
