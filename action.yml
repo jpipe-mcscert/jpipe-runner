@@ -39,6 +39,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Install system dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y graphviz libgraphviz-dev pkg-config
+
     - name: Set up Python
       if: ${{ !inputs.python_path }}
       uses: actions/setup-python@v5
@@ -96,7 +102,7 @@ runs:
         if [[ "${{ inputs.dry_run }}" == "true" ]]; then
           CMD+=" --dry-run"
         fi
-        CMD+=" --output-file diagram.png"
+        CMD+=" --output diagram.png"
         
         echo "Running command: $CMD"
         eval $CMD
