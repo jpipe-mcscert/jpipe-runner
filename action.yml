@@ -76,6 +76,8 @@ runs:
         echo "::endgroup::"
 
     - name: Run jpipe-runner
+      id: run_jpipe
+      continue-on-error: true
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
@@ -111,6 +113,7 @@ runs:
         echo "result=$RESULT" >> $GITHUB_OUTPUT
 
     - name: Comment with diagram image on PR
+      if: always()  # <-- run this step no matter what
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
