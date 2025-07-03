@@ -1,7 +1,5 @@
 """Notebook"""
 
-from rich import print
-
 from jpipe_runner import Consume, Produce
 
 fake_fs = {

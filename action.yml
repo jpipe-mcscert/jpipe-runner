@@ -32,9 +32,6 @@ inputs:
     description: "jPipe Runner version to use, e.g. '0.0.1'. The main branch version is used by default"
     required: false
     default: "main"
-  github_token:
-    description: "GitHub token used to comment on the PR"
-    required: true
 
 runs:
   using: "composite"
@@ -110,48 +107,46 @@ runs:
         eval $CMD
         RESULT=$?
 
-        echo "result=$RESULT" >> $GITHUB_OUTPUT
+        echo "result=$RESULT" >> $GITHUB_OUTPUT 
 
-    - name: Comment with diagram image on PR
-      if: always()  # <-- run this step no matter what
+    - name: Upload diagram as artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: diagram.png
+        path: ./diagram.png
+
+    - name: Read comment content
+      if: always()
+      id: comment_content
       shell: bash
-      env:
-        GH_TOKEN: ${{ inputs.github_token }}
-        OUTPUT_FILE: ./diagram.png
       run: |
-        echo "::group::Post PR Comment"
-        
-        # Ensure gh is installed
-        if ! command -v gh &> /dev/null; then
-          echo "Installing GitHub CLI..."
-          sudo apt update
-          sudo apt install -y gh
-        fi
-
-        # Infer PR and repo from GitHub context
-        PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-        REPO_FULL=$(jq --raw-output .repository.full_name "$GITHUB_EVENT_PATH")
-
-        if [[ -z "$PR_NUMBER" || -z "$REPO_FULL" ]]; then
-          echo "Could not determine PR or repo context."
-          exit 1
-        fi
-
-        # Encode the image
+        OUTPUT_FILE=./diagram.png
         BASE64_IMAGE=$(base64 -w 0 "$OUTPUT_FILE")
         
-                echo "Preparing comment..."
-        if [[ '${{ steps.run_jpipe.outputs.result }}' == '0' ]]; then
-          echo "✅ jPipe Runner succeeded!" > comment.md
+        if [[ "${{ steps.run_jpipe.outputs.result }}" == "0" ]]; then
+        MESSAGE="✅ jPipe Runner succeeded!"
         else
-          echo "❌ jPipe Runner failed! Please review the diagram and logs." > comment.md
+        MESSAGE="❌ jPipe Runner failed! Please review the diagram and logs."
         fi
         
-        echo "" >> comment.md
-        echo "<img src='data:image/png;base64,${BASE64_IMAGE}' alt='Diagram'>" >> comment.md
+        MESSAGE+=$'\n\n'
+        MESSAGE+="<img src='data:image/png;base64,${BASE64_IMAGE}' alt='Diagram'>"
+        
+        # Save to output
+        echo "msg<<EOF" >> $GITHUB_OUTPUT
+        echo "$MESSAGE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
-        gh auth login --with-token <<< "$GH_TOKEN"
-        gh pr comment "$PR_NUMBER" --repo "$REPO_FULL" -F comment.md
-
-        echo "::endgroup::"
-
+    - name: TODO
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          github.rest.issues.createComment({
+            owner: context.repo.owner,
+            issue_number: context.issue.number,
+            repo: context.repo.repo,
+            body: `${{ steps.comment_content.outputs.msg }}`
+          })

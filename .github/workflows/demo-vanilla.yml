@@ -8,6 +8,11 @@ on:
     branches:
       - feat/v2
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   jpipe-runner:
     runs-on: ubuntu-latest
@@ -17,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Justify Slides
-        uses: "jpipe-mcscert/jpipe-runner@38446aa042c3db8e980c579e7a9c3ce2a0f2df84"
+        uses: "jpipe-mcscert/jpipe-runner@build/release-pipeline"
         with:
           jd_file: "examples/models/01_slides.json"
           variable: |
@@ -25,5 +30,4 @@ jobs:
             available:ready
           library: |
             examples/libraries/slides.py
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          version: "38446aa042c3db8e980c579e7a9c3ce2a0f2df84"
+          version: "build/release-pipeline"

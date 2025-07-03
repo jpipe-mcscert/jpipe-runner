@@ -8,8 +8,12 @@ on:
     branches:
       - feat/v2
 
-jobs:
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
+jobs:
   jpipe-runner:
     runs-on: ubuntu-latest
 
@@ -35,7 +39,7 @@ jobs:
           poetry add rich
 
       - name: Justify Notebook Quality
-        uses: "jpipe-mcscert/jpipe-runner@38446aa042c3db8e980c579e7a9c3ce2a0f2df84"
+        uses: "jpipe-mcscert/jpipe-runner@build/release-pipeline"
         with:
           jd_file: "models/02_quality_full.jd.json"
           python_path: "poetry run python"
@@ -44,5 +48,4 @@ jobs:
             notebook:notebook.ipynb
           library: |
             libraries/notebook.py
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          version: "38446aa042c3db8e980c579e7a9c3ce2a0f2df84"
+          version: "build/release-pipeline"
