@@ -35,7 +35,7 @@ jobs:
           poetry add rich
 
       - name: Justify Notebook Quality
-        uses: "jpipe-mcscert/jpipe-runner@build/release-pipeline"
+        uses: "jpipe-mcscert/jpipe-runner@a4225321432adcd30c8e1168fd6002cb18f7e38d"
         with:
           jd_file: "models/02_quality_full.jd.json"
           python_path: "poetry run python"
