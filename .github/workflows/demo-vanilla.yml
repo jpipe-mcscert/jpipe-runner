@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Justify Slides
-        uses: "jpipe-mcscert/jpipe-runner@f27686da4e896bb86b46845303fe64dae12631e8"
+        uses: "jpipe-mcscert/jpipe-runner@38446aa042c3db8e980c579e7a9c3ce2a0f2df84"
         with:
           jd_file: "examples/models/01_slides.json"
           variable: |
@@ -26,4 +26,4 @@ jobs:
           library: |
             examples/libraries/slides.py
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          version: "f27686da4e896bb86b46845303fe64dae12631e8"
+          version: "38446aa042c3db8e980c579e7a9c3ce2a0f2df84"
