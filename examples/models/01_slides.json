@@ -1,88 +1,80 @@
 {
-  "load_stmts": [],
-  "class_defs": {
-    "slides": {
-      "class_type": "justification",
-      "name": "slides",
-      "pattern": null,
-      "body": {
-        "supports": [
-          {
-            "left": "all",
-            "right": "ready"
-          },
-          {
-            "left": "available",
-            "right": "compliant"
-          },
-          {
-            "left": "available",
-            "right": "grammar"
-          },
-          {
-            "left": "compliant",
-            "right": "legal"
-          },
-          {
-            "left": "decent",
-            "right": "all"
-          },
-          {
-            "left": "grammar",
-            "right": "decent"
-          },
-          {
-            "left": "legal",
-            "right": "all"
-          },
-          {
-            "left": "nda",
-            "right": "compliant"
-          }
-        ],
-        "variables": {
-          "all": {
-            "var_type": "strategy",
-            "name": "all",
-            "description": "All conditions are met"
-          },
-          "available": {
-            "var_type": "evidence",
-            "name": "available",
-            "description": "Slides are available"
-          },
-          "compliant": {
-            "var_type": "strategy",
-            "name": "compliant",
-            "description": "Check contents w.r.t. NDA"
-          },
-          "decent": {
-            "var_type": "sub-conclusion",
-            "name": "decent",
-            "description": "Professional standard are met"
-          },
-          "grammar": {
-            "var_type": "strategy",
-            "name": "grammar",
-            "description": "Check Grammar/Typos"
-          },
-          "legal": {
-            "var_type": "sub-conclusion",
-            "name": "legal",
-            "description": "content is approved by legal"
-          },
-          "nda": {
-            "var_type": "evidence",
-            "name": "nda",
-            "description": "NDA is signed"
-          },
-          "ready": {
-            "var_type": "conclusion",
-            "name": "ready",
-            "description": "Presentation is Ready"
-          }
-        }
-      }
+  "elements": [
+    {
+      "id": "all",
+      "label": "All conditions are met",
+      "type": "strategy"
+    },
+    {
+      "id": "grammar",
+      "label": "Check Grammar/Typos",
+      "type": "strategy"
+    },
+    {
+      "id": "ready",
+      "label": "Presentation is Ready",
+      "type": "conclusion"
+    },
+    {
+      "id": "legal",
+      "label": "content is approved by legal",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "available",
+      "label": "Slides are available",
+      "type": "evidence"
+    },
+    {
+      "id": "compliant",
+      "label": "Check contents w.r.t. NDA",
+      "type": "strategy"
+    },
+    {
+      "id": "nda",
+      "label": "NDA is signed",
+      "type": "evidence"
+    },
+    {
+      "id": "decent",
+      "label": "Professional standard are met",
+      "type": "sub-conclusion"
     }
-  }
+  ],
+  "name": "slides",
+  "relations": [
+    {
+      "source": "legal",
+      "target": "all"
+    },
+    {
+      "source": "decent",
+      "target": "all"
+    },
+    {
+      "source": "available",
+      "target": "grammar"
+    },
+    {
+      "source": "all",
+      "target": "ready"
+    },
+    {
+      "source": "compliant",
+      "target": "legal"
+    },
+    {
+      "source": "available",
+      "target": "compliant"
+    },
+    {
+      "source": "nda",
+      "target": "compliant"
+    },
+    {
+      "source": "grammar",
+      "target": "decent"
+    }
+  ],
+  "type": "justification"
 }
