@@ -1,7 +1,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Iterator, Callable, Any
+from typing import Iterator, Callable, Any, Optional, Iterable, Tuple
 
 import networkx as nx
 import yaml
@@ -38,6 +38,7 @@ class PipelineEngine:
                  mark_step: Callable[[Any, Any], None],
                  mark_substep: Callable[[str, str, str], None],
                  mark_node_as_graph: Callable[[str, str], None],
+                 variables: Optional[Iterable[Tuple[str, str]]] = None
                  ) -> None:
         """
         Initialize the PipelineEngine with a configuration file and a justification file.
@@ -52,6 +53,10 @@ class PipelineEngine:
         :type mark_step: Callable[[Any, Any], None]
         :param mark_substep: Function to mark substeps in the UI.
         :type mark_substep: Callable[[str, str, str], None]
+        :param mark_node_as_graph: Function to mark a node as a graph in the UI.
+        :type mark_node_as_graph: Callable[[str, str], None]
+        :param variables: Optional iterable of (key, value) pairs to set in ctx._vars["main"].
+        :type variables: Optional[Iterable[Tuple[str, str]]]
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
@@ -59,15 +64,14 @@ class PipelineEngine:
         self.mark_substep = mark_substep
         self.mark_node_as_graph = mark_node_as_graph
         self.mark_step(GraphWorkflowVisualizer.LOAD_CONFIGURATION, GraphWorkflowVisualizer.CURRENT)
-        if config_path is None:
-            GLOBAL_LOGGER.warning("No config path provided, using empty context.")
-        else:
-            self.load_config(config_path)
+
+        self.load_config(config_path, variables)
+
         self.mark_step(GraphWorkflowVisualizer.LOAD_CONFIGURATION, GraphWorkflowVisualizer.DONE)
         self.graph = self.parse_justification(justification_path)
         GLOBAL_LOGGER.debug("PipelineEngine initialized with context vars count: %d", len(ctx._vars))
 
-    def load_config(self, path: str) -> None:
+    def load_config(self, path: str, variables: Optional[Iterable[Tuple[str, str]]] = None) -> None:
         """
         Load the YAML configuration file and set the context variables in ctx._vars.
         Each key/value in the YAML is treated as a produced variable in the context.
@@ -78,17 +82,33 @@ class PipelineEngine:
         :type path: Path
         """
         GLOBAL_LOGGER.info("Loading config from: %s", path)
-        try:
-            self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-                              "Loading configuration file",
-                              GraphWorkflowVisualizer.CURRENT)
-            with open(path, 'r') as f:
-                config = yaml.safe_load(f)
-        except Exception as e:
-            GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
-            self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
-                              GraphWorkflowVisualizer.FAIL)
-            return
+        config = {}
+        if path is not None:
+            try:
+                self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION,
+                                  "Loading configuration file",
+                                  GraphWorkflowVisualizer.CURRENT)
+                with open(path, 'r') as f:
+                    config = yaml.safe_load(f)
+            except Exception as e:
+                GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
+                self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
+                                  GraphWorkflowVisualizer.FAIL)
+                return
+        else:
+            GLOBAL_LOGGER.warning("No config path provided, using empty context.")
+
+        self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION,
+                          "Adding variables to context.",
+                          GraphWorkflowVisualizer.CURRENT)
+        # If variables are provided, use them to set context variables
+        for k, v in (variables or []):
+            config[k] = v
+
+        self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION,
+                          "Adding variables to context.",
+                          GraphWorkflowVisualizer.DONE)
+
         try:
             self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Set context variables",
                               GraphWorkflowVisualizer.CURRENT)
@@ -441,7 +461,8 @@ class PipelineEngine:
                               GraphWorkflowVisualizer.FAIL)
             raise ImportError("pygraphviz is required to enable this feature") from e
 
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.PREPARE_STYLES, GraphWorkflowVisualizer.CURRENT)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.PREPARE_STYLES,
+                          GraphWorkflowVisualizer.CURRENT)
         # Mapping from VariableType to node attributes
         node_attr_map = {
             "conclusion": dict(fillcolor="lightgrey", shape="rect", style="filled"),
@@ -450,9 +471,11 @@ class PipelineEngine:
             "evidence": dict(fillcolor="lightskyblue2", shape="rect", style="filled"),
             "support": dict(fillcolor="lightcoral", shape="rect", style="filled"),
         }
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.PREPARE_STYLES, GraphWorkflowVisualizer.DONE)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.PREPARE_STYLES,
+                          GraphWorkflowVisualizer.DONE)
 
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.CREATE_GRAPH, GraphWorkflowVisualizer.CURRENT)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.CREATE_GRAPH,
+                          GraphWorkflowVisualizer.CURRENT)
         G = self.graph.copy()
         A = to_agraph(G)
 
@@ -463,9 +486,11 @@ class PipelineEngine:
             margin="0.2,0.2",
             size="15,15",
         )
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.CREATE_GRAPH, GraphWorkflowVisualizer.DONE)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.CREATE_GRAPH,
+                          GraphWorkflowVisualizer.DONE)
 
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_NODES, GraphWorkflowVisualizer.CURRENT)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_NODES,
+                          GraphWorkflowVisualizer.CURRENT)
         for node in G.nodes(data=True):
             node_id, attrs = node
             var_type = attrs.get("type", "").lower()
@@ -490,8 +515,10 @@ class PipelineEngine:
                 n.attr["fontcolor"] = "white"
                 n.attr["fontname"] = "Helvetica-Bold"
 
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_NODES, GraphWorkflowVisualizer.DONE)
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_EDGES, GraphWorkflowVisualizer.CURRENT)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_NODES,
+                          GraphWorkflowVisualizer.DONE)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_EDGES,
+                          GraphWorkflowVisualizer.CURRENT)
         # Color edges based on source node status
         for source, target in G.edges():
             status = status_dict.get(source, "UNKNOWN")
@@ -506,8 +533,11 @@ class PipelineEngine:
                 e.attr['color'] = "#ff7d08"
             else:
                 e.attr['color'] = "gray"
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_EDGES, GraphWorkflowVisualizer.DONE)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_EDGES,
+                          GraphWorkflowVisualizer.DONE)
 
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH, GraphWorkflowVisualizer.CURRENT)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH,
+                          GraphWorkflowVisualizer.CURRENT)
         A.draw(output_path, format=format, prog="dot")
-        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH, GraphWorkflowVisualizer.DONE)
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH,
+                          GraphWorkflowVisualizer.DONE)

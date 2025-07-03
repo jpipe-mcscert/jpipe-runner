@@ -199,14 +199,7 @@ def run_workflow_logic():
         GLOBAL_LOGGER.setLevel(logging.INFO)
 
     mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.DONE)
-    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)
 
-    runtime = PythonRuntime(libraries=[i for l in args.library
-                                       for i in glob.glob(l)],
-                            variables=[i.split(':', maxsplit=1)
-                                       for i in args.variable
-                                       if i.find(':')])
-    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
     mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.CURRENT)
 
     if not args.jd_file:
@@ -220,8 +213,18 @@ def run_workflow_logic():
         sys.exit(1)
 
     mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.DONE)
-    jpipe = PipelineEngine(config_path=args.config_file, justification_path=args.jd_file, mark_step=mark_step,
-                           mark_substep=mark_substep, mark_node_as_graph=mark_node_as_graph)
+    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)
+
+    runtime = PythonRuntime(libraries=[i for l in args.library
+                                       for i in glob.glob(l)])
+    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
+
+    jpipe = PipelineEngine(config_path=args.config_file,
+                           justification_path=args.jd_file,
+                           variables=[i.split(':', maxsplit=1) for i in args.variable if i.find(':')],
+                           mark_step=mark_step,
+                           mark_substep=mark_substep,
+                           mark_node_as_graph=mark_node_as_graph)
 
     diagrams = [(jpipe.justification_name, jpipe.graph)]
 

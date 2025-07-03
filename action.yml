@@ -32,6 +32,9 @@ inputs:
     description: "jPipe Runner version to use, e.g. '0.0.1'. The main branch version is used by default"
     required: false
     default: "main"
+  github_token:
+    description: "GitHub token used to comment on the PR"
+    required: true
 
 runs:
   using: "composite"
@@ -93,5 +96,53 @@ runs:
         if [[ "${{ inputs.dry_run }}" == "true" ]]; then
           CMD+=" --dry-run"
         fi
+        CMD+=" --output-file diagram.png"
+        
         echo "Running command: $CMD"
         eval $CMD
+        RESULT=$?
+
+        echo "result=$RESULT" >> $GITHUB_OUTPUT
+
+    - name: Comment with diagram image on PR
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
+        OUTPUT_FILE: ./diagram.png
+      run: |
+        echo "::group::Post PR Comment"
+        
+        # Ensure gh is installed
+        if ! command -v gh &> /dev/null; then
+          echo "Installing GitHub CLI..."
+          sudo apt update
+          sudo apt install -y gh
+        fi
+
+        # Infer PR and repo from GitHub context
+        PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+        REPO_FULL=$(jq --raw-output .repository.full_name "$GITHUB_EVENT_PATH")
+
+        if [[ -z "$PR_NUMBER" || -z "$REPO_FULL" ]]; then
+          echo "Could not determine PR or repo context."
+          exit 1
+        fi
+
+        # Encode the image
+        BASE64_IMAGE=$(base64 -w 0 "$OUTPUT_FILE")
+        
+                echo "Preparing comment..."
+        if [[ '${{ steps.run_jpipe.outputs.result }}' == '0' ]]; then
+          echo "✅ jPipe Runner succeeded!" > comment.md
+        else
+          echo "❌ jPipe Runner failed! Please review the diagram and logs." > comment.md
+        fi
+        
+        echo "" >> comment.md
+        echo "<img src='data:image/png;base64,${BASE64_IMAGE}' alt='Diagram'>" >> comment.md
+
+        gh auth login --with-token <<< "$GH_TOKEN"
+        gh pr comment "$PR_NUMBER" --repo "$REPO_FULL" -F comment.md
+
+        echo "::endgroup::"
+

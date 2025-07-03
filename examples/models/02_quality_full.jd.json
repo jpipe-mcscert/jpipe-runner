@@ -1,0 +1,71 @@
+{
+  "elements": [
+    {
+      "id": "shareable",
+      "label": "Notebook can be shared",
+      "type": "conclusion"
+    },
+    {
+      "id": "linear",
+      "label": "Verify notebook has linear execution order",
+      "type": "strategy"
+    },
+    {
+      "id": "pep8",
+      "label": "Check PEP8 coding standard",
+      "type": "strategy"
+    },
+    {
+      "id": "gate",
+      "label": "Assess quality gates are met",
+      "type": "strategy"
+    },
+    {
+      "id": "fair",
+      "label": "Notebook code quality is fair",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "repro",
+      "label": "Execution environment is reproducible",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "notebook",
+      "label": "notebook file exists",
+      "type": "evidence"
+    }
+  ],
+  "name": "notebook_quality",
+  "relations": [
+    {
+      "source": "gate",
+      "target": "shareable"
+    },
+    {
+      "source": "notebook",
+      "target": "linear"
+    },
+    {
+      "source": "notebook",
+      "target": "pep8"
+    },
+    {
+      "source": "fair",
+      "target": "gate"
+    },
+    {
+      "source": "repro",
+      "target": "gate"
+    },
+    {
+      "source": "pep8",
+      "target": "fair"
+    },
+    {
+      "source": "linear",
+      "target": "repro"
+    }
+  ],
+  "type": "justification"
+}

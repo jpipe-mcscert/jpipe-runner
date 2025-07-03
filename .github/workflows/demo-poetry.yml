@@ -5,6 +5,8 @@ on:
     branches:
       - main
   pull_request:
+    branches:
+      - main
 
 jobs:
 
@@ -33,12 +35,13 @@ jobs:
           poetry add rich
 
       - name: Justify Notebook Quality
-        uses: ace-design/jpipe-runner@main
+        uses: "jpipe-mcscert/jpipe-runner@build/release-pipeline"
         with:
-          jd_file: "models/02_quality_full.jd"
+          jd_file: "models/02_quality_full.jd.json"
           python_path: "poetry run python"
           working_directory: "./examples"
           variable: |
             notebook:notebook.ipynb
           library: |
             libraries/notebook.py
+          github_token: ${{ secrets.GITHUB_TOKEN }}

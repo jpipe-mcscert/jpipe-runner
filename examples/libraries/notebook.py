@@ -2,8 +2,7 @@
 
 from rich import print
 
-# This var will be set from CLI
-notebook = None
+from jpipe_runner import Consume, Produce
 
 fake_fs = {
     "notebook.ipynb": {
@@ -13,28 +12,34 @@ fake_fs = {
     "README.md": {},
 }
 
-quality_results = []
 
-
-def check_pep8_coding_standard():
+@Consume("notebook")
+@Produce("pep8_standart_result")
+def check_pep8_coding_standard(notebook: str, produce):
     res = fake_fs[notebook]["pep8_standard"]
-    quality_results.append(res)
+    produce("pep8_standart_result", res)
     return res
 
 
-def verify_notebook_has_linear_execution_order():
+@Consume("notebook")
+@Produce("linear_exec_order")
+def verify_notebook_has_linear_execution_order(notebook: str, produce):
     res = fake_fs[notebook]["linear_exec_order"]
-    quality_results.append(res)
+    produce("linear_exec_order", res)
     return res
 
 
-def assess_quality_gates_are_met():
+@Consume("pep8_standart_result", "linear_exec_order")
+def assess_quality_gates_are_met(pep8_standart_result, linear_exec_order):
     print("Assessing all quality gates!")
-    return all(quality_results)
+    return all([
+        pep8_standart_result,
+        linear_exec_order,
+    ])
 
 
-def notebook_file_exists():
-    global notebook
+@Consume("notebook")
+def notebook_file_exists(notebook: str):
     if notebook not in fake_fs:
         raise FileNotFoundError(f"notebook '{notebook}' not found")
     return True

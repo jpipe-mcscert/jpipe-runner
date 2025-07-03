@@ -1,32 +1,32 @@
 """Slides"""
+from jpipe_runner import Consume, Produce
 
-# Set from CLI
-signature = None
-available = None
-
-cons = []
-
-
-def nda_is_signed():
+@Consume("signature")
+def nda_is_signed(signature: str):
     print("NDA signature is ", signature)
     return signature == 'jason'
 
 
-def slides_are_available():
+@Consume("available")
+def slides_are_available(available):
     return available
 
 
-def check_contents_wrt_nda():
+@Produce("x")
+def check_contents_wrt_nda(produce):
     x = "ok"
-    cons.append(x)
+    produce("x", x)
     return x
 
-
-def check_grammar_typos():
+@Produce("y")
+def check_grammar_typos(produce):
     x = "loos good!"
-    cons.append(x)
+    produce("y", x)
     return x
 
-
-def all_conditions_are_met():
-    return len(cons) == 2 and all(cons)
+@Consume("x", "y")
+def all_conditions_are_met(x: str, y: str):
+    return all([
+        x == "ok",
+        y == "loos good!",
+    ])
