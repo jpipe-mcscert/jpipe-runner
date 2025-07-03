@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*.*.*'      # run release on version tags like v2.0.0
+      - 'v*.*.*'
 
 jobs:
   test:
@@ -27,7 +27,7 @@ jobs:
       - name: Run tests
         run: poetry run pytest
 
-  release:
+  build:
     needs: test
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
@@ -43,27 +43,54 @@ jobs:
         run: curl -sSL https://install.python-poetry.org | python3 -
 
       - name: Install dependencies
-        run: poetry install --no-dev
+        run: poetry install
 
-      - name: Build package
+      - name: Build distribution
         run: poetry build
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.6.0
+      - name: Upload distribution artifact
+        uses: actions/upload-artifact@v4
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          name: python-package-distributions
+          path: dist/
 
-      - name: Publish to Homebrew (placeholder)
-        run: |
-          echo "Run your Homebrew publish script here"
-          # ./scripts/publish_homebrew.sh
+  publish-pypi:
+    # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/jpipe-sandbox/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v3
 
-      - name: Publish to Ubuntu repo (placeholder)
-        run: |
-          echo "Run your Ubuntu publish script here"
-          # ./scripts/publish_ubuntu.sh
-
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+      - name: Download distribution artifact
+        uses: actions/download-artifact@v4
         with:
-          tag: ${{ github.ref_name }}
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-testpypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: test-pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download distribution artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish distribution to Test PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/

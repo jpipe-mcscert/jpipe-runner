@@ -6,8 +6,8 @@ setup(
     description="A Justification Runner designed for jPipe.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    author="Jason Lyu, Sébastien Mosser",
-    author_email="xjasonlyu@gmail.com, mossers@mcmaster.ca",
+    author="Jason Lyu, Sébastien Mosser, Baptiste Lacroix",
+    author_email="xjasonlyu@gmail.com, mossers@mcmaster.ca, contact+jpiperunner@baptiste-lacroix.fr",
     url="https://github.com/jpipe-mcscert/jpipe-runner",
     license="MIT",
     classifiers=[
@@ -32,4 +32,5 @@ setup(
             "jpipe-runner = jpipe_runner.runner:main"
         ]
     },
+    scripts=['bin/jpipe-runner'],
 )

@@ -8,7 +8,6 @@ if [ ! -f "setup.py" ]; then
   exit 1
 fi
 
-# Install necessary dependencies
 sudo apt update
 sudo apt install -y \
   build-essential \
@@ -23,14 +22,5 @@ sudo apt install -y \
 # Install stdeb if not already installed
 pip3 show stdeb || pip3 install stdeb
 
-# Generate Debian package structure
-python3 setup.py --command-packages=stdeb.command sdist_dsc
-
-# Build the .deb package
-cd deb_dist/jpipe-runner-*
-debuild -us -uc
-
-# Upload to PPA
-# dput ppa:yourusername/ppa ../jpipe-runner_2.0.0-1_source.changes
-
-echo "Package has been uploaded to your PPA."
+# Create the Debian package
+python setup.py --command-packages=stdeb.command bdist_deb
