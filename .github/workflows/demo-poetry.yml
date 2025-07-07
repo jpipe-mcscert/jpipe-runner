@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - feat/v2
 
 permissions:
   contents: read
@@ -39,7 +36,7 @@ jobs:
           poetry add rich
 
       - name: Justify Notebook Quality
-        uses: "jpipe-mcscert/jpipe-runner@build/release-pipeline"
+        uses: "jpipe-mcscert/jpipe-runner@main"
         with:
           jd_file: "models/02_quality_full.jd.json"
           python_path: "poetry run python"

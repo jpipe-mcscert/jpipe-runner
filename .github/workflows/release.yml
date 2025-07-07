@@ -54,27 +54,6 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-  publish-pypi:
-    # https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/jpipe-sandbox/
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download distribution artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
-      - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-
   publish-testpypi:
     needs: build
     runs-on: ubuntu-latest
