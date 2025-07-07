@@ -1,6 +1,6 @@
 name: "jPipe Runner"
 description: "GitHub Action to run justification diagrams of jpipe"
-author: "Jason Lyu"
+author: "Jason Lyu, Baptiste Lacroix"
 
 inputs:
   jd_file:
@@ -57,11 +57,6 @@ runs:
         # jpipe-runner installation
         echo "::group::Install jpipe-runner"
 
-        # if $PYTHON_PATH -c "import jpipe_runner" &> /dev/null; then
-        #    echo "jpipe-runner already installed"
-        #    exit 0
-        # fi
-
         if poetry env info --path &> /dev/null; then
           # Install dependency via poetry
           poetry add 'git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}'
@@ -101,7 +96,7 @@ runs:
         if [[ "${{ inputs.dry_run }}" == "true" ]]; then
           CMD+=" --dry-run"
         fi
-        CMD+=" --output diagram.png"
+        CMD+=" --output /home/runner/work/diagram.png"
         
         echo "Running command: $CMD"
         eval $CMD
@@ -114,14 +109,14 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: diagram.png
-        path: ./diagram.png
+        path: /home/runner/work/diagram.png
 
     - name: Read comment content
       if: always()
       id: comment_content
       shell: bash
       run: |
-        OUTPUT_FILE=./diagram.png
+        OUTPUT_FILE=/home/runner/work/diagram.png
         BASE64_IMAGE=$(base64 -w 0 "$OUTPUT_FILE")
         
         if [[ "${{ steps.run_jpipe.outputs.result }}" == "0" ]]; then
