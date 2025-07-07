@@ -55,7 +55,7 @@ class PipelineEngine:
         :type mark_substep: Callable[[str, str, str], None]
         :param mark_node_as_graph: Function to mark a node as a graph in the UI.
         :type mark_node_as_graph: Callable[[str, str], None]
-        :param variables: Optional iterable of (key, value) pairs to set in ctx._vars["main"].
+        :param variables: Optional iterable of (name, value) pairs to set as context variables.
         :type variables: Optional[Iterable[Tuple[str, str]]]
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
@@ -64,9 +64,7 @@ class PipelineEngine:
         self.mark_substep = mark_substep
         self.mark_node_as_graph = mark_node_as_graph
         self.mark_step(GraphWorkflowVisualizer.LOAD_CONFIGURATION, GraphWorkflowVisualizer.CURRENT)
-
         self.load_config(config_path, variables)
-
         self.mark_step(GraphWorkflowVisualizer.LOAD_CONFIGURATION, GraphWorkflowVisualizer.DONE)
         self.graph = self.parse_justification(justification_path)
         GLOBAL_LOGGER.debug("PipelineEngine initialized with context vars count: %d", len(ctx._vars))
@@ -80,42 +78,37 @@ class PipelineEngine:
 
         :param path: Path to the YAML configuration file.
         :type path: Path
+        :param variables: Optional iterable of (name, value) pairs to override config values.
+        :type variables: Optional[Iterable[Tuple[str, str]]]
         """
         GLOBAL_LOGGER.info("Loading config from: %s", path)
         config = {}
-        if path is not None:
+
+        self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
+                          GraphWorkflowVisualizer.CURRENT)
+        # Load YAML config if a path is provided
+        if path:
             try:
-                self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-                                  "Loading configuration file",
-                                  GraphWorkflowVisualizer.CURRENT)
                 with open(path, 'r') as f:
-                    config = yaml.safe_load(f)
+                    config = yaml.safe_load(f) or {}
             except Exception as e:
                 GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
                 self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
                                   GraphWorkflowVisualizer.FAIL)
                 return
-        else:
-            GLOBAL_LOGGER.warning("No config path provided, using empty context.")
 
-        self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-                          "Adding variables to context.",
-                          GraphWorkflowVisualizer.CURRENT)
-        # If variables are provided, use them to set context variables
-        for k, v in (variables or []):
-            config[k] = v
+        # Override/add with CLI variables
+        for key, value in (variables or []):
+            if key in config:
+                GLOBAL_LOGGER.warning("Overriding config key '%s' with variable value '%s'", key, value)
+            config[key] = value
 
-        self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-                          "Adding variables to context.",
-                          GraphWorkflowVisualizer.DONE)
-
+        # Set context variables
         try:
-            self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Set context variables",
-                              GraphWorkflowVisualizer.CURRENT)
             for key, value in config.items():
                 ctx.set_from_config(key, value)
         except Exception as e:
-            GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
+            GLOBAL_LOGGER.error("Failed to set context variables: %s", e)
             self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Set context variables",
                               GraphWorkflowVisualizer.FAIL)
             return
