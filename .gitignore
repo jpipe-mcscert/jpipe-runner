@@ -179,3 +179,7 @@ pyvenv.cfg
 /.idea
 /.vscode
 .DS_Store
+
+# Compiled files
+deb_dist/
+*.tar.gz

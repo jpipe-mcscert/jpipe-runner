@@ -1,4 +1,5 @@
 import json
+from typing import Iterable
 from unittest.mock import patch, MagicMock
 
 import networkx as nx
@@ -41,14 +42,16 @@ def sample_config(tmp_path):
     return str(path)
 
 
-def test_init_without_config(sample_justification):
+def test_init_without_config_with_variables(sample_justification):
     # Should initialize and parse justification with no config path
     with patch("jpipe_runner.framework.engine.PipelineEngine.load_config") as mock_load_config:
         print(sample_justification)
+        variables: Iterable[tuple[str, str]] | None = [("var1", "value1"), ("var2", "value2")]
         engine = PipelineEngine(None, sample_justification, mark_step=MagicMock(),
                                 mark_substep=MagicMock(),
-                                mark_node_as_graph=MagicMock())
-        mock_load_config.assert_not_called()
+                                mark_node_as_graph=MagicMock(),
+                                variables=variables)
+        mock_load_config.assert_called_once_with(None, variables)
         assert isinstance(engine.graph, nx.DiGraph)
         assert engine.justification_name == "Test Justification"
 
@@ -59,7 +62,7 @@ def test_init_with_config(sample_config, sample_justification):
                                 mark_step=MagicMock(),
                                 mark_substep=MagicMock(),
                                 mark_node_as_graph=MagicMock())
-        mock_load_config.assert_called_once_with(sample_config)
+        mock_load_config.assert_called_once_with(sample_config, None)
         assert isinstance(engine.graph, nx.DiGraph)
 
 
