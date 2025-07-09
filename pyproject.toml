@@ -5,7 +5,7 @@ description = "A Justification Runner designed for jPipe."
 authors = [
     "Jason Lyu <xjasonlyu@gmail.com>",
     "Sébastien Mosser <mossers@mcmaster.ca>",
-    "Baptiste Lacroix <contact+jpiperunner@baptiste-lacroix.fr>"
+    "Baptiste Lacroix <contact@baptiste-lacroix.fr>"
 ]
 readme = "README.md"
 license = "MIT"

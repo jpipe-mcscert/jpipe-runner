@@ -6,9 +6,6 @@ on:
       - main
     tags:
       - 'v*.*.*'
-  pull_request:
-    branches:
-      - feat/v2
 
 jobs:
   test:
@@ -43,7 +40,6 @@ jobs:
   build-python-package:
     needs: test
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v3
 
@@ -80,7 +76,6 @@ jobs:
   build-ppa:
     runs-on: ubuntu-latest
     needs: test
-    # needs: build-python-package
     steps:
       - uses: actions/checkout@v3
 
@@ -109,7 +104,7 @@ jobs:
           path: deb_dist/
 
   publish-ppa:
-    needs: build-ppa
+    needs: [build-python-package, build-ppa]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -141,7 +136,7 @@ jobs:
 
 
   publish-pypi:
-    needs: build-python-package
+    needs: [build-python-package, build-ppa]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -159,8 +154,9 @@ jobs:
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
   publish-testpypi:
-    needs: build-python-package
+    needs: [build-python-package, build-ppa]
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:

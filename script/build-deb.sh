@@ -60,6 +60,30 @@ cd "$PKG_DIR" || {
 pwd
 echo
 
+# === Add debhelper compat and update Build-Depends ===
+echo ">>> Setting debhelper compatibility level to 13"
+echo "13" > debian/compat
+
+echo ">>> Replacing Build-Depends in debian/control"
+CONTROL_FILE="debian/control"
+if grep -q '^Build-Depends:' "$CONTROL_FILE"; then
+  sed -i 's/^Build-Depends:.*/Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools/' "$CONTROL_FILE"
+else
+  sed -i '1aBuild-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools' "$CONTROL_FILE"
+fi
+echo
+
+echo ">>> Renaming binary package to jpipe-runner"
+sed -i 's/^Package: python3-jpipe-runner/Package: jpipe-runner/' $CONTROL_FILE
+
+echo ">>> Setting up debian/rules to use pybuild"
+cat > debian/rules <<'EOF'
+#!/usr/bin/make -f
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+EOF
+chmod +x debian/rules
+
 # Build the Debian source upload (include original source)
 echo ">>> Running debuild -S -sa"
 debuild -S -sa
