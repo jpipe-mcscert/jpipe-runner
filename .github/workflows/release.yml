@@ -205,7 +205,9 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
 
   release:
-    needs: [build-python-package, build-ppa]
+    permissions:
+      contents: write
+    needs: [ build-python-package, build-ppa ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -256,7 +258,7 @@ jobs:
       - name: Add Poetry to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      # Read version from Poetry and create a Git tag
+      # Read the version from Poetry and create a Git tag
       - name: Get version from Poetry and create tag
         id: tag_version
         run: |
@@ -272,6 +274,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Configure remote with token
+        run: git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jpipe-mcscert/jpipe-runner.git
 
       # Create and push the new tag
       - name: Create and push git tag
