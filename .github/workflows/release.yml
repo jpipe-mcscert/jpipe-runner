@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*.*.*'
+      - build/release-pipeline
 
 jobs:
   test:
@@ -104,7 +103,8 @@ jobs:
           path: deb_dist/
 
   publish-ppa:
-    needs: [build-python-package, build-ppa]
+    needs: [ build-python-package, build-ppa ]
+    if: github.ref == 'refs/heads/main' # Run only on the main branch (Debugging purpose)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -135,8 +135,10 @@ jobs:
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
 
 
+
   publish-pypi:
-    needs: [build-python-package, build-ppa]
+    needs: [ build-python-package, build-ppa ]
+    if: github.ref == 'refs/heads/main' # Run only on the main branch (Debugging purpose)
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -154,9 +156,9 @@ jobs:
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-
   publish-testpypi:
-    needs: [build-python-package, build-ppa]
+    needs: [ build-python-package, build-ppa ]
+    if: github.ref == 'refs/heads/main' # Run only on the main branch (Debugging purpose)
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:
@@ -175,3 +177,78 @@ jobs:
         with:
           verbose: 'false'
           repository-url: https://test.pypi.org/legacy/
+
+  release:
+    needs: [ build-python-package, build-ppa ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # Download Python package artifacts (wheel + tar.gz)
+      - name: Download Python package distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      # Download Debian source package artifacts
+      - name: Download Debian source package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-packages
+          path: deb_dist/
+
+      # Install required packages for building binary .deb
+      - name: Install Debian build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential devscripts debhelper dh-python python3-all python3-setuptools python3-pip
+
+      # Build the binary .deb package from the downloaded source package
+      - name: Build binary Debian package
+        run: |
+          # Enter the directory with debian source package (find the folder in deb_dist)
+          PKG_DIR=$(find deb_dist -mindepth 1 -maxdepth 1 -type d | head -n1)
+          echo "Building .deb package in $PKG_DIR"
+          cd "$PKG_DIR"
+          debuild -b -us -uc
+          cd -
+
+      # Read version from Poetry and create a Git tag
+      - name: Get version from Poetry and create tag
+        id: tag_version
+        run: |
+          VERSION=$(poetry version -s)
+          TAG="v${VERSION}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "Tag to create: $TAG"
+        env:
+          POETRY_VIRTUALENVS_CREATE: false
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Create and push the new tag
+      - name: Create and push git tag
+        run: |
+          git tag -a $TAG -m "Release $TAG"
+          git push origin $TAG
+        env:
+          TAG: ${{ env.TAG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Create GitHub release for the tag and upload artifacts
+      - name: Create GitHub release and upload assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+            deb_dist/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
