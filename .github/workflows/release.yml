@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - build/release-pipeline
 
 jobs:
   test:
@@ -154,7 +153,6 @@ jobs:
 
   publish-ppa:
     needs: [ build-python-package, build-ppa ]
-    if: github.ref == 'refs/heads/main' # Run only on the main branch (Debugging purpose)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -188,7 +186,6 @@ jobs:
 
   publish-pypi:
     needs: [ build-python-package, build-ppa ]
-    if: github.ref == 'refs/heads/main' # Run only on the main branch (Debugging purpose)
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -206,9 +203,9 @@ jobs:
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
   publish-testpypi:
     needs: [ build-python-package, build-ppa ]
-    if: github.ref == 'refs/heads/main' # Run only on the main branch (Debugging purpose)
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:
