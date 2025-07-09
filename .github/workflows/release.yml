@@ -17,18 +17,31 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Cache Poetry
+        id: cache-poetry
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
       - name: Install Poetry
+        if: steps.cache-poetry.outputs.cache-hit != 'true'
         run: curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Add Poetry to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-          build-essential \
-          graphviz \
-          libgraphviz-dev \
-          pkg-config \
-          python3-dev
+            build-essential \
+            graphviz \
+            libgraphviz-dev \
+            pkg-config \
+            python3-dev
 
       - name: Install dependencies
         run: poetry install
@@ -47,8 +60,21 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Cache Poetry
+        id: cache-poetry
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
       - name: Install Poetry
+        if: steps.cache-poetry.outputs.cache-hit != 'true'
         run: curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Add Poetry to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Install system dependencies
         run: |
@@ -179,7 +205,7 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
 
   release:
-    needs: [ build-python-package, build-ppa ]
+    needs: [build-python-package, build-ppa]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -198,7 +224,7 @@ jobs:
           name: deb-packages
           path: deb_dist/
 
-      # Install required packages for building binary .deb
+      # Install Debian build tools
       - name: Install Debian build tools
         run: |
           sudo apt-get update
@@ -207,12 +233,28 @@ jobs:
       # Build the binary .deb package from the downloaded source package
       - name: Build binary Debian package
         run: |
-          # Enter the directory with debian source package (find the folder in deb_dist)
           PKG_DIR=$(find deb_dist -mindepth 1 -maxdepth 1 -type d | head -n1)
           echo "Building .deb package in $PKG_DIR"
           cd "$PKG_DIR"
           debuild -b -us -uc
           cd -
+
+      # Cache Poetry to speed up version retrieval and tagging
+      - name: Cache Poetry
+        id: cache-poetry
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install Poetry
+        if: steps.cache-poetry.outputs.cache-hit != 'true'
+        run: curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Add Poetry to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       # Read version from Poetry and create a Git tag
       - name: Get version from Poetry and create tag
@@ -251,4 +293,3 @@ jobs:
             deb_dist/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
