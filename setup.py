@@ -7,7 +7,7 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="Jason Lyu, Sébastien Mosser, Baptiste Lacroix",
-    author_email="xjasonlyu@gmail.com, mossers@mcmaster.ca, contact+jpiperunner@baptiste-lacroix.fr",
+    author_email="xjasonlyu@gmail.com, mossers@mcmaster.ca, baptiste.lacroix03@gmail.com",
     url="https://github.com/jpipe-mcscert/jpipe-runner",
     license="MIT",
     classifiers=[
