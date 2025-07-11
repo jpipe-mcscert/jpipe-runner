@@ -3,7 +3,7 @@ name: CI & Release Pipeline
 on:
   push:
     branches:
-      - main
+      - build/release-pipeline
 
 jobs:
   test:
@@ -59,6 +59,57 @@ jobs:
 
       - name: Run tests
         run: poetry run pytest
+
+  validate-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Extract tag name
+        id: extract_tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "Validating tag: $TAG"
+
+      - name: Validate tag format
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]]; then
+            echo "Invalid tag format: $TAG"
+            exit 1
+          fi
+        env:
+          TAG: ${{ env.TAG }}
+
+      - name: Strip "v" prefix to get version
+        run: |
+          VERSION=${TAG#v}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+        env:
+          TAG: ${{ env.TAG }}
+
+      - name: Check version in pyproject.toml
+        run: |
+          FILE_VERSION=$(grep '^version *= *' pyproject.toml | sed -E "s/^version *= *[\"']([^\"']+)[\"']/\1/")
+          echo "Version from pyproject.toml: $FILE_VERSION"
+          if [[ "$FILE_VERSION" != "$VERSION" ]]; then
+            echo "pyproject.toml version $FILE_VERSION does not match tag version $VERSION"
+            exit 1
+          fi
+        env:
+          VERSION: ${{ env.VERSION }}
+
+      - name: Check version in setup.py
+        run: |
+          FILE_VERSION=$(grep 'version=' setup.py | sed -E "s/.*version=['\"]([^'\"]+)['\"].*/\1/")
+          echo "Version from setup.py: $FILE_VERSION"
+          if [[ "$FILE_VERSION" != "$VERSION" ]]; then
+            echo "setup.py version $FILE_VERSION does not match tag version $VERSION"
+            exit 1
+          fi
+        env:
+          VERSION: ${{ env.VERSION }}
+
 
   build-python-package:
     needs: test
@@ -186,6 +237,7 @@ jobs:
 
   publish-pypi:
     needs: [ build-python-package, build-ppa ]
+    if: github.ref == 'refs/heads/main' # debug
     runs-on: ubuntu-latest
     environment:
       name: pypi

@@ -1,82 +1,71 @@
 #!/bin/bash
 
+set -e
+
 DEBFULLNAME="$1"; shift
 DEBEMAIL="$1"; shift
 GPG_ID="$1"; shift
 
-echo "=== START build-deb.sh ==="
-echo
+DISTROS=("jammy" "noble")
 
-# Install required tools
-echo ">>> Installing system dependencies"
+echo "=== START build-deb.sh ==="
+
+# --- 1. Dependencies ---
+echo ">>> Installing build dependencies"
 sudo apt-get update
 sudo apt-get install -y \
-    build-essential \
-    devscripts \
-    debhelper \
-    dh-python \
-    python3-all \
-    python3-setuptools \
-    python3-pip
+  build-essential \
+  devscripts \
+  debhelper \
+  dh-python \
+  python3-all \
+  python3-setuptools \
+  python3-pip
 
-# Ensure stdeb is available
+# --- 2. Install stdeb if needed ---
 if ! pip3 show stdeb &>/dev/null; then
   echo ">>> Installing stdeb via pip"
   pip3 install --upgrade stdeb
 else
   echo ">>> stdeb already installed"
 fi
-echo
 
-# Export Debian signing env vars
-echo ">>> Exporting DEBFULLNAME, DEBEMAIL, DEBSIGN_KEYID"
+# --- 3. Environment ---
 export DEBFULLNAME
 export DEBEMAIL
 export DEBSIGN_KEYID="$GPG_ID"
-echo
 
-# Clean previous builds
-echo ">>> Cleaning old build artifacts"
-rm -rf deb_dist/
-rm -rf dist/ *.tar.gz
-echo
+# --- 4. Clean previous builds ---
+echo ">>> Cleaning build artifacts"
+rm -rf deb_dist/ dist/ ./*.tar.gz 2>/dev/null || true
 
-# Build the source package
-echo ">>> Building source package (stdeb sdist_dsc)"
+# --- 5. Extract version from setup.py ---
+VERSION=$(python3 setup.py --version)
+echo ">>> Detected version: $VERSION"
+
+# --- 6. Build base Debian source package ---
+echo ">>> Building base source package"
 python3 setup.py --command-packages=stdeb.command sdist_dsc
-if [ $? -ne 0 ]; then
-  echo "Error building source package"
-  exit 1
-fi
-echo
 
-# Change into the generated package directory
-PKG_DIR=$(find deb_dist -maxdepth 1 -type d | tail -n1)
-echo ">>> Entering source package dir: $PKG_DIR"
-cd "$PKG_DIR" || {
-  echo "Error changing directory to $PKG_DIR"
-  exit 1
-}
-pwd
-echo
+# Find generated package directory (e.g., deb_dist/jpipe-runner-2.0.0b5)
+BASE_DIR=$(find deb_dist -maxdepth 1 -type d -name "jpipe-runner*" | head -n1)
 
-# === Add debhelper compat and update Build-Depends ===
-echo ">>> Setting debhelper compatibility level to 13"
+# --- 7. Fix control, compat, rules (once in base dir) ---
+cd "$BASE_DIR"
+
 echo "13" > debian/compat
 
-echo ">>> Replacing Build-Depends in debian/control"
 CONTROL_FILE="debian/control"
 if grep -q '^Build-Depends:' "$CONTROL_FILE"; then
   sed -i 's/^Build-Depends:.*/Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools/' "$CONTROL_FILE"
 else
   sed -i '1aBuild-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools' "$CONTROL_FILE"
 fi
-echo
 
-echo ">>> Renaming binary package to jpipe-runner"
-sed -i 's/^Package: python3-jpipe-runner/Package: jpipe-runner/' $CONTROL_FILE
+# Rename binary package if needed
+sed -i 's/^Package: python3-jpipe-runner/Package: jpipe-runner/' "$CONTROL_FILE"
 
-echo ">>> Setting up debian/rules to use pybuild"
+# Create debian/rules using pybuild
 cat > debian/rules <<'EOF'
 #!/usr/bin/make -f
 %:
@@ -84,24 +73,39 @@ cat > debian/rules <<'EOF'
 EOF
 chmod +x debian/rules
 
-# Build the Debian source upload (include original source)
-echo ">>> Running debuild -S -sa"
-debuild -S -sa
-if [ $? -ne 0 ]; then
-  echo "Error building Debian source package"
-  exit 1
-fi
-echo
+# Sign base source changes file
+debsign -k "$GPG_ID" "../jpipe-runner_${VERSION}-1_source.changes"
 
-# Change back to the parent directory
-cd ../
+cd ../..
 
-# Sign the .changes file
-echo ">>> Signing .changes file with debsign"
-debsign -k "$GPG_ID" *.changes
-if [ $? -ne 0 ]; then
-  echo "Error signing .changes file"
-  exit 1
-fi
-echo
+# --- 8. Build per-distro ---
+for DISTRO in "${DISTROS[@]}"; do
+  echo ">>> Building for $DISTRO"
+
+  DISTRO_DIR="deb_dist/jpipe-runner-${DISTRO}"
+  cp -r "$BASE_DIR" "$DISTRO_DIR"
+
+  pushd "$DISTRO_DIR"
+
+  # Clean changelog and add a new entry per distro
+  rm -f debian/changelog
+  dch --create -v "${VERSION}-1~${DISTRO}1" --package jpipe-runner --distribution "$DISTRO" "Build for $DISTRO"
+
+  # Build and sign
+  debuild -S -sa
+  debsign -k "$GPG_ID" ../jpipe-runner_${VERSION}-1~${DISTRO}1_source.changes
+
+  popd
+  echo
+done
+
+# --- 9. Cleanup: remove default/unstable artifacts ---
+echo ">>> Cleaning up non-distro packages"
+cd deb_dist
+find . -maxdepth 1 -type f \
+  \( -name "jpipe-runner_${VERSION}-1.dsc" \
+     -o -name "jpipe-runner_${VERSION}-1.debian.tar.*" \
+     -o -name "jpipe-runner_${VERSION}-1_source.*" \) \
+  -exec rm -v {} +
+
 echo "=== build-deb.sh COMPLETED SUCCESSFULLY ==="
