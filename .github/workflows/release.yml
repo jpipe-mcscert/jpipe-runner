@@ -2,8 +2,8 @@ name: CI & Release Pipeline
 
 on:
   push:
-    branches:
-      - build/release-pipeline
+    tags:
+      - 'v*.*.*'
 
 jobs:
   test:
@@ -110,9 +110,8 @@ jobs:
         env:
           VERSION: ${{ env.VERSION }}
 
-
   build-python-package:
-    needs: test
+    needs: [test, validate-version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -174,7 +173,7 @@ jobs:
 
   build-ppa:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, validate-version]
     steps:
       - uses: actions/checkout@v3
 
@@ -235,9 +234,9 @@ jobs:
 
 
 
+
   publish-pypi:
     needs: [ build-python-package, build-ppa ]
-    if: github.ref == 'refs/heads/main' # debug
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -305,62 +304,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential devscripts debhelper dh-python python3-all python3-setuptools python3-pip
 
-      # Build the binary .deb package from the downloaded source package
-      - name: Build binary Debian package
+      # Build binary .deb packages for all distros
+      - name: Build binary .deb packages for all distros
         run: |
-          PKG_DIR=$(find deb_dist -mindepth 1 -maxdepth 1 -type d | head -n1)
-          echo "Building .deb package in $PKG_DIR"
-          cd "$PKG_DIR"
-          debuild -b -us -uc
-          cd -
+          for PKG_DIR in deb_dist/jpipe-runner-*; do
+            if [ -d "$PKG_DIR" ]; then
+              echo "Building .deb package in $PKG_DIR"
+              cd "$PKG_DIR"
+              debuild -b -us -uc
+              cd - > /dev/null
+            fi
+          done
 
-      # Cache Poetry to speed up version retrieval and tagging
-      - name: Cache Poetry
-        id: cache-poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        if: steps.cache-poetry.outputs.cache-hit != 'true'
-        run: curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Add Poetry to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      # Read the version from Poetry and create a Git tag
-      - name: Get version from Poetry and create tag
-        id: tag_version
+      # Get tag and version
+      - name: Extract tag and version
+        id: get_tag
         run: |
-          VERSION=$(poetry version -s)
-          TAG="v${VERSION}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
           echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "Tag to create: $TAG"
-        env:
-          POETRY_VIRTUALENVS_CREATE: false
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Configure git user
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Configure remote with token
-        run: git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/jpipe-mcscert/jpipe-runner.git
-
-      # Create and push the new tag
-      - name: Create and push git tag
-        run: |
-          git tag -a $TAG -m "Release $TAG"
-          git push origin $TAG
-        env:
-          TAG: ${{ env.TAG }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Create GitHub release for the tag and upload artifacts
+      # Create GitHub release and upload all artifacts
       - name: Create GitHub release and upload assets
         uses: softprops/action-gh-release@v1
         with:
