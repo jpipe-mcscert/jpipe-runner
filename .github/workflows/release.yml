@@ -436,7 +436,7 @@ jobs:
 
       - name: Copy new formula into tap repo
         run: |
-          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}}.rb tap-repo/
+          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb tap-repo/
          
           # debbug by showing the contents of the tap-repo directory
           ls -la tap-repo/
