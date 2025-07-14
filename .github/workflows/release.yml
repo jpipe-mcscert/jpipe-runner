@@ -235,6 +235,7 @@ jobs:
 
 
 
+
   publish-pypi:
     needs: [ build-python-package, build-ppa ]
     runs-on: ubuntu-latest
@@ -336,3 +337,99 @@ jobs:
             deb_dist/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-homebrew-formula:
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Extract version from tag
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Compute SHA256 of source tarball
+        id: sha
+        run: |
+          FILE=$(ls dist/*.tar.gz)
+          SHA=$(shasum -a 256 "$FILE" | cut -d " " -f 1)
+          echo "SHA256=$SHA" >> $GITHUB_ENV
+          echo "SOURCE_FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Set up Python and Poetry
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Generate formula file
+        run: |
+          export CLASS_NAME="JpipeRunner"
+          export HOMEPAGE_URL="https://github.com/jpipe-mcscert/jpipe-runner"
+          export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/${TAG}/$(basename ${SOURCE_FILE})"
+          export SOURCE_SHA256="${SHA256}"
+          export PYTHON_VERSION="3.10"
+  
+          export RESOURCES="$(bash script/generate_formula_resources.sh)"
+  
+          mkdir -p tap/Formula
+      
+          envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner@$VERSION.rb
+          envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
+
+      - name: Upload updated tap directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-homebrew-tap
+          path: tap
+
+  publish-homebrew-formula:
+    permissions:
+      contents: write
+    needs: [build-homebrew-formula]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout current repo
+        uses: actions/checkout@v3
+
+      - name: Download formula artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-homebrew-tap
+          path: tap
+
+      - name: Clone Homebrew tap repository
+        run: |
+          git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_PAT }}@github.com/jpipe-mcscert/homebrew-mcscert.git tap-repo
+          ls tap-repo
+
+      - name: Copy new formula into tap repo
+        run: |
+          mkdir -p tap-repo/Formula
+          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@$VERSION.rb tap-repo/Formula/
+
+      - name: Commit and push formula
+        run: |
+          cd tap-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git add Formula/jpipe-runner.rb
+            git commit -m "Update jpipe-runner formula to version ${{ env.VERSION }}"
+            git push origin main
+          fi
