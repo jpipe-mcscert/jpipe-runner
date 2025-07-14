@@ -346,7 +346,7 @@ jobs:
     needs: [build-python-package]
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.set-version.outputs.VERSION }}
+      VERSION: ${{ steps.set-version.outputs.VERSION }}
     steps:
       - uses: actions/checkout@v3
 
