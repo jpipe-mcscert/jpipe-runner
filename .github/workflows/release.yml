@@ -345,6 +345,8 @@ jobs:
     # needs: [release]
     needs: [build-python-package]
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set-version.outputs.VERSION }}
     steps:
       - uses: actions/checkout@v3
 
@@ -355,6 +357,7 @@ jobs:
           path: dist/
 
       - name: Extract version from tag
+        id: set-version
         run: |
           # TAG="${GITHUB_REF#refs/tags/}"
           TAG="v2.0.0b8"
@@ -422,8 +425,9 @@ jobs:
 
       - name: Copy new formula into tap repo
         run: |
+          VERSION="${{ needs.build-homebrew-formula.outputs.VERSION }}"
           mkdir -p tap-repo/Formula
-          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@$VERSION.rb tap-repo/Formula/
+          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/Formula/
 
       - name: Commit and push formula
         run: |
