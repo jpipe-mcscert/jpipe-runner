@@ -386,6 +386,9 @@ jobs:
       - name: Make script executable
         run: chmod +x script/generate_formula_resources.sh
 
+      - name: Install Poetry plugin
+        run: poetry self add poetry-plugin-export
+
       - name: Generate formula file
         run: |
           export CLASS_NAME="JpipeRunner"
