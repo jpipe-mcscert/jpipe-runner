@@ -346,7 +346,7 @@ jobs:
     needs: [build-python-package]
     runs-on: ubuntu-latest
     outputs:
-      VERSION: ${{ steps.set-version.outputs.VERSION }}
+      version: ${{ steps.set-version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
 
@@ -364,6 +364,7 @@ jobs:
           VERSION="${TAG#v}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Compute SHA256 of source tarball
         id: sha
@@ -425,7 +426,8 @@ jobs:
 
       - name: Copy new formula into tap repo
         run: |
-          VERSION="${{ needs.build-homebrew-formula.outputs.VERSION }}"
+          VERSION="${{ needs.build-homebrew-formula.outputs.version }}"
+          echo "Using VERSION = $VERSION"
           mkdir -p tap-repo/Formula
           cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/Formula/
 
