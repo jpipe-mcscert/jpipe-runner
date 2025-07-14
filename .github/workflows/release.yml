@@ -391,7 +391,7 @@ jobs:
           export SOURCE_SHA256="${SHA256}"
           export PYTHON_VERSION="3.10"
   
-          $(bash script/generate_formula_resources.sh) > resources.txt
+          script/generate_formula_resources.sh > resources.txt
           
           cat resources.txt
   
