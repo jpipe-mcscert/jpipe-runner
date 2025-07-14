@@ -391,7 +391,11 @@ jobs:
           export SOURCE_SHA256="${SHA256}"
           export PYTHON_VERSION="3.10"
   
-          export RESOURCES="$(bash script/generate_formula_resources.sh)"
+          $(bash script/generate_formula_resources.sh) > resources.txt
+          
+          cat resources.txt
+  
+          export RESOURCES="$(cat resources.txt)"
   
           mkdir -p tap/Formula
       
@@ -426,25 +430,24 @@ jobs:
 
       - name: Copy new formula into tap repo
         run: |
-          VERSION="${{ needs.build-homebrew-formula.outputs.version }}"
-          echo "Using VERSION = $VERSION"
-          mkdir -p tap-repo/Formula
-          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/Formula/
+          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}}.rb tap-repo/
+         
           # debbug by showing the contents of the tap-repo directory
-          ls -la tap-repo/Formula
-          cat tap-repo/Formula/jpipe-runner.rb
+          ls -la tap-repo/
+          cat tap-repo/jpipe-runner.rb
+          cat tap-repo/jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb
 
       - name: Commit and push formula
         run: |
           cd tap-repo
-          cat Formula/jpipe-runner.rb
+          
+          ls -la .
+          cat jpipe-runner.rb
+          cat jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb
+          
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git add Formula/jpipe-runner.rb
-            git commit -m "Update jpipe-runner formula to version ${{ env.VERSION }}"
-            git push origin main
-          fi
+          git add jpipe-runner.rb jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb
+          git commit -m "Update jpipe-runner formula to version ${{ needs.build-homebrew-formula.outputs.version }}"
+          git push origin main
