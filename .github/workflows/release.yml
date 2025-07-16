@@ -307,12 +307,12 @@ jobs:
           export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/${TAG}/$(basename ${SOURCE_FILE})"
           export SOURCE_SHA256="${SHA256}"
           export PYTHON_VERSION="3.11"
-          export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
+          export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
           mkdir -p tap/Formula
           
-          envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner@$VERSION.rb
-          export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
           envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
+          export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
+          envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner@$VERSION.rb
 
       - name: Upload updated tap directory
         uses: actions/upload-artifact@v4
