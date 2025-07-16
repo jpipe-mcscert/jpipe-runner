@@ -22,7 +22,6 @@ setup(
     python_requires=">=3.10",
     install_requires=[
         "networkx>=3.4.2,<4.0.0",
-        "termcolor>=2.5.0,<3.0.0",
         "pygraphviz>=1.11,<2.0.0",
         "matplotlib>=3.10.3,<4.0.0",
         "pyyaml>=6.0.2,<7.0.0",

@@ -1,20 +1,25 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Set environment variables for envsubst
+# === Configuration ===
+export SOURCE_FILE="jpipe-runner.tar.gz"
 export CLASS_NAME="JpipeRunner"
 export HOMEPAGE_URL="https://github.com/jpipe-mcscert/jpipe-runner"
-export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/${TAG}/$(basename ${SOURCE_FILE})"
-export SOURCE_SHA256="$SHA256"
+export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/v2.0.0b8/jpipe_runner-2.0.0b8.tar.gz"
+export SOURCE_SHA256="37b161961d412e68526df7310b9580de320aab485070789cdc30e872559467c3"
 export PYTHON_VERSION="3.10"
+export VERSION="2.0.0b8"
 
-# Generate Homebrew resource blocks using external script
-export RESOURCES="$(bash script/generate_formula_resources.sh)"
 
-# Create destination directory
+# transform version to match Homebrew format
+export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
+
+# === Create destination directory ===
 mkdir -p tap/Formula
 
-# Use envsubst to generate final formula
+# === Generate final formula using envsubst ===
 envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
+export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
+envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner@$VERSION.rb
 
 echo "Generated formula file at tap/Formula/jpipe-runner.rb"

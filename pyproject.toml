@@ -23,7 +23,6 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.10"
 networkx = "^3.4.2"
-termcolor = "^2.5.0"
 pygraphviz = "^1.11"
 matplotlib = "^3.10.3"
 pyyaml = "^6.0.2"

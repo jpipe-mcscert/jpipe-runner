@@ -12,8 +12,6 @@ class $CLASS_NAME < Formula
   depends_on "libjpeg-turbo"
   depends_on "freetype"
 
-$RESOURCES
-
   def install
     venv = virtualenv_create(libexec, "python$PYTHON_VERSION")
     venv.pip_install resources

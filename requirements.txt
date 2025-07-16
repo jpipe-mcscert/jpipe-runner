@@ -1,5 +1,4 @@
 networkx==3.4.2
-termcolor==2.5.0
 
 PyYAML~=6.0.2
 matplotlib~=3.10.3

@@ -14,13 +14,12 @@ import threading
 import tkinter as tk
 from typing import Iterable
 
-from termcolor import colored
-
 from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from jpipe_runner.enums import StatusType
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER
 from jpipe_runner.runtime import PythonRuntime
+from jpipe_runner.utils import colored
 
 # Generate:
 # - https://patorjk.com/software/taag/#p=display&f=Ivrit&t=jPipe%20%20Runner%0A
@@ -38,7 +37,6 @@ IMAGE_EXPORT_FORMAT = ['canon', 'cmap', 'cmapx', 'cmapx_np', 'dia', 'dot',
                        'ismap', 'jpe', 'jpeg', 'jpg', 'mif', 'mp', 'pcl', 'pdf',
                        'pic', 'plain', 'plain-ext', 'png', 'ps', 'ps2', 'svg',
                        'svgz', 'vml', 'vmlz', 'vrml', 'vtx', 'wbmp', 'xdot', 'xlib']
-
 
 def parse_args(argv: list[str] | None = None):
     """
