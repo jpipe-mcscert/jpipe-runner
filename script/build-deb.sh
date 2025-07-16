@@ -20,8 +20,7 @@ sudo apt-get install -y \
   dh-python \
   python3-all \
   python3-setuptools \
-  python3-pip \
-  python3-distutils
+  python3-pip
 
 # --- 2. Install stdeb if needed ---
 if ! pip3 show stdeb &>/dev/null; then
