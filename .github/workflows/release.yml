@@ -399,7 +399,7 @@ jobs:
   publish-homebrew-formula:
     permissions:
       contents: write
-    needs: [ publish-ppa, publish-testpypi ]
+    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
