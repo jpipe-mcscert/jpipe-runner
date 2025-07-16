@@ -46,7 +46,7 @@ runs:
       if: ${{ !inputs.python_path }}
       uses: actions/setup-python@v5
       with:
-        python-version: "3.12"
+        python-version: "3.11"
 
     - name: Install jpipe-runner
       shell: bash

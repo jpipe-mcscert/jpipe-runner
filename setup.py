@@ -19,7 +19,7 @@ setup(
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     include_package_data=True,
-    python_requires=">=3.12",
+    python_requires=">=3.11",
     install_requires=[
         "networkx>=3.4.2,<4.0.0",
         "pygraphviz>=1.11,<2.0.0",

@@ -20,7 +20,8 @@ sudo apt-get install -y \
   dh-python \
   python3-all \
   python3-setuptools \
-  python3-pip
+  python3-pip \
+  python3-distutils
 
 # --- 2. Install stdeb if needed ---
 if ! pip3 show stdeb &>/dev/null; then
@@ -43,7 +44,11 @@ rm -rf deb_dist/ dist/ ./*.tar.gz 2>/dev/null || true
 VERSION=$(python3 setup.py --version)
 echo ">>> Detected version: $VERSION"
 
+pip install --upgrade setuptools stdeb wheel
+
 # --- 6. Build base Debian source package ---
+# FIXME: https://github.com/astraw/stdeb?tab=readme-ov-file#sdist-dsc-distutils-command
+# FIXME: https://manpages.ubuntu.com/manpages/questing/en/man1/lintian.1.html
 echo ">>> Building base source package"
 python3 setup.py --command-packages=stdeb.command sdist_dsc
 
