@@ -7,7 +7,7 @@ export CLASS_NAME="JpipeRunner"
 export HOMEPAGE_URL="https://github.com/jpipe-mcscert/jpipe-runner"
 export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/v2.0.0b8/jpipe_runner-2.0.0b8.tar.gz"
 export SOURCE_SHA256="37b161961d412e68526df7310b9580de320aab485070789cdc30e872559467c3"
-export PYTHON_VERSION="3.10"
+export PYTHON_VERSION="3.11"
 export VERSION="2.0.0b8"
 
 

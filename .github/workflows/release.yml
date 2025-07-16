@@ -286,12 +286,11 @@ jobs:
       - name: Extract version from tag
         id: set-version
         run: |
-          # TAG="${GITHUB_REF#refs/tags/}"
-          TAG="v2.0.0b8"
+          TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Compute SHA256 of source tarball
         id: sha
@@ -307,7 +306,7 @@ jobs:
           export HOMEPAGE_URL="https://github.com/jpipe-mcscert/jpipe-runner"
           export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/${TAG}/$(basename ${SOURCE_FILE})"
           export SOURCE_SHA256="${SHA256}"
-          export PYTHON_VERSION="3.12"
+          export PYTHON_VERSION="3.11"
           export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
           mkdir -p tap/Formula
           
@@ -419,24 +418,21 @@ jobs:
 
       - name: Copy new formula into tap repo
         run: |
-          cp tap/Formula/jpipe-runner.rb tap/Formula/jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb tap-repo/
-          
-          # debbug by showing the contents of the tap-repo directory
+          VERSION=${{ needs.build-homebrew-formula.outputs.version }}
+          echo "VERSION: $VERSION"
+          cp tap/Formula/jpipe-runner.rb tap-repo/
+          cp tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/
+  
           ls -la tap-repo/
           cat tap-repo/jpipe-runner.rb
-          cat tap-repo/jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb
+          cat tap-repo/jpipe-runner@${VERSION}.rb
 
       - name: Commit and push formula
         run: |
           cd tap-repo
-          
-          ls -la .
-          cat jpipe-runner.rb
-          cat jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb
-          
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
+  
           git add jpipe-runner.rb jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb
           git commit -m "Update jpipe-runner formula to version ${{ needs.build-homebrew-formula.outputs.version }}"
           git push origin main
