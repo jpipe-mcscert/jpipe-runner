@@ -2,10 +2,10 @@ name: CI & Release Pipeline
 
 on:
   push:
-    branches:
-      - build/release-pipeline
-#    tags:
-#      - 'v*.*.*'
+#    branches:
+#      - build/release-pipeline
+    tags:
+      - 'v*.*.*'
 
 jobs:
   test:
