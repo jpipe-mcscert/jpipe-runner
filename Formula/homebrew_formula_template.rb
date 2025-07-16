@@ -13,8 +13,14 @@ class $CLASS_NAME < Formula
   depends_on "freetype"
 
   def install
-    venv = virtualenv_create(libexec, "python$PYTHON_VERSION")
-    venv.pip_install resources
-    venv.pip_install_and_link buildpath
+    virtualenv_install_with_resources
+  end
+
+  def post_install
+    ohai "Verifying installation..."
+    system bin/"jpipe-runner", "--help"
+    ohai "should be working"
+  rescue
+    odie "will not work. have you updated python deps? RTFM."
   end
 end
