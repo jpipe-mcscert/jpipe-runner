@@ -6,7 +6,7 @@ def read_requirements(path):
                 for line in f
                 if line.strip() and not line.lstrip().startswith('--')]
 
-install_requires = read_requirements('requirements.txt')
+install_requires = read_requirements('requirement.txt')
 
 setup(
     name="jpipe-runner",
