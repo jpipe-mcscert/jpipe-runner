@@ -1,8 +1,16 @@
 from setuptools import setup, find_packages
 
+def read_requirements(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        return [line.split(';')[0].rstrip('\\').strip()
+                for line in f
+                if line.strip() and not line.lstrip().startswith('--')]
+
+install_requires = read_requirements('requirements.txt')
+
 setup(
     name="jpipe-runner",
-    version="2.0.0b11",
+    version="2.0.0b12",
     description="A Justification Runner designed for jPipe.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -20,12 +28,7 @@ setup(
     package_dir={"": "src"},
     include_package_data=True,
     python_requires=">=3.11",
-    install_requires=[
-        "networkx>=3.4.2,<4.0.0",
-        "pygraphviz>=1.11,<2.0.0",
-        "matplotlib>=3.10.3,<4.0.0",
-        "pyyaml>=6.0.2,<7.0.0",
-    ],
+    install_requires=install_requires,
     entry_points={
         "console_scripts": [
             "jpipe-runner = jpipe_runner.runner:main"
