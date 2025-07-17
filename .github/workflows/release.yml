@@ -2,8 +2,8 @@ name: CI & Release Pipeline
 
 on:
   push:
-#    branches:
-#      - build/release-pipeline
+    #    branches:
+    #      - build/release-pipeline
     tags:
       - 'v*.*.*'
 
@@ -80,67 +80,8 @@ jobs:
 
       - name: Install Poetry
         if: steps.cache-poetry.outputs.cache-hit != 'true'
-        run: curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Add Poetry to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Cache apt packages
-        id: cache-apt
-        uses: actions/cache@v3
-        with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/script/apt-packages.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Install system dependencies
-        if: steps.cache-apt.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            graphviz \
-            libgraphviz-dev \
-            pkg-config \
-            python3-dev
-
-      - name: Install dependencies
-        run: poetry install
-
-      - name: Run tests
-        run: poetry run pytest
-
-  build-python-package:
-    needs: [ test ]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-
-      - name: Cache Poetry
-        id: cache-poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        if: steps.cache-poetry.outputs.cache-hit != 'true'
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
-          poetry self update
-
-      - name: Poetry version
-        run: poetry --version
 
       - name: Add Poetry to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
@@ -173,6 +114,68 @@ jobs:
       - name: Export requirements.txt from Poetry
         run: poetry export -f requirements.txt --without-hashes -o requirements.txt
 
+      - name: Run tests
+        run: poetry run pytest
+
+      - name: Upload requirements.txt
+        uses: actions/upload-artifact@v4
+        with:
+          name: requirements
+          path: requirements.txt
+
+  build-python-package:
+    needs: [ test ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache Poetry
+        id: cache-poetry
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+
+      - name: Install Poetry
+        if: steps.cache-poetry.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Add Poetry to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Cache apt packages
+        id: cache-apt
+        uses: actions/cache@v3
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/script/apt-packages.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Install system dependencies
+        if: steps.cache-apt.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            graphviz \
+            libgraphviz-dev \
+            pkg-config \
+            python3-dev
+
+      - name: Install dependencies
+        run: poetry install
+
       - name: Build distribution
         run: poetry build
 
@@ -181,12 +184,6 @@ jobs:
         with:
           name: python-package-distributions
           path: dist/
-
-      - name: Upload requirements.txt
-        uses: actions/upload-artifact@v4
-        with:
-          name: requirements
-          path: requirements.txt
 
   build-ppa:
     runs-on: ubuntu-latest
@@ -370,30 +367,30 @@ jobs:
         run: |
           chmod +x script/publish-ppa.sh
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
+  
+  
+  
+  
 
-
-
-
-
-#  publish-pypi:
-#    needs: [ build-homebrew-formula ]
-#    runs-on: ubuntu-latest
-#    environment:
-#      name: pypi
-#      url: https://pypi.org/project/jpipe-sandbox/
-#    permissions:
-#      id-token: write
-#    steps:
-#      - uses: actions/checkout@v3
-#
-#      - name: Download distribution artifact
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: python-package-distributions
-#          path: dist/
-#
-#      - name: Publish distribution to PyPI
-#        uses: pypa/gh-action-pypi-publish@release/v1
+  #  publish-pypi:
+  #    needs: [ build-homebrew-formula ]
+  #    runs-on: ubuntu-latest
+  #    environment:
+  #      name: pypi
+  #      url: https://pypi.org/project/jpipe-sandbox/
+  #    permissions:
+  #      id-token: write
+  #    steps:
+  #      - uses: actions/checkout@v3
+  #
+  #      - name: Download distribution artifact
+  #        uses: actions/download-artifact@v4
+  #        with:
+  #          name: python-package-distributions
+  #          path: dist/
+  #
+  #      - name: Publish distribution to PyPI
+  #        uses: pypa/gh-action-pypi-publish@release/v1
 
   publish-testpypi:
     needs: [ build-homebrew-formula ]
@@ -442,7 +439,7 @@ jobs:
           echo "VERSION: $VERSION"
           cp tap/Formula/jpipe-runner.rb tap-repo/
           cp tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/
-  
+          
           ls -la tap-repo/
           cat tap-repo/jpipe-runner.rb
           cat tap-repo/jpipe-runner@${VERSION}.rb
@@ -452,7 +449,7 @@ jobs:
           cd tap-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-  
+          
           git add jpipe-runner.rb jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb
           git commit -m "Update jpipe-runner formula to version ${{ needs.build-homebrew-formula.outputs.version }}"
           git push origin main
