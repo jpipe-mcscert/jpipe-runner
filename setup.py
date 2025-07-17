@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
-def read_requirements(path):
+def read_requirements(path = 'requirements.txt'):
     with open(path, 'r', encoding='utf-8') as f:
         return [line.split(';')[0].rstrip('\\').strip()
                 for line in f
                 if line.strip() and not line.lstrip().startswith('--')]
 
-install_requires = read_requirements('requirements.txt')
+install_requires = read_requirements()
 
 setup(
     name="jpipe-runner",
