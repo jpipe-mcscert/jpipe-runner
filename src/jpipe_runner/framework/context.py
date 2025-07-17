@@ -13,14 +13,22 @@ class RuntimeContext:
     to their values.
 
     Attributes:
-        _vars (dict): Mapping from function keys to another dict:
+        _vars (dict): Main context mapping. Structure:
             {
-                RuntimeContext.PRODUCE: { var_name: value, ... },
-                RuntimeContext.CONSUME: { var_name: value, ... }
+                <function_key>: {
+                    RuntimeContext.PRODUCE: { <var_name>: <value>, ... },
+                    RuntimeContext.CONSUME: { <var_name>: <value>, ... },
+                    RuntimeContext.SKIP: {
+                        'value': <bool>,   # True if the function should be skipped
+                        'reason': <str>    # Reason for skipping
+                    }
+                },
+                ...
             }
     """
     PRODUCE = '_produce'
     CONSUME = '_consume'
+    SKIP = '_skip'
 
     def __init__(self):
         """
@@ -38,10 +46,10 @@ class RuntimeContext:
         :param key: The variable name to retrieve.
         :type key: str
         :return: A list of values associated with `key` across functions that have it.
-                 If no function has this key, returns an empty list.
+                 If no function has this key, return an empty list.
         :rtype: Any
         """
-        GLOBAL_LOGGER.debug(f"Context: %s", self._vars)
+        GLOBAL_LOGGER.debug(f"Context: {self._vars}")
         for func in self._vars:
             for decorator in (self.PRODUCE, self.CONSUME):
                 if key in self._vars[func].get(decorator, {}):
@@ -140,6 +148,28 @@ class RuntimeContext:
                 GLOBAL_LOGGER.debug(f"Set variable '{key}' to '{value}' in function '{func}'")
                 GLOBAL_LOGGER.debug(f"Updated context: {self._vars[func]}")
                 return
+
+    def set_skip(self, func, value: bool, reason: str = "Skipped by condition"):
+        """
+        Set the skip status for a function in the context.
+
+        This method allows marking a function as skipped based on a condition.
+        It updates the context to reflect whether the function should be skipped.
+
+        :param func: The function name or identifier to set the skip status for.
+        :type func: str
+        :param value: True if the function should be skipped, False otherwise.
+        :type value: bool
+        :param reason: The reason for skipping the function.
+        :type reason: str
+        """
+        if func not in self._vars:
+            self._vars[func] = {}
+        self._vars[func][self.SKIP] = {
+            'value': value,
+            'reason': reason
+        }
+        GLOBAL_LOGGER.debug(f"Set skip status for function '{func}' to {value} with reason: {reason}")
 
     def __repr__(self):
         """
