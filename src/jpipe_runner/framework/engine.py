@@ -279,7 +279,7 @@ class PipelineEngine:
                 self.mark_substep(node, label, GraphWorkflowVisualizer.DONE)
 
         if not all_passed:
-            GLOBAL_LOGGER.error("\n".join(all_errors))
+            GLOBAL_LOGGER.warning("\n".join(all_errors))
             return False
 
         GLOBAL_LOGGER.info("Pipeline validation passed.")

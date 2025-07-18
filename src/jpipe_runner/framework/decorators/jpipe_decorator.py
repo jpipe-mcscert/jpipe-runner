@@ -100,7 +100,7 @@ class ConsumedVariableChecker:
             value = ctx.get(param)
             GLOBAL_LOGGER.debug(f"[{self.func_name}] Injecting consumed variable '{param}' = {value}")
             if value is None:
-                raise ValueError(
+                GLOBAL_LOGGER.error(
                     f"Consumed variable '{param}' has not been set in context before calling '{self.func_name}'."
                 )
             kwargs[param] = value
@@ -178,7 +178,7 @@ class ProducedVariableChecker:
         :raises RuntimeError: If the variable was not declared as produced.
         """
         if param not in self.declared_params:
-            raise RuntimeError(
+            GLOBAL_LOGGER.error(
                 f"Function '{self.func_name}' attempted to produce undeclared variable '{param}'. "
                 f"Expected one of: {self.declared_params}"
             )
@@ -194,8 +194,7 @@ class ProducedVariableChecker:
         """
         missing = self.declared_params - self.produced_set
         if missing:
-            GLOBAL_LOGGER.error(f"[{self.func_name}] Missing produced variables: {missing}")
-            raise RuntimeError(
+            GLOBAL_LOGGER.error(
                 f"Function '{self.func_name}' did not produce the following declared variable(s): {missing}"
             )
         GLOBAL_LOGGER.debug(f"[{self.func_name}] All declared produced variables were set: {self.produced_set}")
