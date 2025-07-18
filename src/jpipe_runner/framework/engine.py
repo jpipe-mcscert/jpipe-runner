@@ -267,19 +267,24 @@ class PipelineEngine:
 
         all_passed = True
         all_errors = []
+        all_warnings = []
 
         for validator, label in validators:
             self.mark_substep(node, label, GraphWorkflowVisualizer.CURRENT)
-            errors = validator.validate()
-            if errors:
+            errors, warnings = validator.validate()
+            if errors or warnings:
                 all_passed = False
                 all_errors.extend(errors)
+                all_warnings.extend(warnings)
                 self.mark_substep(node, label, GraphWorkflowVisualizer.FAIL)
             else:
                 self.mark_substep(node, label, GraphWorkflowVisualizer.DONE)
 
         if not all_passed:
-            GLOBAL_LOGGER.warning("\n".join(all_errors))
+            if all_warnings:
+                GLOBAL_LOGGER.warning("\n".join(all_warnings))
+            if all_errors:
+                GLOBAL_LOGGER.error("\n".join(all_errors))
             return False
 
         GLOBAL_LOGGER.info("Pipeline validation passed.")
@@ -327,7 +332,9 @@ class PipelineEngine:
         """
         GLOBAL_LOGGER.info("Running pipeline...")
 
-        self._validate_pipeline()
+        if not self._validate_pipeline():
+            return
+
         execution_order = self._get_and_mark_execution_order()
         if not execution_order:
             return
@@ -335,17 +342,21 @@ class PipelineEngine:
         for node in execution_order:
             yield self._process_node(node, runtime, dry_run)
 
-    def _validate_pipeline(self):
+    def _validate_pipeline(self) -> bool:
         """
         Validates the justification graph and updates visualization markers accordingly.
 
         Marks the validation step as DONE or FAIL based on the result of `self.validate()`.
+
+        Returns:
+            bool: True if validation passes, False otherwise.
         """
         self.mark_step(GraphWorkflowVisualizer.VALIDATE_PIPELINE, GraphWorkflowVisualizer.CURRENT)
         if self.validate():
             self.mark_step(GraphWorkflowVisualizer.VALIDATE_PIPELINE, GraphWorkflowVisualizer.DONE)
-        else:
-            self.mark_step(GraphWorkflowVisualizer.VALIDATE_PIPELINE, GraphWorkflowVisualizer.FAIL)
+            return True
+        self.mark_step(GraphWorkflowVisualizer.VALIDATE_PIPELINE, GraphWorkflowVisualizer.FAIL)
+        return False
 
     def _get_and_mark_execution_order(self) -> Optional[list]:
         """

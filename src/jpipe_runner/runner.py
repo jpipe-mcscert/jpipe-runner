@@ -253,6 +253,12 @@ def run_workflow_logic():
     # Run justification logic and gather results
     justification_result = list(jpipe.justify(dry_run=args.dry_run, runtime=runtime))
 
+    if args.dry_run or not justification_result:
+        print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+        log_buffer.dump_to_stderr()
+        # if there are some errors or warnings, exit with code 1
+        exit(1) if not justification_result else exit(0)
+
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.CURRENT)
 
     print(JPIPE_RUNNER_ASCII)

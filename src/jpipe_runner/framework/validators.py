@@ -55,6 +55,7 @@ class MissingVariableValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running MissingVariableValidator...")
         errors = []
+        warnings = []
         for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}")
@@ -78,7 +79,7 @@ class MissingVariableValidator(BaseValidator):
                         )
                     )
         GLOBAL_LOGGER.info(f"MissingVariableValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class SelfDependencyValidator(BaseValidator):
@@ -100,6 +101,7 @@ class SelfDependencyValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running SelfDependencyValidator...")
         errors = []
+        warnings = []
         for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' for self-dependencies.")
@@ -121,7 +123,7 @@ class SelfDependencyValidator(BaseValidator):
                         ).replace("{var}", var).replace("{func_key}", func_key)
                     )
         GLOBAL_LOGGER.info(f"SelfDependencyValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class OrderValidator(BaseValidator):
@@ -146,6 +148,7 @@ class OrderValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running OrderValidator...")
         errors = []
+        warnings = []
         order = self.pipeline.get_execution_order()
         GLOBAL_LOGGER.debug(f"Execution order: {order}")
         order_index = {k: i for i, k in enumerate(order)}
@@ -191,7 +194,7 @@ class OrderValidator(BaseValidator):
                         )
                     )
         GLOBAL_LOGGER.info(f"OrderValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class ProducedButNotConsumedValidator(BaseValidator):
@@ -211,6 +214,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running ProducedButNotConsumedValidator...")
         errors = []
+        warnings = []
 
         # Collect all consumed variables across the pipeline
         consumed_vars = set()
@@ -223,7 +227,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
             produce_vars = var_maps.get(RuntimeContext.PRODUCE, {})
             for var in produce_vars:
                 if var not in consumed_vars:
-                    errors.append(
+                    warnings.append(
                         (
                             f"Pipeline validation error: produced variable not consumed.\n"
                             f"  • Variable '{var}' is produced by function '{func_key}' but is never consumed by any function.\n"
@@ -233,7 +237,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
                     )
 
         GLOBAL_LOGGER.info(f"ProducedButNotConsumedValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class DuplicateProducerValidator(BaseValidator):
@@ -253,6 +257,7 @@ class DuplicateProducerValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running DuplicateProducerValidator...")
         errors = []
+        warnings = []
         variable_to_producers: dict[str, list[str]] = {}
 
         for func_key, var_maps in self.ctx._vars.items():
@@ -271,10 +276,10 @@ class DuplicateProducerValidator(BaseValidator):
                     f"    - Choose a single function to produce '{var}' and remove it from the others.\n"
                     "    - If multiple outputs are required, consider renaming or splitting the variables.\n"
                 )
-                errors.append(error_message)
+                warnings.append(error_message)
 
         GLOBAL_LOGGER.info(f"DuplicateProducerValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class JustificationSchemaValidator:
