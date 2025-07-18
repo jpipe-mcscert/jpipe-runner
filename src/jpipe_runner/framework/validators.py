@@ -77,7 +77,6 @@ class MissingVariableValidator(BaseValidator):
                             f"    so that '{func_key}' can consume it.\n"
                         )
                     )
-                    GLOBAL_LOGGER.warning(f"Missing variable detected: '{var}' required by '{func_key}'")
         GLOBAL_LOGGER.info(f"MissingVariableValidator completed with {len(errors)} error(s).")
         return errors
 
@@ -121,7 +120,6 @@ class SelfDependencyValidator(BaseValidator):
                             "        so the dependency graph does not treat the same function as its own producer.\n"
                         ).replace("{var}", var).replace("{func_key}", func_key)
                     )
-                    GLOBAL_LOGGER.warning(f"Self-dependency detected in '{func_key}' for variable '{var}'")
         GLOBAL_LOGGER.info(f"SelfDependencyValidator completed with {len(errors)} error(s).")
         return errors
 
@@ -177,7 +175,6 @@ class OrderValidator(BaseValidator):
                             "  • Please correct the pipeline justification/configuration to resolve this."
                         ).format(func=func_key, var=var, order=" -> ".join(order))
                     )
-                    GLOBAL_LOGGER.warning(f"Self-dependency (order-level) in '{func_key}' for variable '{var}'")
                     continue
 
                 if order_index[producer] >= order_index[func_key]:
@@ -192,9 +189,6 @@ class OrderValidator(BaseValidator):
                             f"      {' -> '.join(order)}\n"
                             f"  • Suggestion: adjust dependencies/justification so that '{producer}' precedes '{func_key}'."
                         )
-                    )
-                    GLOBAL_LOGGER.warning(
-                        f"Order violation: '{func_key}' consumes '{var}' before '{producer}' has produced it."
                     )
         GLOBAL_LOGGER.info(f"OrderValidator completed with {len(errors)} error(s).")
         return errors
@@ -237,9 +231,6 @@ class ProducedButNotConsumedValidator(BaseValidator):
                             f"  • Consider removing the production of '{var}' if unused, or verify downstream usage.\n"
                         )
                     )
-                    GLOBAL_LOGGER.warning(
-                        f"Produced variable '{var}' by '{func_key}' is not consumed by any other function."
-                    )
 
         GLOBAL_LOGGER.info(f"ProducedButNotConsumedValidator completed with {len(errors)} error(s).")
         return errors
@@ -279,9 +270,6 @@ class DuplicateProducerValidator(BaseValidator):
                     "  • To fix:\n"
                     f"    - Choose a single function to produce '{var}' and remove it from the others.\n"
                     "    - If multiple outputs are required, consider renaming or splitting the variables.\n"
-                )
-                GLOBAL_LOGGER.warning(
-                    f"Variable '{var}' is produced by multiple functions: {producers}"
                 )
                 errors.append(error_message)
 

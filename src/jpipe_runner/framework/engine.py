@@ -416,7 +416,7 @@ class PipelineEngine:
 
         # --- Attempt function execution (or dry-run) ---
         elif node_type in {"evidence", "strategy"}:
-            status, exception = self._execute_justification_fn(label, fn_name, runtime, dry_run)
+            status, exception = self._execute_justification_fn(label, fn_name, runtime, dry_run, node)
 
 
         # --- Default handling for conclusion nodes ---
@@ -486,7 +486,7 @@ class PipelineEngine:
         self.mark_node_as_graph(GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, label)
         self.mark_substep(label, "status", GraphWorkflowVisualizer.CURRENT)
 
-    def _execute_justification_fn(self, label: str, fn_name: str, runtime: PythonRuntime, dry_run: bool) -> tuple:
+    def _execute_justification_fn(self, label: str, fn_name: str, runtime: PythonRuntime, dry_run: bool, node: str) -> tuple:
         """
         Executes the function corresponding to the justification node.
 
@@ -497,6 +497,7 @@ class PipelineEngine:
             fn_name (str): Sanitized name of the function to call.
             runtime (PythonRuntime): Runtime used to invoke the function.
             dry_run (bool): Whether to simulate the run without executing the function.
+            node (str): Node identifier in the graph.
 
         Returns:
             tuple: (status, exception) where status is a StatusType and exception is a string or None.
@@ -515,12 +516,18 @@ class PipelineEngine:
 
             if not isinstance(result, bool):
                 raise FunctionException(
-                    f"Function '{fn_name}' returned an unexpected type: {type(result).__name__}. "
-                    f"Expected a boolean result."
+                    f"Function '{fn_name}' returned an unexpected type: {type(result).__name__}.\n"
+                    f"  - The function associated with node '{node}' (label: '{label}') must return either True or False.\n"
+                    f"  - Received: {result!r} ({type(result).__name__})\n"
+                    f"  - Please ensure the function implementation returns a boolean to indicate pass/fail status correctly."
                 )
             if not result:
                 raise FunctionException(
-                    f"Function '{fn_name}' returned False, indicating failure."
+                    f"\nFunction '{fn_name}' returned False, indicating failure.\n"
+                    f"  - The function associated with node '{node}' (label: '{label}') executed but did not pass its check.\n"
+                    f"  - Please review the implementation and input data for this function.\n"
+                    f"  - Returned value: {result!r}\n"
+                    f"  - The function must return True to indicate a successful check."
                 )
 
             self.mark_substep(label, GraphWorkflowVisualizer.CHECK_RETURN_TYPE, GraphWorkflowVisualizer.DONE)

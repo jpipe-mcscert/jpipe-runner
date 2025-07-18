@@ -20,7 +20,7 @@ from termcolor import colored
 from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from jpipe_runner.enums import StatusType
 from jpipe_runner.framework.engine import PipelineEngine
-from jpipe_runner.framework.logger import GLOBAL_LOGGER
+from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
 from jpipe_runner.runtime import PythonRuntime
 
 # Generate:
@@ -32,6 +32,16 @@ JPIPE_RUNNER_ASCII = r"""
    | |  __/| | |_) |  __/  |  _ <| |_| | | | | | | |  __/ |   
   _/ |_|   |_| .__/ \___|  |_| \_\\__,_|_| |_|_| |_|\___|_|   
  |__/        |_|                                                                                     
+"""
+
+# https://patorjk.com/software/taag/#p=display&f=Ivrit&t=STDERR%20OUTPUT%20BEGIN
+STDERR_OUTPUT_BEGIN = r"""
+  ____ _____ ____  _____ ____  ____     ___  _   _ _____ ____  _   _ _____   ____  _____ ____ ___ _   _ 
+ / ___|_   _|  _ \| ____|  _ \|  _ \   / _ \| | | |_   _|  _ \| | | |_   _| | __ )| ____/ ___|_ _| \ | |
+ \___ \ | | | | | |  _| | |_) | |_) | | | | | | | | | | | |_) | | | | | |   |  _ \|  _|| |  _ | ||  \| |
+  ___) || | | |_| | |___|  _ <|  _ <  | |_| | |_| | | | |  __/| |_| | | |   | |_) | |__| |_| || || |\  |
+ |____/ |_| |____/|_____|_| \_\_| \_\  \___/ \___/  |_| |_|    \___/  |_|   |____/|_____\____|___|_| \_|
+
 """
 
 IMAGE_EXPORT_FORMAT = ['canon', 'cmap', 'cmapx', 'cmapx_np', 'dia', 'dot',
@@ -153,9 +163,7 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
 
             # Wrap and print the exception message if it exists
             if exception:
-                wrapped_exception = textwrap.wrap(f"⚠ {exception}", width=width)
-                for line in wrapped_exception:
-                    print(line)
+                GLOBAL_LOGGER.warning(exception)
 
             print("-" * width)
 
@@ -246,6 +254,7 @@ def run_workflow_logic():
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.CURRENT)
 
+    print(JPIPE_RUNNER_ASCII)
     m, n, _, s = pretty_display([(jpipe.justification_name, justification_result)])
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
@@ -270,6 +279,8 @@ def run_workflow_logic():
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             sys.exit(1)
 
+    print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+    log_buffer.dump_to_stderr()
     sys.exit(m - n - s)
 
 
