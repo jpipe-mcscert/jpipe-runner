@@ -36,11 +36,13 @@ JPIPE_RUNNER_ASCII = r"""
 
 # https://patorjk.com/software/taag/#p=display&f=Ivrit&t=STDERR%20OUTPUT%20BEGIN
 STDERR_OUTPUT_BEGIN = r"""
-  ____ _____ ____  _____ ____  ____     ___  _   _ _____ ____  _   _ _____   ____  _____ ____ ___ _   _ 
- / ___|_   _|  _ \| ____|  _ \|  _ \   / _ \| | | |_   _|  _ \| | | |_   _| | __ )| ____/ ___|_ _| \ | |
- \___ \ | | | | | |  _| | |_) | |_) | | | | | | | | | | | |_) | | | | | |   |  _ \|  _|| |  _ | ||  \| |
-  ___) || | | |_| | |___|  _ <|  _ <  | |_| | |_| | | | |  __/| |_| | | |   | |_) | |__| |_| || || |\  |
- |____/ |_| |____/|_____|_| \_\_| \_\  \___/ \___/  |_| |_|    \___/  |_|   |____/|_____\____|___|_| \_|
+
+  _____ ____  ____   ___  ____    _     ___   ____ 
+ | ____|  _ \|  _ \ / _ \|  _ \  | |   / _ \ / ___|
+ |  _| | |_) | |_) | | | | |_) | | |  | | | | |  _ 
+ | |___|  _ <|  _ <| |_| |  _ <  | |__| |_| | |_| |
+ |_____|_| \_\_| \_\\___/|_| \_\ |_____\___/ \____|
+                                                   
 
 """
 
@@ -161,7 +163,6 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
                 else:
                     print(line.ljust(width))
 
-            # Wrap and print the exception message if it exists
             if exception:
                 GLOBAL_LOGGER.warning(exception)
 
