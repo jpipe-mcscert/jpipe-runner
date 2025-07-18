@@ -10,6 +10,7 @@ import glob
 import logging
 import shutil
 import sys
+import textwrap
 import threading
 import tkinter as tk
 from typing import Iterable
@@ -97,6 +98,7 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
 
     For each justification:
     - Displays variable name, label, status (PASS, FAIL, SKIP)
+    - Wraps long lines based on terminal width
     - Counts totals and returns summary statistics
 
     :param diagrams: Iterable of tuples containing justification names and result data.
@@ -105,7 +107,7 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
     :rtype: tuple[int, int, int, int]
     """
     terminal_width, _ = shutil.get_terminal_size((78, 30))
-    width = 78 if terminal_width > 78 else terminal_width
+    width = 78 if terminal_width > 78 else terminal_width  # Enforce minimum width
 
     colored_statuses = {
         StatusType.PASS: colored(StatusType.PASS.value, color="green"),
@@ -125,9 +127,7 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
     print("=" * width)
 
     for name, result in diagrams:
-
         total_justifications += 1
-
         print(f"{jpipe_title}.Justification :: {name}".ljust(width))
         print("=" * width)
 
@@ -137,30 +137,42 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
             label = data['label']
             exception = data.get('exception')
             status = data['status']
-            len_status = len(f"| {status.value} |")
             status_bar = f"| {colored_statuses[status]} |"
+            status_bar_len = len(status_bar)
 
+            # Format and wrap the main line
+            line_prefix = f"{var_type}<{var_name}> :: "
+            full_line = f"{line_prefix}{label}"
+            wrapped_label_lines = textwrap.wrap(full_line, width=width - status_bar_len - 1)
+
+            for i, line in enumerate(wrapped_label_lines):
+                if i == 0:
+                    print(line.ljust(width - status_bar_len) + status_bar)
+                else:
+                    print(line.ljust(width))
+
+            # Wrap and print the exception message if it exists
             if exception:
-                print(exception.ljust(width))
+                wrapped_exception = textwrap.wrap(f"⚠ {exception}", width=width)
+                for line in wrapped_exception:
+                    print(line)
 
-            print(f"{var_type}<{var_name}> :: {label}".ljust(width - len_status) + status_bar)
             print("-" * width)
 
+            # Count statuses
             if status == StatusType.PASS:
                 passed_justifications += 1
-
-            if status == StatusType.FAIL:
+            elif status == StatusType.FAIL:
                 failed_justifications += 1
-
-            if status == StatusType.SKIP:
+            elif status == StatusType.SKIP:
                 skipped_justifications += 1
 
+    # Print final summary
     print(f"{jpipe_title}")
-    print(f"{total_justifications} justification{'s' if total_justifications > 1 else ''},",
+    print(f"{total_justifications} justification{'s' if total_justifications != 1 else ''},",
           f"{passed_justifications} passed,",
           f"{failed_justifications} failed,",
-          f"{skipped_justifications} skipped",
-          )
+          f"{skipped_justifications} skipped")
     print("=" * width)
 
     return total_justifications, passed_justifications, failed_justifications, skipped_justifications

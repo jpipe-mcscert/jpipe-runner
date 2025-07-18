@@ -400,6 +400,7 @@ class PipelineEngine:
         GLOBAL_LOGGER.debug("Processing node: %s", node)
         self._init_node_execution(label)
 
+        # --- Check if this node should be skipped based on context ---
         skip_config = ctx._vars.get(fn_name, {}).get(RuntimeContext.SKIP, {})
         if skip_config.get("value", False):
             status = StatusType.SKIP
@@ -407,18 +408,32 @@ class PipelineEngine:
             GLOBAL_LOGGER.info(f"Skipping function '{fn_name}' for node '{node}' due to context: {exception}")
             self.mark_substep(label, "status", GraphWorkflowVisualizer.SKIP)
 
-        # Check predecessor statuses, but allow skips if explicitly annotated
+        # --- Check if predecessor failure or implicit skip should block execution ---
         elif self._should_skip_due_to_predecessors(node):
             status = StatusType.SKIP
             self.mark_substep(label, "status", GraphWorkflowVisualizer.SKIP)
 
+
+        # --- Attempt function execution (or dry-run) ---
         elif node_type in {"evidence", "strategy"}:
             status, exception = self._execute_justification_fn(label, fn_name, runtime, dry_run)
 
-        else:  # "conclusion" or others
+
+        # --- Default handling for conclusion nodes ---
+        else:
             status = StatusType.PASS
             self.mark_substep(label, "status", GraphWorkflowVisualizer.DONE)
 
+        # --- Append contribution loss message for skips or failures ---
+        if status in {StatusType.SKIP, StatusType.FAIL}:
+            contrib_msg = self._format_lost_contributions(fn_name)
+            if contrib_msg:
+                if exception:
+                    exception += f" {contrib_msg}"
+                else:
+                    exception = contrib_msg
+
+        # --- Finalize and mark execution status ---
         self._finalize_node_execution(node, label, status)
 
         return {
@@ -436,7 +451,7 @@ class PipelineEngine:
         A node will be skipped if any predecessor has:
             - status None (i.e., not executed),
             - status FAIL,
-            - status SKIP not caused by an explicit skip (via ctx_vars).
+            - status SKIP not caused by an explicit skip (via ctx._vars).
 
         Args:
             node (str): The current node identifier.
@@ -540,7 +555,30 @@ class PipelineEngine:
         if status == StatusType.FAIL:
             self.mark_step(GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, GraphWorkflowVisualizer.FAIL)
 
+    @staticmethod
+    def _format_lost_contributions(fn_name: str) -> Optional[str]:
+        """
+        Generates a message describing lost contributions due to skip/fail.
 
+        Args:
+            fn_name (str): Function name.
+
+        Returns:
+            str or None: A formatted warning message, or None if no contributions were declared.
+        """
+        contributions = ctx.get_contributions(fn_name)
+        positive = contributions.get(RuntimeContext.POSITIVE, [])
+        negative = contributions.get(RuntimeContext.NEGATIVE, [])
+
+        if not positive and not negative:
+            return None
+
+        msg = []
+        if positive:
+            msg.append(f"Losing positive contribution to: {', '.join(positive)}.")
+        if negative:
+            msg.append(f"Losing negative contribution to: {', '.join(negative)}.")
+        return " ".join(msg)
 
     # ------------ End of Justification Pipeline Execution ------------
 

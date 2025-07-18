@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, List
 
 from jpipe_runner.framework.logger import GLOBAL_LOGGER
 
@@ -21,6 +21,10 @@ class RuntimeContext:
                     RuntimeContext.SKIP: {
                         'value': <bool>,   # True if the function should be skipped
                         'reason': <str>    # Reason for skipping
+                    },
+                    RuntimeContext.CONTRIBUTION: {
+                        RuntimeContext.POSITIVE: [<var_name>, ...], # Positive contributions
+                        RuntimeContext.NEGATIVE: [<var_name>, ...], # Negative contributions
                     }
                 },
                 ...
@@ -29,6 +33,9 @@ class RuntimeContext:
     PRODUCE = '_produce'
     CONSUME = '_consume'
     SKIP = '_skip'
+    CONTRIBUTION = '_contribution'
+    POSITIVE = '_positive'
+    NEGATIVE = '_negative'
 
     def __init__(self):
         """
@@ -170,6 +177,46 @@ class RuntimeContext:
             'reason': reason
         }
         GLOBAL_LOGGER.debug(f"Set skip status for function '{func}' to {value} with reason: {reason}")
+
+    def set_contribution(self, func, contribution_type: str, variables: list[str]):
+        """
+        Set the contribution type for a function in the context.
+
+        This method allows marking a function's contribution as either positive or negative.
+        It updates the context to reflect the contribution type and associated variables.
+
+        :param func: The function name or identifier to set the contribution for.
+        :type func: str
+        :param contribution_type: Either RuntimeContext.POSITIVE or RuntimeContext.NEGATIVE,
+                                 indicating the type of contribution.
+        :type contribution_type: str
+        :param variables: A list of variable names that contribute to this type.
+        :type variables: list[str]
+        """
+        if func not in self._vars:
+            self._vars[func] = {}
+        if self.CONTRIBUTION not in self._vars[func]:
+            self._vars[func][self.CONTRIBUTION] = {
+                self.POSITIVE: [],
+                self.NEGATIVE: []
+            }
+        self._vars[func][self.CONTRIBUTION][contribution_type].extend(variables)
+        GLOBAL_LOGGER.debug(f"Set {contribution_type} contribution for function '{func}' with variables: {variables}")
+
+    def get_contributions(self, func: str) -> Dict[str, List[str]]:
+        """
+        Retrieves positive and negative contributions for a given function.
+
+        Args:
+            func (str): Function name.
+
+        Returns:
+            dict: {'_positive': [...], '_negative': [...]} — lists may be empty.
+        """
+        return self._vars.get(func, {}).get(RuntimeContext.CONTRIBUTION, {
+            self.POSITIVE: [],
+            self.NEGATIVE: []
+        })
 
     def __repr__(self):
         """
