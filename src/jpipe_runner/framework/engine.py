@@ -400,9 +400,15 @@ class PipelineEngine:
         GLOBAL_LOGGER.debug("Processing node: %s", node)
         self._init_node_execution(label)
 
-        pre_statuses = [self.graph.nodes[p].get("status") for p in self.graph.predecessors(node)]
+        skip_config = ctx._vars.get(fn_name, {}).get(RuntimeContext.SKIP, {})
+        if skip_config.get("value", False):
+            status = StatusType.SKIP
+            exception = skip_config.get("reason", "Skipped by context")
+            GLOBAL_LOGGER.info(f"Skipping function '{fn_name}' for node '{node}' due to context: {exception}")
+            self.mark_substep(label, "status", GraphWorkflowVisualizer.SKIP)
 
-        if None in pre_statuses or not all(s == StatusType.PASS for s in pre_statuses):
+        # Check predecessor statuses, but allow skips if explicitly annotated
+        elif self._should_skip_due_to_predecessors(node):
             status = StatusType.SKIP
             self.mark_substep(label, "status", GraphWorkflowVisualizer.SKIP)
 
@@ -422,6 +428,37 @@ class PipelineEngine:
             "status": status,
             "exception": exception,
         }
+
+    def _should_skip_due_to_predecessors(self, node: str) -> bool:
+        """
+        Determines whether the current node should be skipped due to the status of its predecessors.
+
+        A node will be skipped if any predecessor has:
+            - status None (i.e., not executed),
+            - status FAIL,
+            - status SKIP not caused by an explicit skip (via ctx_vars).
+
+        Args:
+            node (str): The current node identifier.
+
+        Returns:
+            bool: True if the node should be skipped, False otherwise.
+        """
+        for pred in self.graph.predecessors(node):
+            pred_data = self.graph.nodes[pred]
+            status = pred_data.get("status")
+            pred_label = pred_data.get("label")
+            fn_name = sanitize_string(pred_label)
+
+            if status is None or status == StatusType.FAIL:
+                return True
+
+            if status == StatusType.SKIP:
+                skip_meta = ctx._vars.get(fn_name, {}).get(RuntimeContext.SKIP, {})
+                if not skip_meta.get("value", False):  # not skipped via annotation
+                    return True
+
+        return False
 
     def _init_node_execution(self, label: str):
         """
