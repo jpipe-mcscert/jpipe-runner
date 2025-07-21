@@ -166,6 +166,21 @@ This includes:
 
 For a documentation overview inside a Markdown file, see [API.md](docs/API.md).
 
+Here's the updated section to include a link to the **Troubleshooting Guide** inside your main `README.md`. I recommend placing it right after the “Developer Documentation” section so it's easy to find for users encountering issues:
+
+---
+
+## 🐞 Troubleshooting
+
+Having issues with dependencies, packaging, or CLI usage across operating systems?
+
+See the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for solutions to common problems with:
+
+- Python & Poetry
+- Graphviz & Tkinter
+- GPG & Packaging (pip, stdeb, Homebrew)
+- Linux, macOS, and Windows-specific setups
+
 ---
 
 ## 🔧 Contributing
