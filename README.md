@@ -149,6 +149,18 @@ Automated via `.github/workflows/release.yml`:
 
 ---
 
+## 📝 Developer Documentation
+
+To generate internal developer-facing documentation using **Sphinx**, follow the instructions in [`docs/BUILD_DOCS.md`](docs/BUILD_DOCS.md).
+
+This includes:
+
+* Setting up the Sphinx environment
+* Building HTML documentation
+* Auto-generating API references from source files
+
+---
+
 ## 🔧 Contributing
 
 1. Fork the repo and create a feature branch.

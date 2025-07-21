@@ -1,26 +1,61 @@
-flowchart LR
-
+flowchart TD
     subgraph Input
-    direction TB
-    A1("JD Files (*.jd)")
-    A2("Python Scripts (*.py)")
+        A1[[User Provides Files]]
+        A2[Justification File<br/>📄 *.jd.json]
+        A3[Library Files<br/>📄 *.py]
     end
 
-    subgraph "jPipe Runner"
-    direction TB
-
-    subgraph Core
-    A1 --> P[Parser]
-    A2 --> R[Runtime]
-    P --> M([JD Models])
-    M --> E[Engine]
-    R --> E
+    subgraph CLI / GUI
+        A[Start <br/> runner.py main]
+        GUI{--gui flag?}
     end
 
-    E --> O[Runner]
+    subgraph Workflow Initialization
+        B[Parse CLI Args <br/> parse_args]
+        C[Set Logging Level <br/> args.verbose]
+        D[Validate Files <br/> args.jd_file]
+        E[Initialize Runtime <br/> PythonRuntime]
     end
 
-    O --> B(CLI / Pipeline Output)
+    subgraph Pipeline Execution
+        F[Initialize Engine <br/> PipelineEngine]
+        G[Load Config <br/> config.yaml #optional]
+        H[Parse Justification <br/> jd_file.json]
+        I[Validate Graph <br/> dependency check]
+        J[Run Justification <br/> .justify]
+    end
 
-    style Input stroke-dasharray:5 5
-    style subGraph2 stroke-dasharray:5 5
+    subgraph Runtime Execution
+        K[Load Python Modules <br/> from args.library]
+        L[Set Variables <br/> from args.variable]
+        M[Call Functions <br/> .call_function]
+    end
+
+    subgraph Output and Reporting
+        N{Dry Run?}
+        O[Print Justification Result]
+        P{Output Specified?}
+        Q[Export Diagram <br/> .export_to_format]
+        R[Dump Logs <br/> log_buffer]
+    end
+
+    A1 --> A2
+    A1 --> A3
+    A2 --> A
+    A3 --> A
+
+    A --> GUI
+    GUI -- Yes, Start Tkinter UI --> B
+    GUI -- No  --> B
+
+    B --> C --> D --> E --> F
+    E --> K & L
+    F --> G --> H --> I --> J
+
+    J --> M
+    M --> N
+
+    N -- Yes --> R
+    N -- No --> O --> P
+    P -- Yes --> Q --> R
+    P -- No  --> R

@@ -243,8 +243,10 @@ class PipelineEngine:
         """
         Validate the pipeline by performing:
           1. Check that all consumed variables are available in context or produced by another function.
-          2. Check that no function consumes a variable it itself produces (self-dependency) without external source.
+          2. Check that no function consumes a variable it itself produces (self-dependency) without an external source.
           3. Generate execution order and check ordering constraints via is_order_valid().
+          4. Check that all produced variables are consumed by at least one function.
+          5. Detect duplicate producers for the same variable.
 
         Logs detailed, multi-line error messages for missing variables or self-dependencies,
         and returns False if any validation step fails. If ordering fails, is_order_valid()
@@ -603,7 +605,7 @@ class PipelineEngine:
 
     def export_to_format(self, status_dict: dict[str, str], output_path: str, format: str) -> None:
         """
-        Export the justification graph to SVG, styling nodes by VariableType and edges by status.
+        Export the justification graph to any image format (png, svg, pdf etc), styling nodes by VariableType and edges by status.
 
         :param status_dict: Mapping node id -> status ("PASS", "FAIL", "SKIP")
         :param output_path: Path to save SVG file.
