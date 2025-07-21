@@ -45,7 +45,7 @@ jpipe-runner/
 <details>
 <summary>Architecture diagram</summary>
 
-![](mermaid/architecture.svg)
+![](mermaid/project_architecture.svg)
 
 </details>
 
@@ -130,7 +130,7 @@ with:
     FOO:bar
     BAZ:42
   library: requests
-  diagram: "*
+  diagram: "*"
   dry_run: false
 ```
 
@@ -146,6 +146,9 @@ Automated via `.github/workflows/release.yml`:
 2. **Unit tests** on Python 3.10.
 3. **Build** Python package, Debian PPA, and Homebrew formula.
 4. **Publish** to GitHub Releases, PyPI, Launchpad PPA, and Homebrew tap.
+
+For detailed pipeline steps and packaging release instructions, see the
+[Packaging & Release Documentation](/docs/PACKAGING_RELEASE.md).
 
 ---
 
