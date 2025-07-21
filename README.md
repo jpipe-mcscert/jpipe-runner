@@ -15,7 +15,7 @@ A Justification Runner designed for jPipe.
 
 * **CLI Interface**: Executes the runner on a `.jd.json` file.
 * **GraphWorkflowVisualizer** GUI debugger based on Tkinter to interactively display execution steps.
-* **GitHub Action** for automated CI/CD integration and TODO.
+* **GitHub Action** for automated CI/CD integration and release deployment.
 * **Extensible Framework** with decorators, validators, and context management.
 * **Cross-platform Packaging**: Distributed via PyPI, Debian PPA, and Homebrew formula.
 
@@ -115,6 +115,8 @@ Example:
 poetry run jpipe-runner --variable X:10 --diagram "flow*" \
                          --output diagram.png workflow.jd
 ```
+
+For detailed instructions on how to execute the project, including descriptions of all CLI parameters and usage examples, see the [Usage Guide](/docs/USAGE.md).
 
 ---
 
