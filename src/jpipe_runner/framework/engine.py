@@ -608,7 +608,7 @@ class PipelineEngine:
         Export the justification graph to any image format (png, svg, pdf etc), styling nodes by VariableType and edges by status.
 
         :param status_dict: Mapping node id -> status ("PASS", "FAIL", "SKIP")
-        :param output_path: Path to save SVG file.
+        :param output_path: Path to save the exported graph image.
         """
 
         try:

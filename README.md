@@ -116,7 +116,7 @@ poetry run jpipe-runner --variable X:10 --diagram "flow*" \
                          --output diagram.png workflow.jd
 ```
 
-For detailed instructions on how to execute the project, including descriptions of all CLI parameters and usage examples, see the [Usage Guide](/docs/USAGE.md).
+For detailed instructions on how to execute the project, including descriptions of all CLI parameters and usage examples, see the [Usage Guide](docs/USAGE.md).
 
 ---
 
@@ -150,19 +150,21 @@ Automated via `.github/workflows/release.yml`:
 4. **Publish** to GitHub Releases, PyPI, Launchpad PPA, and Homebrew tap.
 
 For detailed pipeline steps and packaging release instructions, see the
-[Packaging & Release Documentation](/docs/PACKAGING_RELEASE.md).
+[Packaging & Release Documentation](docs/PACKAGING_RELEASE.md).
 
 ---
 
 ## 📝 Developer Documentation
 
-To generate internal developer-facing documentation using **Sphinx**, follow the instructions in [`docs/BUILD_DOCS.md`](docs/BUILD_DOCS.md).
+To generate internal developer-facing documentation using **Sphinx**, follow the instructions in [BUILD_DOCS.md](docs/BUILD_DOCS.md).
 
 This includes:
 
 * Setting up the Sphinx environment
 * Building HTML documentation
 * Auto-generating API references from source files
+
+For a documentation overview inside a Markdown file, see [API.md](docs/API.md).
 
 ---
 

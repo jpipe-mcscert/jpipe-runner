@@ -89,13 +89,13 @@ From root:
 
 ```bash
 cd docs/python_docs/
-make html
+make singlehtml
 ```
 
 Or directly:
 
 ```bash
-sphinx-build -b html docs/python_docs/source docs/python_docs/build/html
+sphinx-build -b singlehtml docs/python_docs/source docs/python_docs/build/singlehtml
 ```
 
 Your generated site will be under `docs/build/html/`.
