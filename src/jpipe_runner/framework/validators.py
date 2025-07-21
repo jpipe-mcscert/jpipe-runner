@@ -22,7 +22,7 @@ class BaseValidator:
         self.errors: list[str] = []
         self.warnings: list[str] = []
 
-    def validate(self) -> bool:
+    def validate(self) -> tuple[list[Any], list[Any]]:
         """
         Abstract method for performing validation.
 

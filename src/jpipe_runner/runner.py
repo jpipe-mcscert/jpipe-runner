@@ -217,7 +217,8 @@ def run_workflow_logic():
     mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.CURRENT)
 
     if args.verbose:
-        GLOBAL_LOGGER.setLevel(logging.INFO)
+        GLOBAL_LOGGER.setLevel(logging.DEBUG)
+        log_buffer.setLevel(logging.DEBUG)
 
     mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.DONE)
     mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)

@@ -154,7 +154,6 @@ class RuntimeContext:
                 self._vars[func][decorator][key] = value
                 GLOBAL_LOGGER.debug(f"Set variable '{key}' to '{value}' in function '{func}'")
                 GLOBAL_LOGGER.debug(f"Updated context: {self._vars[func]}")
-                return
 
     def set_skip(self, func, value: bool, reason: str = "Skipped by condition"):
         """
