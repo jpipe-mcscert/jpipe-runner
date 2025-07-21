@@ -120,7 +120,7 @@ This builds and signs `.changes` files per supported Ubuntu distro (e.g., jammy,
 Then upload with:
 
 ```bash
-./script/opublish-ppa.sh mcscert/ppa deb_dist/*.changes
+./script/publish-ppa.sh mcscert/ppa deb_dist/*.changes
 ```
 
 ---
