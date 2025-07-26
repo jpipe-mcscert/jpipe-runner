@@ -67,6 +67,98 @@ jpipe-runner -v notebook:notebook.ipynb -l './libraries/notebook.py' ./models/02
 
 Injects a variable named `notebook` with value `notebook.ipynb` into the workflow.
 
+> ### ⚠️ Important Notes on Variable Formatting
+>
+> When passing **lists**, **booleans**, or **complex values** using the `--variable` option, the values must be specified in a format that can be correctly parsed by the runner (using Python-style or JSON-compatible syntax).
+> 
+> #### ✅ Correct Formatting
+> 
+> * **Lists** (must be quoted):
+> 
+>   ```bash
+>   --variable values_path="['dev-values.yaml', 'prod-values.yaml']"
+>   ```
+> 
+> * **Booleans** (use capital `True`/`False` — Python style, no lowercase):
+> 
+>   ```bash
+>   --variable enable_checks:True
+>   ```
+> 
+> #### ❌ Common Mistakes
+> 
+> * ❌ Unquoted lists are invalid and will be interpreted as plain strings:
+> 
+>   ```bash
+>   --variable values_path=[dev-values.yaml]  # ← Invalid syntax
+>   ```
+> 
+>     This results in:
+>     
+>     ```python
+>     type(values_path)  # str
+>     ```
+>   
+>     Instead of:
+> 
+>     ```python
+>     type(values_path)  # list[str]
+>     ```
+> 
+> * ❌ Lowercase booleans (`true`, `false`) will be treated as **strings**, not actual booleans:
+> 
+>   ```bash
+>   --variable enable_checks:true  # ← Interpreted as string 'true'
+>   ```
+> 
+>   This results in:
+> 
+>   ```python
+>   type(enable_checks)  # str
+>   ```
+> 
+>   Instead of:
+> 
+>   ```python
+>   type(enable_checks)  # bool
+>   ```
+> 
+> ### ✅ Correct Example (Mixed Types)
+> 
+> ```bash
+> jpipe-runner \
+>   -v helm_chart_path:/charts/myapp \
+>   -v values_path="['/charts/myapp/dev-values.yaml']" \
+>   -v enable_lint:True \
+>   -v dry_run:False \
+>   -l './libraries/deploy.py' \
+>   ./models/deployment.jd.json
+> ```
+> 
+> ### Summary
+> 
+> | Type    | Correct Example                | Incorrect Example                                      |
+> |---------|--------------------------------|--------------------------------------------------------|
+> | List    | `"['a.yaml', 'b.yaml']"`       | `[a.yaml, b.yaml]` (missing quotes)                    |
+> | Boolean | `True` / `False` (capitalized) | `true` / `false` (lowercase)                           |
+> | Dict    | `"{'key': 'value'}"`           | `{key: value}` (missing quotes)                        |
+> | String  | `"some_string"` or `plain_str` | - (strings usually work unquoted unless special chars) |
+> | Number  | `123`, `3.14`                  | - (Quoted or unquoted numbers parse as int/float)      |
+> | None    | `None` (capitalized)           | `null`, `none`, `NULL` (lowercase or variants)         |
+> 
+> 
+> ### Example with List
+> 
+> ```bash
+> jpipe-runner \
+>   -v helm_chart_path:/charts/myapp \
+>   -v values_path="['/charts/myapp/dev-values.yaml']" \
+>   -l './libraries/deploy.py' \
+>   ./models/deployment.jd.json
+> ```
+> 
+> This ensures `values_path` is passed as a `list[str]`, not a plain string.
+
 ---
 
 ### Generate Diagram Image Output

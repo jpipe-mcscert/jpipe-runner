@@ -38,7 +38,7 @@ class PipelineEngine:
                  mark_step: Callable[[Any, Any], None],
                  mark_substep: Callable[[str, str, str], None],
                  mark_node_as_graph: Callable[[str, str], None],
-                 variables: Optional[Iterable[Tuple[str, str]]] = None
+                 variables: Optional[Iterable[Tuple[str, Any]]] = None
                  ) -> None:
         """
         Initialize the PipelineEngine with a configuration file and a justification file.
@@ -56,7 +56,7 @@ class PipelineEngine:
         :param mark_node_as_graph: Function to mark a node as a graph in the UI.
         :type mark_node_as_graph: Callable[[str, str], None]
         :param variables: Optional iterable of (name, value) pairs to set as context variables.
-        :type variables: Optional[Iterable[Tuple[str, str]]]
+        :type variables: Optional[Iterable[Tuple[str, Any]]]
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
@@ -69,7 +69,7 @@ class PipelineEngine:
         self.graph = self.parse_justification(justification_path)
         GLOBAL_LOGGER.debug("PipelineEngine initialized with context vars count: %d", len(ctx._vars))
 
-    def load_config(self, path: str, variables: Optional[Iterable[Tuple[str, str]]] = None) -> None:
+    def load_config(self, path: str, variables: Optional[Iterable[Tuple[str, Any]]] = None) -> None:
         """
         Load the YAML configuration file and set the context variables in ctx._vars.
         Each key/value in the YAML is treated as a produced variable in the context.
@@ -79,7 +79,7 @@ class PipelineEngine:
         :param path: Path to the YAML configuration file.
         :type path: Path
         :param variables: Optional iterable of (name, value) pairs to override config values.
-        :type variables: Optional[Iterable[Tuple[str, str]]]
+        :type variables: Optional[Iterable[Tuple[str, Any]]]
         """
         GLOBAL_LOGGER.info("Loading config from: %s", path)
         config = {}

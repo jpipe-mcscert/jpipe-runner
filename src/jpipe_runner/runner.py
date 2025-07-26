@@ -6,6 +6,7 @@ This module contains the entrypoint of jPipe Runner.
 """
 
 import argparse
+import ast
 import glob
 import logging
 import shutil
@@ -239,11 +240,24 @@ def run_workflow_logic():
         mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.FAIL)
         sys.exit(1)
 
+
     mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.DONE)
+
+    # Parse variables from CLI
+    variables = []
+    for i in args.variable:
+        if ':' in i:
+            key, raw_value = i.split(':', maxsplit=1)
+            try:
+                # Try to convert list/dict/bool/int/float/NoneType literals
+                value = ast.literal_eval(raw_value)
+            except (ValueError, SyntaxError):
+                # Fallback: treat it as plain string
+                value = raw_value
+            variables.append((key, value))
+
     jpipe = PipelineEngine(config_path=args.config_file, justification_path=args.jd_file, mark_step=mark_step,
-                           mark_substep=mark_substep, mark_node_as_graph=mark_node_as_graph, variables=[i.split(':', maxsplit=1)
-                                       for i in args.variable
-                                       if i.find(':')])
+                           mark_substep=mark_substep, mark_node_as_graph=mark_node_as_graph, variables=variables)
 
     diagrams = [(jpipe.justification_name, jpipe.graph)]
 
@@ -263,7 +277,7 @@ def run_workflow_logic():
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.CURRENT)
 
     print(JPIPE_RUNNER_ASCII)
-    m, n, _, s = pretty_display([(jpipe.justification_name, justification_result)])
+    _, _, total_fail, _ = pretty_display([(jpipe.justification_name, justification_result)])
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
 
@@ -280,16 +294,19 @@ def run_workflow_logic():
         if output_path.endswith(tuple(IMAGE_EXPORT_FORMAT)):
             jpipe.export_to_format(status_dict=status_dict, output_path=args.output,
                                    format=output_path.split('.')[-1])
-            print(f"{output_path.split('.')[-1]} diagram saved to: {args.output}", file=sys.stderr)
+            print(f"{output_path.split('.')[-1]} diagram saved to: {args.output}")
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.DONE)
         else:
             print(f"Unsupported output format: {args.output}", file=sys.stderr)
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             sys.exit(1)
 
-    print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
-    log_buffer.dump_to_stderr()
-    sys.exit(m - n - s)
+    # if errors on buffer show them
+    if log_buffer.has_errors():
+        print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+        log_buffer.dump_to_stderr()
+
+    sys.exit(0 if total_fail == 0 else 1)  # Exit with 0 if all passed, otherwise 1
 
 
 def main():
