@@ -19,8 +19,6 @@ A Justification Runner designed for jPipe.
 * **Extensible Framework** with decorators, validators, and context management.
 * **Cross-platform Packaging**: Distributed via PyPI, Debian PPA, and Homebrew formula.
 
----
-
 ## 📏Architecture Overview
 
 The project adopts a modular directory structure:
@@ -48,8 +46,6 @@ jpipe-runner/
 ![](mermaid/project_architecture.svg)
 
 </details>
-
----
 
 ## ⚙️Installation
 
@@ -86,8 +82,6 @@ poetry run pytest
 poetry build
 ```
 
----
-
 ## 🚀 Usage
 
 ### CLI
@@ -118,8 +112,6 @@ poetry run jpipe-runner --variable X:10 --diagram "flow*" \
 
 For detailed instructions on how to execute the project, including descriptions of all CLI parameters and usage examples, see the [Usage Guide](docs/USAGE.md).
 
----
-
 ## 🤖 GitHub Action
 
 The `action.yml` defines a composite Action to install and run the runner in CI:
@@ -138,8 +130,6 @@ with:
 
 Generates diagrams and comments a PNG to issues/prs.
 
----
-
 ## 📋 CI & Release
 
 Automated via `.github/workflows/release.yml`:
@@ -151,8 +141,6 @@ Automated via `.github/workflows/release.yml`:
 
 For detailed pipeline steps and packaging release instructions, see the
 [Packaging & Release Documentation](docs/PACKAGING_RELEASE.md).
-
----
 
 ## 📝 Developer Documentation
 
@@ -168,8 +156,6 @@ For a documentation overview inside a Markdown file, see [API.md](docs/API.md).
 
 Here's the updated section to include a link to the **Troubleshooting Guide** inside your main `README.md`. I recommend placing it right after the “Developer Documentation” section so it's easy to find for users encountering issues:
 
----
-
 ## 🐞 Troubleshooting
 
 Having issues with dependencies, packaging, or CLI usage across operating systems?
@@ -181,8 +167,6 @@ See the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for solutions to common
 - GPG & Packaging (pip, stdeb, Homebrew)
 - Linux, macOS, and Windows-specific setups
 
----
-
 ## 🔧 Contributing
 
 1. Fork the repo and create a feature branch.
@@ -192,13 +176,9 @@ See the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for solutions to common
 
 Please read [CODE\_OF\_CONDUCT.md](.github/CODE_OF_CONDUCT.md) for community guidelines.
 
----
-
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE).
-
----
 
 ## 👤 Authors
 

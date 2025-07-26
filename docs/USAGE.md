@@ -2,8 +2,6 @@
 
 This document explains how to execute the **jPipe Runner** CLI with different parameters, along with practical examples.
 
----
-
 ## Command-Line Interface (CLI) Overview
 
 ```bash
@@ -15,8 +13,6 @@ jpipe-runner [OPTIONS] jd_file
 ## Important
 
 > **You must specify both the justification `.jd.json` file *and* at least one Python library file (`--library`) when executing `jpipe-runner`.**
-
----
 
 ## Available Parameters
 
@@ -31,8 +27,6 @@ jpipe-runner [OPTIONS] jd_file
 | `--config-file` |       | Path to a YAML configuration file that can specify variables, libraries, diagrams, and other settings.          |
 | `--gui`         |       | Launch a graphical interface (Tkinter-based) to visualize and interact with workflow execution steps.           |
 
----
-
 ## Supported Output Image Formats
 
 When specifying the `--output` option, you can choose any of the following formats by file extension<sup>1</sup>:
@@ -44,10 +38,7 @@ When specifying the `--output` option, you can choose any of the following forma
 
 <sup>1</sup> The quality and features of the output may vary depending on the chosen format.
 
----
-
 ## Examples
-
 
 ### Basic Execution
 
@@ -56,8 +47,6 @@ jpipe-runner -l './libraries/notebook.py' ./models/02_quality_full.jd.json
 ```
 
 Executes the workflow specified in the `.jd.json` with the corresponding library `.py` file without extra options.
-
----
 
 ### Defining Variables
 
@@ -159,8 +148,6 @@ Injects a variable named `notebook` with value `notebook.ipynb` into the workflo
 > 
 > This ensures `values_path` is passed as a `list[str]`, not a plain string.
 
----
-
 ### Generate Diagram Image Output
 
 ```bash
@@ -168,8 +155,6 @@ jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --output ./
 ```
 
 Runs the workflow and outputs the execution diagram as a PNG image at `./test.png`.
-
----
 
 ### Enable Verbose Logging
 
@@ -179,8 +164,6 @@ jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --output ./
 
 Prints detailed debug information during execution to help troubleshoot.
 
----
-
 ### Dry Run (Validate Without Execution)
 
 ```bash
@@ -188,8 +171,6 @@ jpipe-runner --dry-run -l './libraries/notebook.py' ./models/02_quality_full.jd.
 ```
 
 Validates the workflow without performing actual justification steps or generating outputs.
-
----
 
 ### Use a YAML Configuration File
 
@@ -199,8 +180,6 @@ jpipe-runner -l './libraries/notebook.py' --config-file ./config/settings.yaml .
 
 Loads variables, libraries, and other settings from a YAML config file instead of specifying on the command line.
 
----
-
 ### Launch GUI Visualizer
 
 ```bash
@@ -208,8 +187,6 @@ jpipe-runner --gui -l './libraries/notebook.py' ./models/02_quality_full.jd.json
 ```
 
 Runs the workflow with a Tkinter-based GUI that shows execution steps interactively.
-
----
 
 ## Notes
 

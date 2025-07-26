@@ -2,8 +2,6 @@
 
 This document provides an in‑depth reference of public classes, methods, decorators, and utilities exposed by the `jpipe_runner` framework. Contributors can use these details when extending functionality or debugging the pipeline.
 
----
-
 ## Class: `PipelineEngine` (in `jpipe_runner.framework.engine`)
 
 **Module path:** `jpipe_runner.framework.engine`
@@ -112,8 +110,6 @@ Renders the pipeline graph to an image file (e.g., `png`, `svg`).
   * `output_path` — File path to save image.
   * `format` — One of supported Graphviz formats.
 
----
-
 ## Decorators (in `jpipe_runner.framework.decorators`)
 
 ### `@jpipe(consume: Optional[List[str]]=None, produce: Optional[List[str]]=None)`
@@ -140,8 +136,6 @@ def my_step(input_var: Any, produce: Callable[[str, Any], None]) -> bool:
 * **Production**: Exposes a `produce(param, value)` callable in `kwargs`, allowing the function to set values.
 * **Validation**: After execution, validates that all declared `produce` variables were set.
 
----
-
 ## Class: `ConsumedVariableChecker` (in `jpipe_runner.framework.decorators`)
 
 Manages and validates variables declared under `consume`:
@@ -151,8 +145,6 @@ Manages and validates variables declared under `consume`:
 * **\_get\_used\_variables() -> Set\[str]**: Parses the function source via AST to ensure declared variables are actually referenced.
 
 Raises `ValueError` if a consumed variable is missing at runtime.
-
----
 
 ## Class `ProducedVariableChecker` (in `jpipe_runner.framework.decorators`)
 
@@ -164,17 +156,11 @@ Manages and validates variables declared under `produce`:
 
 Raises `RuntimeError` if undeclared or missing productions are detected.
 
----
-
----
-
 ## Exceptions
 
 ### `FunctionException` (in `jpipe_runner.exceptions`)
 
 Raised when a decorated justification function returns an unexpected type or `False` indicating failure.
-
----
 
 ## RuntimeContext (in `jpipe_runner.framework.context`)
 
@@ -203,8 +189,6 @@ Each function's context is stored like this:
   }
 }
 ```
-
----
 
 ### Methods
 
@@ -244,8 +228,6 @@ Returns both positive and negative contributions for a given function:
 
 Returns a developer-friendly string showing the entire context map for debug purposes.
 
----
-
 # Pipeline Validators & Justification Schema Validator
 
 ## Pipeline Validators
@@ -258,8 +240,6 @@ The validators ensure the logical consistency, correctness, and completeness of 
 * Implements an error list `self.errors` for storing error messages.
 * Implements a warning list `self.warnings` for storing warning messages.
 * Subclasses **must implement** the `validate()` method which performs validation and returns errors and warnings.
-
----
 
 ### 1. `MissingVariableValidator`
 
@@ -278,8 +258,6 @@ errors, warnings = validator.validate()
 * `errors`: List of error strings describing missing variables that are declared consumed but not produced or provided.
 * `warnings`: List of warnings.
 
----
-
 ### 2. `SelfDependencyValidator`
 
 **Purpose:**
@@ -296,8 +274,6 @@ errors, warnings = validator.validate()
 
 * `errors`: List of error strings describing self-dependencies and suggestions to fix them.
 * `warnings`: List of warnings.
-
----
 
 ### 3. `OrderValidator`
 
@@ -316,8 +292,6 @@ errors, warnings = validator.validate()
 * `errors`: List of errors including self-dependency errors and execution order violations.
 * `warnings`: List of warnings.
 
----
-
 ### 4. `ProducedButNotConsumedValidator`
 
 **Purpose:**
@@ -335,8 +309,6 @@ errors, warnings = validator.validate()
 * `errors`: List of errors.
 * `warnings`: List of warnings about variables produced but never consumed.
 
----
-
 ### 5. `DuplicateProducerValidator`
 
 **Purpose:**
@@ -353,8 +325,6 @@ errors, warnings = validator.validate()
 
 * `errors`: List of errors.
 * `warnings`: List of warnings about variables produced by multiple functions.
-
----
 
 ## Justification Schema Validator
 

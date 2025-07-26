@@ -2,8 +2,6 @@
 
 This guide helps you resolve common errors and issues encountered when setting up or running **jPipe Runner** and its dependencies on different platforms.
 
----
-
 ## 1. Python Environment Issues
 
 ### Common problems
@@ -38,8 +36,6 @@ This guide helps you resolve common errors and issues encountered when setting u
 
 * On Windows, if Python isn’t recognized, check that Python is added to your system PATH.
 
----
-
 ## 2. Python Package and Library Issues
 
 ### Common Problems and Cross-Platform Fixes
@@ -51,8 +47,6 @@ This guide helps you resolve common errors and issues encountered when setting u
 | `graphviz`   | CLI tools not found or diagram generation fails                        | **Install CLI (Debian/Ubuntu):**<br>`sudo apt-get install graphviz libgraphviz-dev pkg-config`<br>**Install CLI (macOS):**<br>`brew install graphviz`<br>**Python Bindings:** `pip install graphviz`<br>**Verify:** `dot -V` | **Install CLI:**<br>Download from [https://graphviz.org/download/](https://graphviz.org/download/)<br>Add Graphviz `bin` directory to your `PATH`.<br>**Python Bindings:** `pip install graphviz`<br>**Verify:** `dot -V` |
 | `networkx`   | `ModuleNotFoundError`                                                  | `pip install networkx` or `poetry add networkx`                                                                                                                                                                              | Same as Linux/macOS                                                                                                                                                                                                       |
 | `matplotlib` | Backend errors or missing GUI dependencies                             | `sudo apt-get install python3-tk python3-pyqt5` (Debian/Ubuntu)<br>Optionally, configure the Matplotlib backend manually (e.g., `Agg`, `TkAgg`, `Qt5Agg`).                                                                   | Matplotlib usually works out of the box. If issues arise, install missing GUI toolkits or set backend using `matplotlib.use('Agg')` in scripts.                                                                           |
-
----
 
 ## 3. Operating System and Toolchain Issues
 
@@ -86,8 +80,6 @@ This guide helps you resolve common errors and issues encountered when setting u
 
   * Ensure your keyring is properly configured for signing.
 
----
-
 ## 4. Packaging Tools
 
 ### a) **stdeb** (Debian package builder)
@@ -108,8 +100,6 @@ This guide helps you resolve common errors and issues encountered when setting u
   brew install <package>
   ```
 
----
-
 ## 5. Testing Tools
 
 ### Pytest Issues
@@ -129,17 +119,13 @@ This guide helps you resolve common errors and issues encountered when setting u
 
   * Check for missing test dependencies or update `pytest.ini`.
 
----
-
 ## 6. Platform-Specific Notes
 
 | Platform    | Tips                                                                                                                                                                        |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Windows** | - Use official Python from python.org for best compatibility.<br>- Add all installed tools to PATH.<br>- Use PowerShell or WSL for a better shell experience.               |
 | **Linux**   | - Use native package managers (apt, yum) to install dependencies.<br>- Use virtualenv or Poetry for Python isolation.                                                       |
 | **macOS**   | - Use Homebrew to install system dependencies.<br>- Use Python 3 installed via Homebrew for best compatibility.<br>- GUI apps may require permissions or security settings. |
-
----
 
 ## 7. General Troubleshooting Tips
 

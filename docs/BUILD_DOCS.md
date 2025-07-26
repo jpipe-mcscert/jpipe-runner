@@ -2,8 +2,6 @@
 
 This project uses **Sphinx** to generate documentation from reStructuredText (`.rst`) and optionally Markdown using MyST. Here's how to set it up and update the docs.
 
----
-
 ## 🛠️ Prerequisites
 
 Make sure you have the following installed:
@@ -16,8 +14,6 @@ To build the documentation locally, install the optional `docs` dependencies:
 ```bash
 pip install .[docs]
 ```
-
----
 
 ## 🧭 Project Structure
 
@@ -39,8 +35,6 @@ import os, sys
 sys.path.insert(0, os.path.abspath('../../../src'))
 ```
 
----
-
 ## 🚀 Generate or Update API Reference
 
 Use `sphinx-apidoc` to auto-generate `.rst` stubs under `docs/python_docs/source/`:
@@ -51,8 +45,6 @@ sphinx-apidoc -o source ../../src/jpipe_runner
 ```
 
 This makes `.rst` files with `.. automodule::` directives for each module.
-
----
 
 ## 📝 Edit `index.rst`
 
@@ -81,8 +73,6 @@ Indices and tables
 
 This enables easy navigation via sidebar links and supports search.
 
----
-
 ## 📦 Build the Docs
 
 From root:
@@ -100,8 +90,6 @@ sphinx-build -b singlehtml docs/python_docs/source docs/python_docs/build/single
 
 Your generated site will be under `docs/build/html/`.
 
----
-
 ## 🔄 Updating Docs
 
 1. **Add or edit module docstrings** in `src/jpipe_runner/...`.
@@ -113,8 +101,6 @@ Your generated site will be under `docs/build/html/`.
    ```
 3. Adjust `index.rst` or other `.rst` pages to include new modules.
 4. Rebuild HTML with `make html`.
-
----
 
 ## ✅ Extend Sphinx
 
@@ -139,8 +125,6 @@ Your generated site will be under `docs/build/html/`.
 * Use directives like `.. automodule::`, `.. autoclass::`, or `.. autosummary::` in your `.rst` files.
 
 * Insert Markdown content via MyST or include assets.
-
----
 
 ## 📚 Learn More
 

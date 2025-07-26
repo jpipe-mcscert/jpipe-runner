@@ -2,8 +2,6 @@
 
 This guide explains how to build, release, and distribute `jpipe-runner` using **Poetry**, **GitHub Actions**, **Launchpad PPA**, **Pypi**/**TestPyPI**, and **Homebrew**.
 
----
-
 ## 🚀 Release Pipeline Overview
 
 The CI/CD pipeline automates testing, packaging, and publishing to multiple platforms. It is defined in `.github/workflows/release.yml` and triggered on GitHub tags.
@@ -49,8 +47,6 @@ The CI/CD pipeline automates testing, packaging, and publishing to multiple plat
 </details>
 
 
----
-
 ## 🧰 Poetry Workflow
 
 ### Exporting Requirements
@@ -64,8 +60,6 @@ poetry export -f requirements.txt --without-hashes -o requirements.txt
 ```bash
 poetry build
 ```
-
----
 
 ## 🔐 GPG for Launchpad PPA
 
@@ -105,8 +99,6 @@ gpg --decrypt launchpad.asc
 
 Click the link from the decrypted message to confirm.
 
----
-
 ## 🏗️ Build Debian Package (PPA)
 
 Run the script:
@@ -122,8 +114,6 @@ Then upload with:
 ```bash
 ./script/publish-ppa.sh mcscert/ppa deb_dist/*.changes
 ```
-
----
 
 ## 🍺 Homebrew Formula
 
@@ -144,8 +134,6 @@ Use them for installation:
 brew install --formula ./tap/Formula/jpipe-runner.rb
 brew uninstall jpipe-runner
 ```
-
----
 
 ## 🧪 Install jpipe-runner (all methods)
 
@@ -174,8 +162,6 @@ pip install jpipe-runner
 brew install --formula ./tap/Formula/jpipe-runner.rb
 ```
 
----
-
 ## 🧼 Cleanup
 
 Before building again:
@@ -190,8 +176,6 @@ Ensure dependencies:
 sudo apt install dh-python python3-all python3-setuptools
 pip install stdeb wheel
 ```
-
----
 
 ## 🛡️ Security & Signing
 
