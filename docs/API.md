@@ -18,7 +18,7 @@ PipelineEngine(
     mark_step: Callable[[Any, Any], None],
     mark_substep: Callable[[str, str, str], None],
     mark_node_as_graph: Callable[[str, str], None],
-    variables: Optional[Iterable[Tuple[str, str]]] = None
+    variables: Optional[Iterable[Tuple[str, Any]]] = None
 ) -> None
 ```
 
@@ -29,7 +29,7 @@ PipelineEngine(
 | `mark_step`          | `Callable[[Any,Any],None]`           | Function to mark major steps in UI/visualizer.           |
 | `mark_substep`       | `Callable[[str,str,str],None]`       | Function to mark substeps or status transitions.         |
 | `mark_node_as_graph` | `Callable[[str,str],None]`           | Function to register a node as a sub-graph in UI.        |
-| `variables`          | `Optional[Iterable[Tuple[str,str]]]` | List of `(name, value)` overrides for context variables. |
+| `variables`          | `Optional[Iterable[Tuple[str,Any]]]` | List of `(name, value)` overrides for context variables. |
 
 **Behavior:**
 
@@ -44,7 +44,7 @@ PipelineEngine(
 
 ### Public Methods
 
-#### `load_config(path: str, variables: Optional[Iterable[Tuple[str, str]]] = None) -> None`
+#### `load_config(path: str, variables: Optional[Iterable[Tuple[str, Any]]] = None) -> None`
 
 Loads a YAML configuration file into the global context and applies variable overrides.
 
