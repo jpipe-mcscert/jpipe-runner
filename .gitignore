@@ -183,3 +183,4 @@ pyvenv.cfg
 # Compiled files
 deb_dist/
 *.tar.gz
+requirements.txt

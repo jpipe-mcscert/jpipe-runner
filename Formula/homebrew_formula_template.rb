@@ -7,13 +7,21 @@ class $CLASS_NAME < Formula
   url "$SOURCE_URL"
   sha256 "$SOURCE_SHA256"
 
+  depends_on "autoconf" => :build
+  depends_on "automake" => :build
+  depends_on "libtool" => :build
+
   depends_on "python@$PYTHON_VERSION"
   depends_on "python-tk@$PYTHON_VERSION"
   depends_on "libjpeg-turbo"
   depends_on "freetype"
+  depends_on "graphviz"
+
+  $RESOURCES
 
   def install
-    virtualenv_install_with_resources
+   ENV["SOURCE_DATE_EPOCH"] = Time.now.to_i.to_s
+   virtualenv_install_with_resources
   end
 
   def post_install
