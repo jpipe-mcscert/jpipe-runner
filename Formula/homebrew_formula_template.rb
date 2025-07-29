@@ -7,10 +7,6 @@ class $CLASS_NAME < Formula
   url "$SOURCE_URL"
   sha256 "$SOURCE_SHA256"
 
-  depends_on "autoconf" => :build
-  depends_on "automake" => :build
-  depends_on "libtool" => :build
-
   depends_on "python@$PYTHON_VERSION"
   depends_on "python-tk@$PYTHON_VERSION"
   depends_on "libjpeg-turbo"
