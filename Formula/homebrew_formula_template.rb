@@ -8,7 +8,7 @@ class $CLASS_NAME < Formula
   sha256 "$SOURCE_SHA256"
 
   depends_on "python@$PYTHON_VERSION"
-  depends_on "python-tk@$PYTHON_VERSION"
+  # depends_on "python-tk@$PYTHON_VERSION"
   depends_on "libjpeg-turbo"
   depends_on "freetype"
   depends_on "graphviz"

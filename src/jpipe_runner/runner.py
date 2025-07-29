@@ -11,7 +11,7 @@ import logging
 import shutil
 import sys
 import threading
-import tkinter as tk
+# import tkinter as tk
 from typing import Iterable
 
 from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
@@ -263,16 +263,7 @@ def run_workflow_logic():
 
 
 def main():
-    if "--gui" in sys.argv:
-        root = tk.Tk()
-        global workflow_ui
-        workflow_ui = GraphWorkflowVisualizer(root)
-
-        root.after(300, lambda: threading.Thread(target=run_workflow_logic, daemon=True).start())
-
-        root.mainloop()
-    else:
-        run_workflow_logic()
+    run_workflow_logic()
 
 
 if __name__ == '__main__':

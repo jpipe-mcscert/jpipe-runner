@@ -24,7 +24,7 @@ packages = [
 python = ">=3.10"
 networkx = "3.4.2"
 pygraphviz = "1.14"
-matplotlib = "3.10.3"
+# matplotlib = "3.10.3"
 pyyaml = "6.0.2"
 
 [tool.poetry.scripts]
