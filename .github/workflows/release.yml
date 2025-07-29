@@ -362,6 +362,9 @@ jobs:
           export PYTHON_VERSION="3.10"
           mkdir -p tap/Formula
           
+          # Generate Homebrew resource blocks using external script
+          export RESOURCES="$(bash script/generate_formula_resources.sh)"
+          
           envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
           export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
           export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
