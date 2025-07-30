@@ -10,7 +10,7 @@ install_requires = read_requirements()
 
 setup(
     name="jpipe-runner",
-    version="2.0.0b15",
+    version="2.0.0b16",
     description="A Justification Runner designed for jPipe.",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
