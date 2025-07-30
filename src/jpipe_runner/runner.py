@@ -268,6 +268,7 @@ def main():
             from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
             import tkinter as tk
         except ImportError:
+            # TODO: review the error message
             print("GUI dependencies not installed. Install with: pip install jpipe-runner[gui]", file=sys.stderr)
             sys.exit(1)
 
