@@ -353,6 +353,17 @@ jobs:
       - name: Add Poetry to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      - name: Install system dependencies
+        if: steps.cache-apt.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            graphviz \
+            libgraphviz-dev \
+            pkg-config \
+            python3-dev
+
       - name: Install dependencies
         run: |
           poetry lock
