@@ -75,8 +75,6 @@ install_requires = read_requirements()
 extras_require = read_pyproject_extras()
 version = read_pyproject_version()
 
-print(version)
-
 setup(
     name="jpipe-runner",
     version=version,
