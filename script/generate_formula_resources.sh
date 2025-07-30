@@ -1,8 +1,13 @@
 #!/bin/bash
 set -e
 
-# Export Poetry dependencies to deps.txt (no hashes)
-poetry export -f requirements.txt --without-hashes -o deps.txt
+if [[ "$1" == "--with-gui" ]]; then
+    # Export requirements with GUI dependencies
+    poetry export --extras gui -f requirements.txt --without-hashes -o deps.txt
+else
+    # Export base requirements
+    poetry export -f requirements.txt --without-hashes -o deps.txt
+fi
 
 RESOURCES=""
 

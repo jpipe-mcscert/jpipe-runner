@@ -182,5 +182,7 @@ pyvenv.cfg
 
 # Compiled files
 deb_dist/
+deb_dist_gui/
 *.tar.gz
 requirements.txt
+requirements-gui.txt

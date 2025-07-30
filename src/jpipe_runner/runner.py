@@ -11,7 +11,6 @@ import logging
 import shutil
 import sys
 import threading
-# import tkinter as tk
 from typing import Iterable
 
 from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
@@ -37,6 +36,7 @@ IMAGE_EXPORT_FORMAT = ['canon', 'cmap', 'cmapx', 'cmapx_np', 'dia', 'dot',
                        'ismap', 'jpe', 'jpeg', 'jpg', 'mif', 'mp', 'pcl', 'pdf',
                        'pic', 'plain', 'plain-ext', 'png', 'ps', 'ps2', 'svg',
                        'svgz', 'vml', 'vmlz', 'vrml', 'vtx', 'wbmp', 'xdot', 'xlib']
+
 
 def parse_args(argv: list[str] | None = None):
     """
@@ -263,7 +263,23 @@ def run_workflow_logic():
 
 
 def main():
-    run_workflow_logic()
+    if "--gui" in sys.argv:
+        try:
+            from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
+            import tkinter as tk
+        except ImportError:
+            print("GUI dependencies not installed. Install with: pip install jpipe-runner[gui]", file=sys.stderr)
+            sys.exit(1)
+
+        root = tk.Tk()
+        global workflow_ui
+        workflow_ui = GraphWorkflowVisualizer(root)
+
+        root.after(300, lambda: threading.Thread(target=run_workflow_logic, daemon=True).start())
+
+        root.mainloop()
+    else:
+        run_workflow_logic()
 
 
 if __name__ == '__main__':

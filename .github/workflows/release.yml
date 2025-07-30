@@ -236,7 +236,9 @@ jobs:
           poetry install
 
       - name: Export requirements.txt from Poetry
-        run: poetry export -f requirements.txt --without-hashes -o requirements.txt
+        run: |
+          poetry export -f requirements.txt --without-hashes -o requirements.txt
+          poetry export --extras gui -f requirements.txt --output requirements-gui.txt --without-hashes
 
       - name: Install Python packaging tools
         run: |
@@ -255,11 +257,22 @@ jobs:
           chmod +x script/build-deb.sh
           script/build-deb.sh ${{ secrets.DEBFULLNAME }} ${{ secrets.DEBEMAIL }} ${{ secrets.GPG_ID }}
 
+      - name: Build Debian GUI package
+        run: |
+          chmod +x script/build-deb-gui.sh
+          script/build-deb-gui.sh ${{ secrets.DEBFULLNAME }} ${{ secrets.DEBEMAIL }} ${{ secrets.GPG_ID }}
+
       - name: Upload Debian artifacts
         uses: actions/upload-artifact@v4
         with:
           name: deb-packages
           path: deb_dist/
+
+      - name: Upload Debian GUI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-packages-gui
+          path: deb_dist_gui/
 
   release:
     permissions:
@@ -283,6 +296,13 @@ jobs:
           name: deb-packages
           path: deb_dist/
 
+      # Download Debian GUI source package artifacts
+      - name: Download Debian GUI source package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-packages-gui
+          path: deb_dist_gui/
+
       # Install Debian build tools
       - name: Install Debian build tools
         run: |
@@ -295,6 +315,18 @@ jobs:
           for PKG_DIR in deb_dist/jpipe-runner-*; do
             if [ -d "$PKG_DIR" ]; then
               echo "Building .deb package in $PKG_DIR"
+              cd "$PKG_DIR"
+              debuild -b -us -uc
+              cd - > /dev/null
+            fi
+          done
+
+      # Build binary .deb packages for GUI version
+      - name: Build binary .deb packages for GUI version
+        run: |
+          for PKG_DIR in deb_dist_gui/jpipe-runner-gui-*; do
+            if [ -d "$PKG_DIR" ]; then
+              echo "Building GUI .deb package in $PKG_DIR"
               cd "$PKG_DIR"
               debuild -b -us -uc
               cd - > /dev/null
@@ -319,6 +351,7 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
             deb_dist/*.deb
+            deb_dist_gui/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -329,6 +362,11 @@ jobs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
       - name: Download package artifact
         uses: actions/download-artifact@v4
@@ -395,13 +433,43 @@ jobs:
           export PYTHON_VERSION="3.10"
           mkdir -p tap/Formula
           
+          ###############
+          # Without GUI #
+          ###############
+          
           # Generate Homebrew resource blocks using external script
           export RESOURCES="$(bash script/generate_formula_resources.sh)"
           
+          # Generate main formula file
           envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
+          
+          # Generate versioned formula file
           export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
+          
+          # Generate versioned formula (without GUI)
           export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
+          
+          # Generate versioned formula file
           envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner@$VERSION.rb
+          
+          ###############
+          #   With GUI  #
+          ###############
+          
+          # Define Formula class name for GUI version
+          export CLASS_NAME="JpipeRunnerGui"
+          
+          # Generate GUI formula (with matplotlib/Tkinter)
+          export RESOURCES="$(bash script/generate_formula_resources.sh --with-gui)"
+          
+          # Generate GUI formula file
+          envsubst < Formula/homebrew_formula_gui_template.rb > tap/Formula/jpipe-runner-gui.rb
+          
+          # Generate versioned GUI formula file
+          export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
+          
+          # Generate versioned GUI formula file
+          envsubst < Formula/homebrew_formula_gui_template.rb > tap/Formula/jpipe-runner-gui@$VERSION.rb
 
       - name: Upload updated tap directory
         uses: actions/upload-artifact@v4
@@ -421,6 +489,12 @@ jobs:
           name: deb-packages
           path: deb_dist/
 
+      - name: Download GUI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deb-packages-gui
+          path: deb_dist_gui/
+
       - name: Set up GPG and dput config
         run: |
           echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
@@ -439,30 +513,27 @@ jobs:
         run: |
           chmod +x script/publish-ppa.sh
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
-  
-  
-  
-  
+          script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist_gui/*.changes
 
-  #  publish-pypi:
-  #    needs: [ build-homebrew-formula ]
-  #    runs-on: ubuntu-latest
-  #    environment:
-  #      name: pypi
-  #      url: https://pypi.org/project/jpipe-sandbox/
-  #    permissions:
-  #      id-token: write
-  #    steps:
-  #      - uses: actions/checkout@v3
-  #
-  #      - name: Download distribution artifact
-  #        uses: actions/download-artifact@v4
-  #        with:
-  #          name: python-package-distributions
-  #          path: dist/
-  #
-  #      - name: Publish distribution to PyPI
-  #        uses: pypa/gh-action-pypi-publish@release/v1
+#  publish-pypi:
+#   needs: [ build-homebrew-formula ]
+#   runs-on: ubuntu-latest
+#   environment:
+#     name: pypi
+#     url: https://pypi.org/project/jpipe-runner/
+#   permissions:
+#     id-token: write
+#   steps:
+#     - uses: actions/checkout@v3
+
+#     - name: Download distribution artifact
+#       uses: actions/download-artifact@v4
+#       with:
+#         name: python-package-distributions
+#         path: dist/
+
+#     - name: Publish distribution to PyPI
+#       uses: pypa/gh-action-pypi-publish@release/v1
 
   publish-testpypi:
     needs: [ build-homebrew-formula ]

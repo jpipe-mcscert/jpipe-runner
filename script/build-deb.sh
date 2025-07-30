@@ -20,7 +20,8 @@ sudo apt-get install -y \
   dh-python \
   python3-all \
   python3-setuptools \
-  python3-pip
+  python3-pip \
+  lintian
 
 # --- 2. Install stdeb if needed ---
 if ! pip3 show stdeb &>/dev/null; then
@@ -99,6 +100,18 @@ for DISTRO in "${DISTROS[@]}"; do
   debuild -S -sa
   debsign -k "$GPG_ID" ../jpipe-runner_${VERSION}-1~${DISTRO}1_source.changes
 
+  # --- Run lintian checks ---
+  echo ">>> Running lintian checks for $DISTRO"
+  CHANGES_FILE="../jpipe-runner_${VERSION}-1~${DISTRO}1_source.changes"
+
+  if [[ -f "$CHANGES_FILE" ]]; then
+    echo "Checking: $CHANGES_FILE"
+    lintian --pedantic --info --display-info --color=auto "$CHANGES_FILE" || {
+      echo "WARNING: lintian found issues in $CHANGES_FILE"
+      echo "Continuing build process..."
+    }
+  fi
+
   popd
   echo
 done
@@ -112,4 +125,12 @@ find . -maxdepth 1 -type f \
      -o -name "jpipe-runner_${VERSION}-1_source.*" \) \
   -exec rm -v {} +
 
-echo "=== build-deb.sh COMPLETED SUCCESSFULLY ==="
+echo ">>> Running final lintian checks on all packages"
+for changes_file in jpipe-runner_*_source.changes; do
+  if [[ -f "$changes_file" ]]; then
+    echo "Final check: $changes_file"
+    lintian --pedantic --info --display-info --color=auto "$changes_file" || true
+  fi
+done
+
+echo "=== build-deb.sh (BASE) COMPLETED ==="
