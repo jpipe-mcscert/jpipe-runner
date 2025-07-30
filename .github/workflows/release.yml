@@ -47,17 +47,6 @@ jobs:
         env:
           VERSION: ${{ env.VERSION }}
 
-      - name: Check version in setup.py
-        run: |
-          FILE_VERSION=$(grep 'version=' setup.py | sed -E "s/.*version=['\"]([^'\"]+)['\"].*/\1/")
-          echo "Version from setup.py: $FILE_VERSION"
-          if [[ "$FILE_VERSION" != "$VERSION" ]]; then
-            echo "setup.py version $FILE_VERSION does not match tag version $VERSION"
-            exit 1
-          fi
-        env:
-          VERSION: ${{ env.VERSION }}
-
   test:
     needs: validate-version
     runs-on: ubuntu-latest
