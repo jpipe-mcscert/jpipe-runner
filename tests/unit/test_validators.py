@@ -34,7 +34,7 @@ class TestMissingVariableValidator(unittest.TestCase):
         mock_pipeline.get_producer_key.return_value = None
 
         validator = MissingVariableValidator(mock_pipeline, mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(len(errors), 1)
         self.assertIn("missing variable", errors[0].lower())
 
@@ -50,7 +50,7 @@ class TestMissingVariableValidator(unittest.TestCase):
         mock_pipeline.get_producer_key.return_value = "func0"
 
         validator = MissingVariableValidator(mock_pipeline, mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(errors, [])
 
 
@@ -67,7 +67,7 @@ class TestSelfDependencyValidator(unittest.TestCase):
         mock_pipeline.get_producer_key.return_value = "func1"
 
         validator = SelfDependencyValidator(mock_pipeline, mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(len(errors), 1)
         self.assertIn("self-dependency", errors[0].lower())
 
@@ -83,7 +83,7 @@ class TestSelfDependencyValidator(unittest.TestCase):
         mock_pipeline.get_producer_key.return_value = "func0"
 
         validator = SelfDependencyValidator(mock_pipeline, mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(errors, [])
 
 
@@ -101,7 +101,7 @@ class TestOrderValidator(unittest.TestCase):
         mock_pipeline.get_producer_key.return_value = "func1"
 
         validator = OrderValidator(mock_pipeline, mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(len(errors), 1)
         self.assertIn("self-dependency", errors[0].lower())
 
@@ -118,7 +118,7 @@ class TestOrderValidator(unittest.TestCase):
         mock_pipeline.get_producer_key.return_value = "func2"
 
         validator = OrderValidator(mock_pipeline, mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(len(errors), 1)
         self.assertIn("execution order violation", errors[0].lower())
 
@@ -135,7 +135,7 @@ class TestOrderValidator(unittest.TestCase):
         mock_pipeline.get_producer_key.return_value = "func1"
 
         validator = OrderValidator(mock_pipeline, mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(errors, [])
 
 
@@ -151,7 +151,7 @@ class TestProducedButNotConsumedValidator(unittest.TestCase):
     def test_no_produced_variables(self):
         self.mock_ctx._vars = {}
         validator = ProducedButNotConsumedValidator(self.pipeline, self.mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(errors, [])
 
     def test_produced_and_consumed_variable(self):
@@ -166,7 +166,7 @@ class TestProducedButNotConsumedValidator(unittest.TestCase):
             }
         }
         validator = ProducedButNotConsumedValidator(self.pipeline, self.mock_ctx)
-        errors = validator.validate()
+        errors, _ = validator.validate()
         self.assertEqual(errors, [])
 
     def test_produced_but_not_consumed_variable(self):
@@ -181,11 +181,11 @@ class TestProducedButNotConsumedValidator(unittest.TestCase):
             }
         }
         validator = ProducedButNotConsumedValidator(self.pipeline, self.mock_ctx)
-        errors = validator.validate()
-        self.assertEqual(len(errors), 1)
-        self.assertIn("produced variable not consumed", errors[0].lower())
-        self.assertIn("var1", errors[0])
-        self.assertIn("func1", errors[0])
+        _, warnings = validator.validate()
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("produced variable not consumed", warnings[0].lower())
+        self.assertIn("var1", warnings[0])
+        self.assertIn("func1", warnings[0])
 
 
 class TestDuplicateProducerValidator(unittest.TestCase):
@@ -207,7 +207,7 @@ class TestDuplicateProducerValidator(unittest.TestCase):
             'func_b': {RuntimeContext.PRODUCE: {'y': None}},
         }
 
-        errors = self.validator.validate()
+        errors, _ = self.validator.validate()
         self.assertEqual(errors, [])
 
     def test_single_duplicate_variable(self):
@@ -217,11 +217,11 @@ class TestDuplicateProducerValidator(unittest.TestCase):
             'func_b': {RuntimeContext.PRODUCE: {'x': None}},
         }
 
-        errors = self.validator.validate()
-        self.assertEqual(len(errors), 1)
-        self.assertIn("Variable 'x' is produced by multiple functions", errors[0])
-        self.assertIn("func_a", errors[0])
-        self.assertIn("func_b", errors[0])
+        _, warnings = self.validator.validate()
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("Variable 'x' is produced by multiple functions", warnings[0])
+        self.assertIn("func_a", warnings[0])
+        self.assertIn("func_b", warnings[0])
 
     def test_multiple_duplicates(self):
         # Simulate multiple variables with duplicate producers
@@ -231,15 +231,15 @@ class TestDuplicateProducerValidator(unittest.TestCase):
             'func_c': {RuntimeContext.PRODUCE: {'x': None}},
         }
 
-        errors = self.validator.validate()
-        self.assertEqual(len(errors), 2)
-        self.assertTrue(any("Variable 'x'" in e for e in errors))
-        self.assertTrue(any("Variable 'y'" in e for e in errors))
+        _, warnings = self.validator.validate()
+        self.assertEqual(len(warnings), 2)
+        self.assertTrue(any("Variable 'x'" in e for e in warnings))
+        self.assertTrue(any("Variable 'y'" in e for e in warnings))
 
     def test_empty_context(self):
         self.mock_ctx._vars = {}
 
-        errors = self.validator.validate()
+        errors, _ = self.validator.validate()
         self.assertEqual(errors, [])
 
 
