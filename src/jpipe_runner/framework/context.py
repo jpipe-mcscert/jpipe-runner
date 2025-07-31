@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Dict, List
 
 from jpipe_runner.framework.logger import GLOBAL_LOGGER
 
@@ -13,14 +13,29 @@ class RuntimeContext:
     to their values.
 
     Attributes:
-        _vars (dict): Mapping from function keys to another dict:
+        _vars (dict): Main context mapping. Structure:
             {
-                RuntimeContext.PRODUCE: { var_name: value, ... },
-                RuntimeContext.CONSUME: { var_name: value, ... }
+                <function_key>: {
+                    RuntimeContext.PRODUCE: { <var_name>: <value>, ... },
+                    RuntimeContext.CONSUME: { <var_name>: <value>, ... },
+                    RuntimeContext.SKIP: {
+                        'value': <bool>,   # True if the function should be skipped
+                        'reason': <str>    # Reason for skipping
+                    },
+                    RuntimeContext.CONTRIBUTION: {
+                        RuntimeContext.POSITIVE: [<var_name>, ...], # Positive contributions
+                        RuntimeContext.NEGATIVE: [<var_name>, ...], # Negative contributions
+                    }
+                },
+                ...
             }
     """
     PRODUCE = '_produce'
     CONSUME = '_consume'
+    SKIP = '_skip'
+    CONTRIBUTION = '_contribution'
+    POSITIVE = '_positive'
+    NEGATIVE = '_negative'
 
     def __init__(self):
         """
@@ -38,10 +53,10 @@ class RuntimeContext:
         :param key: The variable name to retrieve.
         :type key: str
         :return: A list of values associated with `key` across functions that have it.
-                 If no function has this key, returns an empty list.
+                 If no function has this key, return an empty list.
         :rtype: Any
         """
-        GLOBAL_LOGGER.debug(f"Context: %s", self._vars)
+        GLOBAL_LOGGER.debug(f"Context: {self._vars}")
         for func in self._vars:
             for decorator in (self.PRODUCE, self.CONSUME):
                 if key in self._vars[func].get(decorator, {}):
@@ -141,6 +156,68 @@ class RuntimeContext:
                 self._vars[func][decorator][key] = value
                 GLOBAL_LOGGER.debug(f"Set variable '{key}' to '{value}' in function '{func}'")
                 GLOBAL_LOGGER.debug(f"Updated context: {self._vars[func]}")
+
+    def set_skip(self, func, value: bool, reason: str = "Skipped by condition"):
+        """
+        Set the skip status for a function in the context.
+
+        This method allows marking a function as skipped based on a condition.
+        It updates the context to reflect whether the function should be skipped.
+
+        :param func: The function name or identifier to set the skip status for.
+        :type func: str
+        :param value: True if the function should be skipped, False otherwise.
+        :type value: bool
+        :param reason: The reason for skipping the function.
+        :type reason: str
+        """
+        if func not in self._vars:
+            self._vars[func] = {}
+        self._vars[func][self.SKIP] = {
+            'value': value,
+            'reason': reason
+        }
+        GLOBAL_LOGGER.debug(f"Set skip status for function '{func}' to {value} with reason: {reason}")
+
+    def set_contribution(self, func, contribution_type: str, variables: list[str]):
+        """
+        Set the contribution type for a function in the context.
+
+        This method allows marking a function's contribution as either positive or negative.
+        It updates the context to reflect the contribution type and associated variables.
+
+        :param func: The function name or identifier to set the contribution for.
+        :type func: str
+        :param contribution_type: Either RuntimeContext.POSITIVE or RuntimeContext.NEGATIVE,
+                                 indicating the type of contribution.
+        :type contribution_type: str
+        :param variables: A list of variable names that contribute to this type.
+        :type variables: list[str]
+        """
+        if func not in self._vars:
+            self._vars[func] = {}
+        if self.CONTRIBUTION not in self._vars[func]:
+            self._vars[func][self.CONTRIBUTION] = {
+                self.POSITIVE: [],
+                self.NEGATIVE: []
+            }
+        self._vars[func][self.CONTRIBUTION][contribution_type].extend(variables)
+        GLOBAL_LOGGER.debug(f"Set {contribution_type} contribution for function '{func}' with variables: {variables}")
+
+    def get_contributions(self, func: str) -> Dict[str, List[str]]:
+        """
+        Retrieves positive and negative contributions for a given function.
+
+        Args:
+            func (str): Function name.
+
+        Returns:
+            dict: {'_positive': [...], '_negative': [...]} — lists may be empty.
+        """
+        return self._vars.get(func, {}).get(RuntimeContext.CONTRIBUTION, {
+            self.POSITIVE: [],
+            self.NEGATIVE: []
+        })
 
     def __repr__(self):
         """

@@ -55,6 +55,7 @@ class MissingVariableValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running MissingVariableValidator...")
         errors = []
+        warnings = []
         for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}")
@@ -77,9 +78,8 @@ class MissingVariableValidator(BaseValidator):
                             f"    so that '{func_key}' can consume it.\n"
                         )
                     )
-                    GLOBAL_LOGGER.warning(f"Missing variable detected: '{var}' required by '{func_key}'")
         GLOBAL_LOGGER.info(f"MissingVariableValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class SelfDependencyValidator(BaseValidator):
@@ -101,6 +101,7 @@ class SelfDependencyValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running SelfDependencyValidator...")
         errors = []
+        warnings = []
         for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' for self-dependencies.")
@@ -121,9 +122,8 @@ class SelfDependencyValidator(BaseValidator):
                             "        so the dependency graph does not treat the same function as its own producer.\n"
                         ).replace("{var}", var).replace("{func_key}", func_key)
                     )
-                    GLOBAL_LOGGER.warning(f"Self-dependency detected in '{func_key}' for variable '{var}'")
         GLOBAL_LOGGER.info(f"SelfDependencyValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class OrderValidator(BaseValidator):
@@ -148,6 +148,7 @@ class OrderValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running OrderValidator...")
         errors = []
+        warnings = []
         order = self.pipeline.get_execution_order()
         GLOBAL_LOGGER.debug(f"Execution order: {order}")
         order_index = {k: i for i, k in enumerate(order)}
@@ -177,7 +178,6 @@ class OrderValidator(BaseValidator):
                             "  • Please correct the pipeline justification/configuration to resolve this."
                         ).format(func=func_key, var=var, order=" -> ".join(order))
                     )
-                    GLOBAL_LOGGER.warning(f"Self-dependency (order-level) in '{func_key}' for variable '{var}'")
                     continue
 
                 if order_index[producer] >= order_index[func_key]:
@@ -193,11 +193,8 @@ class OrderValidator(BaseValidator):
                             f"  • Suggestion: adjust dependencies/justification so that '{producer}' precedes '{func_key}'."
                         )
                     )
-                    GLOBAL_LOGGER.warning(
-                        f"Order violation: '{func_key}' consumes '{var}' before '{producer}' has produced it."
-                    )
         GLOBAL_LOGGER.info(f"OrderValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class ProducedButNotConsumedValidator(BaseValidator):
@@ -217,6 +214,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running ProducedButNotConsumedValidator...")
         errors = []
+        warnings = []
 
         # Collect all consumed variables across the pipeline
         consumed_vars = set()
@@ -229,7 +227,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
             produce_vars = var_maps.get(RuntimeContext.PRODUCE, {})
             for var in produce_vars:
                 if var not in consumed_vars:
-                    errors.append(
+                    warnings.append(
                         (
                             f"Pipeline validation error: produced variable not consumed.\n"
                             f"  • Variable '{var}' is produced by function '{func_key}' but is never consumed by any function.\n"
@@ -237,12 +235,9 @@ class ProducedButNotConsumedValidator(BaseValidator):
                             f"  • Consider removing the production of '{var}' if unused, or verify downstream usage.\n"
                         )
                     )
-                    GLOBAL_LOGGER.warning(
-                        f"Produced variable '{var}' by '{func_key}' is not consumed by any other function."
-                    )
 
         GLOBAL_LOGGER.info(f"ProducedButNotConsumedValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class DuplicateProducerValidator(BaseValidator):
@@ -262,6 +257,7 @@ class DuplicateProducerValidator(BaseValidator):
         """
         GLOBAL_LOGGER.info("Running DuplicateProducerValidator...")
         errors = []
+        warnings = []
         variable_to_producers: dict[str, list[str]] = {}
 
         for func_key, var_maps in self.ctx._vars.items():
@@ -280,13 +276,10 @@ class DuplicateProducerValidator(BaseValidator):
                     f"    - Choose a single function to produce '{var}' and remove it from the others.\n"
                     "    - If multiple outputs are required, consider renaming or splitting the variables.\n"
                 )
-                GLOBAL_LOGGER.warning(
-                    f"Variable '{var}' is produced by multiple functions: {producers}"
-                )
-                errors.append(error_message)
+                warnings.append(error_message)
 
         GLOBAL_LOGGER.info(f"DuplicateProducerValidator completed with {len(errors)} error(s).")
-        return errors
+        return errors, warnings
 
 
 class JustificationSchemaValidator:

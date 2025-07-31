@@ -2,61 +2,51 @@ import ast
 import inspect
 import textwrap
 from functools import wraps
-from typing import Callable, Any
+from typing import Callable, List, Optional, Any
 
 from jpipe_runner.framework.context import ctx, RuntimeContext
 from jpipe_runner.framework.logger import GLOBAL_LOGGER
 
 
-def Consume(*params: str) -> Callable:
+def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = None) -> Callable:
     """
-    Decorator to declare variables a function consumes from the pipeline context.
+    Unified decorator to declare variables a function consumes and/or produces from/to the pipeline context.
 
-    Registers the variables, validates usage in the function body, and injects values from context at runtime.
-
-    :param params: Names of variables the function expects to consume.
+    :param consume: List of variable names to consume.
+    :param produce: List of variable names to produce.
     :return: A function decorator.
     """
+    consume = consume or []
+    produce = produce or []
 
     def decorator(func: Callable) -> Callable:
-        checker = ConsumedVariableChecker(func, params)
-        checker.register_variables()
+        consume_checker = _init_checker(ConsumedVariableChecker, func, consume)
+        produce_checker = _init_checker(ProducedVariableChecker, func, produce)
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            kwargs = checker.inject_arguments(kwargs)
-            return func(*args, **kwargs)
+            if consume_checker:
+                kwargs = consume_checker.inject_arguments(kwargs)
+            if produce_checker:
+                kwargs['produce'] = produce_checker.produce
 
-        return wrapper
-
-    return decorator
-
-
-def Produce(*params: str) -> Callable:
-    """
-    Decorator to declare variables a function produces into the pipeline context.
-
-    Injects a `produce()` method into the function’s arguments and validates output.
-
-    :param params: Names of variables the function is expected to produce.
-    :return: A function decorator.
-    """
-
-    def decorator(func: Callable) -> Callable:
-        checker = ProducedVariableChecker(func, params)
-        checker.register_variables()
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            kwargs['produce'] = checker.produce
             result = func(*args, **kwargs)
-            checker.validate_produced()
+
+            if produce_checker:
+                produce_checker.validate_produced()
+
             return result
 
         return wrapper
 
     return decorator
 
+def _init_checker(CheckerClass, func: Callable, params: List[str]):
+    if not params:
+        return None
+    checker = CheckerClass(func, params)
+    checker.register_variables()
+    return checker
 
 class ConsumedVariableChecker:
     """
@@ -110,7 +100,7 @@ class ConsumedVariableChecker:
             value = ctx.get(param)
             GLOBAL_LOGGER.debug(f"[{self.func_name}] Injecting consumed variable '{param}' = {value}")
             if value is None:
-                raise ValueError(
+                GLOBAL_LOGGER.error(
                     f"Consumed variable '{param}' has not been set in context before calling '{self.func_name}'."
                 )
             kwargs[param] = value
@@ -123,8 +113,6 @@ class ConsumedVariableChecker:
         This utility is used to validate that variables declared in the @Consume decorator are
         actually referenced in the function source code.
 
-        :param func: The function to analyze.
-        :type func: Callable
         :return: A set of variable names used in the function body.
         :rtype: set
         """
@@ -190,7 +178,7 @@ class ProducedVariableChecker:
         :raises RuntimeError: If the variable was not declared as produced.
         """
         if param not in self.declared_params:
-            raise RuntimeError(
+            GLOBAL_LOGGER.error(
                 f"Function '{self.func_name}' attempted to produce undeclared variable '{param}'. "
                 f"Expected one of: {self.declared_params}"
             )
@@ -206,8 +194,7 @@ class ProducedVariableChecker:
         """
         missing = self.declared_params - self.produced_set
         if missing:
-            GLOBAL_LOGGER.error(f"[{self.func_name}] Missing produced variables: {missing}")
-            raise RuntimeError(
+            GLOBAL_LOGGER.error(
                 f"Function '{self.func_name}' did not produce the following declared variable(s): {missing}"
             )
         GLOBAL_LOGGER.debug(f"[{self.func_name}] All declared produced variables were set: {self.produced_set}")

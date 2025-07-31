@@ -45,7 +45,6 @@ def sample_config(tmp_path):
 def test_init_without_config_with_variables(sample_justification):
     # Should initialize and parse justification with no config path
     with patch("jpipe_runner.framework.engine.PipelineEngine.load_config") as mock_load_config:
-        print(sample_justification)
         variables: Iterable[tuple[str, str]] | None = [("var1", "value1"), ("var2", "value2")]
         engine = PipelineEngine(None, sample_justification, mark_step=MagicMock(),
                                 mark_substep=MagicMock(),

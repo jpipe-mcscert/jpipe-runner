@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 
 from jpipe_runner.framework.context import ctx, RuntimeContext
-from jpipe_runner.framework.decorators import ConsumedVariableChecker, ProducedVariableChecker, Consume, Produce
+from jpipe_runner.framework.decorators.jpipe_decorator import ConsumedVariableChecker, ProducedVariableChecker, jpipe
 
 
 class TestConsumedVariableChecker(unittest.TestCase):
@@ -115,7 +115,7 @@ class TestConsumeDecorator(unittest.TestCase):
         ctx._vars = self.ctx_backup
 
     def test_consume_decorator_injects_vars(self):
-        @Consume("val")
+        @jpipe(consume=["val"])
         def func(val):
             return val * 2
 
@@ -125,7 +125,7 @@ class TestConsumeDecorator(unittest.TestCase):
         self.assertEqual(result, 6)
 
     def test_consume_decorator_raises_if_var_not_set(self):
-        @Consume("val")
+        @jpipe(consume=["val"])
         def func(val):
             return val
 
@@ -144,7 +144,7 @@ class TestProduceDecorator(unittest.TestCase):
         ctx._vars = self.ctx_backup
 
     def test_produce_decorator_produces_vars_and_validates(self):
-        @Produce("out")
+        @jpipe(produce=["out"])
         def func(produce):
             produce("out", 123)
             return "done"
@@ -155,7 +155,7 @@ class TestProduceDecorator(unittest.TestCase):
         self.assertEqual(ctx.get("out"), 123)
 
     def test_produce_decorator_raises_if_undeclared_var_produced(self):
-        @Produce("out")
+        @jpipe(produce=["out"])
         def func(produce):
             produce("not_declared", 1)  # Should raise
 
@@ -164,7 +164,7 @@ class TestProduceDecorator(unittest.TestCase):
             func()
 
     def test_produce_decorator_raises_if_not_all_vars_produced(self):
-        @Produce("out1", "out2")
+        @jpipe(produce=["out1", "out2"])
         def func(produce):
             produce("out1", 1)
             # Missing out2
