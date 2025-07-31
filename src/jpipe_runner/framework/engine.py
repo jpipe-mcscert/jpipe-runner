@@ -89,8 +89,10 @@ class PipelineEngine:
         # Load YAML config if a path is provided
         if path:
             try:
+                GLOBAL_LOGGER.info(f"Attempting to load configuration from {path}")
                 with open(path, 'r') as f:
                     config = yaml.safe_load(f) or {}
+                GLOBAL_LOGGER.info(f"Configuration loaded from {path}")
             except Exception as e:
                 GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
                 self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
@@ -105,8 +107,10 @@ class PipelineEngine:
 
         # Set context variables
         try:
+            GLOBAL_LOGGER.info("Loading configuration into context variables...")
             for key, value in config.items():
                 ctx.set_from_config(key, value)
+            GLOBAL_LOGGER.info("Context variables set successfully.")
         except Exception as e:
             GLOBAL_LOGGER.error("Failed to set context variables: %s", e)
             self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Set context variables",

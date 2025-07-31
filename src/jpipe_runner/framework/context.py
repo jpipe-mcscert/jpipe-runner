@@ -76,6 +76,7 @@ class RuntimeContext:
         if decorator not in self._vars[func]:
             self._vars[func][decorator] = {}
         self._vars[func][decorator][key] = value
+        GLOBAL_LOGGER.info(f"Set variable '{key}' to '{value}' in function '{func}' under decorator '{decorator}'")
         GLOBAL_LOGGER.debug(f"Set variable '{key}' to '{value}' in function '{func}' under decorator '{decorator}'")
         GLOBAL_LOGGER.debug(f"Updated context: {self._vars[func]}")
 
@@ -132,6 +133,7 @@ class RuntimeContext:
                           indicating whether this variable is produced or consumed.
         :type decorator: str
         """
+        GLOBAL_LOGGER.info(f"Setting variable '{key}' to '{value}' with decorator '{decorator}'")
         for func in self._vars:
             if decorator not in self._vars[func]:
                 continue
@@ -139,7 +141,6 @@ class RuntimeContext:
                 self._vars[func][decorator][key] = value
                 GLOBAL_LOGGER.debug(f"Set variable '{key}' to '{value}' in function '{func}'")
                 GLOBAL_LOGGER.debug(f"Updated context: {self._vars[func]}")
-                return
 
     def __repr__(self):
         """
