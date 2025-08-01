@@ -14,6 +14,9 @@ on:
 jobs:
   validate-version:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.extract_tag.outputs.tag }}
+      version: ${{ steps.extract_tag.outputs.version }}
     steps:
       - uses: actions/checkout@v3
 
@@ -21,8 +24,11 @@ jobs:
         id: extract_tag
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
+          VERSION=${TAG#v}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "Validating tag: $TAG"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Validate tag format
         run: |
@@ -30,15 +36,6 @@ jobs:
             echo "Invalid tag format: $TAG"
             exit 1
           fi
-        env:
-          TAG: ${{ env.TAG }}
-
-      - name: Strip "v" prefix to get version
-        run: |
-          VERSION=${TAG#v}
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-        env:
-          TAG: ${{ env.TAG }}
 
       - name: Check version in pyproject.toml
         run: |
@@ -48,8 +45,6 @@ jobs:
             echo "pyproject.toml version $FILE_VERSION does not match tag version $VERSION"
             exit 1
           fi
-        env:
-          VERSION: ${{ env.VERSION }}
 
   test:
     needs: validate-version
@@ -275,6 +270,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Set tag and version from previous job
+        run: |
+          echo "TAG=${{ needs.validate-version.outputs.tag }}" >> $GITHUB_ENV
+          echo "VERSION=${{ needs.validate-version.outputs.version }}" >> $GITHUB_ENV
+
       # Download Python package artifacts (wheel + tar.gz)
       - name: Download Python package distributions
         uses: actions/download-artifact@v4
@@ -326,15 +326,6 @@ jobs:
             fi
           done
 
-      # Get tag and version
-      - name: Extract tag and version
-        id: get_tag
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
       # Create GitHub release and upload all artifacts
       - name: Create GitHub release and upload assets
         uses: softprops/action-gh-release@v1
@@ -351,8 +342,6 @@ jobs:
   build-homebrew-formula:
     needs: [ release ]
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.set-version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
 
@@ -400,14 +389,11 @@ jobs:
           poetry lock
           poetry install
 
-      - name: Extract version from tag
+      - name: Set tag and version from previous job
         id: set-version
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "TAG=${{ needs.validate-version.outputs.tag }}" >> $GITHUB_ENV
+          echo "VERSION=${{ needs.validate-version.outputs.version }}" >> $GITHUB_ENV
 
       - name: Compute SHA256 of source tarball
         id: sha
@@ -559,7 +545,7 @@ jobs:
 
       - name: Copy new formula into tap repo
         run: |
-          VERSION=${{ needs.build-homebrew-formula.outputs.version }}
+          VERSION=${{ needs.validate-version.outputs.version }}
           echo "VERSION: $VERSION"
           cp tap/Formula/jpipe-runner.rb tap-repo/
           cp tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/
@@ -572,6 +558,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add jpipe-runner.rb jpipe-runner@${{ needs.build-homebrew-formula.outputs.version }}.rb jpipe-runner-gui.rb jpipe-runner-gui@${{ needs.build-homebrew-formula.outputs.version }}.rb
-          git commit -m "Update jpipe-runner formula to version ${{ needs.build-homebrew-formula.outputs.version }}"
+          git add jpipe-runner.rb jpipe-runner@${{ needs.validate-version.outputs.version }}.rb jpipe-runner-gui.rb jpipe-runner-gui@${{ needs.validate-version.outputs.version }}.rb
+          git commit -m "Update jpipe-runner formula to version ${{ needs.validate-version.outputs.version }}"
           git push origin main
