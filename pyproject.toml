@@ -21,11 +21,11 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.11"
-networkx = "3.4.2"
+networkx = "3.5"
 pygraphviz = "1.14"
 pyyaml = "6.0.2"
 
-matplotlib = { version = "3.10.3", optional = true }
+matplotlib = { version = "3.10.5", optional = true }
 
 [tool.poetry.extras]
 gui = ["matplotlib"]

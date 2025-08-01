@@ -44,11 +44,7 @@ STDERR_OUTPUT_BEGIN = r"""
 
 """
 
-IMAGE_EXPORT_FORMAT = ['canon', 'cmap', 'cmapx', 'cmapx_np', 'dia', 'dot',
-                       'fig', 'gd', 'gd2', 'gif', 'hpgl', 'imap', 'imap_np',
-                       'ismap', 'jpe', 'jpeg', 'jpg', 'mif', 'mp', 'pcl', 'pdf',
-                       'pic', 'plain', 'plain-ext', 'png', 'ps', 'ps2', 'svg',
-                       'svgz', 'vml', 'vmlz', 'vrml', 'vtx', 'wbmp', 'xdot', 'xlib']
+IMAGE_EXPORT_FORMAT = ['dot', 'gif', 'jpeg', 'jpg', 'pdf', 'png', 'svg']
 
 
 def parse_args(argv: list[str] | None = None):
@@ -59,7 +55,8 @@ def parse_args(argv: list[str] | None = None):
         --variable, -v: Define variables in the format NAME:VALUE (can be used multiple times).\n
         --library, -l: Path pattern to Python libraries to load (can be used multiple times).\n
         --diagram, -d: Wildcard pattern for diagram selection.\n
-        --output, -o: Output path for the generated diagram image (optional).\n
+        --format, -f: Image format for the generated diagram (dot, gif, jpeg, jpg, png, svg).\n
+        --output-path, -o: Output path for the generated diagram image.\n
         --dry-run: Simulate execution without performing actual justifications.\n
         --verbose, -V: Enable verbose logging.\n
         --config-file: Path to a YAML configuration file.\n
@@ -80,13 +77,13 @@ def parse_args(argv: list[str] | None = None):
                         help="Specify a Python library to load")
     parser.add_argument("--diagram", "-d", metavar="PATTERN", default="*",
                         help="Specify diagram pattern or wildcard")
-    parser.add_argument("--output", "-o", metavar="FILE",
+    parser.add_argument("--format", "-f", choices=IMAGE_EXPORT_FORMAT,
                         help=(
-                            "Output file for generated diagram image. The format is inferred from the file extension.\n"
-                            "Supported formats include: canon, cmap, cmapx, cmapx_np, dia, dot, fig, gd, gd2, gif, hpgl,\n"
-                            "imap, imap_np, ismap, jpe, jpeg, jpg, mif, mp, pcl, pdf, pic, plain, plain-ext, png, ps,\n"
-                            "ps2, svg, svgz, vml, vmlz, vrml, vtx, wbmp, xdot, xlib."
+                            "Format for the generated diagram image. \n"
+                            "Supported formats include: dot, gif, jpeg, jpg, png, svg"
                         ))
+    parser.add_argument("--output-path", "-o", metavar="PATH",
+                        help="Path to save the generated diagram image. ")
     parser.add_argument("--dry-run", action="store_true",
                         help="Perform a dry run without actually executing justifications")
     parser.add_argument("--verbose", "-V", action="store_true",
@@ -269,7 +266,7 @@ def run_workflow_logic():
 
     if args.output:
         mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
-        output_path = args.output.lower()
+        output_path = args.output_path.lower()
         if output_path in {"stdout", "stderr"}:
             print("Streamed diagram output is not supported yet.", file=sys.stderr)
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
@@ -277,10 +274,12 @@ def run_workflow_logic():
 
         status_dict = {item["name"]: item["status"].value for item in justification_result}
 
-        if output_path.endswith(tuple(IMAGE_EXPORT_FORMAT)):
-            jpipe.export_to_format(status_dict=status_dict, output_path=args.output,
-                                   format=output_path.split('.')[-1])
-            print(f"{output_path.split('.')[-1]} diagram saved to: {args.output}")
+        if args.format in IMAGE_EXPORT_FORMAT:
+            jpipe.export_to_format(status_dict=status_dict,
+                                   output_path=args.output_path,
+                                   filename=jpipe.justification_name,
+                                   format=args.format)
+            print(f"{jpipe.justification_name} diagram saved to: {args.output_path}.{args.format}")
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.DONE)
         else:
             print(f"Unsupported output format: {args.output}", file=sys.stderr)

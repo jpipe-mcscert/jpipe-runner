@@ -96,39 +96,51 @@ runs:
         if [[ "${{ inputs.dry_run }}" == "true" ]]; then
           CMD+=" --dry-run"
         fi
-        CMD+=" --output /home/runner/work/diagram.png"
+        CMD+=" --output-path /home/runner/work/"
+        CMD+=" --format svg"
         
         echo "Running command: $CMD"
         eval $CMD
         RESULT=$?
+        
+        # Find the generated diagram file
+        DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.svg" -type f | head -1)
+        DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
 
         echo "result=$RESULT" >> $GITHUB_OUTPUT 
+        echo "diagram_path=$DIAGRAM_FILE" >> $GITHUB_OUTPUT
+        echo "diagram_name=$DIAGRAM_NAME" >> $GITHUB_OUTPUT
 
     - name: Upload diagram as artifact
+      id: upload_diagram
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: diagram.png
-        path: /home/runner/work/diagram.png
+        name: ${{ steps.run_jpipe.outputs.diagram_name }}
+        path: ${{ steps.run_jpipe.outputs.diagram_path }}
 
     - name: Read comment content
       if: always()
       id: comment_content
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
-        OUTPUT_FILE=/home/runner/work/diagram.png
-        BASE64_IMAGE=$(base64 -w 0 "$OUTPUT_FILE")
-        
         if [[ "${{ steps.run_jpipe.outputs.result }}" == "0" ]]; then
-        MESSAGE="✅ jPipe Runner succeeded!"
+          MESSAGE="Justification process completed successfully! \n\n"
         else
-        MESSAGE="❌ jPipe Runner failed! Please review the diagram and logs."
+          MESSAGE="Justification process failed! \n\n"
         fi
+    
+        # Use the artifact URL from the upload step
+        ARTIFACT_URL="${{ steps.upload_diagram.outputs.artifact-url }}"
         
-        MESSAGE+=$'\n\n'
-        MESSAGE+="<img src='data:image/png;base64,${BASE64_IMAGE}' alt='Diagram'>"
-        
-        # Save to output
+        if [[ "$ARTIFACT_URL" != "" ]]; then
+          MESSAGE+="[Download Diagram Artifact]($ARTIFACT_URL)"
+        else
+          MESSAGE+="No Diagram artifact was generated - please check the logs for details."
+        fi
+    
         echo "msg<<EOF" >> $GITHUB_OUTPUT
         echo "$MESSAGE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT

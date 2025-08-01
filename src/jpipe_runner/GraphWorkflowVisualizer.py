@@ -45,6 +45,7 @@ class GraphWorkflowVisualizer:
 
     # EXPORT_OUTPUT
     IMPORTING_PYGRAPHVIZ = "Importing pygraphviz"
+    PREPARE_OUTPUT_PATH = "Prepare output path"
     PREPARE_STYLES = "Prepare styles"
     CREATE_GRAPH = "Create graph"
     STYLE_NODES = "Style nodes"

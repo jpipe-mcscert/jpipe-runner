@@ -603,7 +603,7 @@ class PipelineEngine:
 
     # ------------ End of Justification Pipeline Execution ------------
 
-    def export_to_format(self, status_dict: dict[str, str], output_path: str, format: str) -> None:
+    def export_to_format(self, status_dict: dict[str, str], output_path: str, filename: str, format: str) -> None:
         """
         Export the justification graph to SVG, styling nodes by VariableType and edges by status.
 
@@ -624,6 +624,23 @@ class PipelineEngine:
                               GraphWorkflowVisualizer.IMPORTING_PYGRAPHVIZ,
                               GraphWorkflowVisualizer.FAIL)
             raise ImportError("pygraphviz is required to enable this feature") from e
+
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT,
+                          GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
+                          GraphWorkflowVisualizer.CURRENT)
+
+        # Prepare an output path
+        output_path = Path(output_path)
+
+        if output_path.exists():
+            output_path = output_path / filename
+        else:
+            output_path.mkdir(parents=True, exist_ok=True)
+            output_path = output_path / filename
+
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT,
+                          GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
+                          GraphWorkflowVisualizer.DONE)
 
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.PREPARE_STYLES,
                           GraphWorkflowVisualizer.CURRENT)
