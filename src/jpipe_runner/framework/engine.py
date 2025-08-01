@@ -309,9 +309,7 @@ class PipelineEngine:
             GLOBAL_LOGGER.error("Cycle detected in justification graph: %s", e)
             return []
 
-
     # ------------ Start of Justification Pipeline Execution ------------
-
 
     def justify(self, runtime: PythonRuntime, dry_run: bool = False) -> Iterator[dict]:
         """
@@ -501,7 +499,8 @@ class PipelineEngine:
         self.mark_node_as_graph(GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, label)
         self.mark_substep(label, "status", GraphWorkflowVisualizer.CURRENT)
 
-    def _execute_justification_fn(self, label: str, fn_name: str, runtime: PythonRuntime, dry_run: bool, node: str) -> tuple:
+    def _execute_justification_fn(self, label: str, fn_name: str, runtime: PythonRuntime, dry_run: bool,
+                                  node: str) -> tuple:
         """
         Executes the function corresponding to the justification node.
 
@@ -604,7 +603,6 @@ class PipelineEngine:
 
     # ------------ End of Justification Pipeline Execution ------------
 
-
     def export_to_format(self, status_dict: dict[str, str], output_path: str, format: str) -> None:
         """
         Export the justification graph to SVG, styling nodes by VariableType and edges by status.
@@ -646,11 +644,7 @@ class PipelineEngine:
         A = to_agraph(G)
 
         A.graph_attr.update(
-            dpi="100",
             rankdir="BT",  # bottom-to-top layout
-            splines="spline",
-            margin="0.2,0.2",
-            size="15,15",
         )
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.CREATE_GRAPH,
                           GraphWorkflowVisualizer.DONE)
