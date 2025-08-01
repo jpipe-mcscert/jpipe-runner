@@ -16,6 +16,10 @@ inputs:
     description: "Specify diagram pattern or wildcard"
     required: false
     default: "*"
+  format:
+    description: "Output format for the diagram, e.g. 'dot', 'gif', 'jpeg', 'jpg', 'pdf', 'png', 'svg'. Default is 'svg'"
+    required: false
+    default: "svg"
   dry_run:
     description: "Perform a dry run without actually executing justifications"
     required: false
@@ -97,14 +101,14 @@ runs:
           CMD+=" --dry-run"
         fi
         CMD+=" --output-path /home/runner/work/"
-        CMD+=" --format svg"
+        CMD+=" --format '${{ inputs.format }}'"
         
         echo "Running command: $CMD"
         eval $CMD
         RESULT=$?
         
         # Find the generated diagram file
-        DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.svg" -type f | head -1)
+        DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
         DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
 
         echo "result=$RESULT" >> $GITHUB_OUTPUT 
