@@ -18,11 +18,11 @@ jpipe-runner [OPTIONS] jd_file
 
 | Parameter       | Short | Description                                                                                                     |
 |-----------------|-------|-----------------------------------------------------------------------------------------------------------------|
-| `--variable`    | `-v`  | Define variables as `NAME:VALUE`. Can be used multiple times to inject variables into the workflow.             |
+| `--variable`    | `-v`  | Define variables as `NAME:VALUE`. Can be used multiple times to inject variables into the justification.        |
 | `--library`     | `-l`  | Path(s) or pattern(s) to additional Python libraries to load before execution. Can be specified multiple times. |
 | `--diagram`     | `-d`  | Wildcard pattern to filter and select specific diagrams to generate (default: `"*"` for all).                   |
 | `--output`      | `-o`  | Output file path to save the generated diagram image. The format is inferred from the file extension.           |
-| `--dry-run`     |       | Simulate the execution without performing any justifications or outputs (checks workflow validity).             |
+| `--dry-run`     |       | Simulate the execution without performing any justifications or outputs (checks justification validity).        |
 | `--verbose`     | `-V`  | Enable verbose/debug logging to help diagnose issues.                                                           |
 | `--config-file` |       | Path to a YAML configuration file that can specify variables, libraries, diagrams, and other settings.          |
 | `--gui`         |       | Launch a graphical interface (Tkinter-based) to visualize and interact with workflow execution steps.           |
@@ -46,7 +46,7 @@ When specifying the `--output` option, you can choose any of the following forma
 jpipe-runner -l './libraries/notebook.py' ./models/02_quality_full.jd.json
 ```
 
-Executes the workflow specified in the `.jd.json` with the corresponding library `.py` file without extra options.
+Executes the justification specified in the `.jd.json` with the corresponding library `.py` file without extra options.
 
 ### Defining Variables
 
@@ -58,7 +58,7 @@ Injects a variable named `notebook` with value `notebook.ipynb` into the workflo
 
 > ### ⚠️ Important Notes on Variable Formatting
 >
-> When passing **lists**, **booleans**, or **complex values** using the `--variable` option, the values must be specified in a format that can be correctly parsed by the runner (using Python-style or JSON-compatible syntax).
+> When passing **lists**, **booleans**, or **complex values** using the `--variable` option, the values must be specified in a format that can be correctly parsed by the runner (using Python-style syntax).
 > 
 > #### ✅ Correct Formatting
 > 
@@ -154,7 +154,7 @@ Injects a variable named `notebook` with value `notebook.ipynb` into the workflo
 jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --output ./test.png ./models/02_quality_full.jd.json
 ```
 
-Runs the workflow and outputs the execution diagram as a PNG image at `./test.png`.
+Runs the justification and outputs the execution diagram as a PNG image at `./test.png`.
 
 ### Enable Verbose Logging
 
@@ -170,7 +170,7 @@ Prints detailed debug information during execution to help troubleshoot.
 jpipe-runner --dry-run -l './libraries/notebook.py' ./models/02_quality_full.jd.json
 ```
 
-Validates the workflow without performing actual justification steps or generating outputs.
+Validates the justification without performing actual justification steps or generating outputs.
 
 ### Use a YAML Configuration File
 
@@ -186,11 +186,11 @@ Loads variables, libraries, and other settings from a YAML config file instead o
 jpipe-runner --gui -l './libraries/notebook.py' ./models/02_quality_full.jd.json
 ```
 
-Runs the workflow with a Tkinter-based GUI that shows execution steps interactively.
+Runs the justification with a Tkinter-based GUI that shows execution steps interactively.
 
 ## Notes
 
 * Multiple `--variable` and `--library` options can be specified by repeating the flags.
 * The diagram output format depends on the file extension specified in `--output`.
-* Use `--verbose` to get detailed logs, especially useful for debugging complex workflows.
+* Use `--verbose` to get detailed logs, especially useful for debugging complex justification.
 * The `--gui` mode is helpful for visually inspecting the flow and step execution.

@@ -134,4 +134,4 @@ Your generated site will be under `docs/build/html/`.
 [1]: https://www.sphinx-doc.org/en/master/usage/quickstart.html#setting-up-the-documentation-sources "Getting started - Sphinx documentation"
 [2]: https://docutils.sourceforge.io/rst.html "reStructuredText support - docutils documentation"
 [3]: https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html "reStructuredText Markup - Sphinx documentation"
-[3]: https://www.sphinx-doc.org/en/master/usage/markdown.html "Markdown support - Sphinx documentation"
+[4]: https://www.sphinx-doc.org/en/master/usage/markdown.html "Markdown support - Sphinx documentation"

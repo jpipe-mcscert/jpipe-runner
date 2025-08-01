@@ -1,69 +1,43 @@
 # 📦 Packaging & Release Guide
 
-This guide explains how to build, release, and distribute `jpipe-runner` using **Poetry**, **GitHub Actions**, **Launchpad PPA**, **Pypi**/**TestPyPI**, and **Homebrew**.
-
 ## 🚀 Release Pipeline Overview
 
-The CI/CD pipeline automates testing, packaging, and publishing to multiple platforms. It is defined in `.github/workflows/release.yml` and triggered on GitHub tags.
+The CI/CD pipeline automated testing, packaging, and publishing to multiple platforms. It is defined in `.github/workflows/release.yml` and triggered on GitHub tags.
 
-### 🔁 Pipeline Steps
+## Pipeline
 
-1. **Version Check**
+### 1. Dumping Python Version
 
-   * Verifies the pushed Git tag matches the version declared in `pyproject.toml`.
+When dumping the Python version, here all the files to update:
+- `action.yml`:  Update python-version: "YOUR_PYTHON_VERSION"
+- `release.yml`: Update the python-version environment variable
+- `pyproject.toml`: Update the python version in the `[tool.poetry.dependencies]` section
 
-2. **Run Tests**
-
-   * Executes unit tests with `pytest` on Python 3.10 using Poetry-managed environment.
-
-3. **Build Artifacts**
-
-   * Python source distribution (`.tar.gz`) and wheel (`.whl`) via Poetry.
-   * Debian source packages via `build-ppa`.
-   * Homebrew formula file via `generate-formula.sh`.
-
-4. **Sign & Upload to Launchpad (PPA)**
-
-   * Source packages signed with GPG and uploaded using `opublish-ppa` script.
-
-5. **Publish**
-
-   * GitHub Release: attaches built assets.
-   * Test PyPI: for preview distribution.
-   * Homebrew Tap: generates Ruby formula for macOS installs.
-
-6. **Post-validation**
-
-   * Verifies version and checks if `jpipe-runner --help` executes without error.
+## `action.yml`
 
 
-### Pipeline Workflow
 
-<details>
-<summary>Workflow diagram</summary>
+## `release.yml`
 
-![](../mermaid/release_pipeline_workflow.svg)
-
-</details>
-
-
-## 🧰 Poetry Workflow
-
-### Exporting Requirements
-
-```bash
-poetry export -f requirements.txt --without-hashes -o requirements.txt
-```
-
-### Building Package
-
-```bash
-poetry build
-```
+- `secrets.GPG_PRIVATE_KEY`: Your GPG private key used for signing the package, associated with your Launchpad account.
+- `secrets.DEBFULLNAME`: Your full name as it appears in your GPG key, used for signing the Debian package.
+- `secrets.DEBEMAIL`: Your email address associated with your GPG key, used for signing the Debian package.
+- `secrets.GPG_ID`: The GPG key ID used for signing the Debian package, which must match the key uploaded to Launchpad.
+- `secrets.LAUNCHPAD_USERNAME`: Your Launchpad username, which must be associated with a GPG key that has been uploaded to Launchpad.
+- `secrets.HOMEBREW_TAP_PAT`: Your GitHub Personal Access Token (PAT) for Homebrew tap repository access, so the 
+GithubActionBot can push the Homebrew formula to the repository.
 
 ## 🔐 GPG for Launchpad PPA
 
-### Step-by-step
+### Why Use GPG?
+
+GPG (GNU Privacy Guard) is used to **sign Debian source packages** before uploading them to a Launchpad PPA (Personal Package Archive).
+
+Launchpad **requires all uploads to be cryptographically signed** with a trusted GPG key associated with the Ubuntu or Launchpad account.
+
+Without a valid GPG signature, Launchpad will reject the upload attempt.
+
+### How to set up GPG for Launchpad PPA
 
 1. **Generate GPG key:**
 
@@ -101,87 +75,112 @@ Click the link from the decrypted message to confirm.
 
 ## 🏗️ Build Debian Package (PPA)
 
-Run the script:
+For building the Debian package for PPA (Launchpad), we are using the stdeb library tool, which can generate .deb 
+file and folder architecture for Debian-based systems mandatory by Launchpad.
 
-```bash
-./script/build-ppa.sh "Your Name" dev@example.com <GPG_ID>
+### 1. `sdist_dsc` command
+
+For now, we are using the `sdist_dsc` command from the stdeb library to generate the Debian source package.
+But this library is not maintained anymore, and we are looking for alternatives.
+This is limited to Python 3.11 and below, that is blocking us to use recent Python versions.
+
+### 2. `debian/control` file
+
+When `sdist_dsc` is executed and the fodler architecture and archives are generated.
+At this point, we need to update the `debian/control` file to ensure it includes the correct build dependencies.
+This step is essential to ensure that the package builds correctly on Launchpad, with all required tools and Python 
+components available.
+
+### 3. `debian/rules` file
+
+The `debian/rules` file is a **makefile** that defines how the package should be built by the Debian packaging system.
+It is a critical part of the build process and is used by `dpkg-buildpackage` and other tools during package compilation.
+
+In our case, we generate a minimal `rules` file that delegates the build process to **debhelper** using the `pybuild` 
+build system. Here's what we do and why:
+
+* We invoke `debhelper` (`dh`) with the `--with python3` option to ensure Python 3 support is included.
+* The `--buildsystem=pybuild` option tells debhelper to use **pybuild**, which is the recommended build system for Python
+* packages in Debian. It automatically handles Python versions, build directories, and setup script execution.
+
+This setup ensures that the Python package is built in a way that is compliant with Debian standards
+
+### 4. Sign source change files
+
+After generating the Debian source package, we need to sign the source change files (`.dsc` and `.changes`) with GPG.
+This is a crucial step for Launchpad PPA, as it verifies the authenticity of the package and its source.
+
+### 5. Build for Different Distributions
+
+To support multiple Ubuntu or Debian-based distributions (e.g. *jammy*, *noble*), we build a separate source
+package for each target distro. This ensures compatibility and proper upload to corresponding PPAs on Launchpad.
+
+Here’s what we do, and why:
+
+* **Per-distro preparation:**
+  For each distribution listed (e.g. in a `DISTROS` array), we create a separate build directory. This is done by 
+copying the base source tree into a new folder named after the distribution. It isolates builds and avoids file conflicts.
+
+* **Update the changelog with `dch`:**
+  We remove any existing `debian/changelog` file and create a new one for each distribution using the `dch` (Debian ChangeLog) tool.
+  The changelog entry includes:
+
+  * A version string tailored to the distribution (e.g. `1.0.0-1~jammy1`)
+  * The target distribution name
+  * A message to specify for which distribution we are building it like "Build for jammy"
+
+  This step is crucial because Launchpad uses the changelog to identify the target distribution and version of the package.
+
+* **Build and sign the source package:**
+
+  * `debuild -S -sa` is used to build a **source package** (`-S`) and include all source files (`-sa`).
+    This is the format required for upload to Launchpad.
+  * `debsign` is then used to cryptographically **sign** the source package using a GPG key.
+    This signature is required by Launchpad to verify the authenticity and integrity of the upload.
+
+### Adding a new distribution
+
+To add a new distribution to the build process, you just need to add the distribution name to the `DISTROS` 
+array in the `build-deb.sh` and `build-deb-gui.sh` files.
+
+```shell
+DISTROS=("jammy" "noble")
 ```
 
-This builds and signs `.changes` files per supported Ubuntu distro (e.g., jammy, noble).
+### 6. Lintian checks
 
-Then upload with:
+We are using **Lintian** to perform a checking and validation of the Debian package.
+Lintian is a static analysis tool that checks Debian packages for common errors, policy violations, and best practices.
 
-```bash
-./script/publish-ppa.sh mcscert/ppa deb_dist/*.changes
-```
+
+## Publishing to Launchpad PPA
+
+After building the Debian source package, we upload it to Launchpad PPA using the `publish-ppa.sh` script.
+The script need a `LAUNCHPAD_USERNAME` and the `*.changes` files to upload.
+
+- `LAUNCHPAD_USERNAME`: Your Launchpad username, which must be associated with a GPG key that has been uploaded to Launchpad.
+
 
 ## 🍺 Homebrew Formula
 
-Run the formula generator:
+To generate our Homebrew formula, we use a Formula Template containing environment variables.
+These variables are automatically populated by the GitHub Actions workflow during the release process.
 
-```bash
-./script/generate-formula.sh
-```
+### 1. Which variables are used, and why?
 
-The resulting files:
+* `$CLASS_NAME`: The name of the formula’s class.
+* `$HOMEPAGE_URL`: The URL of the GitHub repository.
+* `$SOURCE_URL`: The URL of the source archive from the GitHub release.
+* `$SOURCE_SHA256`: The SHA256 checksum of the source archive.
+* `$PYTHON_VERSION`: The Python version required by the package.
+* `$RESOURCES`: A list of required resources (e.g. dependencies), each with its specific version.
 
-* `tap/Formula/jpipe-runner.rb`
-* `tap/Formula/jpipe-runner@2.0.0b8.rb`
+### 2. Resources
 
-Use them for installation:
+Resources are automatically generated by the `generate_formula_resources.sh` script.
+This script uses Poetry to export the dependencies into a `requirements.txt` file, and then parses it to create the resource list with exact versions.
 
-```bash
-brew install --formula ./tap/Formula/jpipe-runner.rb
-brew uninstall jpipe-runner
-```
+### 3. `SOURCE_DATE_EPOCH` environment variable
 
-## 🧪 Install jpipe-runner (all methods)
-
-### Ubuntu / Debian
-
-```bash
-sudo add-apt-repository ppa:mcscert/ppa
-sudo apt update
-sudo apt install jpipe-runner
-```
-
-### PyPI
-
-For testing (test PyPI):
-```bash
-pip install -i https://test.pypi.org/simple/ jpipe-runner
-```
-For production:
-```bash
-pip install jpipe-runner
-```
-
-### Homebrew
-
-```bash
-brew install --formula ./tap/Formula/jpipe-runner.rb
-```
-
-## 🧼 Cleanup
-
-Before building again:
-
-```bash
-rm -rf dist/ deb_dist/ *.tar.gz
-```
-
-Ensure dependencies:
-
-```bash
-sudo apt install dh-python python3-all python3-setuptools
-pip install stdeb wheel
-```
-
-## 🛡️ Security & Signing
-
-* All Debian packages are signed using your GPG key.
-* Homebrew installs run a sanity check post-install (`--help`).
-
----
-
-For support or help: **[Dr. Sébastien Mosser](mailto:mossers@mcmaster.ca)**
+The `SOURCE_DATE_EPOCH` environment variable is set to define the date and time for files generated during the formula installation process.
+This is required to avoid issues with ZIP file timestamps earlier than 1980, which can cause problems with `pip` and dependency handling.

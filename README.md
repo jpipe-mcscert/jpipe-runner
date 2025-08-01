@@ -1,7 +1,7 @@
 # jPipe Runner
 
 ```text
-     _ ____  _               ____                              
+     _ ____  _              ____                              
    (_)  _ \(_)_ __   ___   |  _ \ _   _ _ __  _ __   ___ _ __ 
    | | |_) | | '_ \ / _ \  | |_) | | | | '_ \| '_ \ / _ \ '__|
    | |  __/| | |_) |  __/  |  _ <| |_| | | | | | | |  __/ |   
@@ -25,61 +25,17 @@ The project adopts a modular directory structure:
 
 ```text
 jpipe-runner/
+├── .github/workflows/        # CI & release pipeline (release.yml)
 ├── bin/                      # CLI entrypoint script
-├── mermaid/                  # Pre-generated architecture diagram (SVG)
 ├── script/                   # Packaging scripts (PPA, Brew, etc.)
 ├── src/jpipe_runner/         # Core library implementation
 │   ├── framework/            # Engine, context, decorators, validators
-├── tests/unit/               # Unit tests
-├── Dockerfile                # Container definition
+├── tests/                    # Tests
 ├── action.yml                # GitHub Action metadata
-├── .github/workflows/        # CI & release pipeline (release.yml)
 ├── pyproject.toml            # Poetry configuration
 ├── poetry.lock               # Locked dependencies
 ├── pytest.ini                # pytest configuration
 ├── LICENSE                   # MIT License
-```
-
-<details>
-<summary>Architecture diagram</summary>
-
-![](mermaid/project_architecture.svg)
-
-</details>
-
-## ⚙️Installation
-
-### Prerequisites
-
-* Python 3.10+
-* [Poetry](https://python-poetry.org)
-* [Graphviz](https://graphviz.org/) (`libgraphviz-dev`, `pkg-config`)
-* [Tkinter](https://docs.python.org/3/library/tkinter.html)
-
-### From Source
-
-```bash
-# Lock and install dependencies
-poetry lock
-poetry install
-```
-
-### Alternative: requirements.txt
-
-If you need a `requirements.txt` for pip environments:
-
-```bash
-poetry export -f requirements.txt --without-hashes -o requirements.txt
-```
-
-### Build Package
-
-```bash
-# Run tests
-poetry run pytest
-
-# Build distributable
-poetry build
 ```
 
 ## 🚀 Usage
@@ -95,7 +51,7 @@ poetry run jpipe-runner [-h] [--variable NAME:VALUE] [--library LIB] \
 **Key options:**
 
 * `--variable`, `-v`: Define `NAME:VALUE` pairs for template variables.
-* `--library`, `-l`: Load additional Python modules.
+* `--library`, `-l`: Load additional Python modules (steps).
 * `--diagram`, `-d`: Select diagrams by wildcard pattern.
 * `--output`, `-o`: Specify output image file (format inferred by extension).
 * `--dry-run`: Validate workflow without executing.
@@ -111,6 +67,33 @@ poetry run jpipe-runner --variable X:10 --diagram "flow*" \
 ```
 
 For detailed instructions on how to execute the project, including descriptions of all CLI parameters and usage examples, see the [Usage Guide](docs/USAGE.md).
+
+## ⚙️Installation
+
+### Prerequisites
+
+* Python 3.10+
+* [Poetry](https://python-poetry.org)
+* [Graphviz](https://graphviz.org/) (`libgraphviz-dev`, `pkg-config`)
+* Optional for GUI version: [Tkinter](https://docs.python.org/3/library/tkinter.html)
+
+### From Source
+
+```bash
+# Lock and install dependencies
+poetry lock
+poetry install
+```
+
+### Build Package
+
+```bash
+# Run tests
+poetry run pytest
+
+# Build distributable
+poetry build
+```
 
 ## 🤖 GitHub Action
 
@@ -130,51 +113,13 @@ with:
 
 Generates diagrams and comments a PNG to issues/prs.
 
-## 📋 CI & Release
+## 📚 Learn More
 
-Automated via `.github/workflows/release.yml`:
-
-1. **Validate version tag** matches `pyproject.toml`.
-2. **Unit tests** on Python 3.10.
-3. **Build** Python package, Debian PPA, and Homebrew formula.
-4. **Publish** to GitHub Releases, PyPI, Launchpad PPA, and Homebrew tap.
-
-For detailed pipeline steps and packaging release instructions, see the
-[Packaging & Release Documentation](docs/PACKAGING_RELEASE.md).
-
-## 📝 Developer Documentation
-
-To generate internal developer-facing documentation using **Sphinx**, follow the instructions in [BUILD_DOCS.md](docs/BUILD_DOCS.md).
-
-This includes:
-
-* Setting up the Sphinx environment
-* Building HTML documentation
-* Auto-generating API references from source files
-
-For a documentation overview inside a Markdown file, see [API.md](docs/API.md).
-
-Here's the updated section to include a link to the **Troubleshooting Guide** inside your main `README.md`. I recommend placing it right after the “Developer Documentation” section so it's easy to find for users encountering issues:
-
-## 🐞 Troubleshooting
-
-Having issues with dependencies, packaging, or CLI usage across operating systems?
-
-See the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for solutions to common problems with:
-
-- Python & Poetry
-- Graphviz & Tkinter
-- GPG & Packaging (pip, stdeb, Homebrew)
-- Linux, macOS, and Windows-specific setups
-
-## 🔧 Contributing
-
-1. Fork the repo and create a feature branch.
-2. Ensure all new features include unit tests (`tests/unit`).
-3. Run `pytest` and `poetry build` before submitting a PR.
-4. Adhere to PEP8 and project linting rules.
-
-Please read [CODE\_OF\_CONDUCT.md](.github/CODE_OF_CONDUCT.md) for community guidelines.
+* [Usage Guide](docs/USAGE.md)
+* [Packaging & CI/CD](docs/PACKAGING_RELEASE.md)
+* [Troubleshooting](docs/TROUBLESHOOTING.md)
+* [Developer Docs (Sphinx)](docs/BUILD_DOCS.md)
+* [Contributing](docs/CONTRIBUTING.md)
 
 ## 📄 License
 
@@ -197,9 +142,7 @@ MIT License — see [LICENSE](LICENSE).
 }
 ```
 
-## How to contribute?
-
-Found a bug, or want to add a cool feature? Feel free to fork this repository and send a pull request.
+## Contact Us
 
 If you're interested in contributing to the research effort related to jPipe projects, feel free to contact the PI:
 
