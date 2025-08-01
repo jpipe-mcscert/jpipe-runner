@@ -48,9 +48,33 @@ cp setup.py setup.py.bak
 cp stdeb.cfg stdeb.cfg.bak 2>/dev/null || true
 
 # Create GUI-specific setup.py
-sed 's/name="jpipe-runner"/name="jpipe-runner-gui"/' setup.py.bak > setup-gui.py
-sed -i 's/"jpipe-runner = jpipe_runner.runner:main"/"jpipe-runner-gui = jpipe_runner.runner:main"/' setup-gui.py
-sed -i "s/read_requirements()/read_requirements('requirements-gui.txt')/" setup-gui.py
+cat > setup-gui.py << 'EOF'
+import sys
+from setuptools import setup
+sys.path.insert(0, '.')
+from setup import SetupConfigBuilder, RequirementsReader
+
+class GuiSetupConfigBuilder(SetupConfigBuilder):
+    def build_config(self):
+        config = super().build_config()
+        # Override package name for GUI version
+        config['name'] = "jpipe-runner-gui"
+        # Override requirements to use GUI-specific file
+        config['install_requires'] = RequirementsReader.read('requirements-gui.txt')
+        # Update entry points for GUI
+        if 'entry_points' in config and 'console_scripts' in config['entry_points']:
+            config['entry_points']['console_scripts'] = [
+                "jpipe-runner-gui = jpipe_runner.runner:main"
+            ]
+        return config
+
+if __name__ == "__main__":
+    builder = GuiSetupConfigBuilder()
+    config = builder.build_config()
+    if len(sys.argv) > 1 and sys.argv[1] == '--print-config':
+        builder.print_config(config)
+    setup(**config)
+EOF
 
 # Create GUI-specific stdeb.cfg
 if [[ -f stdeb.cfg.bak ]]; then

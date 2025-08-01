@@ -13,7 +13,6 @@ homepage = "https://github.com/jpipe-mcscert/jpipe-runner"
 keywords = ["justification", "pipeline", "ML", "AI"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent"
 ]
 packages = [

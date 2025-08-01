@@ -1,9 +1,12 @@
 name: CI & Release Pipeline
 
+env:
+  PUBLISH_TO_PRODUCTION: true  # Set to false for Test PyPI
+  PYPI_ENV_NAME: ${{ env.PUBLISH_TO_PRODUCTION == 'true' && 'pypi' || 'test-pypi' }}
+  PYPI_URL: ${{ env.PUBLISH_TO_PRODUCTION == 'true' && 'https://pypi.org/project/jpipe-runner/' || 'https://test.pypi.org/project/jpipe-runner/' }}
+
 on:
   push:
-    #    branches:
-    #      - build/release-pipeline
     tags:
       - 'v*.*.*'
 
@@ -504,30 +507,13 @@ jobs:
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist_gui/*.changes
 
-#  publish-pypi:
-#   needs: [ build-homebrew-formula ]
-#   runs-on: ubuntu-latest
-#   environment:
-#     name: pypi
-#     url: https://pypi.org/project/jpipe-runner/
-#   permissions:
-#     id-token: write
-#   steps:
-#     - uses: actions/checkout@v3
 
-#     - name: Download distribution artifact
-#       uses: actions/download-artifact@v4
-#       with:
-#         name: python-package-distributions
-#         path: dist/
-
-#     - name: Publish distribution to PyPI
-#       uses: pypa/gh-action-pypi-publish@release/v1
-
-  publish-testpypi:
+  publish-pypi:
     needs: [ build-homebrew-formula ]
     runs-on: ubuntu-latest
-    environment: test-pypi
+    environment:
+      name: ${{ env.PYPI_ENV_NAME }}
+      url: ${{ env.PYPI_URL }}
     permissions:
       id-token: write
     steps:
@@ -539,7 +525,12 @@ jobs:
           name: python-package-distributions
           path: dist/
 
+      - name: Publish distribution to PyPI
+        if: env.PUBLISH_TO_PRODUCTION == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+
       - name: Publish distribution to Test PyPI
+        if: env.PUBLISH_TO_PRODUCTION != 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           verbose: 'false'
@@ -548,7 +539,7 @@ jobs:
   publish-homebrew-formula:
     permissions:
       contents: write
-    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula ]
+    needs: [ publish-ppa, publish-pypi, build-homebrew-formula ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
