@@ -1,9 +1,10 @@
 name: CI & Release Pipeline
 
 env:
-  PUBLISH_TO_PRODUCTION: true  # Set to false for Test PyPI
+  PUBLISH_TO_PRODUCTION: false  # Set to false for Test PyPI or true for PyPI
   PYPI_ENV_NAME: ${{ env.PUBLISH_TO_PRODUCTION == 'true' && 'pypi' || 'test-pypi' }}
   PYPI_URL: ${{ env.PUBLISH_TO_PRODUCTION == 'true' && 'https://pypi.org/project/jpipe-runner/' || 'https://test.pypi.org/project/jpipe-runner/' }}
+  PYTHON_VERSION: '3.11'
 
 on:
   push:
@@ -59,7 +60,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache Poetry
         id: cache-poetry
@@ -117,7 +118,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache Poetry
         id: cache-poetry
@@ -181,7 +182,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Cache Poetry
         id: cache-poetry
@@ -358,7 +359,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Download package artifact
         uses: actions/download-artifact@v4
@@ -422,7 +423,7 @@ jobs:
           export HOMEPAGE_URL="https://github.com/jpipe-mcscert/jpipe-runner"
           export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/${TAG}/$(basename ${SOURCE_FILE})"
           export SOURCE_SHA256="${SHA256}"
-          export PYTHON_VERSION="3.10"
+          export PYTHON_VERSION="${{ env.PYTHON_VERSION }}"
           mkdir -p tap/Formula
           
           ###############

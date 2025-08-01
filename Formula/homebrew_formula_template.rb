@@ -15,8 +15,8 @@ class $CLASS_NAME < Formula
     $RESOURCES
 
     def install
-    ENV["SOURCE_DATE_EPOCH"] = Time.now.to_i.to_s
-    virtualenv_install_with_resources
+        ENV["SOURCE_DATE_EPOCH"] = Time.now.to_i.to_s
+        virtualenv_install_with_resources
     end
 
     def post_install
