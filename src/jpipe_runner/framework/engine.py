@@ -715,6 +715,6 @@ class PipelineEngine:
 
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH,
                           GraphWorkflowVisualizer.CURRENT)
-        A.draw(output_path, format=format, prog="dot")
+        A.draw(output_path.with_suffix(f".{format}"), format=format, prog="dot")
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH,
                           GraphWorkflowVisualizer.DONE)
