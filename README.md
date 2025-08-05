@@ -11,33 +11,6 @@
 
 A Justification Runner designed for jPipe.
 
-## 📦Features
-
-* **CLI Interface**: Executes the runner on a `.jd.json` file.
-* **GraphWorkflowVisualizer** GUI debugger based on Tkinter to interactively display execution steps.
-* **GitHub Action** for automated CI/CD integration and release deployment.
-* **Extensible Framework** with decorators, validators, and context management.
-* **Cross-platform Packaging**: Distributed via PyPI, Debian PPA, and Homebrew formula.
-
-## 📏Architecture Overview
-
-The project adopts a modular directory structure:
-
-```text
-jpipe-runner/
-├── .github/workflows/        # CI & release pipeline (release.yml)
-├── bin/                      # CLI entrypoint script
-├── script/                   # Packaging scripts (PPA, Brew, etc.)
-├── src/jpipe_runner/         # Core library implementation
-│   ├── framework/            # Engine, context, decorators, validators
-├── tests/                    # Tests
-├── action.yml                # GitHub Action metadata
-├── pyproject.toml            # Poetry configuration
-├── poetry.lock               # Locked dependencies
-├── pytest.ini                # pytest configuration
-├── LICENSE                   # MIT License
-```
-
 ## 🚀 Usage
 
 ### CLI
@@ -94,24 +67,6 @@ poetry run pytest
 # Build distributable
 poetry build
 ```
-
-## 🤖 GitHub Action
-
-The `action.yml` defines a composite Action to install and run the runner in CI:
-
-```yaml
-uses: jpipe-mcscert/jpipe-runner@main
-with:
-  jd_file: path/to/workflow.jd
-  variable: |
-    FOO:bar
-    BAZ:42
-  library: requests
-  diagram: "*"
-  dry_run: false
-```
-
-Generates diagrams and comments a PNG to issues/prs.
 
 ## 📚 Learn More
 

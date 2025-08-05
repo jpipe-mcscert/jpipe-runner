@@ -21,7 +21,8 @@ jpipe-runner [OPTIONS] jd_file
 | `--variable`    | `-v`  | Define variables as `NAME:VALUE`. Can be used multiple times to inject variables into the justification.        |
 | `--library`     | `-l`  | Path(s) or pattern(s) to additional Python libraries to load before execution. Can be specified multiple times. |
 | `--diagram`     | `-d`  | Wildcard pattern to filter and select specific diagrams to generate (default: `"*"` for all).                   |
-| `--output`      | `-o`  | Output file path to save the generated diagram image. The format is inferred from the file extension.           |
+| `--format`      | `-f`  | Format of the output diagram image.                                                                             |
+| `--output-path` | `-o`  | Output file path to save the generated diagram image.                                                           |
 | `--dry-run`     |       | Simulate the execution without performing any justifications or outputs (checks justification validity).        |
 | `--verbose`     | `-V`  | Enable verbose/debug logging to help diagnose issues.                                                           |
 | `--config-file` |       | Path to a YAML configuration file that can specify variables, libraries, diagrams, and other settings.          |
@@ -31,10 +32,7 @@ jpipe-runner [OPTIONS] jd_file
 
 When specifying the `--output` option, you can choose any of the following formats by file extension<sup>1</sup>:
 
-`canon`, `cmap`, `cmapx`, `cmapx_np`, `dia`, `dot`, `fig`, `gd`, `gd2`, `gif`, `hpgl`,
-`imap`, `imap_np`, `ismap`, `jpe`, `jpeg`, `jpg`, `mif`, `mp`, `pcl`, `pdf`, `pic`,
-`plain`, `plain-ext`, `png`, `ps`, `ps2`, `svg`, `svgz`, `vml`, `vmlz`, `vrml`, `vtx`,
-`wbmp`, `xdot`, `xlib`
+`dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png`, `svg`
 
 <sup>1</sup> The quality and features of the output may vary depending on the chosen format.
 
@@ -151,15 +149,15 @@ Injects a variable named `notebook` with value `notebook.ipynb` into the workflo
 ### Generate Diagram Image Output
 
 ```bash
-jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --output ./test.png ./models/02_quality_full.jd.json
+jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --format 'png' --output-path ./my_diagram_output_folder/ ./models/02_quality_full.jd.json
 ```
 
-Runs the justification and outputs the execution diagram as a PNG image at `./test.png`.
+Runs the justification and outputs the execution diagram as a PNG image at `./my_diagram_output_folder/<name_of_the_justification>.png`.
 
 ### Enable Verbose Logging
 
 ```bash
-jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --output ./test.png --verbose ./models/02_quality_full.jd.json
+jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --verbose ./models/02_quality_full.jd.json
 ```
 
 Prints detailed debug information during execution to help troubleshoot.
@@ -191,6 +189,7 @@ Runs the justification with a Tkinter-based GUI that shows execution steps inter
 ## Notes
 
 * Multiple `--variable` and `--library` options can be specified by repeating the flags.
-* The diagram output format depends on the file extension specified in `--output`.
+* The `--output-path` must be a valid directory where the output image can be saved.
+* The diagram output format depends on the file extension specified in `--format`.
 * Use `--verbose` to get detailed logs, especially useful for debugging complex justification.
 * The `--gui` mode is helpful for visually inspecting the flow and step execution.
