@@ -4,7 +4,7 @@ author: "Jason Lyu, Baptiste Lacroix, Sébastien Mosser"
 
 inputs:
   jd_file:
-    description: "Path to the justification .jd file"
+    description: "Path to the justification .jd.json file"
     required: true
   variable:
     description: "Define one or more variables in the format NAME:VALUE, separated by newlines"
@@ -56,7 +56,7 @@ runs:
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-      working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ inputs.working_directory }}
       run: |
         # jpipe-runner installation
         echo "::group::Install jpipe-runner"
