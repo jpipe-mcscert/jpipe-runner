@@ -4,14 +4,14 @@ author: "Jason Lyu, Baptiste Lacroix, Sébastien Mosser"
 
 inputs:
   jd_file:
-    description: "Path to the justification .jd file"
+    description: "Path to the justification .jd.json file"
     required: true
   variable:
     description: "Define one or more variables in the format NAME:VALUE, separated by newlines"
     required: false
   library:
     description: "Specify one or more Python libraries to load, separated by newlines"
-    required: false
+    required: true
   diagram:
     description: "Specify diagram pattern or wildcard"
     required: false
@@ -56,7 +56,7 @@ runs:
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-      working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ inputs.working_directory }}
       run: |
         # jpipe-runner installation
         echo "::group::Install jpipe-runner"
@@ -79,7 +79,8 @@ runs:
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-      working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ inputs.working_directory }}
+        OUTPUT_DIR: /home/runner/work/
       run: |
         CMD="$PYTHON_PATH -m jpipe_runner '${{ inputs.jd_file }}'"
         if [[ "${{ inputs.variable }}" != "" ]]; then
@@ -102,7 +103,7 @@ runs:
         if [[ "${{ inputs.dry_run }}" == "true" ]]; then
           CMD+=" --dry-run"
         fi
-        CMD+=" --output-path /home/runner/work/"
+        CMD+=" --output-path ${OUTPUT_DIR}"
         CMD+=" --format '${{ inputs.format }}'"
         
         echo "Running command: $CMD"
@@ -137,7 +138,7 @@ runs:
         else
           MESSAGE="Justification process failed! \n\n"
         fi
-    
+        
         # Use the artifact URL from the upload step
         ARTIFACT_URL="${{ steps.upload_diagram.outputs.artifact-url }}"
         
@@ -146,7 +147,7 @@ runs:
         else
           MESSAGE+="No Diagram artifact was generated - please check the logs for details."
         fi
-    
+        
         echo "msg<<EOF" >> $GITHUB_OUTPUT
         echo "$MESSAGE" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
@@ -163,3 +164,10 @@ runs:
             repo: context.repo.repo,
             body: `${{ steps.comment_content.outputs.msg }}`
           })
+
+    - name: Fail if jpipe-runner failed
+      if: ${{ steps.run_jpipe.outputs.result != '0' }}
+      shell: bash
+      run: |
+        echo "jPipe Runner failed with exit code ${{ steps.run_jpipe.outputs.result }}"
+        exit ${{ steps.run_jpipe.outputs.result }}
