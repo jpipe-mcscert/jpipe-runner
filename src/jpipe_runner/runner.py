@@ -6,6 +6,7 @@ This module contains the entrypoint of jPipe Runner.
 """
 
 import argparse
+import ast
 import glob
 import logging
 import shutil
@@ -235,9 +236,22 @@ def run_workflow_logic():
                                        for i in glob.glob(l)])
     mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
 
+    # Parse variables from CLI
+    variables = []
+    for i in args.variable:
+        if ':' in i:
+            key, raw_value = i.split(':', maxsplit=1)
+            try:
+                # Try to convert list/dict/bool/int/float/NoneType literals
+                value = ast.literal_eval(raw_value)
+            except (ValueError, SyntaxError):
+                # Fallback: treat it as plain string
+                value = raw_value
+            variables.append((key, value))
+
     jpipe = PipelineEngine(config_path=args.config_file,
                            justification_path=args.jd_file,
-                           variables=[i.split(':', maxsplit=1) for i in args.variable if i.find(':')],
+                           variables=variables,
                            mark_step=mark_step,
                            mark_substep=mark_substep,
                            mark_node_as_graph=mark_node_as_graph)
@@ -264,7 +278,14 @@ def run_workflow_logic():
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
 
-    if args.output:
+    # if args.format is define but args.output_path is not, print help or if args.format is not supported
+    if args.format and not args.output_path:
+        print("Output format specified but no output path provided. "
+              "Please specify an output path with --output-path or -o.", file=sys.stderr)
+        mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
+        sys.exit(1)
+
+    if args.output_path:
         mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
         output_path = args.output_path.lower()
         if output_path in {"stdout", "stderr"}:
@@ -282,7 +303,8 @@ def run_workflow_logic():
             print(f"{jpipe.justification_name} diagram saved to: {args.output_path}.{args.format}")
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.DONE)
         else:
-            print(f"Unsupported output format: {args.output}", file=sys.stderr)
+            print(f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
+                  file=sys.stderr)
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             sys.exit(1)
 
