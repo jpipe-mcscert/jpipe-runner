@@ -11,7 +11,7 @@ inputs:
     required: false
   library:
     description: "Specify one or more Python libraries to load, separated by newlines"
-    required: false
+    required: true
   diagram:
     description: "Specify diagram pattern or wildcard"
     required: false
