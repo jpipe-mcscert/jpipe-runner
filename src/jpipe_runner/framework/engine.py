@@ -9,7 +9,7 @@ import yaml
 from .context import ctx, RuntimeContext
 from .logger import GLOBAL_LOGGER
 from .validators import MissingVariableValidator, OrderValidator, SelfDependencyValidator, JustificationSchemaValidator, \
-    ProducedButNotConsumedValidator, DuplicateProducerValidator
+    ProducedButNotConsumedValidator, DuplicateProducerValidator, EvidenceDependencyValidator
 from ..GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from ..enums import StatusType
 from ..exceptions import FunctionException
@@ -183,6 +183,9 @@ class PipelineEngine:
             )
             for element in data.get("elements", []):
                 G.add_node(element["id"], **element)
+                fn_name = sanitize_string(element.get("label", ""))
+                G.nodes[element["id"]]["function_name"] = fn_name
+
             self.mark_substep(
                 GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
                 GraphWorkflowVisualizer.ADDING_NODE_TO_GRAPH,
@@ -267,6 +270,7 @@ class PipelineEngine:
             (OrderValidator(self, ctx), "Validate execution order"),
             (ProducedButNotConsumedValidator(self, ctx), "Check unused produced variables"),
             (DuplicateProducerValidator(self, ctx), "Detect duplicate producers"),
+            (EvidenceDependencyValidator(self, ctx, self.graph), "Check evidence dependencies")
         ]
 
         all_passed = True
