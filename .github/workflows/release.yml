@@ -101,6 +101,51 @@ jobs:
       - name: Run tests
         run: poetry run pytest
 
+  build-docs:
+      needs: [ test ]
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
+
+        - name: Set up Python
+          uses: actions/setup-python@v4
+          with:
+            python-version: ${{ env.PYTHON_VERSION }}
+
+        - name: Cache Poetry
+          id: cache-poetry
+          uses: actions/cache@v3
+          with:
+            path: ~/.local
+            key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+            restore-keys: |
+              ${{ runner.os }}-poetry-
+
+        - name: Install Poetry
+          if: steps.cache-poetry.outputs.cache-hit != 'true'
+          run: |
+            curl -sSL https://install.python-poetry.org | python3 -
+
+        - name: Add Poetry to PATH
+          run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+        - name: Install dependencies
+          run: |
+            poetry lock
+            poetry install --extras docs
+
+        - name: Build Sphinx documentation
+          run: |
+            cd docs/python_docs/
+            poetry run sphinx-apidoc -o source ../../src/jpipe_runner
+            poetry run sphinx-build -b html source build/html
+
+        - name: Upload documentation artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: documentation
+            path: docs/python_docs/build/html/
+
   build-python-package:
     needs: [ test ]
     runs-on: ubuntu-latest
@@ -262,7 +307,7 @@ jobs:
   release:
     permissions:
       contents: write
-    needs: [ build-python-package, build-ppa ]
+    needs: [ build-python-package, build-ppa, build-docs ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
