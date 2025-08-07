@@ -36,6 +36,18 @@ class BaseValidator:
         """
         raise NotImplementedError("Subclasses must implement the `validate()` method.")
 
+    def _is_function_skipped(self, func_key: str) -> bool:
+        """
+        Check if a function is marked as skipped in the context.
+
+        :param func_key: The function name to check.
+        :type func_key: str
+        :return: True if the function is marked as skipped, False otherwise.
+        :rtype: bool
+        """
+        skip_info = self.ctx._vars.get(func_key, {}).get(RuntimeContext.SKIP, {})
+        return skip_info.get('value', False)
+
 
 class MissingVariableValidator(BaseValidator):
     """
@@ -59,6 +71,9 @@ class MissingVariableValidator(BaseValidator):
         errors = []
         warnings = []
         for func_key, var_maps in self.ctx._vars.items():
+            if self._is_function_skipped(func_key):
+                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
+                continue
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}")
             for var in consume_vars:
@@ -105,6 +120,9 @@ class SelfDependencyValidator(BaseValidator):
         errors = []
         warnings = []
         for func_key, var_maps in self.ctx._vars.items():
+            if self._is_function_skipped(func_key):
+                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
+                continue
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' for self-dependencies.")
             for var in consume_vars:
@@ -156,6 +174,9 @@ class OrderValidator(BaseValidator):
         order_index = {k: i for i, k in enumerate(order)}
 
         for func_key in order:
+            if self._is_function_skipped(func_key):
+                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
+                continue
             consume_vars = self.ctx._vars.get(func_key, {}).get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking order for function '{func_key}'")
             for var in consume_vars:
@@ -221,11 +242,17 @@ class ProducedButNotConsumedValidator(BaseValidator):
         # Collect all consumed variables across the pipeline
         consumed_vars = set()
         for func_key, var_maps in self.ctx._vars.items():
+            if self._is_function_skipped(func_key):
+                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
+                continue
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             consumed_vars.update(consume_vars.keys())
 
         # Check each produced variable to ensure it's consumed somewhere else
         for func_key, var_maps in self.ctx._vars.items():
+            if self._is_function_skipped(func_key):
+                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
+                continue
             produce_vars = var_maps.get(RuntimeContext.PRODUCE, {})
             for var in produce_vars:
                 if var not in consumed_vars:
@@ -263,6 +290,9 @@ class DuplicateProducerValidator(BaseValidator):
         variable_to_producers: dict[str, list[str]] = {}
 
         for func_key, var_maps in self.ctx._vars.items():
+            if self._is_function_skipped(func_key):
+                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
+                continue
             produced_vars = var_maps.get(RuntimeContext.PRODUCE, {})
             GLOBAL_LOGGER.debug(f"Function '{func_key}' produces: {list(produced_vars)}")
             for var in produced_vars:
@@ -328,6 +358,9 @@ class EvidenceDependencyValidator(BaseValidator):
         evidence_strategy_edges = self._get_evidence_strategy_edges()
 
         for evidence in evidence_nodes:
+            if self._is_function_skipped(evidence):
+                GLOBAL_LOGGER.debug(f"Skipping validation for function '{evidence}' - marked as skipped")
+                continue
             produced_vars = self._get_produced_variables(evidence)
 
             if not produced_vars:
@@ -413,10 +446,10 @@ class EvidenceDependencyValidator(BaseValidator):
         ]
 
     def _validate_strategy_consumption(
-        self,
-        evidence: str,
-        produced_vars: list[str],
-        connected_strategies: list[str]
+            self,
+            evidence: str,
+            produced_vars: list[str],
+            connected_strategies: list[str]
     ) -> list[str]:
         """
         Check that all connected strategies consume every variable produced by the evidence.
