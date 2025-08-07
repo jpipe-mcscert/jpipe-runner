@@ -1,1 +1,1 @@
-include jpipe_runner/*.lark
+include requirements.txt

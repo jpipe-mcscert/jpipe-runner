@@ -105,14 +105,16 @@ def test_get_producer_key_found():
 
 def test_validate_all_passes(sample_justification):
     mock_validator = MagicMock()
-    mock_validator.validate.return_value = []
+    mock_validator.validate.return_value = [], []
     mock_validator.errors = []
+    mock_validator.warnings = []
 
     with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mock_validator), \
             patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=mock_validator), \
             patch("jpipe_runner.framework.engine.OrderValidator", return_value=mock_validator), \
             patch("jpipe_runner.framework.engine.ProducedButNotConsumedValidator", return_value=mock_validator):
-        engine = PipelineEngine(config_path=None, justification_path=None,
+        engine = PipelineEngine(config_path=None,
+                                justification_path=None,
                                 mark_step=MagicMock(),
                                 mark_substep=MagicMock(),
                                 mark_node_as_graph=MagicMock())
@@ -123,21 +125,25 @@ def test_validate_all_passes(sample_justification):
 
 def test_validate_missing_variable_fails():
     mv_validator = MagicMock()
-    mv_validator.validate.return_value = ["Missing variable error"]
+    mv_validator.validate.return_value = ["Missing variable error"], []
     mv_validator.errors = ["Missing variable error"]
+    mv_validator.warnings = []
 
     sd_validator = MagicMock()
-    sd_validator.validate.return_value = []
+    sd_validator.validate.return_value = [], []
     sd_validator.errors = []
+    sd_validator.warnings = []
 
     o_validator = MagicMock()
-    o_validator.validate.return_value = []
+    o_validator.validate.return_value = [], []
     o_validator.errors = []
+    o_validator.warnings = []
 
     with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator), \
             patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator), \
             patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator):
-        engine = PipelineEngine(config_path=None, justification_path=None,
+        engine = PipelineEngine(config_path=None,
+                                justification_path=None,
                                 mark_step=MagicMock(),
                                 mark_substep=MagicMock(),
                                 mark_node_as_graph=MagicMock())
@@ -148,21 +154,25 @@ def test_validate_missing_variable_fails():
 
 def test_validate_self_dependency_fails():
     mv_validator = MagicMock()
-    mv_validator.validate.return_value = []
+    mv_validator.validate.return_value = [], []
     mv_validator.errors = []
+    mv_validator.warnings = []
 
     sd_validator = MagicMock()
-    sd_validator.validate.return_value = ["Self-dependency error"]
+    sd_validator.validate.return_value = ["Self-dependency error"], []
     sd_validator.errors = ["Self-dependency error"]
+    sd_validator.warnings = []
 
     o_validator = MagicMock()
-    o_validator.validate.return_value = []
+    o_validator.validate.return_value = [], []
     o_validator.errors = []
+    o_validator.warnings = []
 
     with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator), \
             patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator), \
             patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator):
-        engine = PipelineEngine(config_path=None, justification_path=None,
+        engine = PipelineEngine(config_path=None,
+                                justification_path=None,
                                 mark_step=MagicMock(),
                                 mark_substep=MagicMock(),
                                 mark_node_as_graph=MagicMock())
@@ -173,21 +183,25 @@ def test_validate_self_dependency_fails():
 
 def test_validate_order_error():
     mv_validator = MagicMock()
-    mv_validator.validate.return_value = []
+    mv_validator.validate.return_value = [], []
     mv_validator.errors = []
+    mv_validator.warnings = []
 
     sd_validator = MagicMock()
-    sd_validator.validate.return_value = []
+    sd_validator.validate.return_value = [], []
     sd_validator.errors = []
+    sd_validator.warnings = []
 
     o_validator = MagicMock()
-    o_validator.validate.return_value = ["Order error: A before B"]
+    o_validator.validate.return_value = ["Order error: A before B"], []
     o_validator.errors = ["Order error: A before B"]
+    o_validator.warnings = []
 
     with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator), \
             patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator), \
             patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator):
-        engine = PipelineEngine(config_path=None, justification_path=None,
+        engine = PipelineEngine(config_path=None,
+                                justification_path=None,
                                 mark_step=MagicMock(),
                                 mark_substep=MagicMock(),
                                 mark_node_as_graph=MagicMock())

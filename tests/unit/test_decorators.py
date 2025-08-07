@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from jpipe_runner.framework.context import ctx, RuntimeContext
 from jpipe_runner.framework.decorators.jpipe_decorator import ConsumedVariableChecker, ProducedVariableChecker, jpipe
+from jpipe_runner.framework.logger import log_buffer
 
 
 class TestConsumedVariableChecker(unittest.TestCase):
@@ -31,12 +32,23 @@ class TestConsumedVariableChecker(unittest.TestCase):
         self.assertIn("a", new_kwargs)
         self.assertEqual(new_kwargs["a"], 10)
 
-    def test_inject_arguments_raises_if_value_none(self):
+    def test_inject_arguments_logs_error_if_value_none(self):
+        log_buffer.logs.clear()
+
         checker = ConsumedVariableChecker(self.sample_func, ("a",))
         checker.register_variables()
-        # value is None by default (not set)
-        with self.assertRaises(ValueError):
-            checker.inject_arguments({})
+        # No value set for 'a' in context, so it will be None
+
+        checker.inject_arguments({})  # Should log an error
+
+        matching_logs = [
+            log for log in log_buffer.logs
+            if "has not been set in context before calling" in log and "a" in log
+        ]
+        self.assertTrue(
+            matching_logs,
+            "Expected error log about missing consumed variable 'a' not found."
+        )
 
     def test_inject_arguments_warns_for_unused_param(self):
         def func(x):  # declares 'a' but does not use it
@@ -85,18 +97,34 @@ class TestProducedVariableChecker(unittest.TestCase):
         self.assertIn("out", checker.produced_set)
         self.assertEqual(ctx.get("out"), 42)
 
-    def test_produce_raises_if_undeclared_variable(self):
+    def test_produce_logs_error_if_undeclared_variable(self):
+        # Clear previous logs
+        log_buffer.logs.clear()
+
         checker = ProducedVariableChecker(self.sample_func, ("out",))
         checker.register_variables()
-        with self.assertRaises(RuntimeError):
-            checker.produce("not_declared", 5)
+        checker.produce("not_declared", 5)
 
-    def test_validate_produced_raises_if_missing_vars(self):
+        # Check that an error was logged about producing an undeclared variable
+        matching_logs = [
+            log for log in log_buffer.logs
+            if "attempted to produce undeclared variable" in log and "not_declared" in log
+        ]
+        self.assertTrue(matching_logs, "Expected error log about undeclared produced variable not found.")
+
+    def test_validate_produced_logs_error_if_missing_vars(self):
+        # Clear previous logs
+        log_buffer.logs.clear()
+
         checker = ProducedVariableChecker(self.sample_func, ("out1", "out2"))
         checker.register_variables()
         checker.produce("out1", 10)
-        with self.assertRaises(RuntimeError):
-            checker.validate_produced()
+
+        checker.validate_produced()
+
+        # Check that an error was logged about missing variable(s)
+        matching_logs = [log for log in log_buffer.logs if "did not produce the following declared variable(s)" in log]
+        self.assertTrue(matching_logs, "Expected error log about missing produced variables not found.")
 
     def test_validate_produced_passes_if_all_produced(self):
         checker = ProducedVariableChecker(self.sample_func, ("out",))
@@ -124,15 +152,24 @@ class TestConsumeDecorator(unittest.TestCase):
         result = func()
         self.assertEqual(result, 6)
 
-    def test_consume_decorator_raises_if_var_not_set(self):
+    def test_consume_decorator_logs_error_if_var_not_set(self):
+        log_buffer.logs.clear()
+
         @jpipe(consume=["val"])
         def func(val):
             return val
 
         ctx._set("func", "val", None, RuntimeContext.CONSUME)
-        # val not set in context, should raise ValueError
-        with self.assertRaises(ValueError):
-            func()
+        func()  # Should log error instead of raising
+
+        matching_logs = [
+            log for log in log_buffer.logs
+            if "Consumed variable 'val' has not been set in context before calling 'func'" in log  # Adjust based on your logger message
+        ]
+        self.assertTrue(
+            matching_logs,
+            "Expected error log about missing consumed variable 'val' not found."
+        )
 
 
 class TestProduceDecorator(unittest.TestCase):
@@ -154,25 +191,48 @@ class TestProduceDecorator(unittest.TestCase):
         self.assertEqual(result, "done")
         self.assertEqual(ctx.get("out"), 123)
 
-    def test_produce_decorator_raises_if_undeclared_var_produced(self):
+    def test_produce_decorator_logs_error_if_undeclared_var_produced(self):
+        # Clear previous logs
+        log_buffer.logs.clear()
+
         @jpipe(produce=["out"])
         def func(produce):
-            produce("not_declared", 1)  # Should raise
+            produce("not_declared", 1)  # Should log an error
 
         ctx._set("func", "out", None, RuntimeContext.PRODUCE)
-        with self.assertRaises(RuntimeError):
-            func()
+        func()
 
-    def test_produce_decorator_raises_if_not_all_vars_produced(self):
+        matching_logs = [
+            log for log in log_buffer.logs
+            if "attempted to produce undeclared variable" in log and "not_declared" in log
+        ]
+
+        self.assertTrue(
+            matching_logs,
+            "Expected error log for undeclared produced variable 'not_declared' not found."
+        )
+
+    def test_produce_decorator_logs_error_if_not_all_vars_produced(self):
+        # Clear logs before running
+        log_buffer.logs.clear()
+
         @jpipe(produce=["out1", "out2"])
         def func(produce):
-            produce("out1", 1)
-            # Missing out2
+            produce("out1", 1)  # Missing 'out2'
 
         ctx._set("func", "out1", None, RuntimeContext.PRODUCE)
         ctx._set("func", "out2", None, RuntimeContext.PRODUCE)
-        with self.assertRaises(RuntimeError):
-            func()
+
+        func()  # Should log error instead of raising
+
+        matching_logs = [
+            log for log in log_buffer.logs
+            if "did not produce the following declared variable(s):" in log and "out2" in log
+        ]
+        self.assertTrue(
+            matching_logs,
+            "Expected error log about missing produced variable 'out2' not found."
+        )
 
 
 if __name__ == "__main__":

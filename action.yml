@@ -1,21 +1,25 @@
 name: "jPipe Runner"
 description: "GitHub Action to run justification diagrams of jpipe"
-author: "Jason Lyu"
+author: "Jason Lyu, Baptiste Lacroix, Sébastien Mosser"
 
 inputs:
   jd_file:
-    description: "Path to the justification .jd file"
+    description: "Path to the justification .jd.json file"
     required: true
   variable:
     description: "Define one or more variables in the format NAME:VALUE, separated by newlines"
     required: false
   library:
     description: "Specify one or more Python libraries to load, separated by newlines"
-    required: false
+    required: true
   diagram:
     description: "Specify diagram pattern or wildcard"
     required: false
     default: "*"
+  format:
+    description: "Output format for the diagram, e.g. 'dot', 'gif', 'jpeg', 'jpg', 'pdf', 'png', 'svg'. Default is 'svg'"
+    required: false
+    default: "svg"
   dry_run:
     description: "Perform a dry run without actually executing justifications"
     required: false
@@ -36,41 +40,47 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Install system dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y graphviz libgraphviz-dev pkg-config
+
     - name: Set up Python
       if: ${{ !inputs.python_path }}
       uses: actions/setup-python@v5
       with:
-        python-version: "3.13"
+        python-version: "3.11"
 
     - name: Install jpipe-runner
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-      working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ inputs.working_directory }}
       run: |
         # jpipe-runner installation
         echo "::group::Install jpipe-runner"
 
-        # if $PYTHON_PATH -c "import jpipe_runner" &> /dev/null; then
-        #    echo "jpipe-runner already installed"
-        #    exit 0
-        # fi
-
         if poetry env info --path &> /dev/null; then
+          echo "Poetry environment detected - using Poetry for dependency management"
           # Install dependency via poetry
-          poetry add 'git+https://github.com/ace-design/jpipe-runner.git@${{ inputs.version }}'
+          poetry add 'git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}'
         else
+          echo "Poetry not available or not configured - falling back to pip installation"
           # Fallback to pip installation
-          $PYTHON_PATH -m pip install -U 'git+https://github.com/ace-design/jpipe-runner.git@${{ inputs.version }}'
+          $PYTHON_PATH -m pip install -U 'git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}'
         fi
 
         echo "::endgroup::"
 
     - name: Run jpipe-runner
+      id: run_jpipe
+      continue-on-error: true
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-      working-directory: ${{ inputs.working_directory }}
+        working-directory: ${{ inputs.working_directory }}
+        OUTPUT_DIR: /home/runner/work/
       run: |
         CMD="$PYTHON_PATH -m jpipe_runner '${{ inputs.jd_file }}'"
         if [[ "${{ inputs.variable }}" != "" ]]; then
@@ -93,5 +103,71 @@ runs:
         if [[ "${{ inputs.dry_run }}" == "true" ]]; then
           CMD+=" --dry-run"
         fi
+        CMD+=" --output-path ${OUTPUT_DIR}"
+        CMD+=" --format '${{ inputs.format }}'"
+        
         echo "Running command: $CMD"
         eval $CMD
+        RESULT=$?
+        
+        # Find the generated diagram file
+        DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
+        DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
+
+        echo "result=$RESULT" >> $GITHUB_OUTPUT 
+        echo "diagram_path=$DIAGRAM_FILE" >> $GITHUB_OUTPUT
+        echo "diagram_name=$DIAGRAM_NAME" >> $GITHUB_OUTPUT
+
+    - name: Upload diagram as artifact
+      id: upload_diagram
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.run_jpipe.outputs.diagram_name }}
+        path: ${{ steps.run_jpipe.outputs.diagram_path }}
+
+    - name: Read comment content
+      if: always()
+      id: comment_content
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        if [[ "${{ steps.run_jpipe.outputs.result }}" == "0" ]]; then
+          MESSAGE="Justification process completed successfully! \n\n"
+        else
+          MESSAGE="Justification process failed! \n\n"
+        fi
+        
+        # Use the artifact URL from the upload step
+        ARTIFACT_URL="${{ steps.upload_diagram.outputs.artifact-url }}"
+        
+        if [[ "$ARTIFACT_URL" != "" ]]; then
+          MESSAGE+="[Download Diagram Artifact]($ARTIFACT_URL)"
+        else
+          MESSAGE+="No Diagram artifact was generated - please check the logs for details."
+        fi
+        
+        echo "msg<<EOF" >> $GITHUB_OUTPUT
+        echo "$MESSAGE" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Post comment with diagram
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          github.rest.issues.createComment({
+            owner: context.repo.owner,
+            issue_number: context.issue.number,
+            repo: context.repo.repo,
+            body: `${{ steps.comment_content.outputs.msg }}`
+          })
+
+    - name: Fail if jpipe-runner failed
+      if: ${{ steps.run_jpipe.outputs.result != '0' }}
+      shell: bash
+      run: |
+        echo "jPipe Runner failed with exit code ${{ steps.run_jpipe.outputs.result }}"
+        exit ${{ steps.run_jpipe.outputs.result }}
