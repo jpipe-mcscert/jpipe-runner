@@ -106,15 +106,20 @@ This action sets outputs that downstream workflow steps can access:
 * **`diagram_name`**:
   The filename (e.g. `justification.svg`) of the generated diagram.
 
-
 ## `release.yml`
 
 - `secrets.GPG_PRIVATE_KEY`: Your GPG private key used for signing the package, associated with your Launchpad account.
-- `secrets.DEBFULLNAME`: Your full name as it appears in your GPG key, used for signing the Debian package.
-- `secrets.DEBEMAIL`: Your email address associated with your GPG key, used for signing the Debian package.
-- `secrets.GPG_ID`: The GPG key ID used for signing the Debian package, which must match the key uploaded to Launchpad.
+To extract your GPG private key, you can use the following command:
+
+```bash
+gpg --output private.pgp --armor --export-secret-key username@email
+```
+
+- `secrets.DEBFULLNAME`: Your full name as it appears in your GPG key, used for signing the Debian package. You can found it by running `gpg --list-keys` command.
+- `secrets.DEBEMAIL`: Your email address associated with your GPG key, used for signing the Debian package You can found it by running `gpg --list-keys` command.
+- `secrets.GPG_ID`: The GPG key ID used for signing the Debian package, which must match the key uploaded to Launchpad. (eg. 123456789123ABCD).
 - `secrets.LAUNCHPAD_USERNAME`: Your Launchpad username, which must be associated with a GPG key that has been uploaded
-  to Launchpad.
+  to Launchpad. You can found it in the url of your Launchpad profile page. (eg, https://launchpad.net/~<username>/)
 - `secrets.HOMEBREW_TAP_PAT`: Your GitHub Personal Access Token (PAT) for Homebrew tap repository access, so the
   GithubActionBot can push the Homebrew formula to the repository.
 
@@ -144,17 +149,56 @@ gpg --full-generate-key
 gpg --list-keys --keyid-format LONG
 ```
 
-3. **Upload to Ubuntu Keyserver:**
+This will output something like:
 
-```bash
-gpg --keyserver hkp://keyserver.ubuntu.com:80 --send-keys <KEY_ID>
+```
+pub   rsa2048/123456789123ABCD 2023-10-01 [SC]
+      1234567890ABCDEF1234567890ABCDEF12345678
+uid           [ultimate] Your Name <yourname@email.com>
+sub   rsa2048 2023-10-01 [E] [expires: 2025-10-01]
 ```
 
+The key ID is the long string after `rsa2048/`, e.g., `123456789123ABCD`.
+
+3. **Upload to Ubuntu Keyserver:**
+
+- Uploading it using the command line:
+- ```bash
+  gpg --keyserver hkp://keyserver.ubuntu.com:80 --send-keys <KEY_ID>
+  ```
+
+
+- Alternatively, you can upload it using the web interface:
+  [https://keyserver.ubuntu.com/#submitKey](https://keyserver.ubuntu.com/#submitKey)
+- Enter your ASCII-armored OpenPGP public key into the text area and click "Submit".
+
+    - You can export your public key using:
+    - ```bash
+        gpg --armor --export <KEY_ID> > mykey.asc
+        ```
+
 4. **Verify Key is Published:**
-   [https://keyserver.ubuntu.com/pks/lookup?search=\<KEY\_ID>\&fingerprint=on\&op=index](https://keyserver.ubuntu.com/pks/lookup)
+   [https://keyserver.ubuntu.com/pks/lookup?search=<KEY_ID>\&fingerprint=on\&op=index](https://keyserver.ubuntu.com/pks/lookup)
+    - Replace `<KEY_ID>` with your actual key ID.
 
 5. **Add to Launchpad:**
    [https://launchpad.net/~<username\>/+editpgpkeys](https://launchpad.net/~<username>/+editpgpkeys)
+
+    - Replace `<username>` with your Launchpad username.
+    - You'll need to paste the fingerprint of your GPG key, which you can get with:
+    - ```bash
+      gpg --fingerprint <KEY_ID>
+      ```
+      The output will look like this:
+    - ```
+      pub   rsa2048 2023-10-01 [SC]
+            27E0 7815 B47C 0397 90D5  8589 27D9 A27B F3F9 6058
+      uid           [ultimate] Your Name <yourname@email.com>
+      sub   rsa2048 2023-10-01 [E]
+      ```
+      The fingerprint is the long string of hexadecimal characters. (e.g.,
+      `27E0 7815 B47C 0397 90D5  8589 27D9 A27B F3F9 6058`)
+    - (note: try with the spaces and without spaces, if it doesn't work)
 
 6. **Decrypt Launchpad Email Message:**
    Paste the PGP message into a file:
