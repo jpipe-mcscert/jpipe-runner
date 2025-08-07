@@ -13,6 +13,7 @@ import shutil
 import sys
 import textwrap
 import threading
+import json
 from typing import Iterable
 
 from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
@@ -242,11 +243,18 @@ def run_workflow_logic():
         if ':' in i:
             key, raw_value = i.split(':', maxsplit=1)
             try:
-                # Try to convert list/dict/bool/int/float/NoneType literals
+                # First try ast.literal_eval for Python literals
                 value = ast.literal_eval(raw_value)
+                GLOBAL_LOGGER.info(f"Parsed {raw_value} as {value} of type {type(value).__name__}")
             except (ValueError, SyntaxError):
-                # Fallback: treat it as plain string
-                value = raw_value
+                try:
+                    # If that fails, try JSON parsing for JSON literals (handles null, true, false)
+                    value = json.loads(raw_value)
+                    GLOBAL_LOGGER.info(f"JSON parsed {raw_value} as {value} of type {type(value).__name__}")
+                except ValueError:
+                    # Fallback: treat it as plain string
+                    GLOBAL_LOGGER.info(f"Failed to parse {raw_value}, treating as string.")
+                    value = raw_value
             variables.append((key, value))
 
     jpipe = PipelineEngine(config_path=args.config_file,
@@ -266,10 +274,11 @@ def run_workflow_logic():
     justification_result = list(jpipe.justify(dry_run=args.dry_run, runtime=runtime))
 
     if args.dry_run or not justification_result:
-        print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
-        log_buffer.dump_to_stderr()
-        # if there are some errors or warnings, exit with code 1
-        exit(1) if not justification_result else exit(0)
+        if log_buffer.has_errors():
+            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+            log_buffer.dump_to_stderr()
+            exit(1)
+        exit(0)
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.CURRENT)
 
@@ -309,6 +318,7 @@ def run_workflow_logic():
             sys.exit(1)
 
     # if errors on buffer show them
+    print(log_buffer)
     if log_buffer.has_errors():
         print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
         log_buffer.dump_to_stderr()

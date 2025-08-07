@@ -36,19 +36,6 @@ class BaseValidator:
         """
         raise NotImplementedError("Subclasses must implement the `validate()` method.")
 
-    def _is_function_skipped(self, func_key: str) -> bool:
-        """
-        Check if a function is marked as skipped in the context.
-
-        :param func_key: The function name to check.
-        :type func_key: str
-        :return: True if the function is marked as skipped, False otherwise.
-        :rtype: bool
-        """
-        skip_info = self.ctx._vars.get(func_key, {}).get(RuntimeContext.SKIP, {})
-        return skip_info.get('value', False)
-
-
 class MissingVariableValidator(BaseValidator):
     """
     Validator that checks for missing variables in the pipeline context.
@@ -71,9 +58,6 @@ class MissingVariableValidator(BaseValidator):
         errors = []
         warnings = []
         for func_key, var_maps in self.ctx._vars.items():
-            if self._is_function_skipped(func_key):
-                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
-                continue
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}")
             for var in consume_vars:
@@ -85,6 +69,7 @@ class MissingVariableValidator(BaseValidator):
                 if producer_key is None:
                     errors.append(
                         (
+                            "[MissingVariableValidator]\n"
                             "Pipeline validation error: missing variable.\n"
                             f"  • Function '{func_key}' declares that it consumes variable '{var}',\n"
                             "    but no producer for this variable is found in the pipeline,\n"
@@ -120,9 +105,6 @@ class SelfDependencyValidator(BaseValidator):
         errors = []
         warnings = []
         for func_key, var_maps in self.ctx._vars.items():
-            if self._is_function_skipped(func_key):
-                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
-                continue
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' for self-dependencies.")
             for var in consume_vars:
@@ -131,6 +113,7 @@ class SelfDependencyValidator(BaseValidator):
                 if producer_key == func_key:
                     errors.append(
                         (
+                            "[SelfDependencyValidator]\n"
                             "Pipeline validation error: self-dependency detected.\n"
                             f"  • Function '{func_key}' declares variable '{var}' as both consumed and produced by itself.\n"
                             "    This is likely a misconfiguration:\n"
@@ -174,9 +157,6 @@ class OrderValidator(BaseValidator):
         order_index = {k: i for i, k in enumerate(order)}
 
         for func_key in order:
-            if self._is_function_skipped(func_key):
-                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
-                continue
             consume_vars = self.ctx._vars.get(func_key, {}).get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking order for function '{func_key}'")
             for var in consume_vars:
@@ -187,6 +167,7 @@ class OrderValidator(BaseValidator):
                 if producer == func_key:
                     errors.append(
                         (
+                            "[OrderValidator]\n"
                             "Pipeline validation error: function '{func}' declares variable '{var}' "
                             "as both consumed and produced by itself.\n"
                             "  • This self-dependency is likely a misconfiguration.\n"
@@ -206,6 +187,7 @@ class OrderValidator(BaseValidator):
                 if order_index[producer] >= order_index[func_key]:
                     errors.append(
                         (
+                            "[OrderValidator]\n"
                             "Pipeline execution order violation detected:\n"
                             f"  • Function '{func_key}' (index {order_index[func_key]}) consumes variable '{var}',\n"
                             f"    but that variable is produced by function '{producer}' (index {order_index[producer]}),\n"
@@ -242,22 +224,17 @@ class ProducedButNotConsumedValidator(BaseValidator):
         # Collect all consumed variables across the pipeline
         consumed_vars = set()
         for func_key, var_maps in self.ctx._vars.items():
-            if self._is_function_skipped(func_key):
-                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
-                continue
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             consumed_vars.update(consume_vars.keys())
 
         # Check each produced variable to ensure it's consumed somewhere else
         for func_key, var_maps in self.ctx._vars.items():
-            if self._is_function_skipped(func_key):
-                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
-                continue
             produce_vars = var_maps.get(RuntimeContext.PRODUCE, {})
             for var in produce_vars:
                 if var not in consumed_vars:
                     warnings.append(
                         (
+                            "[ProducedButNotConsumedValidator]\n"
                             f"Pipeline validation error: produced variable not consumed.\n"
                             f"  • Variable '{var}' is produced by function '{func_key}' but is never consumed by any function.\n"
                             f"  • This may indicate redundant computation or misconfiguration.\n"
@@ -290,9 +267,6 @@ class DuplicateProducerValidator(BaseValidator):
         variable_to_producers: dict[str, list[str]] = {}
 
         for func_key, var_maps in self.ctx._vars.items():
-            if self._is_function_skipped(func_key):
-                GLOBAL_LOGGER.debug(f"Skipping validation for function '{func_key}' - marked as skipped")
-                continue
             produced_vars = var_maps.get(RuntimeContext.PRODUCE, {})
             GLOBAL_LOGGER.debug(f"Function '{func_key}' produces: {list(produced_vars)}")
             for var in produced_vars:
@@ -301,6 +275,7 @@ class DuplicateProducerValidator(BaseValidator):
         for var, producers in variable_to_producers.items():
             if len(producers) > 1:
                 error_message = (
+                    "[DuplicateProducerValidator]\n"
                     "Pipeline validation error: duplicate producers detected.\n"
                     f"  • Variable '{var}' is produced by multiple functions: {producers}\n"
                     "  • Each variable must have exactly one producer to maintain a valid pipeline structure.\n"
@@ -358,9 +333,6 @@ class EvidenceDependencyValidator(BaseValidator):
         evidence_strategy_edges = self._get_evidence_strategy_edges()
 
         for evidence in evidence_nodes:
-            if self._is_function_skipped(evidence):
-                GLOBAL_LOGGER.debug(f"Skipping validation for function '{evidence}' - marked as skipped")
-                continue
             produced_vars = self._get_produced_variables(evidence)
 
             if not produced_vars:
@@ -489,6 +461,7 @@ class EvidenceDependencyValidator(BaseValidator):
         :rtype: str
         """
         return (
+            "[EvidenceDependencyValidator]\n"
             f"Pipeline validation error: evidence node does not produce any variables.\n"
             f"  • Evidence: '{evidence}'\n"
             f"  • Problem: This evidence does not produce any output variables.\n"
@@ -512,6 +485,7 @@ class EvidenceDependencyValidator(BaseValidator):
         """
         strategy_list = "', '".join(strategies)
         return (
+            "[EvidenceDependencyValidator]\n"
             f"Pipeline validation error: evidence variables not consumed by strategies.\n"
             f"  • Evidence: '{evidence}'\n"
             f"  • Produced Variables: {produced_vars}\n"
