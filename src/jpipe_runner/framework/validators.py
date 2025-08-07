@@ -22,6 +22,7 @@ class BaseValidator:
         self.pipeline = pipeline
         self.ctx = ctx
         self.errors: list[str] = []
+        self.warnings: list[str] = []
 
     def validate(self) -> tuple[list[Any], list[Any]]:
         """
@@ -55,8 +56,6 @@ class MissingVariableValidator(BaseValidator):
         :rtype: list[str]
         """
         GLOBAL_LOGGER.info("Running MissingVariableValidator...")
-        errors = []
-        warnings = []
         for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}")
@@ -67,7 +66,7 @@ class MissingVariableValidator(BaseValidator):
                 producer_key = self.pipeline.get_producer_key(var)
                 GLOBAL_LOGGER.debug(f"Producer for variable '{var}' is: {producer_key}")
                 if producer_key is None:
-                    errors.append(
+                    self.errors.append(
                         (
                             "[MissingVariableValidator]\n"
                             "Pipeline validation error: missing variable.\n"
@@ -80,8 +79,8 @@ class MissingVariableValidator(BaseValidator):
                             f"    so that '{func_key}' can consume it.\n"
                         )
                     )
-        GLOBAL_LOGGER.info(f"MissingVariableValidator completed with {len(errors)} error(s).")
-        return errors, warnings
+        GLOBAL_LOGGER.info(f"MissingVariableValidator completed with {len(self.errors)} error(s).")
+        return self.errors, self.warnings
 
 
 class SelfDependencyValidator(BaseValidator):
@@ -102,8 +101,6 @@ class SelfDependencyValidator(BaseValidator):
         :rtype: list[str]
         """
         GLOBAL_LOGGER.info("Running SelfDependencyValidator...")
-        errors = []
-        warnings = []
         for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' for self-dependencies.")
@@ -111,7 +108,7 @@ class SelfDependencyValidator(BaseValidator):
                 producer_key = self.pipeline.get_producer_key(var)
                 GLOBAL_LOGGER.debug(f"Variable '{var}' consumed by '{func_key}' is produced by '{producer_key}'")
                 if producer_key == func_key:
-                    errors.append(
+                    self.errors.append(
                         (
                             "[SelfDependencyValidator]\n"
                             "Pipeline validation error: self-dependency detected.\n"
@@ -125,8 +122,8 @@ class SelfDependencyValidator(BaseValidator):
                             "        so the dependency graph does not treat the same function as its own producer.\n"
                         ).replace("{var}", var).replace("{func_key}", func_key)
                     )
-        GLOBAL_LOGGER.info(f"SelfDependencyValidator completed with {len(errors)} error(s).")
-        return errors, warnings
+        GLOBAL_LOGGER.info(f"SelfDependencyValidator completed with {len(self.errors)} error(s).")
+        return self.errors, self.warnings
 
 
 class OrderValidator(BaseValidator):
@@ -150,8 +147,6 @@ class OrderValidator(BaseValidator):
         :rtype: list[str]
         """
         GLOBAL_LOGGER.info("Running OrderValidator...")
-        errors = []
-        warnings = []
         order = self.pipeline.get_execution_order()
         GLOBAL_LOGGER.debug(f"Execution order: {order}")
         order_index = {k: i for i, k in enumerate(order)}
@@ -165,7 +160,7 @@ class OrderValidator(BaseValidator):
                 if producer is None:
                     continue
                 if producer == func_key:
-                    errors.append(
+                    self.errors.append(
                         (
                             "[OrderValidator]\n"
                             "Pipeline validation error: function '{func}' declares variable '{var}' "
@@ -185,7 +180,7 @@ class OrderValidator(BaseValidator):
                     continue
 
                 if order_index[producer] >= order_index[func_key]:
-                    errors.append(
+                    self.errors.append(
                         (
                             "[OrderValidator]\n"
                             "Pipeline execution order violation detected:\n"
@@ -198,8 +193,8 @@ class OrderValidator(BaseValidator):
                             f"  • Suggestion: adjust dependencies/justification so that '{producer}' precedes '{func_key}'."
                         )
                     )
-        GLOBAL_LOGGER.info(f"OrderValidator completed with {len(errors)} error(s).")
-        return errors, warnings
+        GLOBAL_LOGGER.info(f"OrderValidator completed with {len(self.errors)} error(s).")
+        return self.errors, self.warnings
 
 
 class ProducedButNotConsumedValidator(BaseValidator):
@@ -218,8 +213,6 @@ class ProducedButNotConsumedValidator(BaseValidator):
         :rtype: list[str]
         """
         GLOBAL_LOGGER.info("Running ProducedButNotConsumedValidator...")
-        errors = []
-        warnings = []
 
         # Collect all consumed variables across the pipeline
         consumed_vars = set()
@@ -232,7 +225,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
             produce_vars = var_maps.get(RuntimeContext.PRODUCE, {})
             for var in produce_vars:
                 if var not in consumed_vars:
-                    warnings.append(
+                    self.warnings.append(
                         (
                             "[ProducedButNotConsumedValidator]\n"
                             f"Pipeline validation error: produced variable not consumed.\n"
@@ -242,8 +235,8 @@ class ProducedButNotConsumedValidator(BaseValidator):
                         )
                     )
 
-        GLOBAL_LOGGER.info(f"ProducedButNotConsumedValidator completed with {len(errors)} error(s).")
-        return errors, warnings
+        GLOBAL_LOGGER.info(f"ProducedButNotConsumedValidator completed with {len(self.errors)} error(s).")
+        return self.errors, self.warnings
 
 
 class DuplicateProducerValidator(BaseValidator):
@@ -262,8 +255,6 @@ class DuplicateProducerValidator(BaseValidator):
         :rtype: list[str]
         """
         GLOBAL_LOGGER.info("Running DuplicateProducerValidator...")
-        errors = []
-        warnings = []
         variable_to_producers: dict[str, list[str]] = {}
 
         for func_key, var_maps in self.ctx._vars.items():
@@ -283,10 +274,10 @@ class DuplicateProducerValidator(BaseValidator):
                     f"    - Choose a single function to produce '{var}' and remove it from the others.\n"
                     "    - If multiple outputs are required, consider renaming or splitting the variables.\n"
                 )
-                warnings.append(error_message)
+                self.warnings.append(error_message)
 
-        GLOBAL_LOGGER.info(f"DuplicateProducerValidator completed with {len(errors)} error(s).")
-        return errors, warnings
+        GLOBAL_LOGGER.info(f"DuplicateProducerValidator completed with {len(self.errors)} error(s).")
+        return self.errors, self.warnings
 
 
 class EvidenceDependencyValidator(BaseValidator):

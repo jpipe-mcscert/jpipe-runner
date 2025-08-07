@@ -318,7 +318,6 @@ def run_workflow_logic():
             sys.exit(1)
 
     # if errors on buffer show them
-    print(log_buffer)
     if log_buffer.has_errors():
         print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
         log_buffer.dump_to_stderr()

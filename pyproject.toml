@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jpipe-runner"
-version = "2.0.0b21"
+version = "2.0.0b22"
 description = "A Justification Runner designed for jPipe."
 authors = [
     "Jason Lyu <xjasonlyu@gmail.com>",
@@ -29,7 +29,8 @@ matplotlib = { version = "3.10.5", optional = true }
 
 [tool.poetry.extras]
 gui = ["matplotlib"]
-full = ["matplotlib"]
+docs = ["sphinx", "sphinx_rtd_theme", "myst-parser"]
+full = ["matplotlib", "sphinx", "sphinx_rtd_theme", "myst-parser"]
 
 [tool.poetry.scripts]
 jpipe-runner = "jpipe_runner.runner:main"

@@ -38,7 +38,7 @@ class PipelineEngine:
                  mark_step: Callable[[Any, Any], None],
                  mark_substep: Callable[[str, str, str], None],
                  mark_node_as_graph: Callable[[str, str], None],
-                 variables: Optional[Iterable[Tuple[str, str]]] = None
+                 variables: Optional[Iterable[Tuple[str, Any]]] = None
                  ) -> None:
         """
         Initialize the PipelineEngine with a configuration file and a justification file.
@@ -56,7 +56,7 @@ class PipelineEngine:
         :param mark_node_as_graph: Function to mark a node as a graph in the UI.
         :type mark_node_as_graph: Callable[[str, str], None]
         :param variables: Optional iterable of (name, value) pairs to set as context variables.
-        :type variables: Optional[Iterable[Tuple[str, str]]]
+        :type variables: Optional[Iterable[Tuple[str, Any]]]
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
@@ -69,7 +69,7 @@ class PipelineEngine:
         self.graph = self.parse_justification(justification_path)
         GLOBAL_LOGGER.debug("PipelineEngine initialized with context vars count: %d", len(ctx._vars))
 
-    def load_config(self, path: str, variables: Optional[Iterable[Tuple[str, str]]] = None) -> None:
+    def load_config(self, path: str, variables: Optional[Iterable[Tuple[str, Any]]] = None) -> None:
         """
         Load the YAML configuration file and set the context variables in ctx._vars.
         Each key/value in the YAML is treated as a produced variable in the context.
@@ -79,7 +79,7 @@ class PipelineEngine:
         :param path: Path to the YAML configuration file.
         :type path: Path
         :param variables: Optional iterable of (name, value) pairs to override config values.
-        :type variables: Optional[Iterable[Tuple[str, str]]]
+        :type variables: Optional[Iterable[Tuple[str, Any]]]
         """
         GLOBAL_LOGGER.info("Loading config from: %s", path)
         config = {}
@@ -250,8 +250,10 @@ class PipelineEngine:
         """
         Validate the pipeline by performing:
           1. Check that all consumed variables are available in context or produced by another function.
-          2. Check that no function consumes a variable it itself produces (self-dependency) without external source.
+          2. Check that no function consumes a variable it itself produces (self-dependency) without an external source.
           3. Generate execution order and check ordering constraints via is_order_valid().
+          4. Check that all produced variables are consumed by at least one function.
+          5. Detect duplicate producers for the same variable.
 
         Logs detailed, multi-line error messages for missing variables or self-dependencies,
         and returns False if any validation step fails. If ordering fails, is_order_valid()
@@ -609,10 +611,10 @@ class PipelineEngine:
 
     def export_to_format(self, status_dict: dict[str, str], output_path: str, filename: str, format: str) -> None:
         """
-        Export the justification graph to SVG, styling nodes by VariableType and edges by status.
+        Export the justification graph to any image format (png, svg, pdf etc), styling nodes by VariableType and edges by status.
 
         :param status_dict: Mapping node id -> status ("PASS", "FAIL", "SKIP")
-        :param output_path: Path to save SVG file.
+        :param output_path: Path to save the exported graph image.
         """
 
         try:

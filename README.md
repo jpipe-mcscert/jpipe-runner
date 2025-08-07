@@ -1,7 +1,7 @@
 # jPipe Runner
 
 ```text
-     _ ____  _               ____                              
+     _ ____  _              ____                              
    (_)  _ \(_)_ __   ___   |  _ \ _   _ _ __  _ __   ___ _ __ 
    | | |_) | | '_ \ / _ \  | |_) | | | | '_ \| '_ \ / _ \ '__|
    | |  __/| | |_) |  __/  |  _ <| |_| | | | | | | |  __/ |   
@@ -11,189 +11,93 @@
 
 A Justification Runner designed for jPipe.
 
-## Motivation
+## 🚀 Usage
 
-In the current Justification Diagram of [jPipe](https://github.com/ace-design/jpipe), the primary focus is on describing
-_what justification_ to perform and the _reasoning relationship_ between justification and conclusion. However, it does
-not elaborate on _how_ to actually execute these justifications in code, resulting in .jd files that are mainly a visual
-representation of reasoning — **lacking the capacity to run the justification process** in practice.
+### CLI
 
-In contrast, [Robot Framework](https://github.com/robotframework/robotframework) is a generic automation framework for
-acceptance testing. It uses a simple plain-text syntax and can be extended with various libraries.
-
-- It maps the "keyword" that appears in the test case to a Python (or other language) function for execution.
-- This allows the "verification function" to be called directly when writing the test script and get the execution
-  result (Pass/Fail), thus enabling an executable test/verification process.
-
-**Inspired by Robot Framework's keyword-driven approach**, we propose to implement a jpipe-runner to make the jPipe
-Justification Diagram executable and operational. With this extension, each _justification evidence/strategy_ could be
-mapped to corresponding executable code, transforming jPipe from a purely visual reasoning tool into a fully automated
-CI/CD-style justification framework.
-
-## Features
-
-- Fully compatible with existing jPipe syntax/grammar.
-    - Support `load`, `justification`, `pattern`, and `composition`.
-- A keyword-driven operational justification diagram framework.
-
-## Repository organization
-
-- `examples`: examples of models, images, and libraries
-- `jpipe_runner`: Python source code of the jPipe runner
-
-## Architecture
-
-![arch](./mermaid/architecture.svg)
-
-## Installation
-
-jPipe Runner requires:
-
-- Python (version 3.10 or later)
-
-Optional dependency:
-
-- [Graphviz](https://www.graphviz.org/) (version 2.46 or later)
-- C/C++ Compiler
-
-> [!NOTE]
-> Graphviz is required and used for debugging purposes only.
-
-To install `graphviz` on Debian/Ubuntu:
-
-```shell
-$ sudo apt-get install \
-    --no-install-recommends \
-    --no-install-suggests -y \
-    graphviz graphviz-dev
- ```
-
-### Pip
-
-```shell
-$ pip install -U git+https://github.com/ace-design/jpipe-runner.git@main
+```bash
+poetry run jpipe-runner [-h] [--variable NAME:VALUE] [--library LIB] \
+                         [--diagram PATTERN] [--output FILE] [--dry-run] \
+                         [--verbose] [--config-file PATH] [--gui] jd_file
 ```
 
-### Docker
+**Key options:**
 
-We currently do not provide jpipe-runner images on the public registry, so you will need to build it yourself.
+* `--variable`, `-v`: Define `NAME:VALUE` pairs for template variables.
+* `--library`, `-l`: Load additional Python modules (steps).
+* `--diagram`, `-d`: Select diagrams by wildcard pattern.
+* `--output`, `-o`: Specify output image file (format inferred by extension).
+* `--dry-run`: Validate workflow without executing.
+* `--verbose`, `-V`: Enable debug logging.
+* `--config-file`: Load workflow config from a YAML file.
+* `--gui`: Launch the Tkinter-based `GraphWorkflowVisualizer`
 
-```shell
-$ docker build -t jpipe-runner:latest .
+Example:
+
+```bash
+poetry run jpipe-runner --variable X:10 --diagram "flow*" \
+                         --output diagram.png workflow.jd
 ```
 
-### Actions
+For detailed instructions on how to execute the project, including descriptions of all CLI parameters and usage examples, see the [Usage Guide](docs/USAGE.md).
 
-Alternatively, you can simply integrate jpipe runner into your actions.
+## ⚙️Installation
 
-```yaml
-steps:
-  - uses: ace-design/jpipe-runner@main
-    with:
-      jd_file: "/path/to/your/justification.jd"
-      variable: |
-        key:value
-      library: |
-        path/to/libraries/*.py
-      diagram: "*"
-      dry_run: false
+### Prerequisites
+
+* Python 3.10+
+* [Poetry](https://python-poetry.org)
+* [Graphviz](https://graphviz.org/) (`libgraphviz-dev`, `pkg-config`)
+* Optional for GUI version: [Tkinter](https://docs.python.org/3/library/tkinter.html)
+
+### From Source
+
+```bash
+# Lock and install dependencies
+poetry lock
+poetry install
 ```
 
-## Examples
+### Build Package
 
-Consider this justification diagram: It has two pieces of evidence supporting two strategies; these strategies support
-each sub-conclusion, which further supports the final strategy, and then reaches the conclusion.
+```bash
+# Run tests
+poetry run pytest
 
-![slides](./examples/images/slides.png)
-
-To justify this diagram, we can map each evidence/strategy to a Python function, and the jpipe runner will call the
-corresponding function based on the order of justification, i.e. evidence -> strategy, and only if that function returns
-a non-false result, the justification process will proceed.
-
-For example, consider the following Python demo code:
-
-```python
-signature = None
-available = None
-
-cons = []
-
-def nda_is_signed():
-    return signature == 'jason'
-
-def slides_are_available():
-    return available
-
-def check_contents_wrt_nda():
-    x = "ok"
-    cons.append(x)
-    return x
-
-def check_grammar_typos():
-    x = "loos good!"
-    cons.append(x)
-    return x
-
-def all_conditions_are_met():
-    return all(cons)
+# Build distributable
+poetry build
 ```
 
-Run the justification with jpipe runner:
+## 📚 Learn More
 
-```shell
-python -m jpipe_runner \
-  -l 'examples/libraries/slides.py' \
-  -v signature:jason \
-  -v available:ready \
-  examples/models/01_slides.jd
-```
+* [Usage Guide](docs/USAGE.md)
+* [Packaging & CI/CD](docs/PACKAGING_RELEASE.md)
+* [Troubleshooting](docs/TROUBLESHOOTING.md)
+* [Developer Docs (Sphinx)](docs/BUILD_DOCS.md)
+* [Contributing](docs/CONTRIBUTING.md)
 
-The runner output is as follows:
+## 📄 License
 
-```text
-==============================================================================
-jPipe Files                                                               
-==============================================================================
-jPipe Files.Justification :: slides                                       
-==============================================================================
-Evidence<nda> :: NDA is signed                                        | PASS |
-------------------------------------------------------------------------------
-Evidence<available> :: Slides are available                           | PASS |
-------------------------------------------------------------------------------
-Strategy<grammar> :: Check Grammar/Typos                              | PASS |
-------------------------------------------------------------------------------
-Strategy<compliant> :: Check contents w.r.t. NDA                      | PASS |
-------------------------------------------------------------------------------
-Sub-Conclusion<decent> :: Professional standard are met               | PASS |
-------------------------------------------------------------------------------
-Sub-Conclusion<legal> :: content is approved by legal                 | PASS |
-------------------------------------------------------------------------------
-Strategy<all> :: All conditions are met                               | PASS |
-------------------------------------------------------------------------------
-Conclusion<ready> :: Presentation is Ready                            | PASS |
-------------------------------------------------------------------------------
-jPipe Files
-1 justification, 1 passed, 0 failed, 0 skipped
-==============================================================================
-```
+MIT License — see [LICENSE](LICENSE).
 
-_If any step (evidence/strategy) fails during the justification process, the remaining steps will be skipped and the
-entire justification will fail._
+## 👤 Authors
+
+* [Jason Lyu](https://github.com/xjasonlyu)
+* [Baptiste Lacroix](https://github.com/BaptisteLacroix)
+* [Sébastien Mosser](https://github.com/mosser)
 
 ## How to cite?
 
 ```bibtex
 @software{mcscert:jpipe-runner,
-  author = {Mosser, Sébastien and Lyu, Jason},
+  author = {Mosser, Sébastien and Lyu, Jason and Lacroix, Baptiste},
   license = {MIT},
   title = {{jPipe Runner}},
   url = {https://github.com/ace-design/jpipe-runner}
 }
 ```
 
-## How to contribute?
-
-Found a bug, or want to add a cool feature? Feel free to fork this repository and send a pull request.
+## Contact Us
 
 If you're interested in contributing to the research effort related to jPipe projects, feel free to contact the PI:
 
