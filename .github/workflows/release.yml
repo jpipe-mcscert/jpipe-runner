@@ -620,6 +620,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
+          token: '${{ github.token }}'
 
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
