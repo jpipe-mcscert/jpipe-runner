@@ -197,8 +197,7 @@ The key ID is the long string after `rsa2048/`, e.g., `123456789123ABCD`.
       sub   rsa2048 2023-10-01 [E]
       ```
       The fingerprint is the long string of hexadecimal characters. (e.g.,
-      `27E0 7815 B47C 0397 90D5  8589 27D9 A27B F3F9 6058`)
-    - (note: try with the spaces and without spaces, if it doesn't work)
+      `27E0 7815 B47C 0397 90D5  8589 27D9 A27B F3F9 6058`) You **MUST** copy **WITHOUT SPACES**.
 
 6. **Decrypt Launchpad Email Message:**
    Paste the PGP message into a file:
