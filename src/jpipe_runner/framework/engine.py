@@ -9,7 +9,7 @@ import yaml
 from .context import ctx, RuntimeContext
 from .logger import GLOBAL_LOGGER
 from .validators import MissingVariableValidator, OrderValidator, SelfDependencyValidator, JustificationSchemaValidator, \
-    ProducedButNotConsumedValidator, DuplicateProducerValidator
+    ProducedButNotConsumedValidator, DuplicateProducerValidator, EvidenceDependencyValidator
 from ..GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from ..enums import StatusType
 from ..exceptions import FunctionException
@@ -89,8 +89,10 @@ class PipelineEngine:
         # Load YAML config if a path is provided
         if path:
             try:
+                GLOBAL_LOGGER.info(f"Attempting to load configuration from {path}")
                 with open(path, 'r') as f:
                     config = yaml.safe_load(f) or {}
+                GLOBAL_LOGGER.info(f"Configuration loaded from {path}")
             except Exception as e:
                 GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
                 self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
@@ -105,8 +107,10 @@ class PipelineEngine:
 
         # Set context variables
         try:
+            GLOBAL_LOGGER.info("Loading configuration into context variables...")
             for key, value in config.items():
                 ctx.set_from_config(key, value)
+            GLOBAL_LOGGER.info("Context variables set successfully.")
         except Exception as e:
             GLOBAL_LOGGER.error("Failed to set context variables: %s", e)
             self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Set context variables",
@@ -179,6 +183,9 @@ class PipelineEngine:
             )
             for element in data.get("elements", []):
                 G.add_node(element["id"], **element)
+                fn_name = sanitize_string(element.get("label", ""))
+                G.nodes[element["id"]]["function_name"] = fn_name
+
             self.mark_substep(
                 GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
                 GraphWorkflowVisualizer.ADDING_NODE_TO_GRAPH,
@@ -265,6 +272,7 @@ class PipelineEngine:
             (OrderValidator(self, ctx), "Validate execution order"),
             (ProducedButNotConsumedValidator(self, ctx), "Check unused produced variables"),
             (DuplicateProducerValidator(self, ctx), "Detect duplicate producers"),
+            (EvidenceDependencyValidator(self, ctx, self.graph), "Check evidence dependencies")
         ]
 
         all_passed = True
@@ -307,9 +315,7 @@ class PipelineEngine:
             GLOBAL_LOGGER.error("Cycle detected in justification graph: %s", e)
             return []
 
-
     # ------------ Start of Justification Pipeline Execution ------------
-
 
     def justify(self, runtime: PythonRuntime, dry_run: bool = False) -> Iterator[dict]:
         """
@@ -499,7 +505,8 @@ class PipelineEngine:
         self.mark_node_as_graph(GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, label)
         self.mark_substep(label, "status", GraphWorkflowVisualizer.CURRENT)
 
-    def _execute_justification_fn(self, label: str, fn_name: str, runtime: PythonRuntime, dry_run: bool, node: str) -> tuple:
+    def _execute_justification_fn(self, label: str, fn_name: str, runtime: PythonRuntime, dry_run: bool,
+                                  node: str) -> tuple:
         """
         Executes the function corresponding to the justification node.
 
@@ -602,8 +609,7 @@ class PipelineEngine:
 
     # ------------ End of Justification Pipeline Execution ------------
 
-
-    def export_to_format(self, status_dict: dict[str, str], output_path: str, format: str) -> None:
+    def export_to_format(self, status_dict: dict[str, str], output_path: str, filename: str, format: str) -> None:
         """
         Export the justification graph to any image format (png, svg, pdf etc), styling nodes by VariableType and edges by status.
 
@@ -625,6 +631,23 @@ class PipelineEngine:
                               GraphWorkflowVisualizer.FAIL)
             raise ImportError("pygraphviz is required to enable this feature") from e
 
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT,
+                          GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
+                          GraphWorkflowVisualizer.CURRENT)
+
+        # Prepare an output path
+        output_path = Path(output_path)
+
+        if output_path.exists():
+            output_path = output_path / filename
+        else:
+            output_path.mkdir(parents=True, exist_ok=True)
+            output_path = output_path / filename
+
+        self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT,
+                          GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
+                          GraphWorkflowVisualizer.DONE)
+
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.PREPARE_STYLES,
                           GraphWorkflowVisualizer.CURRENT)
         # Mapping from VariableType to node attributes
@@ -644,11 +667,7 @@ class PipelineEngine:
         A = to_agraph(G)
 
         A.graph_attr.update(
-            dpi="100",
             rankdir="BT",  # bottom-to-top layout
-            splines="spline",
-            margin="0.2,0.2",
-            size="15,15",
         )
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.CREATE_GRAPH,
                           GraphWorkflowVisualizer.DONE)
@@ -702,6 +721,6 @@ class PipelineEngine:
 
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH,
                           GraphWorkflowVisualizer.CURRENT)
-        A.draw(output_path, format=format, prog="dot")
+        A.draw(output_path.with_suffix(f".{format}"), format=format, prog="dot")
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.DRAW_GRAPH,
                           GraphWorkflowVisualizer.DONE)

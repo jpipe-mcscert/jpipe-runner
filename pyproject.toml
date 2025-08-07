@@ -1,10 +1,11 @@
 [tool.poetry]
 name = "jpipe-runner"
-version = "2.0.0"
+version = "2.0.0b22"
 description = "A Justification Runner designed for jPipe."
 authors = [
     "Jason Lyu <xjasonlyu@gmail.com>",
-    "Sébastien Mosser <mossers@mcmaster.ca>"
+    "Sébastien Mosser <mossers@mcmaster.ca>",
+    "Baptiste Lacroix <contact@baptiste-lacroix.fr>"
 ]
 readme = "README.md"
 license = "MIT"
@@ -12,7 +13,6 @@ homepage = "https://github.com/jpipe-mcscert/jpipe-runner"
 keywords = ["justification", "pipeline", "ML", "AI"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent"
 ]
 packages = [
@@ -20,15 +20,17 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10"
-networkx = "^3.4.2"
-termcolor = "^2.5.0"
-pygraphviz = "^1.11"
-matplotlib = "^3.10.3"
-pyyaml = "^6.0.2"
+python = ">=3.11"
+networkx = "3.5"
+pygraphviz = "1.14"
+pyyaml = "6.0.2"
+
+matplotlib = { version = "3.10.5", optional = true }
 
 [tool.poetry.extras]
+gui = ["matplotlib"]
 docs = ["sphinx", "sphinx_rtd_theme", "myst-parser"]
+full = ["matplotlib", "sphinx", "sphinx_rtd_theme", "myst-parser"]
 
 [tool.poetry.scripts]
 jpipe-runner = "jpipe_runner.runner:main"
@@ -36,6 +38,9 @@ jpipe-runner = "jpipe_runner.runner:main"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
 pytest-mock = "^3.14.1"
+
+[tool.poetry.requires-plugins]
+poetry-plugin-export = ">=1.8"
 
 [build-system]
 requires = ["poetry-core"]

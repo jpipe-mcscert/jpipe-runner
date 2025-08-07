@@ -1,9 +1,15 @@
-import tkinter as tk
-
-import matplotlib.pyplot as plt
 import networkx as nx
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.patches import Patch
+
+try:
+    import tkinter as tk
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    from matplotlib.patches import Patch
+    GUI_AVAILABLE = True
+except ImportError:
+    GUI_AVAILABLE = False
+    tk = None
+    plt = None
 
 
 class GraphWorkflowVisualizer:
@@ -39,6 +45,7 @@ class GraphWorkflowVisualizer:
 
     # EXPORT_OUTPUT
     IMPORTING_PYGRAPHVIZ = "Importing pygraphviz"
+    PREPARE_OUTPUT_PATH = "Prepare output path"
     PREPARE_STYLES = "Prepare styles"
     CREATE_GRAPH = "Create graph"
     STYLE_NODES = "Style nodes"
@@ -74,9 +81,9 @@ class GraphWorkflowVisualizer:
 
     workflow_edges = [
         (PARSE_CLI_ARGS, SET_LOGGER_LEVEL),
-        (SET_LOGGER_LEVEL, INITIALIZE_RUNTIME),
-        (INITIALIZE_RUNTIME, VALIDATE_ARGUMENTS_FILES),
-        (VALIDATE_ARGUMENTS_FILES, LOAD_CONFIGURATION),
+        (SET_LOGGER_LEVEL, VALIDATE_ARGUMENTS_FILES),
+        (VALIDATE_ARGUMENTS_FILES, INITIALIZE_RUNTIME),
+        (INITIALIZE_RUNTIME, LOAD_CONFIGURATION),
         (LOAD_CONFIGURATION, LOAD_JUSTIFICATION_FILE),
         (LOAD_JUSTIFICATION_FILE, VALIDATE_JUSTIFICATION_FILE),
         (VALIDATE_JUSTIFICATION_FILE, PARSE_JUSTIFICATION_GRAPH),
@@ -96,6 +103,8 @@ class GraphWorkflowVisualizer:
     }
 
     def __init__(self, master):
+        if not GUI_AVAILABLE:
+            raise ImportError("GUI dependencies not available. Install with: pip install jpipe-runner[gui]")
         print("Initializing GraphWorkflowVisualizer...")
         self.master = master
         self.master.title("Project Workflow Graph")
