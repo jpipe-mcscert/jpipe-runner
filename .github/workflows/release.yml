@@ -1,7 +1,6 @@
 name: CI & Release Pipeline
 
 env:
-  PUBLISH_TO_PRODUCTION: false  # Set to false for Test PyPI or true for PyPI
   PYTHON_VERSION: '3.11'
 
 on:
@@ -491,34 +490,31 @@ jobs:
           chmod +x script/publish-ppa.sh
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist_gui/*.changes
+  
+  
 
-
-
-
-  publish-pypi:
-   needs: [ build-homebrew-formula ]
-   if: ${{ env.PUBLISH_TO_PRODUCTION == 'true' }}
-   runs-on: ubuntu-latest
-   environment:
-     name: pypi
-     url: https://pypi.org/project/jpipe-runner/
-   permissions:
-     id-token: write
-   steps:
-     - uses: actions/checkout@v3
-
-     - name: Download distribution artifact
-       uses: actions/download-artifact@v4
-       with:
-         name: python-package-distributions
-         path: dist/
-
-     - name: Publish distribution to PyPI
-       uses: pypa/gh-action-pypi-publish@release/v1
+  #  publish-pypi:
+  #   needs: [ build-homebrew-formula ]
+  #   runs-on: ubuntu-latest
+  #   environment:
+  #     name: pypi
+  #     url: https://pypi.org/project/jpipe-runner/
+  #   permissions:
+  #     id-token: write
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #
+  #     - name: Download distribution artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: python-package-distributions
+  #         path: dist/
+  #
+  #     - name: Publish distribution to PyPI
+  #       uses: pypa/gh-action-pypi-publish@release/v1
 
   publish-testpypi:
     needs: [ build-homebrew-formula ]
-    if: ${{ env.PUBLISH_TO_PRODUCTION != 'true' }}
     runs-on: ubuntu-latest
     environment: test-pypi
     permissions:
@@ -541,7 +537,9 @@ jobs:
   publish-homebrew-formula:
     permissions:
       contents: write
-    needs: [ publish-ppa, publish-pypi, build-homebrew-formula ]
+    # [!] Add or Remove the publish-pypi or publish-testpypi job as needed [!]
+    # needs: [ publish-ppa, publish-pypi, build-homebrew-formula ]
+    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
@@ -566,7 +564,7 @@ jobs:
           cp tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/
           cp tap/Formula/jpipe-runner-gui.rb tap-repo/
           cp tap/Formula/jpipe-runner-gui@${VERSION}.rb tap-repo/
-          
+
       - name: Commit and push formula
         run: |
           cd tap-repo
