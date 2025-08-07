@@ -26,11 +26,12 @@ pygraphviz = "1.14"
 pyyaml = "6.0.2"
 
 matplotlib = { version = "3.10.5", optional = true }
+sphinx = { version = "8.1.3", optional = true }
 
 [tool.poetry.extras]
 gui = ["matplotlib"]
-docs = ["sphinx", "sphinx_rtd_theme", "myst-parser"]
-full = ["matplotlib", "sphinx", "sphinx_rtd_theme", "myst-parser"]
+docs = ["sphinx"]
+full = ["matplotlib", "sphinx"]
 
 [tool.poetry.scripts]
 jpipe-runner = "jpipe_runner.runner:main"

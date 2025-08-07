@@ -12,7 +12,7 @@ Make sure you have the following installed:
 To build the documentation locally, install the optional `docs` dependencies:
 
 ```bash
-pip install .[docs]
+poetry install --extras docs
 ```
 
 ## 🧭 Project Structure
@@ -41,7 +41,7 @@ Use `sphinx-apidoc` to auto-generate `.rst` stubs under `docs/python_docs/source
 
 ```bash
 cd docs/python_docs/
-sphinx-apidoc -o source ../../src/jpipe_runner
+poetry run sphinx-apidoc -o source ../../src/jpipe_runner
 ```
 
 This makes `.rst` files with `.. automodule::` directives for each module.
@@ -85,7 +85,7 @@ make singlehtml
 Or directly:
 
 ```bash
-sphinx-build -b singlehtml docs/python_docs/source docs/python_docs/build/singlehtml
+poetry run sphinx-build -b singlehtml docs/python_docs/source docs/python_docs/build/singlehtml
 ```
 
 Your generated site will be under `docs/build/html/`.
@@ -97,7 +97,7 @@ Your generated site will be under `docs/build/html/`.
 
    ```bash
    cd docs/python_docs/
-   sphinx-apidoc -o source ../../src/jpipe_runner
+   poetry run sphinx-apidoc -o source ../../src/jpipe_runner
    ```
 3. Adjust `index.rst` or other `.rst` pages to include new modules.
 4. Rebuild HTML with `make html`.
