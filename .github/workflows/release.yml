@@ -635,7 +635,7 @@ jobs:
       contents: write
     # [!] Add or Remove the publish-pypi or publish-testpypi job as needed [!]
     # needs: [ publish-ppa, publish-pypi, build-homebrew-formula ]
-    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula ]
+    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula, deploy-docs ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
