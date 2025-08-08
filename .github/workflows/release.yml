@@ -169,7 +169,7 @@ jobs:
           path: docs/python_docs/build/html/
 
   build-python-package:
-    needs: [ test, deploy-docs ]
+    needs: [ test ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -234,7 +234,7 @@ jobs:
 
   build-ppa:
     runs-on: ubuntu-latest
-    needs: [ test, deploy-docs ]
+    needs: [ test ]
     steps:
       - uses: actions/checkout@v3
 
@@ -602,7 +602,7 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
 
   deploy-docs:
-    needs: [ build-docs ]
+    needs: [ build-homebrew-formula ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -638,7 +638,7 @@ jobs:
       contents: write
     # [!] Add or Remove the publish-pypi or publish-testpypi job as needed [!]
     # needs: [ publish-ppa, publish-pypi, build-homebrew-formula ]
-    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula ]
+    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula, deploy-docs ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
