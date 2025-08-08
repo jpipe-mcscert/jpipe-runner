@@ -94,6 +94,7 @@ def parse_args(argv: list[str] | None = None):
                             "Supported formats include: dot, gif, jpeg, jpg, png, svg"
                         ))
     parser.add_argument("--output-path", "-o", metavar="PATH",
+                        default=".",
                         help="Path to save the generated diagram image. ")
     parser.add_argument("--dry-run", action="store_true",
                         help="Perform a dry run without actually executing justifications")
@@ -295,13 +296,6 @@ def run_workflow_logic():
     _, _, total_fail, _ = pretty_display([(jpipe.justification_name, justification_result)])
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
-
-    # if args.format is define but args.output_path is not, print help or if args.format is not supported
-    if args.format and not args.output_path:
-        print("Output format specified but no output path provided. "
-              "Please specify an output path with --output-path or -o.", file=sys.stderr)
-        mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
-        sys.exit(1)
 
     if args.output_path:
         mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
