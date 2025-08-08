@@ -118,8 +118,7 @@ gpg --output private.pgp --armor --export-secret-key username@email
 - `secrets.DEBFULLNAME`: Your full name as it appears in your GPG key, used for signing the Debian package. You can found it by running `gpg --list-keys` command.
 - `secrets.DEBEMAIL`: Your email address associated with your GPG key, used for signing the Debian package You can found it by running `gpg --list-keys` command.
 - `secrets.GPG_ID`: The GPG key ID used for signing the Debian package, which must match the key uploaded to Launchpad. (eg. 123456789123ABCD).
-- `secrets.LAUNCHPAD_USERNAME`: Your Launchpad username, which must be associated with a GPG key that has been uploaded
-  to Launchpad. You can found it in the url of your Launchpad profile page. (eg, https://launchpad.net/~<username>/)
+- `secrets.LAUNCHPAD_USERNAME`: The username of the organization or user account on Launchpad where the PPA is hosted. You can find it in your Launchpad profile URL.
 - `secrets.HOMEBREW_TAP_PAT`: Your GitHub Personal Access Token (PAT) for Homebrew tap repository access, so the
   GithubActionBot can push the Homebrew formula to the repository.
 
