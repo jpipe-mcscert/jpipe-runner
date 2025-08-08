@@ -6,6 +6,7 @@ This module contains the entrypoint of jPipe Runner.
 """
 
 import argparse
+import os
 import ast
 import glob
 import logging
@@ -309,7 +310,12 @@ def run_workflow_logic():
                                    output_path=args.output_path,
                                    filename=jpipe.justification_name,
                                    format=args.format)
-            print(f"{jpipe.justification_name} diagram saved to: {args.output_path}.{args.format}")
+            if args.output_path in ['.', './']:
+                output_location = f"{jpipe.justification_name}.{args.format}"
+            else:
+                output_location = os.path.join(args.output_path, f"{jpipe.justification_name}.{args.format}")
+
+            print(f"{jpipe.justification_name} diagram saved to: {output_location}")
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.DONE)
         else:
             print(f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
