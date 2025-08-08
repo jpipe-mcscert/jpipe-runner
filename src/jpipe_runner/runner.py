@@ -6,15 +6,16 @@ This module contains the entrypoint of jPipe Runner.
 """
 
 import argparse
-import os
 import ast
 import glob
+import importlib.metadata
+import json
 import logging
+import os
 import shutil
 import sys
 import textwrap
 import threading
-import json
 from typing import Iterable
 
 from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
@@ -70,8 +71,15 @@ def parse_args(argv: list[str] | None = None):
     :return: Parsed arguments namespace.
     :rtype: argparse.Namespace
     """
+    try:
+        version = importlib.metadata.version("jpipe-runner")
+        version_info = f" - Version {version}"
+    except ImportError:
+        version_info = ""
+
     parser = argparse.ArgumentParser(prog="jpipe-runner",
                                      description=("McMaster University - McSCert (c) 2023-..."
+                                                  + version_info
                                                   + JPIPE_RUNNER_ASCII),
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--variable", "-v", action="append", default=[],
