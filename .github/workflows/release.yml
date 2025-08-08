@@ -329,7 +329,7 @@ jobs:
   release:
     permissions:
       contents: write
-    needs: [ build-python-package, build-ppa, build-docs ]
+    needs: [ validate-version, build-python-package, build-ppa, build-docs ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -404,7 +404,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-homebrew-formula:
-    needs: [ release ]
+    needs: [ validate-version, release ]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -557,33 +557,13 @@ jobs:
           chmod +x script/publish-ppa.sh
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist_gui/*.changes
-  
-  
 
-  #  publish-pypi:
-  #   needs: [ build-homebrew-formula ]
-  #   runs-on: ubuntu-latest
-  #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/project/jpipe-runner/
-  #   permissions:
-  #     id-token: write
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #
-  #     - name: Download distribution artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: python-package-distributions
-  #         path: dist/
-  #
-  #     - name: Publish distribution to PyPI
-  #       uses: pypa/gh-action-pypi-publish@release/v1
-
-  publish-testpypi:
+  publish-pypi:
     needs: [ build-homebrew-formula ]
     runs-on: ubuntu-latest
-    environment: test-pypi
+    environment:
+      name: pypi
+      url: https://pypi.org/project/jpipe-runner/
     permissions:
       id-token: write
     steps:
@@ -595,11 +575,29 @@ jobs:
           name: python-package-distributions
           path: dist/
 
-      - name: Publish distribution to Test PyPI
+      - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          verbose: 'false'
-          repository-url: https://test.pypi.org/legacy/
+
+  #  publish-testpypi:
+  #    needs: [ build-homebrew-formula ]
+  #    runs-on: ubuntu-latest
+  #    environment: test-pypi
+  #    permissions:
+  #      id-token: write
+  #    steps:
+  #      - uses: actions/checkout@v3
+  #
+  #      - name: Download distribution artifact
+  #        uses: actions/download-artifact@v4
+  #        with:
+  #          name: python-package-distributions
+  #          path: dist/
+  #
+  #      - name: Publish distribution to Test PyPI
+  #        uses: pypa/gh-action-pypi-publish@release/v1
+  #        with:
+  #          verbose: 'false'
+  #          repository-url: https://test.pypi.org/legacy/
 
   deploy-docs:
     needs: [ build-homebrew-formula ]
@@ -637,8 +635,8 @@ jobs:
     permissions:
       contents: write
     # [!] Add or Remove the publish-pypi or publish-testpypi job as needed [!]
-    # needs: [ publish-ppa, publish-pypi, build-homebrew-formula ]
-    needs: [ publish-ppa, publish-testpypi, build-homebrew-formula, deploy-docs ]
+    needs: [ publish-ppa, publish-pypi, build-homebrew-formula, deploy-docs ]
+    #   needs: [ publish-ppa, publish-testpypi, build-homebrew-formula, deploy-docs ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout current repo
