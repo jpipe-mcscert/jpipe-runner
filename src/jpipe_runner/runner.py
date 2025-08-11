@@ -323,6 +323,8 @@ def run_workflow_logic():
             print(f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
                   file=sys.stderr)
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
+            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+            log_buffer.dump_to_stderr()
             sys.exit(1)
 
     # if errors on buffer show them
