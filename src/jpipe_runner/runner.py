@@ -297,7 +297,7 @@ def run_workflow_logic():
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
 
-    if args.output_path:
+    if args.format:
         mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
         output_path = args.output_path.lower()
         if output_path in {"stdout", "stderr"}:
