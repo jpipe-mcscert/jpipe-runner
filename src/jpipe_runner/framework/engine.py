@@ -1,4 +1,5 @@
 import json
+import json
 import logging
 from pathlib import Path
 from typing import Iterator, Callable, Any, Optional, Iterable, Tuple
@@ -14,7 +15,7 @@ from ..GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from ..enums import StatusType
 from ..exceptions import FunctionException
 from ..runtime import PythonRuntime
-from ..utils import sanitize_string
+from ..utils import sanitize_string, normalize_structure, parse_value
 
 
 class PipelineEngine:
@@ -38,7 +39,7 @@ class PipelineEngine:
                  mark_step: Callable[[Any, Any], None],
                  mark_substep: Callable[[str, str, str], None],
                  mark_node_as_graph: Callable[[str, str], None],
-                 variables: Optional[Iterable[Tuple[str, Any]]] = None
+                 variables: Optional[Iterable[str]] = None
                  ) -> None:
         """
         Initialize the PipelineEngine with a configuration file and a justification file.
@@ -69,7 +70,23 @@ class PipelineEngine:
         self.graph = self.parse_justification(justification_path)
         GLOBAL_LOGGER.debug("PipelineEngine initialized with context vars count: %d", len(ctx._vars))
 
-    def load_config(self, path: str, variables: Optional[Iterable[Tuple[str, Any]]] = None) -> None:
+    @staticmethod
+    def _parse_config(config: dict) -> dict:
+        """Normalize YAML config values recursively."""
+        return normalize_structure(config)
+
+    @staticmethod
+    def __parse_variables(variables: Optional[Iterable[str]]) -> Optional[Iterable[Tuple[str, Any]]]:
+        """Parse CLI variables (key:value) into native Python types."""
+        parsed_variables = []
+        for item in variables or []:
+            if ":" in item:
+                key, raw_value = item.split(":", maxsplit=1)
+                value = parse_value(raw_value)
+                parsed_variables.append((key, value))
+        return parsed_variables
+
+    def load_config(self, path: str, variables: Optional[Iterable[str]] = None) -> None:
         """
         Load the YAML configuration file and set the context variables in ctx._vars.
         Each key/value in the YAML is treated as a produced variable in the context.
@@ -92,12 +109,16 @@ class PipelineEngine:
                 GLOBAL_LOGGER.info(f"Attempting to load configuration from {path}")
                 with open(path, 'r') as f:
                     config = yaml.safe_load(f) or {}
+                config = self._parse_config(config)
                 GLOBAL_LOGGER.info(f"Configuration loaded from {path}")
             except Exception as e:
                 GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
                 self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
                                   GraphWorkflowVisualizer.FAIL)
                 return
+
+        if variables:
+            variables = self.__parse_variables(variables)
 
         # Override/add with CLI variables
         for key, value in (variables or []):

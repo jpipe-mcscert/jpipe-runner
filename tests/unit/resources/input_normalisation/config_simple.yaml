@@ -1,0 +1,7 @@
+bool_true: true
+bool_false: false
+none_val: null
+int_val: 42
+float_val: 3.14
+string_val: hello
+quoted_string: "hello world"

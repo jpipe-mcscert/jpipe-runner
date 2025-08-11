@@ -6,10 +6,8 @@ This module contains the entrypoint of jPipe Runner.
 """
 
 import argparse
-import ast
 import glob
 import importlib.metadata
-import json
 import logging
 import os
 import shutil
@@ -247,29 +245,9 @@ def run_workflow_logic():
                                        for i in glob.glob(l)])
     mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
 
-    # Parse variables from CLI
-    variables = []
-    for i in args.variable:
-        if ':' in i:
-            key, raw_value = i.split(':', maxsplit=1)
-            try:
-                # First try ast.literal_eval for Python literals
-                value = ast.literal_eval(raw_value)
-                GLOBAL_LOGGER.info(f"Parsed {raw_value} as {value} of type {type(value).__name__}")
-            except (ValueError, SyntaxError):
-                try:
-                    # If that fails, try JSON parsing for JSON literals (handles null, true, false)
-                    value = json.loads(raw_value)
-                    GLOBAL_LOGGER.info(f"JSON parsed {raw_value} as {value} of type {type(value).__name__}")
-                except ValueError:
-                    # Fallback: treat it as plain string
-                    GLOBAL_LOGGER.info(f"Failed to parse {raw_value}, treating as string.")
-                    value = raw_value
-            variables.append((key, value))
-
     jpipe = PipelineEngine(config_path=args.config_file,
                            justification_path=args.jd_file,
-                           variables=variables,
+                           variables=args.variable,
                            mark_step=mark_step,
                            mark_substep=mark_substep,
                            mark_node_as_graph=mark_node_as_graph)
@@ -323,6 +301,8 @@ def run_workflow_logic():
             print(f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
                   file=sys.stderr)
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
+            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+            log_buffer.dump_to_stderr()
             sys.exit(1)
 
     # if errors on buffer show them

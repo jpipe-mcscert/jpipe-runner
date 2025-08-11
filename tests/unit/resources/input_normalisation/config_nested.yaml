@@ -1,0 +1,11 @@
+numbers:
+  - 1
+  - "2"
+  - "3.14"
+  - none
+flags:
+  is_valid: "true"
+  is_empty: "false"
+nested:
+  - x: "10"
+  - y: '"hello"'
