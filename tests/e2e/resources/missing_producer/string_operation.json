@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Process string",
+      "type": "strategy"
+    },
+    {
+      "id": "C1",
+      "label": "Validate string",
+      "type": "conclusion"
+    }
+  ],
+  "name": "string_operations",
+  "relations": [
+    {
+      "source": "S1",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}

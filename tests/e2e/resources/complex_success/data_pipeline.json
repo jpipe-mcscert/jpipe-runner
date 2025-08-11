@@ -1,0 +1,229 @@
+{
+  "elements": [
+    {
+      "id": "mobile_units",
+      "label": "Deploy mobile vaccination units to remote areas",
+      "type": "strategy"
+    },
+    {
+      "id": "multi_pronged",
+      "label": "Use multiple coordinated outreach and delivery approaches",
+      "type": "strategy"
+    },
+    {
+      "id": "event_calendar",
+      "label": "List of scheduled events with dates and venues",
+      "type": "evidence"
+    },
+    {
+      "id": "trusted_voices",
+      "label": "Involve respected local leaders in advocacy",
+      "type": "strategy"
+    },
+    {
+      "id": "access_mobile_units",
+      "label": "Vaccination sites accessible via mobile units to remote areas",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "transparent_info",
+      "label": "Publish transparent and accessible safety data",
+      "type": "strategy"
+    },
+    {
+      "id": "testimonial_videos",
+      "label": "Recorded testimonials from trusted figures",
+      "type": "evidence"
+    },
+    {
+      "id": "trust_transparency",
+      "label": "Community trusts vaccination due to transparent safety information",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "main_goal",
+      "label": "Community vaccination rate reaches 85% within 6 months",
+      "type": "conclusion"
+    },
+    {
+      "id": "social_posts",
+      "label": "Set of pre-approved social media posts and graphics",
+      "type": "evidence"
+    },
+    {
+      "id": "trained_staff",
+      "label": "Roster of trained vaccination staff for mobile units",
+      "type": "evidence"
+    },
+    {
+      "id": "leader_commitments",
+      "label": "Written commitments from local leaders to participate",
+      "type": "evidence"
+    },
+    {
+      "id": "speakers_list",
+      "label": "List of trained community speakers",
+      "type": "evidence"
+    },
+    {
+      "id": "media_outreach",
+      "label": "Distribute information through local media and social channels",
+      "type": "strategy"
+    },
+    {
+      "id": "community_events",
+      "label": "Host informational events in public gathering spaces",
+      "type": "strategy"
+    },
+    {
+      "id": "schedule_plan",
+      "label": "Approved extended-hours operation schedule",
+      "type": "evidence"
+    },
+    {
+      "id": "fleet_available",
+      "label": "Three operational mobile medical units",
+      "type": "evidence"
+    },
+    {
+      "id": "safety_report",
+      "label": "Public safety report approved by health authority",
+      "type": "evidence"
+    },
+    {
+      "id": "trust_leaders",
+      "label": "Community trusts vaccination due to respected local leaders' advocacy",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "awareness_events",
+      "label": "Target population is aware of the campaign through community events",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "extended_hours",
+      "label": "Keep vaccination centers open during evenings and weekends",
+      "type": "strategy"
+    },
+    {
+      "id": "faq_document",
+      "label": "Frequently Asked Questions document",
+      "type": "evidence"
+    },
+    {
+      "id": "access_extended_hours",
+      "label": "Vaccination centers accessible through extended hours",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "press_release",
+      "label": "Approved press release document",
+      "type": "evidence"
+    },
+    {
+      "id": "awareness_media",
+      "label": "Target population is aware of the campaign through media",
+      "type": "sub-conclusion"
+    }
+  ],
+  "name": "vaccination_campaign",
+  "relations": [
+    {
+      "source": "fleet_available",
+      "target": "mobile_units"
+    },
+    {
+      "source": "trained_staff",
+      "target": "mobile_units"
+    },
+    {
+      "source": "trust_leaders",
+      "target": "multi_pronged"
+    },
+    {
+      "source": "awareness_events",
+      "target": "multi_pronged"
+    },
+    {
+      "source": "access_mobile_units",
+      "target": "multi_pronged"
+    },
+    {
+      "source": "trust_transparency",
+      "target": "multi_pronged"
+    },
+    {
+      "source": "access_extended_hours",
+      "target": "multi_pronged"
+    },
+    {
+      "source": "awareness_media",
+      "target": "multi_pronged"
+    },
+    {
+      "source": "leader_commitments",
+      "target": "trusted_voices"
+    },
+    {
+      "source": "testimonial_videos",
+      "target": "trusted_voices"
+    },
+    {
+      "source": "mobile_units",
+      "target": "access_mobile_units"
+    },
+    {
+      "source": "safety_report",
+      "target": "transparent_info"
+    },
+    {
+      "source": "faq_document",
+      "target": "transparent_info"
+    },
+    {
+      "source": "transparent_info",
+      "target": "trust_transparency"
+    },
+    {
+      "source": "multi_pronged",
+      "target": "main_goal"
+    },
+    {
+      "source": "social_posts",
+      "target": "media_outreach"
+    },
+    {
+      "source": "press_release",
+      "target": "media_outreach"
+    },
+    {
+      "source": "speakers_list",
+      "target": "community_events"
+    },
+    {
+      "source": "event_calendar",
+      "target": "community_events"
+    },
+    {
+      "source": "trusted_voices",
+      "target": "trust_leaders"
+    },
+    {
+      "source": "community_events",
+      "target": "awareness_events"
+    },
+    {
+      "source": "schedule_plan",
+      "target": "extended_hours"
+    },
+    {
+      "source": "extended_hours",
+      "target": "access_extended_hours"
+    },
+    {
+      "source": "media_outreach",
+      "target": "awareness_media"
+    }
+  ],
+  "type": "justification"
+}
