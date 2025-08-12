@@ -36,6 +36,26 @@ inputs:
     description: "jPipe Runner version to use, e.g. '0.0.1'. The main branch version is used by default"
     required: false
     default: "main"
+  embed_image:
+    description: "If true, embed diagram in PR comment otherwise only upload as artifact"
+    required: false
+    default: "false"
+  image_branch:
+    description: "Branch name where the image will be committed"
+    required: false
+    default: ""
+  image_repo:
+    description: "Target repo (owner/repo) for committing the image; defaults to current repo"
+    required: false
+    default: ""
+  image_path:
+    description: "Path where image will be stored in the branch"
+    required: false
+    default: "diagrams/"
+  image_commit_message:
+    description: "Commit message for the generated diagram"
+    required: false
+    default: "Add generated diagram from jPipe Runner"
 
 runs:
   using: "composite"
@@ -62,12 +82,12 @@ runs:
         echo "::group::Install jpipe-runner"
 
         if poetry env info --path &> /dev/null; then
-          echo "Poetry environment detected - using Poetry for dependency management"
           # Install dependency via poetry
+          echo "Poetry environment detected - using Poetry for dependency management"
           poetry add 'git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}'
         else
-          echo "Poetry not available or not configured - falling back to pip installation"
           # Fallback to pip installation
+          echo "Poetry not available or not configured - falling back to pip installation"
           $PYTHON_PATH -m pip install -U 'git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}'
         fi
 
@@ -118,6 +138,44 @@ runs:
         echo "diagram_path=$DIAGRAM_FILE" >> $GITHUB_OUTPUT
         echo "diagram_name=$DIAGRAM_NAME" >> $GITHUB_OUTPUT
 
+    - name: Commit diagram to existing branch
+      if: ${{ inputs.embed_image == 'true' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        IMAGE_FILE: ${{ steps.run_jpipe.outputs.diagram_path }}
+        IMAGE_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
+      run: |
+        set -e
+        echo "::group::Commit diagram to existing branch"
+
+        # Check if the diagram file was generated
+        TARGET_REPO="${{ inputs.image_repo }}"
+        if [[ -z "$TARGET_REPO" ]]; then
+          TARGET_REPO="${{ github.repository }}"
+        fi
+
+        # Clone the target repository
+        git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPO}.git" repo
+        cd repo
+
+        # Check if the image branch exists, if not, exit with an error
+        if ! git ls-remote --exit-code --heads origin "${{ inputs.image_branch }}" >/dev/null; then
+          echo "Branch '${{ inputs.image_branch }}' does not exist in ${TARGET_REPO}. Please create it manually."
+          exit 1
+        fi
+
+        git checkout "${{ inputs.image_branch }}"
+        mkdir -p "${{ inputs.image_path }}"
+        cp "$IMAGE_FILE" "${{ inputs.image_path }}$IMAGE_NAME"
+        git add "${{ inputs.image_path }}$IMAGE_NAME"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git commit -m "${{ inputs.image_commit_message }}"
+        git push origin "${{ inputs.image_branch }}"
+
+        echo "::endgroup::"
+
     - name: Upload diagram as artifact
       id: upload_diagram
       if: always()
@@ -139,10 +197,17 @@ runs:
           MESSAGE="Justification process failed! \n\n"
         fi
         
-        # Use the artifact URL from the upload step
         ARTIFACT_URL="${{ steps.upload_diagram.outputs.artifact-url }}"
-        
-        if [[ "$ARTIFACT_URL" != "" ]]; then
+        TARGET_REPO="${{ inputs.image_repo }}"
+        if [[ -z "$TARGET_REPO" ]]; then
+          TARGET_REPO="${{ github.repository }}"
+        fi
+
+        if [[ "${{ inputs.embed_image }}" == "true" ]]; then
+          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${{ inputs.image_path }}${{ steps.run_jpipe.outputs.diagram_name }}"
+          MESSAGE+="![Generated Diagram](${RAW_URL})\n\n"
+          MESSAGE+="[Download Diagram Artifact](${ARTIFACT_URL})"
+        elif [[ "$ARTIFACT_URL" != "" ]]; then
           MESSAGE+="[Download Diagram Artifact]($ARTIFACT_URL)"
         else
           MESSAGE+="No Diagram artifact was generated - please check the logs for details."
