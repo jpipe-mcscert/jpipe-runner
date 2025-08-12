@@ -217,7 +217,7 @@ runs:
         fi
 
         if [[ "${{ inputs.embed_image }}" == "true" ]]; then
-          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${{ inputs.image_path }}${{ steps.run_jpipe.outputs.diagram_name }}"
+          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${{ inputs.image_path }}${{ steps.run_jpipe.outputs.diagram_name }}?v=${{ github.run_id }}"
           MESSAGE+="![Generated Diagram](${RAW_URL})\n\n"
           MESSAGE+="[Download Diagram Artifact](${ARTIFACT_URL})"
         elif [[ "$ARTIFACT_URL" != "" ]]; then
