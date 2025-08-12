@@ -141,9 +141,6 @@ runs:
         RESULT=$?
         
         # Continue regardless of RESULT
-        echo "Output directory contents:"
-        ls -la ${OUTPUT_DIR}
-        echo $(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f)
         DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
         DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
         
@@ -182,11 +179,20 @@ runs:
 
         git checkout "${{ inputs.image_branch }}"
         mkdir -p "${{ inputs.image_path }}"
+
         cp "$IMAGE_FILE" "${{ inputs.image_path }}$IMAGE_NAME"
-        git add "${{ inputs.image_path }}$IMAGE_NAME"
+        git add -A
+        
+        # Force commit even if file content is identical
+        if git diff --cached --quiet; then
+          echo "Diagram content unchanged — forcing timestamp update"
+          date +%s > "${{ inputs.image_path }}timestamp.txt"
+          git add "${{ inputs.image_path }}timestamp.txt"
+        fi
+        
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git commit -m "${{ inputs.image_commit_message }}"
+        git commit -m "${{ inputs.image_commit_message }}" || echo "Nothing to commit"
         git push origin "${{ inputs.image_branch }}"
 
         echo "::endgroup::"
