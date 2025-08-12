@@ -27,7 +27,6 @@ class TestSkipScenarioE2E(unittest.TestCase):
             "EvidenceDependencyValidator",
         ]
 
-        # Ensure all required files exist
         self.assertTrue(self.justification_file.exists(), f"Justification file not found: {self.justification_file}")
         self.assertTrue(self.config_file.exists(), f"Config file not found: {self.config_file}")
         self.assertTrue(self.python_file.exists(), f"Python file not found: {self.python_file}")
@@ -68,15 +67,12 @@ class TestSkipScenarioE2E(unittest.TestCase):
     def test_skip_scenario_normal_execution(self):
         """Test normal execution without skip conditions."""
         result = self._run_jpipe_runner()
-
-        # Check that execution completed successfully
         self.assertIn(self.justification_name, result.stdout.lower())
         self.assertEqual(result.returncode, 0)
 
     def test_skip_scenario_dry_run(self):
         """Test dry run mode to ensure no actual execution occurs."""
         result = self._run_jpipe_runner(additional_args=["--dry-run"])
-        # Dry run should complete successfully, without any log errors
         self.assertFalse(result.stderr)
         self.assertEqual(result.returncode, 0)
 
@@ -131,7 +127,6 @@ class TestSkipScenarioE2E(unittest.TestCase):
                 cwd=self.test_dir.parent.parent.parent
             )
 
-            # Should fail with validation error
             self.assertNotEqual(result.returncode, 0)
             self.assertTrue(result.stderr, "Expected validation error not found in stderr")
 
@@ -154,7 +149,6 @@ class TestSkipScenarioE2E(unittest.TestCase):
             cwd=self.test_dir.parent.parent.parent
         )
 
-        # Should fail due to missing library
         self.assertNotEqual(result.returncode, 0)
 
 

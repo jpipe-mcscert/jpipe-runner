@@ -27,7 +27,6 @@ class TestComplexSuccessE2E(unittest.TestCase):
             "EvidenceDependencyValidator",
         ]
 
-        # Ensure all required files exist
         self.assertTrue(self.justification_file.exists(), f"Justification file not found: {self.justification_file}")
         self.assertTrue(self.config_file.exists(), f"Config file not found: {self.config_file}")
         self.assertTrue(self.python_file.exists(), f"Python file not found: {self.python_file}")
@@ -69,7 +68,6 @@ class TestComplexSuccessE2E(unittest.TestCase):
         result = self._run_jpipe_runner(
             additional_args=["--config-file", str(self.config_file)]
         )
-        # Check that execution completed successfully
         self.assertIn(self.justification_name, result.stdout.lower())
         self.assertEqual(result.returncode, 0)
 
@@ -96,7 +94,6 @@ class TestComplexSuccessE2E(unittest.TestCase):
             ]
         )
 
-        # Should complete successfully with valid data
         self.assertEqual(result.returncode, 0)
 
     def test_complex_success_with_invalid_data(self):
@@ -109,7 +106,6 @@ class TestComplexSuccessE2E(unittest.TestCase):
             expected_exit_code=1
         )
 
-        # Should fail because aggregated result (1*2=2) is not > 10
         self.assertEqual(result.returncode, 1)
 
     def test_complex_fail_with_empty_data(self):
@@ -118,7 +114,6 @@ class TestComplexSuccessE2E(unittest.TestCase):
             expected_exit_code=1
         )
 
-        # Should fail because no data to process
         self.assertEqual(result.returncode, 1)
 
     def test_complex_success_dry_run(self):
@@ -128,7 +123,6 @@ class TestComplexSuccessE2E(unittest.TestCase):
             "--dry-run"
         ])
 
-        # Dry run should complete successfully, without any log errors
         self.assertFalse(result.stderr)
         self.assertEqual(result.returncode, 0)
 
@@ -207,7 +201,6 @@ class TestComplexSuccessE2E(unittest.TestCase):
             cwd=self.test_dir.parent.parent.parent
         )
 
-        # Should fail due to missing library
         self.assertNotEqual(result.returncode, 0)
 
 

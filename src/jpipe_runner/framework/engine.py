@@ -333,7 +333,32 @@ class PipelineEngine:
             GLOBAL_LOGGER.info("Execution order: %s", order)
             return order
         except nx.NetworkXUnfeasible as e:
-            GLOBAL_LOGGER.error("Cycle detected in justification graph: %s", e)
+            # Try to find the cycle for a more precise error message
+            try:
+                cycle = next(nx.simple_cycles(self.graph))
+            except Exception:
+                cycle = None
+
+            if cycle:
+                cycle_labels = [self.graph.nodes[n].get("label", n) for n in cycle]
+                error_msg = (
+                    "[ExecutionOrder]\n"
+                    "Pipeline validation error: cycle detected in justification graph.\n"
+                    f"  • The following elements form a cycle: {' -> '.join(cycle_labels)}\n"
+                    "  • Problem: Cyclic dependencies prevent determining a valid execution order.\n"
+                    "  • To fix:\n"
+                    "    - Review the justification file and remove or break the cycle between these elements.\n"
+                    "    - Ensure that dependencies flow in one direction only (no circular references).\n"
+                    "  • After correcting the cycle, re-run the pipeline validation."
+                )
+            else:
+                error_msg = (
+                    "[ExecutionOrder]\n"
+                    "Pipeline validation error: cycle detected in justification graph.\n"
+                    "  • Problem: Cyclic dependencies prevent determining a valid execution order.\n"
+                    "  • To fix: Review the justification file for circular dependencies and remove them."
+                )
+            GLOBAL_LOGGER.error(error_msg)
             return []
 
     # ------------ Start of Justification Pipeline Execution ------------

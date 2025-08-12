@@ -174,7 +174,6 @@ class TestMissingProducerE2E(unittest.TestCase):
             cwd=self.test_dir.parent.parent.parent
         )
 
-        # Should fail due to missing library
         self.assertTrue(result.stderr)
         self.assertEqual(result.returncode, 1)
 

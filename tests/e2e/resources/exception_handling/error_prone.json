@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Divide by number",
+      "type": "strategy"
+    },
+    {
+      "id": "C1",
+      "label": "Validate division result",
+      "type": "conclusion"
+    }
+  ],
+  "name": "error_prone",
+  "relations": [
+    {
+      "source": "S1",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}
