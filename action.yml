@@ -57,6 +57,7 @@ inputs:
     required: false
     default: "Add generated diagram from jPipe Runner"
 
+
 runs:
   using: "composite"
   steps:
@@ -142,7 +143,7 @@ runs:
       if: ${{ inputs.embed_image == 'true' }}
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         IMAGE_FILE: ${{ steps.run_jpipe.outputs.diagram_path }}
         IMAGE_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
       run: |
@@ -189,7 +190,7 @@ runs:
       id: comment_content
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         if [[ "${{ steps.run_jpipe.outputs.result }}" == "0" ]]; then
           MESSAGE="Justification process completed successfully! \n\n"
@@ -221,7 +222,7 @@ runs:
       if: always()
       uses: actions/github-script@v7
       with:
-        github-token: ${{ github.token }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           github.rest.issues.createComment({
             owner: context.repo.owner,
