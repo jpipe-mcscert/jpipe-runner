@@ -140,6 +140,11 @@ runs:
         RESULT=$?
         
         # Find the generated diagram file
+        # debug by showing the output directory
+        echo "Output directory contents:"
+        ls -la ${OUTPUT_DIR}
+        # Find the first diagram file matching the specified format
+        echo $(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f)
         DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
         DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
 
