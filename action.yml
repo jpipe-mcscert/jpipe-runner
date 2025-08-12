@@ -141,7 +141,14 @@ runs:
         RESULT=$?
         
         # Continue regardless of RESULT
-        DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
+        ORIGINAL_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
+        TIMESTAMP=$(date +%s)
+        EXTENSION="${ORIGINAL_FILE##*.}"
+        BASENAME=$(basename "$ORIGINAL_FILE" ."$EXTENSION")
+        RENAMED_FILE="${OUTPUT_DIR}${BASENAME}_${TIMESTAMP}.${EXTENSION}"
+        cp "$ORIGINAL_FILE" "$RENAMED_FILE"
+        
+        DIAGRAM_FILE="$RENAMED_FILE"
         DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
         
         echo "result=$RESULT" >> $GITHUB_OUTPUT
