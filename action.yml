@@ -9,6 +9,9 @@ inputs:
   variable:
     description: "Define one or more variables in the format NAME:VALUE, separated by newlines"
     required: false
+  config-file:
+    description: "Path to the configuration file for jPipe Runner (yaml)"
+    required: false
   library:
     description: "Specify one or more Python libraries to load, separated by newlines"
     required: true
@@ -110,6 +113,9 @@ runs:
               CMD+=" --variable '${line}'"
             fi
           done <<< "${{ inputs.variable }}"
+        fi
+        if [[ "${{ inputs.config-file }}" != "" ]]; then
+          CMD+=" --config-file '${{ inputs.config-file }}'"
         fi
         if [[ "${{ inputs.library }}" != "" ]]; then
           while IFS= read -r line; do
