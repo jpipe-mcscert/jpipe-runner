@@ -108,6 +108,7 @@ runs:
         working-directory: ${{ inputs.working_directory }}
         OUTPUT_DIR: /home/runner/work/
       run: |
+        set +e
         CMD="$PYTHON_PATH -m jpipe_runner '${{ inputs.jd_file }}'"
         if [[ "${{ inputs.variable }}" != "" ]]; then
           while IFS= read -r line; do
@@ -139,16 +140,14 @@ runs:
         eval $CMD
         RESULT=$?
         
-        # Find the generated diagram file
-        # debug by showing the output directory
+        # Continue regardless of RESULT
         echo "Output directory contents:"
         ls -la ${OUTPUT_DIR}
-        # Find the first diagram file matching the specified format
         echo $(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f)
         DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
         DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
-
-        echo "result=$RESULT" >> $GITHUB_OUTPUT 
+        
+        echo "result=$RESULT" >> $GITHUB_OUTPUT
         echo "diagram_path=$DIAGRAM_FILE" >> $GITHUB_OUTPUT
         echo "diagram_name=$DIAGRAM_NAME" >> $GITHUB_OUTPUT
 
