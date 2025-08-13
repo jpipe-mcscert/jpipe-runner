@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set +e
 
 # Required env vars:
 #   PYTHON_PATH          # Path to Python interpreter
@@ -15,6 +15,8 @@ set -euo pipefail
 
 PYTHON_PATH="${PYTHON_PATH:-python}"
 OUTPUT_DIR="/home/runner/work/"
+
+echo "Using Python interpreter at: $PYTHON_PATH"
 
 CMD="$PYTHON_PATH -m jpipe_runner '${JD_FILE}'"
 
@@ -45,7 +47,14 @@ echo "Running: $CMD"
 OUTPUT=$(eval $CMD 2>&1)
 RESULT=$?
 
-ORIGINAL_FILE=$(find $OUTPUT_DIR -name "*.${FORMAT:-svg}" -type f | head -n1)
+echo "Command exited with code $RESULT"
+
+ORIGINAL_FILE=$(find "$OUTPUT_DIR" -name "*.${FORMAT:-svg}" -type f | head -n1 || true)
+if [[ -z "$ORIGINAL_FILE" ]]; then
+  echo "No diagram file found in $OUTPUT_DIR"
+  echo "result=1" >> "$GITHUB_OUTPUT"
+  exit 0
+fi
 BASENAME=$(basename "$ORIGINAL_FILE" .${FORMAT:-svg})
 RENAMED_FILE="${OUTPUT_DIR}${BASENAME}_${COMMIT_SHA}.${FORMAT:-svg}"
 
@@ -57,3 +66,11 @@ echo "diagram_name=$(basename "$RENAMED_FILE")" >> "$GITHUB_OUTPUT"
 echo "runner_output<<EOF" >> "$GITHUB_OUTPUT"
 echo "$OUTPUT" >> "$GITHUB_OUTPUT"
 echo "EOF" >> "$GITHUB_OUTPUT"
+
+echo "Diagram saved to: $RENAMED_FILE"
+ls -l "$RENAMED_FILE"
+# print diagram_path and diagram_name
+echo "diagram_path: $RENAMED_FILE"
+echo "diagram_name: $(basename "$RENAMED_FILE")"
+echo "Runner output:"
+echo "$OUTPUT"
