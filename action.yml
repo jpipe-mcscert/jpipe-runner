@@ -187,9 +187,12 @@ runs:
         fi
 
         git checkout "${{ inputs.image_branch }}"
-        mkdir -p "${{ inputs.image_path }}"
+        
+        REPO_NAME=$(basename "${{ github.event.repository.full_name }}")
+        TARGET_FOLDER="${REPO_NAME}-${{ inputs.image_path }}"
+        mkdir -p "$TARGET_FOLDER"
+        cp "$IMAGE_FILE" "$TARGET_FOLDER/$IMAGE_NAME"
 
-        cp "$IMAGE_FILE" "${{ inputs.image_path }}$IMAGE_NAME"
         git add -A
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
