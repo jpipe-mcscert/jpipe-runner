@@ -142,10 +142,12 @@ runs:
         
         # Continue regardless of RESULT
         ORIGINAL_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
-        COMMIT_SHA256= ${{ github.event.pull_request.head.sha }}
+        COMMIT_SHA256="${{ github.event.pull_request.head.sha }}"
+        echo "Commit sha256 found: $COMMIT_SHA256"
         BASENAME=$(basename "$ORIGINAL_FILE" ."${{ inputs.format }}")
         RENAMED_FILE="${OUTPUT_DIR}${BASENAME}_${COMMIT_SHA256}.${{ inputs.format }}"
-        cp "$ORIGINAL_FILE" "$RENAMED_FILE"
+        echo "Renaming file from $ORIGINAL_FILE to $RENAMED_FILE"
+        mv "$ORIGINAL_FILE" "$RENAMED_FILE"
         
         DIAGRAM_FILE="$RENAMED_FILE"
         DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
@@ -231,11 +233,11 @@ runs:
           MESSAGE+="No Diagram artifact was generated - please check the logs for details."
         fi
         
-        # Add runner output (trimmed to safe GitHub comment size)
+        # Skip the first 9 lines of the output (error ascii art) and truncate the rest to 5000 characters (Github comment limit)
         RUNNER_OUTPUT="${{ steps.run_jpipe.outputs.runner_output }}"
-        MAX_LENGTH=5000  # prevent hitting GitHub comment limits
-        TRUNCATED_OUTPUT=$(echo "$RUNNER_OUTPUT" | head -c $MAX_LENGTH)
-        
+        SKIPPED_OUTPUT=$(echo "$RUNNER_OUTPUT" | tail -n +10)
+        TRUNCATED_OUTPUT=$(echo "$SKIPPED_OUTPUT" | head -c 5000)
+
         MESSAGE+="\n\n<details><summary>jPipe Runner Output (click to expand)</summary>\n\n"
         MESSAGE+="\n\`\`\`\n$TRUNCATED_OUTPUT\n\`\`\`\n"
         MESSAGE+="</details>"
