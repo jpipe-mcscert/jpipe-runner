@@ -83,7 +83,7 @@ runs:
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
         VERSION: ${{ inputs.version }}
-      run: ./script/action/install_jpipe_runner.sh
+      run: script/action/install_jpipe_runner.sh
 
     - name: Run jPipe Runner
       id: run_jpipe
@@ -98,7 +98,7 @@ runs:
         DRY_RUN: ${{ inputs.dry_run }}
         FORMAT: ${{ inputs.format }}
         COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
-      run: ./script/action/run_jpipe.sh
+      run: script/action/run_jpipe.sh
 
     - name: Commit diagram to branch
       if: ${{ inputs.embed_image == 'true' }}
@@ -112,7 +112,7 @@ runs:
         IMAGE_PATH: ${{ inputs.image_path }}
         IMAGE_COMMIT_MESSAGE: ${{ inputs.image_commit_message }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-      run: .github/actions/jpipe-runner/scripts/commit_diagram.sh
+      run: script/action/commit_diagram.sh
 
     - name: Build comment message
       if: always()
@@ -128,7 +128,7 @@ runs:
         DIAGRAM_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         RUNNER_OUTPUT: ${{ steps.run_jpipe.outputs.runner_output }}
-      run: .github/actions/jpipe-runner/scripts/build_comment.sh
+      run: script/action/build_comment.sh
 
 
     - name: Post PR comment
