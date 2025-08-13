@@ -82,8 +82,17 @@ runs:
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-        VERSION: ${{ inputs.version }}
-      run: script/action/install_jpipe_runner.sh
+        working-directory: ${{ inputs.working_directory }}
+      run: |
+        echo "::group::Install jpipe-runner"
+        if poetry env info --path &>/dev/null; then
+          echo "Using Poetry"
+          poetry add "git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}"
+        else
+          echo "Using pip"
+          $PYTHON_PATH -m pip install -U "git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}"
+        fi
+        echo "::endgroup::"
 
     - name: Run jPipe Runner
       id: run_jpipe
