@@ -189,7 +189,7 @@ runs:
         git checkout "${{ inputs.image_branch }}"
         
         REPO_NAME=$(basename "${{ github.event.repository.full_name }}")
-        TARGET_FOLDER="${REPO_NAME}-${{ inputs.image_path }}"
+        TARGET_FOLDER="${REPO_NAME}_${{ inputs.image_path }}"
         mkdir -p "$TARGET_FOLDER"
         cp "$IMAGE_FILE" "$TARGET_FOLDER/$IMAGE_NAME"
 
@@ -227,7 +227,13 @@ runs:
         fi
 
         if [[ "${{ inputs.embed_image }}" == "true" ]]; then
-          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${{ inputs.image_path }}${{ steps.run_jpipe.outputs.diagram_name }}"
+          REPO_NAME=$(basename "${{ github.event.repository.full_name }}")
+          CLEANED_IMAGE_PATH="${{ inputs.image_path }}"
+          # remove leading slash an trailing slash if any
+          CLEANED_IMAGE_PATH="${CLEANED_IMAGE_PATH#/}"  
+          CLEANED_IMAGE_PATH="${CLEANED_IMAGE_PATH%/}"
+          TARGET_FOLDER="${REPO_NAME}_${CLEANED_IMAGE_PATH}"
+          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${TARGET_FOLDER}${{ steps.run_jpipe.outputs.diagram_name }}"
           MESSAGE+="![Generated Diagram](${RAW_URL})\n\n"
           MESSAGE+="[Download Diagram Artifact](${ARTIFACT_URL})"
         elif [[ "$ARTIFACT_URL" != "" ]]; then
