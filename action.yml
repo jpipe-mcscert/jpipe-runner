@@ -85,8 +85,8 @@ runs:
         VERSION: ${{ inputs.version }}
       run: | 
         echo "::group::Install jPipe Runner"
-        chmod +x ${{ github.action_path }}/script/install_jpipe_runner.sh
-        ${{ github.action_path }}/script/install_jpipe_runner.sh
+        chmod +x ${{ github.action_path }}/script/action/install_jpipe_runner.sh
+        ${{ github.action_path }}/script/action/install_jpipe_runner.sh
         echo "::endgroup::"
 
     - name: Run jPipe Runner
