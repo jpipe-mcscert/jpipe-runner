@@ -92,6 +92,8 @@ runs:
           echo "Using pip"
           $PYTHON_PATH -m pip install -U "git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}"
         fi
+        ls -la
+        pwd
         echo "::endgroup::"
 
     - name: Run jPipe Runner
