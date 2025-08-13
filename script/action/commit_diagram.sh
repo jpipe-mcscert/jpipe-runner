@@ -11,8 +11,6 @@ set -euo pipefail
 #   IMAGE_COMMIT_MESSAGE
 #   GITHUB_REPOSITORY
 
-echo "::group::Committing Diagram"
-
 TARGET_REPO="${IMAGE_REPO:-$GITHUB_REPOSITORY}"
 
 # Clone the target repo
@@ -40,5 +38,3 @@ git config user.email "github-actions[bot]@users.noreply.github.com"
 git add -A
 git commit -m "${IMAGE_COMMIT_MESSAGE}" || echo "No changes to commit"
 git push origin "${IMAGE_BRANCH}"
-
-echo "::endgroup::"

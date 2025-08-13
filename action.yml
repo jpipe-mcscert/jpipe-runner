@@ -82,16 +82,11 @@ runs:
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-        working-directory: ${{ inputs.working_directory }}
-      run: |
-        echo "::group::Install jpipe-runner"
-        if poetry env info --path &>/dev/null; then
-          echo "Using Poetry"
-          poetry add "git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}"
-        else
-          echo "Using pip"
-          $PYTHON_PATH -m pip install -U "git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}"
-        fi
+        VERSION: ${{ inputs.version }}
+      run: | 
+        echo "::group::Install jPipe Runner"
+        chmod +x ${{ github.action_path }}/script/install_jpipe_runner.sh
+        ${{ github.action_path }}/script/install_jpipe_runner.sh
         echo "::endgroup::"
 
     - name: Run jPipe Runner
@@ -107,7 +102,11 @@ runs:
         DRY_RUN: ${{ inputs.dry_run }}
         FORMAT: ${{ inputs.format }}
         COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
-      run: ${{ github.action_path }}/script/action/run_jpipe.sh
+      run: |
+        echo "::group::Run jPipe Runner"
+        chmod +x ${{ github.action_path }}/script/action/run_jpipe.sh
+        ${{ github.action_path }}/script/action/run_jpipe.sh
+        echo "::endgroup::"
 
     - name: Commit diagram to branch
       if: ${{ inputs.embed_image == 'true' }}
@@ -121,7 +120,11 @@ runs:
         IMAGE_PATH: ${{ inputs.image_path }}
         IMAGE_COMMIT_MESSAGE: ${{ inputs.image_commit_message }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-      run: ${{ github.action_path }}/script/action/commit_diagram.sh
+      run: |
+        echo "::group::Commit diagram to branch"
+        chmod +x ${{ github.action_path }}/script/action/commit_diagram.sh
+        ${{ github.action_path }}/script/action/commit_diagram.sh
+        echo "::endgroup::"
 
     - name: Build comment message
       if: always()
@@ -137,7 +140,11 @@ runs:
         DIAGRAM_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         RUNNER_OUTPUT: ${{ steps.run_jpipe.outputs.runner_output }}
-      run: ${{ github.action_path }}/script/action/build_comment.sh
+      run: |
+        echo "::group::Build comment message"
+        chmod +x ${{ github.action_path }}/script/action/build_comment.sh
+        ${{ github.action_path }}/script/action/build_comment.sh
+        echo "::endgroup::"
 
 
     - name: Post PR comment
