@@ -239,7 +239,9 @@ runs:
         TRUNCATED_OUTPUT=$(echo "$SKIPPED_OUTPUT" | head -c 5000)
 
         MESSAGE+="\n\n<details><summary>jPipe Runner Output (click to expand)</summary>\n\n"
-        MESSAGE+="\n\`\`\`\n$TRUNCATED_OUTPUT\n\`\`\`\n"
+        MESSAGE+="\n\`\`\`"
+        MESSAGE+="$TRUNCATED_OUTPUT"
+        MESSAGE+="\n\`\`\`\n"
         MESSAGE+="</details>"
         
         # Output comment message
@@ -255,7 +257,7 @@ runs:
       with:
         github-token: ${{ inputs.github-token }}
         script: |
-          const message = process.env.PR_COMMENT_MESSAGE;
+          const message = process.env.PR_COMMENT_MESSAGE.replace(/\\n/g, '\n');
           github.rest.issues.createComment({
           owner: context.repo.owner,
           issue_number: context.issue.number,
