@@ -250,14 +250,17 @@ runs:
     - name: Post comment with diagram
       if: always()
       uses: actions/github-script@v7
+      env:
+        PR_COMMENT_MESSAGE: ${{ steps.comment_content.outputs.msg }}
       with:
         github-token: ${{ inputs.github-token }}
         script: |
+          const message = process.env.PR_COMMENT_MESSAGE;
           github.rest.issues.createComment({
-            owner: context.repo.owner,
-            issue_number: context.issue.number,
-            repo: context.repo.repo,
-            body: `${{ steps.comment_content.outputs.msg }}`
+          owner: context.repo.owner,
+          issue_number: context.issue.number,
+          repo: context.repo.repo,
+          body: message
           })
 
     - name: Fail if jpipe-runner failed
