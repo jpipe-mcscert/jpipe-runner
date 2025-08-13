@@ -201,8 +201,11 @@ runs:
         TARGET_REPO="${{ inputs.image_repo || github.repository }}"
 
         if [[ "${{ inputs.embed_image }}" == "true" ]]; then
-          CLEANED_PATH="${{ inputs.image_path#/} }"
-          CLEANED_PATH="${CLEANED_PATH%/}"
+          RAW_IMAGE_PATH="${{ inputs.image_path }}"
+          # remove leading slash
+          CLEANED_PATH="${RAW_IMAGE_PATH#/}"
+          # remove trailing slash
+          CLEANED_PATH="${CLEANED_PATH%/}"    
           REPO_NAME=$(basename "${{ github.event.repository.full_name }}")
           RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${REPO_NAME}_${CLEANED_PATH}/${{ steps.run_jpipe.outputs.diagram_name }}"
           MSG_BODY="![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact]($URL)"
