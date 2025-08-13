@@ -137,15 +137,14 @@ runs:
         CMD+=" --format '${{ inputs.format }}'"
         
         echo "Running command: $CMD"
-        eval $CMD
+        OUTPUT=$(eval $CMD 2>&1)
         RESULT=$?
         
         # Continue regardless of RESULT
         ORIGINAL_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
-        TIMESTAMP=$(date +%s)
-        EXTENSION="${ORIGINAL_FILE##*.}"
-        BASENAME=$(basename "$ORIGINAL_FILE" ."$EXTENSION")
-        RENAMED_FILE="${OUTPUT_DIR}${BASENAME}_${TIMESTAMP}.${EXTENSION}"
+        COMMIT_SHA256= ${{ github.event.pull_request.head.sha }}
+        BASENAME=$(basename "$ORIGINAL_FILE" ."${{ inputs.format }}")
+        RENAMED_FILE="${OUTPUT_DIR}${BASENAME}_${COMMIT_SHA256}.${{ inputs.format }}"
         cp "$ORIGINAL_FILE" "$RENAMED_FILE"
         
         DIAGRAM_FILE="$RENAMED_FILE"
@@ -154,6 +153,9 @@ runs:
         echo "result=$RESULT" >> $GITHUB_OUTPUT
         echo "diagram_path=$DIAGRAM_FILE" >> $GITHUB_OUTPUT
         echo "diagram_name=$DIAGRAM_NAME" >> $GITHUB_OUTPUT
+        echo "runner_output<<EOF" >> $GITHUB_OUTPUT
+        echo "$OUTPUT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Commit diagram to existing branch
       if: ${{ inputs.embed_image == 'true' }}
@@ -172,10 +174,8 @@ runs:
           TARGET_REPO="${{ github.repository }}"
         fi
         
-        GITHUB_TOKEN_CLEAN=$(echo "${GITHUB_TOKEN}" | tr -d '\n\r')
-
         # Clone the target repository
-        git clone "https://x-access-token:${GITHUB_TOKEN_CLEAN}@github.com/${TARGET_REPO}.git" repo
+        git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPO}.git" repo
         cd repo
 
         # Check if the image branch exists, if not, exit with an error
@@ -189,14 +189,6 @@ runs:
 
         cp "$IMAGE_FILE" "${{ inputs.image_path }}$IMAGE_NAME"
         git add -A
-        
-        # Force commit even if file content is identical
-        if git diff --cached --quiet; then
-          echo "Diagram content unchanged — forcing timestamp update"
-          date +%s > "${{ inputs.image_path }}timestamp.txt"
-          git add "${{ inputs.image_path }}timestamp.txt"
-        fi
-        
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git commit -m "${{ inputs.image_commit_message }}" || echo "Nothing to commit"
@@ -230,7 +222,7 @@ runs:
         fi
 
         if [[ "${{ inputs.embed_image }}" == "true" ]]; then
-          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${{ inputs.image_path }}${{ steps.run_jpipe.outputs.diagram_name }}?v=${{ github.run_id }}"
+          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${{ inputs.image_path }}${{ steps.run_jpipe.outputs.diagram_name }}"
           MESSAGE+="![Generated Diagram](${RAW_URL})\n\n"
           MESSAGE+="[Download Diagram Artifact](${ARTIFACT_URL})"
         elif [[ "$ARTIFACT_URL" != "" ]]; then
@@ -239,8 +231,18 @@ runs:
           MESSAGE+="No Diagram artifact was generated - please check the logs for details."
         fi
         
+        # Add runner output (trimmed to safe GitHub comment size)
+        RUNNER_OUTPUT="${{ steps.run_jpipe.outputs.runner_output }}"
+        MAX_LENGTH=5000  # prevent hitting GitHub comment limits
+        TRUNCATED_OUTPUT=$(echo "$RUNNER_OUTPUT" | head -c $MAX_LENGTH)
+        
+        MESSAGE+="\n\n<details><summary>jPipe Runner Output (click to expand)</summary>\n\n"
+        MESSAGE+="\n\`\`\`\n$TRUNCATED_OUTPUT\n\`\`\`\n"
+        MESSAGE+="</details>"
+        
+        # Output comment message
         echo "msg<<EOF" >> $GITHUB_OUTPUT
-        echo "$MESSAGE" >> $GITHUB_OUTPUT
+        echo "$MESSAGE" >> $GITHUB_OUTPUT 
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Post comment with diagram
