@@ -82,71 +82,23 @@ runs:
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-        working-directory: ${{ inputs.working_directory }}
-      run: |
-        echo "::group::Install jpipe-runner"
-        if poetry env info --path &>/dev/null; then
-          echo "Using Poetry"
-          poetry add "git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}"
-        else
-          echo "Using pip"
-          $PYTHON_PATH -m pip install -U "git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}"
-        fi
-        echo "::endgroup::"
+        VERSION: ${{ inputs.version }}
+      run: ./script/action/install_jpipe_runner.sh
 
     - name: Run jPipe Runner
       id: run_jpipe
       shell: bash
-      continue-on-error: true
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-        working-directory: ${{ inputs.working_directory }}
-        OUTPUT_DIR: /home/runner/work/
-      run: |
-        set +e
-        CMD="$PYTHON_PATH -m jpipe_runner '${{ inputs.jd_file }}'"
-
-        append_flag() {
-          local val="$1"; local flag="$2"
-          [[ -n "$val" ]] && CMD+=" $flag '$val'"
-        }
-
-        # Handleing multiline variables/libraries
-        handle_multiline_input() {
-          local input="$1"; local flag="$2"
-          while IFS= read -r line; do
-            [[ -n "$line" ]] && CMD+=" $flag '$line'"
-          done <<< "$input"
-        }
-
-        handle_multiline_input "${{ inputs.variable }}" "--variable"
-        handle_multiline_input "${{ inputs.library }}" "--library"
-
-        append_flag "${{ inputs.config-file }}" "--config-file"
-        append_flag "${{ inputs.diagram }}" "--diagram"
-
-        [[ "${{ inputs.dry_run }}" == "true" ]] && CMD+=" --dry-run"
-
-        CMD+=" --output-path $OUTPUT_DIR"
-        CMD+=" --format '${{ inputs.format }}'"
-
-        echo "Running: $CMD"
-        OUTPUT=$(eval $CMD 2>&1)
-        RESULT=$?
-
-        ORIGINAL_FILE=$(find $OUTPUT_DIR -name "*.${{ inputs.format }}" -type f | head -n1)
-        COMMIT_SHA="${{ github.event.pull_request.head.sha }}"
-        BASENAME=$(basename "$ORIGINAL_FILE" .${{ inputs.format }})
-        RENAMED_FILE="${OUTPUT_DIR}${BASENAME}_${COMMIT_SHA}.${{ inputs.format }}"
-
-        mv "$ORIGINAL_FILE" "$RENAMED_FILE"
-        echo "result=$RESULT" >> $GITHUB_OUTPUT
-        echo "diagram_path=$RENAMED_FILE" >> $GITHUB_OUTPUT
-        echo "diagram_name=$(basename "$RENAMED_FILE")" >> $GITHUB_OUTPUT
-        # Capture the runner output for coment pr message
-        echo "runner_output<<EOF" >> $GITHUB_OUTPUT
-        echo "$OUTPUT" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        JD_FILE: ${{ inputs.jd_file }}
+        VARIABLE: ${{ inputs.variable }}
+        LIBRARY: ${{ inputs.library }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        DIAGRAM: ${{ inputs.diagram }}
+        DRY_RUN: ${{ inputs.dry_run }}
+        FORMAT: ${{ inputs.format }}
+        COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+      run: ./script/action/run_jpipe.sh
 
     - name: Commit diagram to branch
       if: ${{ inputs.embed_image == 'true' }}
@@ -155,72 +107,29 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         IMAGE_FILE: ${{ steps.run_jpipe.outputs.diagram_path }}
         IMAGE_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
-      run: |
-        set -e
-        echo "::group::Committing Diagram"
-        TARGET_REPO="${{ inputs.image_repo || github.repository }}"
-        git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPO}.git" repo
-        cd repo
-
-        git fetch origin "${{ inputs.image_branch }}"
-        if ! git show-ref --quiet refs/remotes/origin/${{ inputs.image_branch }}; then
-          echo "Branch '${{ inputs.image_branch }}' does not exist."
-          exit 1
-        fi
-
-        git checkout "${{ inputs.image_branch }}"
-        REPO_NAME=$(basename "${{ github.event.repository.full_name }}")
-        TARGET_FOLDER="${REPO_NAME}_${{ inputs.image_path }}"
-        mkdir -p "$TARGET_FOLDER"
-        cp "$IMAGE_FILE" "$TARGET_FOLDER/$IMAGE_NAME"
-
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add -A
-        git commit -m "${{ inputs.image_commit_message }}" || echo "No changes to commit"
-        git push origin "${{ inputs.image_branch }}"
-        echo "::endgroup::"
-
-    - name: Upload diagram as artifact
-      if: always()
-      id: upload_diagram
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ steps.run_jpipe.outputs.diagram_name }}
-        path: ${{ steps.run_jpipe.outputs.diagram_path }}
+        IMAGE_REPO: ${{ inputs.image_repo }}
+        IMAGE_BRANCH: ${{ inputs.image_branch }}
+        IMAGE_PATH: ${{ inputs.image_path }}
+        IMAGE_COMMIT_MESSAGE: ${{ inputs.image_commit_message }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: .github/actions/jpipe-runner/scripts/commit_diagram.sh
 
     - name: Build comment message
       if: always()
       id: comment_content
       shell: bash
-      run: |
-        MSG_HEADER="Justification process"
-        MSG_HEADER+=" $([[ '${{ steps.run_jpipe.outputs.result }}' == '0' ]] && echo 'completed' || echo 'failed')!\n\n"
+      env:
+        RESULT: ${{ steps.run_jpipe.outputs.result }}
+        EMBED_IMAGE: ${{ inputs.embed_image }}
+        ARTIFACT_URL: ${{ steps.upload_diagram.outputs.artifact-url }}
+        IMAGE_REPO: ${{ inputs.image_repo }}
+        IMAGE_PATH: ${{ inputs.image_path }}
+        IMAGE_BRANCH: ${{ inputs.image_branch }}
+        DIAGRAM_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        RUNNER_OUTPUT: ${{ steps.run_jpipe.outputs.runner_output }}
+      run: .github/actions/jpipe-runner/scripts/build_comment.sh
 
-        URL="${{ steps.upload_diagram.outputs.artifact-url }}"
-        TARGET_REPO="${{ inputs.image_repo || github.repository }}"
-
-        if [[ "${{ inputs.embed_image }}" == "true" ]]; then
-          RAW_IMAGE_PATH="${{ inputs.image_path }}"
-          # remove leading slash
-          CLEANED_PATH="${RAW_IMAGE_PATH#/}"
-          # remove trailing slash
-          CLEANED_PATH="${CLEANED_PATH%/}"    
-          REPO_NAME=$(basename "${{ github.event.repository.full_name }}")
-          RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${{ inputs.image_branch }}/${REPO_NAME}_${CLEANED_PATH}/${{ steps.run_jpipe.outputs.diagram_name }}"
-          MSG_BODY="![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact]($URL)"
-        else
-          MSG_BODY="[Download Diagram Artifact]($URL)"
-        fi
-
-        OUTPUT="${{ steps.run_jpipe.outputs.runner_output }}"
-        TRIMMED=$(echo "$OUTPUT" | tail -n +10 | head -c 5000)
-
-        MSG_DETAILS="\n\n<details><summary>Runner Output</summary>\n\n\`\`\`\n$TRIMMED\n\`\`\`\n</details>"
-
-        echo "msg<<EOF" >> $GITHUB_OUTPUT
-        echo -e "${MSG_HEADER}${MSG_BODY}${MSG_DETAILS}" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Post PR comment
       if: always()
