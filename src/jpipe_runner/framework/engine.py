@@ -694,7 +694,7 @@ class PipelineEngine:
                 n.attr["fontname"] = "Helvetica-Bold"
             elif status == StatusType.SKIP.name:
                 n.attr["style"] = "filled"
-                n.attr["fillcolor"] = "#ff7d08"
+                n.attr["fillcolor"] = "#cccccc80"
                 n.attr["fontcolor"] = "white"
                 n.attr["fontname"] = "Helvetica-Bold"
 
@@ -713,7 +713,7 @@ class PipelineEngine:
             elif status == StatusType.FAIL.name:
                 e.attr['color'] = "red"
             elif status == StatusType.SKIP.name:
-                e.attr['color'] = "#ff7d08"
+                e.attr['color'] = "#cccccc80"
             else:
                 e.attr['color'] = "gray"
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_EDGES,
