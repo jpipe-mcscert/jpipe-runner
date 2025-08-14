@@ -1,0 +1,35 @@
+press_release_path: "e2e/resources/complex_success/data/press_release.txt"
+social_posts_path: "e2e/resources/complex_success/data/social_posts.json"
+event_calendar_path: "e2e/resources/complex_success/data/event_calendar.csv"
+speakers_list_path: "e2e/resources/complex_success/data/speakers_list.csv"
+fleet_info_path: "e2e/resources/complex_success/data/fleet_info.json"
+staff_roster_path: "e2e/resources/complex_success/data/staff_roster.csv"
+schedule_plan_path: "e2e/resources/complex_success/data/schedule_plan.txt"
+leader_commitments_path: "e2e/resources/complex_success/data/leader_commitments.txt"
+testimonial_videos_path: "e2e/resources/complex_success/data/testimonial_videos_list.txt"
+safety_report_path: "e2e/resources/complex_success/data/safety_report.pdf"
+faq_document_path: "e2e/resources/complex_success/data/faq_document.txt"
+
+settings:
+  retries: 3
+  enable_logging: true
+  thresholds:
+    pass_size: 50
+    min_lines: 3
+  options:
+    verbose: "True"
+    debug_mode: false
+
+metadata:
+  version: 1.0
+  authors:
+    - name: "Jane Doe"
+      role: "Lead"
+    - name: "John Smith"
+      role: "Contributor"
+  tags:
+    - vaccination
+    - campaign
+    - "2025"
+
+notes: null

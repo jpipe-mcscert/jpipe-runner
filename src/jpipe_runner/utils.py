@@ -5,12 +5,12 @@ jpipe_runner.utils
 This module contains the utilities of jPipe Runner.
 """
 
-import json
 import os
 import re
+import ast
+import json
 
 from contextlib import contextmanager
-
 
 # ANSI color codes
 COLOR_CODES = {
@@ -19,6 +19,7 @@ COLOR_CODES = {
     "yellow": "\033[93m",
     "reset": "\033[0m",
 }
+
 
 def colored(text, color=None, attrs=None):
     """
@@ -48,13 +49,6 @@ def group_github_logs():
             print("##[endgroup]")
 
 
-def unquote_string(s: str) -> str:
-    try:
-        return json.loads(s)
-    except json.JSONDecodeError as e:
-        raise ValueError(f'{repr(s)} is not a valid STRING') from e
-
-
 def sanitize_string(s: str) -> str:
     # Convert to snake case
     # Ref: https://stackoverflow.com/a/1176023/9243111
@@ -66,22 +60,81 @@ def sanitize_string(s: str) -> str:
     return sanitized
 
 
-def _test():
-    """test unquote_string"""
-    assert unquote_string('"hello"') == 'hello'
-    try:
-        unquote_string("'hello'")
-    except ValueError:
-        pass
+def parse_value(raw):
+    """
+    Convert a raw string or already-parsed object into proper Python types.
+    Supports:
+    - bools: "true", "True", "false", "False"
+    - null/None
+    - ints, floats
+    - quoted strings
+    - lists/dicts in JSON or Python literal syntax
+    """
+    if isinstance(raw, (bool, int, float, type(None), list, dict)):
+        return raw  # already parsed (from YAML, for example)
 
-    """test sanitize_string"""
-    assert sanitize_string('Hello,              world!') == 'hello_world'
-    assert sanitize_string('Check contents w.r.t. NDA ') == 'check_contents_wrt_nda'
-    assert sanitize_string('Check PEP8 coding standard') == 'check_pep8_coding_standard'
-    assert sanitize_string('Check        Grammar/Typos') == 'check_grammar_typos'
-    assert sanitize_string('Check is valid HTTPHeader ') == 'check_is_valid_http_header'
-    assert sanitize_string('Check enabled PodDisruptionBudget') == 'check_enabled_pod_disruption_budget'
+    if isinstance(raw, str):
+        stripped = raw.strip()
+        lowered = stripped.lower()
+
+        # --- Boolean ---
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+
+        # --- None/null ---
+        if lowered in {"none", "null"}:
+            return None
+
+        # --- Try int ---
+        if re.fullmatch(r"[+-]?\d+", stripped):
+            try:
+                return int(stripped)
+            except ValueError:
+                pass
+
+        # --- Try float ---
+        if re.fullmatch(r"[+-]?\d+\.\d+", stripped):
+            try:
+                return float(stripped)
+            except ValueError:
+                pass
+
+        # --- Quoted string ---
+        if (stripped.startswith('"') and stripped.endswith('"')) or \
+           (stripped.startswith("'") and stripped.endswith("'")):
+            return stripped[1:-1]
+
+        # --- Try JSON parsing ---
+        try:
+            return json.loads(stripped)
+        except Exception:
+            pass
 
 
-if __name__ == "__main__":
-    _test()
+        # Try hybrid: replace JSON bool/null with Python equivalents
+        hybrid = re.sub(r'\btrue\b', 'True', stripped, flags=re.IGNORECASE)
+        hybrid = re.sub(r'\bfalse\b', 'False', hybrid, flags=re.IGNORECASE)
+        hybrid = re.sub(r'\bnull\b', 'None', hybrid, flags=re.IGNORECASE)
+        try:
+            return ast.literal_eval(hybrid)
+        except Exception:
+            pass
+
+        # --- Fallback: keep as string ---
+        return stripped
+
+    return raw
+
+
+def normalize_structure(data):
+    """
+    Recursively normalize all values in dicts/lists using parse_value.
+    """
+    if isinstance(data, dict):
+        return {k: normalize_structure(parse_value(v)) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [normalize_structure(parse_value(v)) for v in data]
+    else:
+        return parse_value(data)

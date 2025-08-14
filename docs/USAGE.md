@@ -12,7 +12,8 @@ jpipe-runner [OPTIONS] jd_file
 
 ## Important
 
-> **You must specify both the justification `.jd.json` file *and* at least one Python library file (`--library`) when executing `jpipe-runner`.**
+> **You must specify both the justification `.jd.json` file *and* at least one Python library file (`--library`) when
+executing `jpipe-runner`.**
 
 ## Available Parameters
 
@@ -56,95 +57,45 @@ Injects a variable named `notebook` with value `notebook.ipynb` into the workflo
 
 > ### ⚠️ Important Notes on Variable Formatting
 >
-> When passing **lists**, **booleans**, or **complex values** using the `--variable` option, the values must be specified in a format that can be correctly parsed by the runner (using Python-style syntax).
-> 
-> #### ✅ Correct Formatting
-> 
-> * **Lists** (must be quoted):
-> 
->   ```bash
->   --variable values_path="['dev-values.yaml', 'prod-values.yaml']"
->   ```
-> 
-> * **Booleans** (use capital `True`/`False` — Python style, no lowercase):
-> 
->   ```bash
->   --variable enable_checks:True
->   ```
-> 
+> The runner now supports parsing variables in both **JSON** and **Python literal** syntax, including booleans (`true`/
+`false` or `True`/`False`), `null`/`None`, numbers, lists, dicts, and nested structures.
+>
+> #### ✅ Examples of Supported Variable Formats
+>
+> ```bash
+> poetry run python -m jpipe_runner \
+> --variable 'input_data:[1,2,3,null,4,5]' \
+> --variable 'steps:[{"name":"step1","enabled":true,"retries":"3"},{"name":"step2","enabled":"false","retries":0}]' \
+> --variable 'metadata:{"version":"1.0","tags":["alpha","beta","42",null],"params":{"threshold":"0.75","max_items":"100","debug_mode":"True"}}' \
+> --variable 'settings:{"numbers":[1,2,3],"options":{"key":"value","flag":true}}' \
+> --variable 'nested_list:[{"a":1},{"b":2}]' \
+> -l ./tests/e2e/resources/complex_success/data_pipeline.py \
+> tests/e2e/resources/complex_success/data_pipeline.json
+> ```
+>
+> - **Booleans**: Accepts both `true`/`false` (JSON) and `True`/`False` (Python).
+> - **Null/None**: Accepts `null` (JSON) and `None` (Python).
+> - **Numbers**: Integers and floats are parsed automatically.
+> - **Lists/Dicts**: Both JSON (`[1,2,3]`, `{"a":1}`) and Python (`[1, 2, 3]`, `{'a': 1}`) styles are supported.
+> - **Strings**: Quoted or unquoted, as long as they do not conflict with other types.
+>
 > #### ❌ Common Mistakes
-> 
-> * ❌ Unquoted lists are invalid and will be interpreted as plain strings:
-> 
->   ```bash
->   --variable values_path=[dev-values.yaml]  # ← Invalid syntax
->   ```
-> 
->     This results in:
->     
->     ```python
->     type(values_path)  # str
->     ```
->   
->     Instead of:
-> 
->     ```python
->     type(values_path)  # list[str]
->     ```
-> 
-> * ❌ Lowercase booleans (`true`, `false`) will be treated as **strings**, not actual booleans:
-> 
->   ```bash
->   --variable enable_checks:true  # ← Interpreted as string 'true'
->   ```
-> 
->   This results in:
-> 
->   ```python
->   type(enable_checks)  # str
->   ```
-> 
->   Instead of:
-> 
->   ```python
->   type(enable_checks)  # bool
->   ```
-> 
-> ### ✅ Correct Example (Mixed Types)
-> 
-> ```bash
-> jpipe-runner \
->   -v helm_chart_path:/charts/myapp \
->   -v values_path="['/charts/myapp/dev-values.yaml']" \
->   -v enable_lint:True \
->   -v dry_run:False \
->   -l './libraries/deploy.py' \
->   ./models/deployment.jd.json
-> ```
-> 
-> ### Summary
-> 
-> | Type    | Correct Example                | Incorrect Example                                      |
-> |---------|--------------------------------|--------------------------------------------------------|
-> | List    | `"['a.yaml', 'b.yaml']"`       | `[a.yaml, b.yaml]` (missing quotes)                    |
-> | Boolean | `True` / `False` (capitalized) | `true` / `false` (lowercase)                           |
-> | Dict    | `"{'key': 'value'}"`           | `{key: value}` (missing quotes)                        |
-> | String  | `"some_string"` or `plain_str` | - (strings usually work unquoted unless special chars) |
-> | Number  | `123`, `3.14`                  | - (Quoted or unquoted numbers parse as int/float)      |
-> | None    | `None` (capitalized)           | `null`, `none`, `NULL` (lowercase or variants)         |
-> 
-> 
-> ### Example with List
-> 
-> ```bash
-> jpipe-runner \
->   -v helm_chart_path:/charts/myapp \
->   -v values_path="['/charts/myapp/dev-values.yaml']" \
->   -l './libraries/deploy.py' \
->   ./models/deployment.jd.json
-> ```
-> 
-> This ensures `values_path` is passed as a `list[str]`, not a plain string.
+>
+> * Unmatched brackets or braces will cause parsing errors.
+> * For complex/nested values, always wrap the entire value in single quotes to avoid shell interpretation issues.
+>
+> #### 📝 Summary Table
+>
+> | Type    | Example (JSON/Python)                | Resulting Python Type      |
+> |---------|--------------------------------------|---------------------------|
+> | List    | `[1,2,3]` or `[1, 2, 3]`             | `list[int]`               |
+> | Boolean | `true`/`false` or `True`/`False`     | `bool`                    |
+> | Dict    | `{"a":1}` or `{'a': 1}`              | `dict`                    |
+> | String  | `"abc"` or `abc`                     | `str`                     |
+> | Number  | `42`, `3.14`                         | `int`/`float`             |
+> | None    | `null` or `None`                     | `NoneType`                |
+>
+> The runner will automatically convert these values to the correct Python types for use in your workflow.
 
 ### Generate Diagram Image Output
 
@@ -152,7 +103,8 @@ Injects a variable named `notebook` with value `notebook.ipynb` into the workflo
 jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --format 'png' --output-path ./my_diagram_output_folder/ ./models/02_quality_full.jd.json
 ```
 
-Runs the justification and outputs the execution diagram as a PNG image at `./my_diagram_output_folder/<name_of_the_justification>.png`.
+Runs the justification and outputs the execution diagram as a PNG image at
+`./my_diagram_output_folder/<name_of_the_justification>.png`.
 
 ### Enable Verbose Logging
 
