@@ -26,7 +26,13 @@ if [[ "${EMBED_IMAGE}" == "true" ]]; then
   CLEANED_PATH="${CLEANED_PATH%/}"
   REPO_NAME=$(basename "$GITHUB_REPOSITORY")
   RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${IMAGE_BRANCH}/${REPO_NAME}_${CLEANED_PATH}/${DIAGRAM_NAME}"
-  MSG_BODY="![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})"
+  if [[ "${RESULT}" == "0" ]]; then
+    # Collapse image on success
+    MSG_BODY="<details><summary>View Generated Diagram</summary>\n\n![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})\n</details>"
+  else
+    # Show image normally on failure
+    MSG_BODY="![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})"
+  fi
 else
   MSG_BODY="[Download Diagram Artifact](${ARTIFACT_URL})"
 fi
