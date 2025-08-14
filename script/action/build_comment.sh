@@ -37,19 +37,18 @@ else
   MSG_BODY="[Download Diagram Artifact](${ARTIFACT_URL})"
 fi
 
-# Trim runner output for PR comment
 if [[ "${RESULT}" == "0" ]]; then
-  # No runner output on success
   MSG_DETAILS=""
 else
   # Remove first 9 lines
   CLEANED_OUTPUT=$(echo "$RUNNER_OUTPUT" | tail -n +10)
-  # Remove everything from the "jPipe Files" section to the end
-  CLEANED_OUTPUT=$(echo "$CLEANED_OUTPUT" | sed '/^  jPipe Files/,$d')
+
+  # Remove everything starting from the jPipeRunner ASCII logo to the end
+  CLEANED_OUTPUT=$(echo "$CLEANED_OUTPUT" | sed '/^    _ ____  _/,$d')
+
   MSG_DETAILS="\n\n<details><summary>Runner Output</summary>\n\n\`\`\`\n$CLEANED_OUTPUT\n\`\`\`\n</details>"
 fi
 
-# Output to GITHUB_OUTPUT
 {
   echo "msg<<EOF"
   echo -e "${MSG_HEADER}${MSG_BODY}${MSG_DETAILS}"
