@@ -6,8 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from onnx.backend.test.case.node import expect
-
 
 class TestExceptionHandlingE2E(unittest.TestCase):
     """
@@ -85,7 +83,6 @@ class TestExceptionHandlingE2E(unittest.TestCase):
         )
         self.assertIn(self.justification_name, result.stdout.lower())
         self.assertEqual(result.returncode, 1)
-
 
     def test_exception_handling_missing_denominator(self):
         """Test with missing denominator, should fail validation."""
@@ -165,6 +162,7 @@ class TestExceptionHandlingE2E(unittest.TestCase):
             cwd=self.test_dir.parent.parent.parent
         )
         self.assertNotEqual(result.returncode, 0)
+
 
 if __name__ == '__main__':
     unittest.main()

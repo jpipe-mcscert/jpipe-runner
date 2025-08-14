@@ -145,7 +145,7 @@ class TestRuntimeContext(unittest.TestCase):
         normalized = normalize_structure(data)
         self.assertEqual(normalized, {
             "pipeline": {
-                "input_data":[1, 2, 3, None, 4, 5],
+                "input_data": [1, 2, 3, None, 4, 5],
                 "steps": [
                     {"name": "step1", "enabled": True, "retries": 3},
                     {"name": "step2", "enabled": False, "retries": 0}
