@@ -55,6 +55,10 @@ cd repo
 #   branch, which is useful if this branch is meant purely for uploads/artifacts.
 #   This avoids potential conflicts or confusion with the main project history.
 # -----------------------------------------------------------------------------
+# - Sets Git user info for GitHub Actions bot.
+git config user.name "github-actions[bot]"
+git config user.email "github-actions[bot]@users.noreply.github.com"
+
 git fetch origin "${IMAGE_BRANCH}" || true
 
 if ! git show-ref --quiet "refs/remotes/origin/${IMAGE_BRANCH}"; then
@@ -96,13 +100,9 @@ cp "$IMAGE_FILE" "$TARGET_FOLDER/$IMAGE_NAME"
 # -----------------------------------------------------------------------------
 # STEP 5: Commit and push the image
 #
-# - Sets Git user info for GitHub Actions bot.
 # - Adds and commits changes.
 # - If there are no changes (e.g., file is identical), skip commit gracefully.
 # -----------------------------------------------------------------------------
-git config user.name "github-actions[bot]"
-git config user.email "github-actions[bot]@users.noreply.github.com"
-
 git add -A
 git commit -m "${IMAGE_COMMIT_MESSAGE}" || echo "No changes to commit"
 
