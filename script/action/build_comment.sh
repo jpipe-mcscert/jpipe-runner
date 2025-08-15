@@ -44,7 +44,7 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# STEP 2: Build the image section
+# STEP 2: Build the image section (with signed token URL for private repos)
 # -----------------------------------------------------------------------------
 TARGET_REPO="${IMAGE_REPO:-$GITHUB_REPOSITORY}"
 
@@ -52,19 +52,31 @@ if [[ "${EMBED_IMAGE}" == "true" ]]; then
   CLEANED_PATH="${IMAGE_PATH#/}"   # Remove leading slash
   CLEANED_PATH="${CLEANED_PATH%/}" # Remove trailing slash
   REPO_NAME=$(basename "$GITHUB_REPOSITORY")
+  IMAGE_FILE_PATH="${REPO_NAME}_${CLEANED_PATH}/${DIAGRAM_NAME}"
 
-  RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${IMAGE_BRANCH}/${REPO_NAME}_${CLEANED_PATH}/${DIAGRAM_NAME}"
+  # Detect if repo is private
+  IS_PRIVATE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+    "https://api.github.com/repos/${TARGET_REPO}" | jq -r .private)
+
+  if [[ "$IS_PRIVATE" == "true" ]]; then
+    # Get signed temporary download URL
+    RAW_URL=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+      "https://api.github.com/repos/${TARGET_REPO}/contents/${IMAGE_FILE_PATH}?ref=${IMAGE_BRANCH}" \
+      | jq -r .download_url)
+  else
+    # Public repo: direct raw.githubusercontent.com URL
+    RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${IMAGE_BRANCH}/${IMAGE_FILE_PATH}"
+  fi
 
   if [[ "${RESULT}" == "0" ]]; then
-    # On SUCCESS: collapse the image in a <details> section
     MSG_BODY="<details><summary>View Generated Diagram</summary>\n\n![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})\n</details>"
   else
-    # On FAILURE: show image inline
     MSG_BODY="![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})"
   fi
 else
   MSG_BODY="[Download Diagram Artifact](${ARTIFACT_URL})"
 fi
+
 
 # -----------------------------------------------------------------------------
 # STEP 3: Clean and format runner output for failure case
