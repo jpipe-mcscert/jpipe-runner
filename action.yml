@@ -140,6 +140,7 @@ runs:
         DIAGRAM_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         RUNNER_OUTPUT: ${{ steps.run_jpipe.outputs.runner_output }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         echo "::group::Build comment message"
         chmod +x ${{ github.action_path }}/script/action/build_comment.sh

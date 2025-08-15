@@ -31,6 +31,7 @@ set -euo pipefail
 #   DIAGRAM_NAME    : Diagram filename
 #   GITHUB_REPOSITORY: Repo name in GitHub
 #   RUNNER_OUTPUT   : Full text output from runner execution
+#   GITHUB_TOKEN    : GitHub token for API access
 ###############################################################################
 
 # -----------------------------------------------------------------------------
