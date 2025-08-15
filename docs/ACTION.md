@@ -6,6 +6,9 @@ This GitHub Action executes jPipe Runner to generate justification diagrams from
 It supports variable injection, configuration files, library imports, multiple output formats, and optional embedding
 of diagrams in PR comments or uploading them as artifacts.
 
+**When embedding images in PR comments, the generated diagrams must be stored in a Git repository in a specified branch.
+**
+
 The action is implemented as a composite GitHub Action with multiple Bash scripts handling installation, execution,
 and artifact management.
 
@@ -18,31 +21,30 @@ and artifact management.
 
 #### Conditional Required Inputs
 
-| Input          | Description                                                    | Required If                               | Default |
-|----------------|----------------------------------------------------------------|-------------------------------------------|---------|
-| `variable`     | Define variables in `NAME:VALUE` format, separated by newlines | Required if `config-file` is not provided | --      |
-| `config-file`  | Path to jPipe Runner configuration file (YAML)                 | Required if `variable` is not provided    | --      |
-| `embed_image`  | Embed diagram in PR comment (`true`) or upload only            | No                                        | `false` |
-| `image_branch` | Branch name to commit the diagram                              | Required if `embed_image` is `true`       | --      |
-| `github-token` | GitHub token to authenticate                                   | Required if `embed_image` is `true`       | --      |
+| Input          | Description                                         | Required If                         | Default |
+|----------------|-----------------------------------------------------|-------------------------------------|---------|
+| `embed_image`  | Embed diagram in PR comment (`true`) or upload only | No                                  | `false` |
+| `image_branch` | Branch name to commit the diagram                   | Required if `embed_image` is `true` | --      |
+| `github-token` | GitHub token to authenticate                        | Required if `embed_image` is `true` | --      |
 
 ### Optional Inputs
 
-| Input                  | Description                                                | Default                                   |
-|------------------------|------------------------------------------------------------|-------------------------------------------|
-| `diagram`              | Specify diagram pattern or wildcard                        | `*`                                       |
-| `format`               | Output format for the diagram (`dot`, `gif`, `jpeg`, etc.) | `svg`                                     |
-| `dry_run`              | Perform a dry run without executing justifications         | `false`                                   |
-| `python_path`          | Path to Python interpreter                                 | (defaults to system Python)               |
-| `working_directory`    | Working directory to run jPipe Runner                      | `.`                                       |
-| `version`              | jPipe Runner version to use (e.g., `0.0.1`)                | `main`                                    |
-| `image_repo`           | Target repo for diagram commit (`owner/repo`)              | Defaults to current repo                  |
-| `image_path`           | Path to store the image in branch                          | `diagrams/`                               |
-| `image_commit_message` | Commit message for generated diagram                       | `Add generated diagram from jPipe Runner` |
+| Input                  | Description                                                    | Default                                   |
+|------------------------|----------------------------------------------------------------|-------------------------------------------|
+| `variable`             | Define variables in `NAME:VALUE` format, separated by newlines | --                                        |
+| `config-file`          | Path to jPipe Runner configuration file (YAML)                 | --                                        |
+| `diagram`              | Specify diagram pattern or wildcard                            | `*`                                       |
+| `format`               | Output format for the diagram (`dot`, `gif`, `jpeg`, etc.)     | `svg`                                     |
+| `dry_run`              | Perform a dry run without executing justifications             | `false`                                   |
+| `python_path`          | Path to Python interpreter                                     | (defaults to system Python)               |
+| `working_directory`    | Working directory to run jPipe Runner                          | `.`                                       |
+| `version`              | jPipe Runner version to use (e.g., `0.0.1`)                    | `main`                                    |
+| `image_repo`           | Target repo for diagram commit (`owner/repo`)                  | Defaults to current repo                  |
+| `image_path`           | Path to store the image in branch                              | `diagrams/`                               |
+| `image_commit_message` | Commit message for generated diagram                           | `Add generated diagram from jPipe Runner` |
 
 **Notes:**
 
-- If neither `variable` nor `config-file` is provided, the Action will fail.
 - If `embed_image` is set to `true`, both `image_branch` and `github-token` must be provided.
 
 ## Configuration & Permissions
@@ -123,7 +125,8 @@ To generate a clean output log for the PR comment, the script performs two key c
 2. **Removes the jPipeRunner resume section** (from the jPipeRunner ASCII logo to the end of the output).
 
 > **Important:**  
-> If the ASCII banner or the jPipeRunner logo changes (e.g., number of lines, formatting), you must update the script accordingly:
+> If the ASCII banner or the jPipeRunner logo changes (e.g., number of lines, formatting), you must update the script
+> accordingly:
 > - Adjust the `tail -n +10` command to match the new banner length.
 > - Update the `sed` pattern that detects the start of the jPipeRunner ASCII logo.
 
