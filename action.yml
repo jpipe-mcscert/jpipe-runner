@@ -9,6 +9,9 @@ inputs:
   variable:
     description: "Define one or more variables in the format NAME:VALUE, separated by newlines"
     required: false
+  config-file:
+    description: "Path to the configuration file for jPipe Runner (yaml)"
+    required: false
   library:
     description: "Specify one or more Python libraries to load, separated by newlines"
     required: true
@@ -36,11 +39,34 @@ inputs:
     description: "jPipe Runner version to use, e.g. '0.0.1'. The main branch version is used by default"
     required: false
     default: "main"
+  embed_image:
+    description: "If true, embed diagram in PR comment otherwise only upload as artifact"
+    required: false
+    default: "false"
+  image_branch:
+    description: "Branch name where the image will be committed"
+    required: false
+    default: ""
+  image_repo:
+    description: "Target repo (owner/repo) for committing the image; defaults to current repo"
+    required: false
+    default: ""
+  image_path:
+    description: "Path where image will be stored in the branch"
+    required: false
+    default: "diagrams/"
+  image_commit_message:
+    description: "Commit message for the generated diagram"
+    required: false
+    default: "Add generated diagram from jPipe Runner"
+  github-token:
+    description: "GitHub token to authenticate"
+    required: false
 
 runs:
   using: "composite"
   steps:
-    - name: Install system dependencies
+    - name: Install dependencies
       shell: bash
       run: |
         sudo apt-get update
@@ -56,118 +82,96 @@ runs:
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-        working-directory: ${{ inputs.working_directory }}
-      run: |
-        # jpipe-runner installation
-        echo "::group::Install jpipe-runner"
-
-        if poetry env info --path &> /dev/null; then
-          echo "Poetry environment detected - using Poetry for dependency management"
-          # Install dependency via poetry
-          poetry add 'git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}'
-        else
-          echo "Poetry not available or not configured - falling back to pip installation"
-          # Fallback to pip installation
-          $PYTHON_PATH -m pip install -U 'git+https://github.com/jpipe-mcscert/jpipe-runner.git@${{ inputs.version }}'
-        fi
-
+        VERSION: ${{ inputs.version }}
+      run: | 
+        echo "::group::Install jPipe Runner"
+        chmod +x ${{ github.action_path }}/script/action/install_jpipe_runner.sh
+        ${{ github.action_path }}/script/action/install_jpipe_runner.sh
         echo "::endgroup::"
 
-    - name: Run jpipe-runner
+    - name: Run jPipe Runner
       id: run_jpipe
-      continue-on-error: true
       shell: bash
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
-        working-directory: ${{ inputs.working_directory }}
-        OUTPUT_DIR: /home/runner/work/
+        JD_FILE: ${{ inputs.jd_file }}
+        VARIABLE: ${{ inputs.variable }}
+        LIBRARY: ${{ inputs.library }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        DIAGRAM: ${{ inputs.diagram }}
+        DRY_RUN: ${{ inputs.dry_run }}
+        FORMAT: ${{ inputs.format }}
+        COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
-        CMD="$PYTHON_PATH -m jpipe_runner '${{ inputs.jd_file }}'"
-        if [[ "${{ inputs.variable }}" != "" ]]; then
-          while IFS= read -r line; do
-            if [[ -n "$line" ]]; then
-              CMD+=" --variable '${line}'"
-            fi
-          done <<< "${{ inputs.variable }}"
-        fi
-        if [[ "${{ inputs.library }}" != "" ]]; then
-          while IFS= read -r line; do
-            if [[ -n "$line" ]]; then
-              CMD+=" --library '${line}'"
-            fi
-          done <<< "${{ inputs.library }}"
-        fi
-        if [[ "${{ inputs.diagram }}" != "" ]]; then
-          CMD+=" --diagram '${{ inputs.diagram }}'"
-        fi
-        if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-          CMD+=" --dry-run"
-        fi
-        CMD+=" --output-path ${OUTPUT_DIR}"
-        CMD+=" --format '${{ inputs.format }}'"
-        
-        echo "Running command: $CMD"
-        eval $CMD
-        RESULT=$?
-        
-        # Find the generated diagram file
-        DIAGRAM_FILE=$(find ${OUTPUT_DIR} -name "*.${{ inputs.format }}" -type f | head -1)
-        DIAGRAM_NAME=$(basename "$DIAGRAM_FILE")
+        echo "::group::Run jPipe Runner"
+        chmod +x ${{ github.action_path }}/script/action/run_jpipe.sh
+        ${{ github.action_path }}/script/action/run_jpipe.sh
+        echo "::endgroup::"
 
-        echo "result=$RESULT" >> $GITHUB_OUTPUT 
-        echo "diagram_path=$DIAGRAM_FILE" >> $GITHUB_OUTPUT
-        echo "diagram_name=$DIAGRAM_NAME" >> $GITHUB_OUTPUT
+    - name: Commit diagram to branch
+      if: ${{ inputs.embed_image == 'true' }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        IMAGE_FILE: ${{ steps.run_jpipe.outputs.diagram_path }}
+        IMAGE_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
+        IMAGE_REPO: ${{ inputs.image_repo }}
+        IMAGE_BRANCH: ${{ inputs.image_branch }}
+        IMAGE_PATH: ${{ inputs.image_path }}
+        IMAGE_COMMIT_MESSAGE: ${{ inputs.image_commit_message }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        echo "::group::Commit diagram to branch"
+        chmod +x ${{ github.action_path }}/script/action/commit_diagram.sh
+        ${{ github.action_path }}/script/action/commit_diagram.sh
+        echo "::endgroup::"
 
-    - name: Upload diagram as artifact
-      id: upload_diagram
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ steps.run_jpipe.outputs.diagram_name }}
-        path: ${{ steps.run_jpipe.outputs.diagram_path }}
-
-    - name: Read comment content
+    - name: Build comment message
       if: always()
       id: comment_content
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        RESULT: ${{ steps.run_jpipe.outputs.result }}
+        EMBED_IMAGE: ${{ inputs.embed_image }}
+        ARTIFACT_URL: ${{ steps.upload_diagram.outputs.artifact-url }}
+        IMAGE_REPO: ${{ inputs.image_repo }}
+        IMAGE_PATH: ${{ inputs.image_path }}
+        IMAGE_BRANCH: ${{ inputs.image_branch }}
+        DIAGRAM_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        RUNNER_OUTPUT: ${{ steps.run_jpipe.outputs.runner_output }}
       run: |
-        if [[ "${{ steps.run_jpipe.outputs.result }}" == "0" ]]; then
-          MESSAGE="Justification process completed successfully! \n\n"
-        else
-          MESSAGE="Justification process failed! \n\n"
-        fi
-        
-        # Use the artifact URL from the upload step
-        ARTIFACT_URL="${{ steps.upload_diagram.outputs.artifact-url }}"
-        
-        if [[ "$ARTIFACT_URL" != "" ]]; then
-          MESSAGE+="[Download Diagram Artifact]($ARTIFACT_URL)"
-        else
-          MESSAGE+="No Diagram artifact was generated - please check the logs for details."
-        fi
-        
-        echo "msg<<EOF" >> $GITHUB_OUTPUT
-        echo "$MESSAGE" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        echo "::group::Build comment message"
+        chmod +x ${{ github.action_path }}/script/action/build_comment.sh
+        ${{ github.action_path }}/script/action/build_comment.sh
+        echo "::endgroup::"
 
-    - name: Post comment with diagram
+
+    - name: Post PR comment
       if: always()
       uses: actions/github-script@v7
+      env:
+        PR_COMMENT_MESSAGE: ${{ steps.comment_content.outputs.msg }}
       with:
-        github-token: ${{ github.token }}
+        github-token: ${{ inputs.github-token }}
         script: |
+          // Replace newlines in the message with actual newlines
+          const message = process.env.PR_COMMENT_MESSAGE.replace(/\\n/g, '\n');
+          
+          // Check if the workflow was triggered by a pull request
+          if (!context.issue || !context.issue.number) {
+              console.log("This action was not triggered by a pull request, skipping comment.");
+              return;
+          }
+          
           github.rest.issues.createComment({
             owner: context.repo.owner,
-            issue_number: context.issue.number,
             repo: context.repo.repo,
-            body: `${{ steps.comment_content.outputs.msg }}`
-          })
+            issue_number: context.issue.number,
+            body: message
+          });
 
-    - name: Fail if jpipe-runner failed
+    - name: Fail if jPipe Runner failed
       if: ${{ steps.run_jpipe.outputs.result != '0' }}
       shell: bash
-      run: |
-        echo "jPipe Runner failed with exit code ${{ steps.run_jpipe.outputs.result }}"
-        exit ${{ steps.run_jpipe.outputs.result }}
+      run: exit ${{ steps.run_jpipe.outputs.result }}
