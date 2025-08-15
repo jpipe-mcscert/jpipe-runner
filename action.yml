@@ -155,10 +155,10 @@ runs:
       with:
         github-token: ${{ inputs.github-token }}
         script: |
-          # Replace newlines in the message with actual newlines
+          // Replace newlines in the message with actual newlines
           const message = process.env.PR_COMMENT_MESSAGE.replace(/\\n/g, '\n');
           
-          # Check if the workflow was triggered by a pull request
+          // Check if the workflow was triggered by a pull request
           if (!context.issue || !context.issue.number) {
               console.log("This action was not triggered by a pull request, skipping comment.");
               return;
