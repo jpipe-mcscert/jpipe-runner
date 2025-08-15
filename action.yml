@@ -46,7 +46,7 @@ inputs:
   image_branch:
     description: "Branch name where the image will be committed"
     required: false
-    default: ""
+    default: "jpipe-runner-diagrams"
   image_repo:
     description: "Target repo (owner/repo) for committing the image; defaults to current repo"
     required: false
