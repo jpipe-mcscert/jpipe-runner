@@ -32,7 +32,7 @@ set -euo pipefail
 #   GITHUB_REPOSITORY: Repo name in GitHub
 #   RUNNER_OUTPUT   : Full text output from runner execution
 #   GITHUB_TOKEN    : GitHub token for API access
-#   GITHUB_READONLY_TOKEN: Read-only token for generating signed URLs
+#   GITHUB_READONLY_TOKEN: Read-only token for generating signed URLs for accessing URLs in private repositories
 ###############################################################################
 
 echo "Starting PR comment build..."

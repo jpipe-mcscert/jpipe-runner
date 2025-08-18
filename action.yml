@@ -63,10 +63,10 @@ inputs:
     required: false
     default: "Add generated diagram from jPipe Runner"
   github-token:
-    description: "GitHub token to authenticate"
+    description: "GitHub token to authenticate (Read & Write access to actions, code, pull requests, and metadata)"
     required: false
   github-readonly-token:
-    description: "GitHub read permission only token to generate the raw URL of the image"
+    description: "GitHub read permission only token to generate the raw URL of the image for accessing URLs in private repositories (Read access to actions, code, and metadata)"
     required: false
 
 runs:
@@ -89,7 +89,7 @@ runs:
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
         VERSION: ${{ inputs.version }}
-      run: | 
+      run: |
         echo "::group::Install jPipe Runner"
         chmod +x ${{ github.action_path }}/script/action/install_jpipe_runner.sh
         ${{ github.action_path }}/script/action/install_jpipe_runner.sh

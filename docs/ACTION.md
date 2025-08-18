@@ -21,11 +21,11 @@ and artifact management.
 
 #### Conditional Required Inputs
 
-| Input                   | Description                                         | Required If                                                                                                                    | Default |
-|-------------------------|-----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|---------|
-| `embed_image`           | Embed diagram in PR comment (`true`) or upload only | No                                                                                                                             | `false` |
-| `github-token`          | GitHub token to authenticate                        | Required if `embed_image` is `true`                                                                                            | --      |
-| `github-readonly-token` | GitHub token for read-only access                   | Required if `embed_image` is `true` and if you **DON'T WANT** to use the default github token for generating the raw image URL | --      |
+| Input                   | Description                                                                                      | Required If                                                                                                                    | Default |
+|-------------------------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|---------|
+| `embed_image`           | Embed diagram in PR comment (`true`) or upload only                                              | No                                                                                                                             | `false` |
+| `github-token`          | GitHub token to authenticate (Read & Write access to actions, code, pull requests, and metadata) | Required if `embed_image` is `true`                                                                                            | --      |
+| `github-readonly-token` | GitHub token for read-only access (Read access to actions, code, and metadata)                   | Required if `embed_image` is `true` and if you **DON'T WANT** to use the default github token for generating the raw image URL | --      |
 
 ### Optional Inputs
 
