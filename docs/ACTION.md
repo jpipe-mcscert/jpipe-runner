@@ -21,10 +21,11 @@ and artifact management.
 
 #### Conditional Required Inputs
 
-| Input          | Description                                         | Required If                         | Default |
-|----------------|-----------------------------------------------------|-------------------------------------|---------|
-| `embed_image`  | Embed diagram in PR comment (`true`) or upload only | No                                  | `false` |
-| `github-token` | GitHub token to authenticate                        | Required if `embed_image` is `true` | --      |
+| Input                   | Description                                         | Required If                                                                                                                    | Default |
+|-------------------------|-----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|---------|
+| `embed_image`           | Embed diagram in PR comment (`true`) or upload only | No                                                                                                                             | `false` |
+| `github-token`          | GitHub token to authenticate                        | Required if `embed_image` is `true`                                                                                            | --      |
+| `github-readonly-token` | GitHub token for read-only access                   | Required if `embed_image` is `true` and if you **DON'T WANT** to use the default github token for generating the raw image URL | --      |
 
 ### Optional Inputs
 
@@ -78,7 +79,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run jPipe Runner
-        uses: your-org/jpipe-runner-action@main
+        uses: jpipe-mcscert/jpipe-runner-action@main
         with:
           jd_file: "path/to/justification.jd.json"
           library: |

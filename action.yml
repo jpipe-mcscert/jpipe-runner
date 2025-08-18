@@ -1,6 +1,9 @@
 name: "jPipe Runner"
 description: "GitHub Action to run justification diagrams of jpipe"
 author: "Jason Lyu, Baptiste Lacroix, Sébastien Mosser"
+branding:
+  icon: "user-check"
+  color: "red"
 
 inputs:
   jd_file:
@@ -61,6 +64,9 @@ inputs:
     default: "Add generated diagram from jPipe Runner"
   github-token:
     description: "GitHub token to authenticate"
+    required: false
+  github-readonly-token:
+    description: "GitHub read permission only token to generate the raw URL of the image"
     required: false
 
 runs:
@@ -141,6 +147,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         RUNNER_OUTPUT: ${{ steps.run_jpipe.outputs.runner_output }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_READONLY_TOKEN: ${{ inputs.github-readonly-token }}
       run: |
         echo "::group::Build comment message"
         chmod +x ${{ github.action_path }}/script/action/build_comment.sh
