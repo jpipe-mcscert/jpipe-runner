@@ -241,6 +241,19 @@ def run_workflow_logic():
     mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.DONE)
     mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)
 
+    # Check that each library path exists
+    not_matched_files = []
+    for lib_pattern in args.library:
+        matched_files = glob.glob(lib_pattern)
+        if not matched_files:
+            not_matched_files.append(lib_pattern)
+
+    if not_matched_files:
+        print(f"No library found for path(s): {', '.join(not_matched_files)}", file=sys.stderr)
+        print("Please check the provided library paths.", file=sys.stderr)
+        mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.FAIL)
+        sys.exit(1)
+
     runtime = PythonRuntime(libraries=[i for l in args.library
                                        for i in glob.glob(l)])
     mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
