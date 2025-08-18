@@ -21,11 +21,11 @@ and artifact management.
 
 #### Conditional Required Inputs
 
-| Input          | Description                                         | Required If                         | Default |
-|----------------|-----------------------------------------------------|-------------------------------------|---------|
-| `embed_image`  | Embed diagram in PR comment (`true`) or upload only | No                                  | `false` |
-| `image_branch` | Branch name to commit the diagram                   | Required if `embed_image` is `true` | --      |
-| `github-token` | GitHub token to authenticate                        | Required if `embed_image` is `true` | --      |
+| Input                   | Description                                                                                      | Required If                                                                                                                    | Default |
+|-------------------------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|---------|
+| `embed_image`           | Embed diagram in PR comment (`true`) or upload only                                              | No                                                                                                                             | `false` |
+| `github-token`          | GitHub token to authenticate (Read & Write access to actions, code, pull requests, and metadata) | Required if `embed_image` is `true`                                                                                            | --      |
+| `github-readonly-token` | GitHub token for read-only access (Read access to actions, code, and metadata)                   | Required if `embed_image` is `true` and if you **DON'T WANT** to use the default github token for generating the raw image URL | --      |
 
 ### Optional Inputs
 
@@ -39,13 +39,14 @@ and artifact management.
 | `python_path`          | Path to Python interpreter                                     | (defaults to system Python)               |
 | `working_directory`    | Working directory to run jPipe Runner                          | `.`                                       |
 | `version`              | jPipe Runner version to use (e.g., `0.0.1`)                    | `main`                                    |
+| `image_branch`         | Branch name to commit the diagram                              | `jpipe-runner-diagrams`                   |
 | `image_repo`           | Target repo for diagram commit (`owner/repo`)                  | Defaults to current repo                  |
 | `image_path`           | Path to store the image in branch                              | `diagrams/`                               |
 | `image_commit_message` | Commit message for generated diagram                           | `Add generated diagram from jPipe Runner` |
 
 **Notes:**
 
-- If `embed_image` is set to `true`, both `image_branch` and `github-token` must be provided.
+- If `embed_image` is set to `true`, `github-token` must be provided.
 
 ## Configuration & Permissions
 
@@ -78,7 +79,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run jPipe Runner
-        uses: your-org/jpipe-runner-action@main
+        uses: jpipe-mcscert/jpipe-runner-action@main
         with:
           jd_file: "path/to/justification.jd.json"
           library: |

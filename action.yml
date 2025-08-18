@@ -1,6 +1,9 @@
 name: "jPipe Runner"
 description: "GitHub Action to run justification diagrams of jpipe"
 author: "Jason Lyu, Baptiste Lacroix, Sébastien Mosser"
+branding:
+  icon: "user-check"
+  color: "red"
 
 inputs:
   jd_file:
@@ -46,7 +49,7 @@ inputs:
   image_branch:
     description: "Branch name where the image will be committed"
     required: false
-    default: ""
+    default: "jpipe-runner-diagrams"
   image_repo:
     description: "Target repo (owner/repo) for committing the image; defaults to current repo"
     required: false
@@ -60,7 +63,10 @@ inputs:
     required: false
     default: "Add generated diagram from jPipe Runner"
   github-token:
-    description: "GitHub token to authenticate"
+    description: "GitHub token to authenticate (Read & Write access to actions, code, pull requests, and metadata)"
+    required: false
+  github-readonly-token:
+    description: "GitHub read permission only token to generate the raw URL of the image for accessing URLs in private repositories (Read access to actions, code, and metadata)"
     required: false
 
 runs:
@@ -83,7 +89,7 @@ runs:
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
         VERSION: ${{ inputs.version }}
-      run: | 
+      run: |
         echo "::group::Install jPipe Runner"
         chmod +x ${{ github.action_path }}/script/action/install_jpipe_runner.sh
         ${{ github.action_path }}/script/action/install_jpipe_runner.sh
@@ -140,6 +146,8 @@ runs:
         DIAGRAM_NAME: ${{ steps.run_jpipe.outputs.diagram_name }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         RUNNER_OUTPUT: ${{ steps.run_jpipe.outputs.runner_output }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_READONLY_TOKEN: ${{ inputs.github-readonly-token }}
       run: |
         echo "::group::Build comment message"
         chmod +x ${{ github.action_path }}/script/action/build_comment.sh
