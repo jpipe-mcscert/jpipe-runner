@@ -114,6 +114,15 @@ runs:
         ${{ github.action_path }}/script/action/run_jpipe.sh
         echo "::endgroup::"
 
+    - name: Upload diagram as artifact
+      id: upload_diagram
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ steps.run_jpipe.outputs.diagram_name }}
+        path: ${{ steps.run_jpipe.outputs.diagram_path }}
+
+
     - name: Commit diagram to branch
       if: ${{ inputs.embed_image == 'true' }}
       shell: bash
