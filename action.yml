@@ -1,6 +1,9 @@
 name: "jPipe Runner"
 description: "GitHub Action to run justification diagrams of jpipe"
 author: "Jason Lyu, Baptiste Lacroix, Sébastien Mosser"
+branding:
+  icon: "user-check"
+  color: "red"
 
 inputs:
   jd_file:
