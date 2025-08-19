@@ -332,8 +332,16 @@ def main():
             from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
             import tkinter as tk
         except ImportError:
-            # TODO: review the error message
-            print("GUI dependencies not installed. Install with: pip install jpipe-runner[gui]", file=sys.stderr)
+            print("Error: GUI mode requires additional dependencies that are not installed.\n\n"
+                  "You can install them with one of the following methods:\n\n"
+                  "  • If using pip:\n"
+                  "      pip install jpipe-runner[gui]\n\n"
+                  "  • If using apt (Debian/Ubuntu):\n"
+                  "      sudo apt install jpipe-runner-gui\n\n"
+                  "  • If using Homebrew (macOS):\n"
+                  "      brew install jpipe-runner-gui\n\n"
+                  "Alternatively, run without --gui to use command-line mode."
+                  , file=sys.stderr)
             sys.exit(1)
 
         root = tk.Tk()
