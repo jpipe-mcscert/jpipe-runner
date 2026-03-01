@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Optional feature",
+      "type": "strategy"
+    },
+    {
+      "id": "C1",
+      "label": "Use feature result",
+      "type": "conclusion"
+    }
+  ],
+  "name": "conditional",
+  "relations": [
+    {
+      "source": "S1",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}

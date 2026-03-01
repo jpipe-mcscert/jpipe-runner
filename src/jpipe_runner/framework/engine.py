@@ -14,7 +14,7 @@ from ..GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from ..enums import StatusType
 from ..exceptions import FunctionException
 from ..runtime import PythonRuntime
-from ..utils import sanitize_string
+from ..utils import sanitize_string, normalize_structure, parse_value
 
 
 class PipelineEngine:
@@ -38,7 +38,7 @@ class PipelineEngine:
                  mark_step: Callable[[Any, Any], None],
                  mark_substep: Callable[[str, str, str], None],
                  mark_node_as_graph: Callable[[str, str], None],
-                 variables: Optional[Iterable[Tuple[str, Any]]] = None
+                 variables: Optional[Iterable[str]] = None
                  ) -> None:
         """
         Initialize the PipelineEngine with a configuration file and a justification file.
@@ -69,7 +69,23 @@ class PipelineEngine:
         self.graph = self.parse_justification(justification_path)
         GLOBAL_LOGGER.debug("PipelineEngine initialized with context vars count: %d", len(ctx._vars))
 
-    def load_config(self, path: str, variables: Optional[Iterable[Tuple[str, Any]]] = None) -> None:
+    @staticmethod
+    def _parse_config(config: dict) -> dict:
+        """Normalize YAML config values recursively."""
+        return normalize_structure(config)
+
+    @staticmethod
+    def __parse_variables(variables: Optional[Iterable[str]]) -> Optional[Iterable[Tuple[str, Any]]]:
+        """Parse CLI variables (key:value) into native Python types."""
+        parsed_variables = []
+        for item in variables or []:
+            if ":" in item:
+                key, raw_value = item.split(":", maxsplit=1)
+                value = parse_value(raw_value)
+                parsed_variables.append((key, value))
+        return parsed_variables
+
+    def load_config(self, path: str, variables: Optional[Iterable[str]] = None) -> None:
         """
         Load the YAML configuration file and set the context variables in ctx._vars.
         Each key/value in the YAML is treated as a produced variable in the context.
@@ -92,12 +108,16 @@ class PipelineEngine:
                 GLOBAL_LOGGER.info(f"Attempting to load configuration from {path}")
                 with open(path, 'r') as f:
                     config = yaml.safe_load(f) or {}
+                config = self._parse_config(config)
                 GLOBAL_LOGGER.info(f"Configuration loaded from {path}")
             except Exception as e:
                 GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
                 self.mark_substep(GraphWorkflowVisualizer.LOAD_CONFIGURATION, "Loading configuration file",
                                   GraphWorkflowVisualizer.FAIL)
                 return
+
+        if variables:
+            variables = self.__parse_variables(variables)
 
         # Override/add with CLI variables
         for key, value in (variables or []):
@@ -312,7 +332,32 @@ class PipelineEngine:
             GLOBAL_LOGGER.info("Execution order: %s", order)
             return order
         except nx.NetworkXUnfeasible as e:
-            GLOBAL_LOGGER.error("Cycle detected in justification graph: %s", e)
+            # Try to find the cycle for a more precise error message
+            try:
+                cycle = next(nx.simple_cycles(self.graph))
+            except Exception:
+                cycle = None
+
+            if cycle:
+                cycle_labels = [self.graph.nodes[n].get("label", n) for n in cycle]
+                error_msg = (
+                    "[ExecutionOrder]\n"
+                    "Pipeline validation error: cycle detected in justification graph.\n"
+                    f"  • The following elements form a cycle: {' -> '.join(cycle_labels)}\n"
+                    "  • Problem: Cyclic dependencies prevent determining a valid execution order.\n"
+                    "  • To fix:\n"
+                    "    - Review the justification file and remove or break the cycle between these elements.\n"
+                    "    - Ensure that dependencies flow in one direction only (no circular references).\n"
+                    "  • After correcting the cycle, re-run the pipeline validation."
+                )
+            else:
+                error_msg = (
+                    "[ExecutionOrder]\n"
+                    "Pipeline validation error: cycle detected in justification graph.\n"
+                    "  • Problem: Cyclic dependencies prevent determining a valid execution order.\n"
+                    "  • To fix: Review the justification file for circular dependencies and remove them."
+                )
+            GLOBAL_LOGGER.error(error_msg)
             return []
 
     # ------------ Start of Justification Pipeline Execution ------------
@@ -694,7 +739,8 @@ class PipelineEngine:
                 n.attr["fontname"] = "Helvetica-Bold"
             elif status == StatusType.SKIP.name:
                 n.attr["style"] = "filled"
-                n.attr["fillcolor"] = "#ff7d08"
+                n.attr["fillcolor"] = "#cccccc"
+                n.attr["opacity"] = "1"
                 n.attr["fontcolor"] = "white"
                 n.attr["fontname"] = "Helvetica-Bold"
 
@@ -713,7 +759,8 @@ class PipelineEngine:
             elif status == StatusType.FAIL.name:
                 e.attr['color'] = "red"
             elif status == StatusType.SKIP.name:
-                e.attr['color'] = "#ff7d08"
+                e.attr['color'] = "#cccccc"
+                e.attr['opacity'] = "1"
             else:
                 e.attr['color'] = "gray"
         self.mark_substep(GraphWorkflowVisualizer.EXPORT_OUTPUT, GraphWorkflowVisualizer.STYLE_EDGES,

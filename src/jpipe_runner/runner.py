@@ -6,10 +6,8 @@ This module contains the entrypoint of jPipe Runner.
 """
 
 import argparse
-import ast
 import glob
 import importlib.metadata
-import json
 import logging
 import os
 import shutil
@@ -243,33 +241,26 @@ def run_workflow_logic():
     mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.DONE)
     mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)
 
+    # Check that each library path exists
+    not_matched_files = []
+    for lib_pattern in args.library:
+        matched_files = glob.glob(lib_pattern)
+        if not matched_files:
+            not_matched_files.append(lib_pattern)
+
+    if not_matched_files:
+        print(f"No library found for path(s): {', '.join(not_matched_files)}", file=sys.stderr)
+        print("Please check the provided library paths.", file=sys.stderr)
+        mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.FAIL)
+        sys.exit(1)
+
     runtime = PythonRuntime(libraries=[i for l in args.library
                                        for i in glob.glob(l)])
     mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
 
-    # Parse variables from CLI
-    variables = []
-    for i in args.variable:
-        if ':' in i:
-            key, raw_value = i.split(':', maxsplit=1)
-            try:
-                # First try ast.literal_eval for Python literals
-                value = ast.literal_eval(raw_value)
-                GLOBAL_LOGGER.info(f"Parsed {raw_value} as {value} of type {type(value).__name__}")
-            except (ValueError, SyntaxError):
-                try:
-                    # If that fails, try JSON parsing for JSON literals (handles null, true, false)
-                    value = json.loads(raw_value)
-                    GLOBAL_LOGGER.info(f"JSON parsed {raw_value} as {value} of type {type(value).__name__}")
-                except ValueError:
-                    # Fallback: treat it as plain string
-                    GLOBAL_LOGGER.info(f"Failed to parse {raw_value}, treating as string.")
-                    value = raw_value
-            variables.append((key, value))
-
     jpipe = PipelineEngine(config_path=args.config_file,
                            justification_path=args.jd_file,
-                           variables=variables,
+                           variables=args.variable,
                            mark_step=mark_step,
                            mark_substep=mark_substep,
                            mark_node_as_graph=mark_node_as_graph)
@@ -297,7 +288,7 @@ def run_workflow_logic():
 
     mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
 
-    if args.output_path:
+    if args.format:
         mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
         output_path = args.output_path.lower()
         if output_path in {"stdout", "stderr"}:
@@ -323,6 +314,8 @@ def run_workflow_logic():
             print(f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
                   file=sys.stderr)
             mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
+            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+            log_buffer.dump_to_stderr()
             sys.exit(1)
 
     # if errors on buffer show them
@@ -339,8 +332,16 @@ def main():
             from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
             import tkinter as tk
         except ImportError:
-            # TODO: review the error message
-            print("GUI dependencies not installed. Install with: pip install jpipe-runner[gui]", file=sys.stderr)
+            print("Error: GUI mode requires additional dependencies that are not installed.\n\n"
+                  "You can install them with one of the following methods:\n\n"
+                  "  • If using pip:\n"
+                  "      pip install jpipe-runner[gui]\n\n"
+                  "  • If using apt (Debian/Ubuntu):\n"
+                  "      sudo apt install jpipe-runner-gui\n\n"
+                  "  • If using Homebrew (macOS):\n"
+                  "      brew install jpipe-runner-gui\n\n"
+                  "Alternatively, run without --gui to use command-line mode."
+                  , file=sys.stderr)
             sys.exit(1)
 
         root = tk.Tk()

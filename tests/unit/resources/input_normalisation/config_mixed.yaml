@@ -1,0 +1,5 @@
+already_int: 5
+already_bool: true
+already_none: null
+stringy_number: "007"
+stringy_float: "0003.1400"

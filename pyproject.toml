@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jpipe-runner"
-version = "3.0.0"
+version = "3.1.0"
 description = "A Justification Runner designed for jPipe."
 authors = [
     "Jason Lyu <xjasonlyu@gmail.com>",
