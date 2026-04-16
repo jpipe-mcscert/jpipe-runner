@@ -47,33 +47,69 @@ echo ">>> Creating temporary files for GUI package"
 cp setup.py setup.py.bak
 cp stdeb.cfg stdeb.cfg.bak 2>/dev/null || true
 
-# Create GUI-specific setup.py
+# Create GUI-specific setup.py (uses tomllib — stdlib >= 3.11)
 cat > setup-gui.py << 'EOF'
+import re
 import sys
-from setuptools import setup
-sys.path.insert(0, '.')
-from setup import SetupConfigBuilder, RequirementsReader
+import tomllib
+from pathlib import Path
 
-class GuiSetupConfigBuilder(SetupConfigBuilder):
-    def build_config(self):
-        config = super().build_config()
-        # Override package name for GUI version
-        config['name'] = "jpipe-runner-gui"
-        # Override requirements to use GUI-specific file
-        config['install_requires'] = RequirementsReader.read('requirements-gui.txt')
-        # Update entry points for GUI
-        if 'entry_points' in config and 'console_scripts' in config['entry_points']:
-            config['entry_points']['console_scripts'] = [
-                "jpipe-runner-gui = jpipe_runner.runner:main"
-            ]
-        return config
+from setuptools import find_packages, setup
 
-if __name__ == "__main__":
-    builder = GuiSetupConfigBuilder()
-    config = builder.build_config()
-    if len(sys.argv) > 1 and sys.argv[1] == '--print-config':
-        builder.print_config(config)
-    setup(**config)
+
+def _parse_author(entry):
+    match = re.search(r"^(.*?)\s*<([^>]+)>$", entry.strip())
+    if match:
+        return match.group(1).strip(), match.group(2).strip()
+    return entry.strip(), ""
+
+
+def _read_requirements(filepath="requirements-gui.txt"):
+    path = Path(filepath)
+    if not path.exists():
+        return []
+    return [
+        line.split(";")[0].rstrip("\\").strip()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith(("--", "#"))
+    ]
+
+
+with open("pyproject.toml", "rb") as _f:
+    _pyproject = tomllib.load(_f)
+
+_poetry = _pyproject["tool"]["poetry"]
+
+_authors = [_parse_author(a) for a in _poetry.get("authors", [])]
+_names = ", ".join(name for name, _ in _authors)
+_emails = ", ".join(email for _, email in _authors if email)
+
+_packages_from = (_poetry.get("packages") or [{}])[0].get("from", "")
+
+config = {
+    "name": "jpipe-runner-gui",
+    "version": _poetry["version"],
+    "description": _poetry["description"],
+    "url": _poetry.get("homepage", ""),
+    "license": _poetry.get("license", ""),
+    "author": _names,
+    "author_email": _emails,
+    "classifiers": _poetry.get("classifiers", []),
+    "keywords": _poetry.get("keywords", []),
+    "install_requires": _read_requirements(),
+    "extras_require": _poetry.get("extras", {}),
+    "python_requires": _poetry["dependencies"]["python"],
+    "long_description": Path(_poetry["readme"]).read_text(encoding="utf-8"),
+    "long_description_content_type": "text/markdown",
+    "packages": find_packages(where=_packages_from) if _packages_from else find_packages(),
+    "package_dir": {"": _packages_from} if _packages_from else {},
+    "entry_points": {
+        "console_scripts": ["jpipe-runner-gui = jpipe_runner.runner:main"]
+    },
+    "include_package_data": True,
+}
+
+setup(**config)
 EOF
 
 # Create GUI-specific stdeb.cfg
