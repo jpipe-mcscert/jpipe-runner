@@ -86,32 +86,36 @@ Triggered by pushing a `v*.*.*` tag whose version matches `pyproject.toml`. The 
 
 ## Known Bugs
 
-### `framework/logger.py:35` — `has_errors()` always returns `True`
-
-Python short-circuit: `"ERROR" or "WARNING"` evaluates to `"ERROR"` (a truthy string), so the `in` test always matches.
-
-```python
-# Bug — always True regardless of log content
-return any("ERROR" or "WARNING" in log for log in self.logs)
-
-# Fix
-return any("ERROR" in log or "WARNING" in log for log in self.logs)
-```
+~~`framework/logger.py:35` — `has_errors()` always returns `True`~~ **Fixed in `refactor` branch** (commit `b0500d8`). Operator precedence bug: `"ERROR" or "WARNING"` short-circuited to a truthy string. Fix: `any("ERROR" in log or "WARNING" in log for log in self.logs)`. Tests added in `tests/unit/test_logger.py`.
 
 ## Tech Debt Backlog (prioritised)
 
-1. **Fix `has_errors()` bug** — `src/jpipe_runner/framework/logger.py:35`
-2. **Add linting/formatting** — configure `ruff` (or black + flake8) via pre-commit hooks
-3. **Add coverage.py** — configure in `pyproject.toml` and add CI coverage gate
-4. **Simplify `setup.py`** — replace the 500+ LOC custom TOML parser with `tomllib` (stdlib ≥ 3.11)
-5. **Refactor `engine.py`** — break `justify()` and `export_to_format()` (>200 LOC each) into smaller methods
-6. **Add type hints** — particularly in validators and decorators (`Any` overused)
-7. **Add `tests/unit/test_logger.py`** — cover `has_errors()` edge cases (no logs, warnings only, errors only)
-8. **Thread-safety documentation** — document global `ctx` singleton limitations in context.py docstring
+1. **Add linting/formatting** — configure `ruff` (or black + flake8) via pre-commit hooks
+2. **Add coverage.py** — configure in `pyproject.toml` and add CI coverage gate
+3. **Simplify `setup.py`** — replace the 500+ LOC custom TOML parser with `tomllib` (stdlib ≥ 3.11)
+4. **Refactor `engine.py`** — break `justify()` and `export_to_format()` (>200 LOC each) into smaller methods
+5. **Add type hints** — particularly in validators and decorators (`Any` overused)
+6. **Thread-safety documentation** — document global `ctx` singleton limitations in context.py docstring
 
 ## Notes for Maintainers
 
-- System dependency: **Graphviz + libgraphviz-dev** must be installed before `poetry install` can succeed (pygraphviz compiles a C extension).
+- **Poetry installation**: install via `pipx` (not Homebrew) to get a clean isolated environment:
+  ```bash
+  pipx install poetry
+  pipx inject poetry poetry-plugin-export
+  ```
+  Homebrew's Poetry leaks system packages (e.g. `tbb`) into its resolver, breaking plugin installs.
+
+- **Graphviz system dependency**: pygraphviz compiles a C extension — Graphviz headers must be on the compiler path. On macOS with Homebrew:
+  ```bash
+  brew install graphviz
+  export CFLAGS="-I$(brew --prefix graphviz)/include"
+  export LDFLAGS="-L$(brew --prefix graphviz)/lib"
+  poetry install
+  ```
+  Add the two `export` lines to `~/.zshrc` to avoid setting them every session.
+  On Linux: `sudo apt-get install graphviz libgraphviz-dev pkg-config build-essential python3-dev`.
+
 - The `setup.py` is only needed for Debian packaging (stdeb); Poetry handles everything else.
 - GUI extra (`matplotlib`) is distributed as a separate `.deb` package and Homebrew formula.
 - Python version is pinned to `>=3.11` in `pyproject.toml` but CI only tests 3.11 — consider matrix testing.
