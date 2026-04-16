@@ -121,14 +121,16 @@ else
 fi
 
 # --- 6. Extract version ---
-VERSION=$(python3 setup-gui.py --version)
+VERSION=$(python3.11 setup-gui.py --version)
 echo ">>> Detected version: $VERSION"
 
-pip install --upgrade setuptools stdeb wheel
+pip install --upgrade setuptools stdeb wheel tomli
+# Also install tomli for system python3 (3.10 on Ubuntu 22.04) — debian/rules uses it
+python3 -m pip install --upgrade tomli
 
 # --- 7. Build GUI Debian source package ---
 echo ">>> Building GUI source package"
-STDEB_CFG_FILE=stdeb-gui.cfg python3 setup-gui.py --command-packages=stdeb.command sdist_dsc --dist-dir=deb_dist_gui
+STDEB_CFG_FILE=stdeb-gui.cfg python3.11 setup-gui.py --command-packages=stdeb.command sdist_dsc --dist-dir=deb_dist_gui
 
 # Find generated package directory
 GUI_DIR=$(find deb_dist_gui -maxdepth 1 -type d -name "jpipe-runner-gui*" | head -n1)

@@ -1,6 +1,15 @@
 import re
 import sys
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib  # type: ignore[no-redef]  # backport for Python < 3.11
+    except ImportError as exc:
+        raise ImportError(
+            "Python ≥ 3.11 is required (tomllib is stdlib since 3.11), "
+            "or install: pip install tomli"
+        ) from exc
 from pathlib import Path
 
 from setuptools import find_packages, setup
