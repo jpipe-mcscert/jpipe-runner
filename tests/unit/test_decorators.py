@@ -1,8 +1,12 @@
 import unittest
 from unittest.mock import patch
 
-from jpipe_runner.framework.context import ctx, RuntimeContext
-from jpipe_runner.framework.decorators.jpipe_decorator import ConsumedVariableChecker, ProducedVariableChecker, jpipe
+from jpipe_runner.framework.context import RuntimeContext, ctx
+from jpipe_runner.framework.decorators.jpipe_decorator import (
+    ConsumedVariableChecker,
+    ProducedVariableChecker,
+    jpipe,
+)
 from jpipe_runner.framework.logger import log_buffer
 
 
@@ -42,12 +46,12 @@ class TestConsumedVariableChecker(unittest.TestCase):
         checker.inject_arguments({})  # Should log an error
 
         matching_logs = [
-            log for log in log_buffer.logs
+            log
+            for log in log_buffer.logs
             if "has not been set in context before calling" in log and "a" in log
         ]
         self.assertTrue(
-            matching_logs,
-            "Expected error log about missing consumed variable 'a' not found."
+            matching_logs, "Expected error log about missing consumed variable 'a' not found."
         )
 
     def test_inject_arguments_warns_for_unused_param(self):
@@ -107,10 +111,13 @@ class TestProducedVariableChecker(unittest.TestCase):
 
         # Check that an error was logged about producing an undeclared variable
         matching_logs = [
-            log for log in log_buffer.logs
+            log
+            for log in log_buffer.logs
             if "attempted to produce undeclared variable" in log and "not_declared" in log
         ]
-        self.assertTrue(matching_logs, "Expected error log about undeclared produced variable not found.")
+        self.assertTrue(
+            matching_logs, "Expected error log about undeclared produced variable not found."
+        )
 
     def test_validate_produced_logs_error_if_missing_vars(self):
         # Clear previous logs
@@ -123,8 +130,14 @@ class TestProducedVariableChecker(unittest.TestCase):
         checker.validate_produced()
 
         # Check that an error was logged about missing variable(s)
-        matching_logs = [log for log in log_buffer.logs if "did not produce the following declared variable(s)" in log]
-        self.assertTrue(matching_logs, "Expected error log about missing produced variables not found.")
+        matching_logs = [
+            log
+            for log in log_buffer.logs
+            if "did not produce the following declared variable(s)" in log
+        ]
+        self.assertTrue(
+            matching_logs, "Expected error log about missing produced variables not found."
+        )
 
     def test_validate_produced_passes_if_all_produced(self):
         checker = ProducedVariableChecker(self.sample_func, ("out",))
@@ -163,12 +176,13 @@ class TestConsumeDecorator(unittest.TestCase):
         func()  # Should log error instead of raising
 
         matching_logs = [
-            log for log in log_buffer.logs
-            if "Consumed variable 'val' has not been set in context before calling 'func'" in log  # Adjust based on your logger message
+            log
+            for log in log_buffer.logs
+            if "Consumed variable 'val' has not been set in context before calling 'func'"
+            in log  # Adjust based on your logger message
         ]
         self.assertTrue(
-            matching_logs,
-            "Expected error log about missing consumed variable 'val' not found."
+            matching_logs, "Expected error log about missing consumed variable 'val' not found."
         )
 
 
@@ -203,13 +217,14 @@ class TestProduceDecorator(unittest.TestCase):
         func()
 
         matching_logs = [
-            log for log in log_buffer.logs
+            log
+            for log in log_buffer.logs
             if "attempted to produce undeclared variable" in log and "not_declared" in log
         ]
 
         self.assertTrue(
             matching_logs,
-            "Expected error log for undeclared produced variable 'not_declared' not found."
+            "Expected error log for undeclared produced variable 'not_declared' not found.",
         )
 
     def test_produce_decorator_logs_error_if_not_all_vars_produced(self):
@@ -226,12 +241,12 @@ class TestProduceDecorator(unittest.TestCase):
         func()  # Should log error instead of raising
 
         matching_logs = [
-            log for log in log_buffer.logs
+            log
+            for log in log_buffer.logs
             if "did not produce the following declared variable(s):" in log and "out2" in log
         ]
         self.assertTrue(
-            matching_logs,
-            "Expected error log about missing produced variable 'out2' not found."
+            matching_logs, "Expected error log about missing produced variable 'out2' not found."
         )
 
 

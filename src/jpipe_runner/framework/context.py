@@ -30,12 +30,13 @@ class RuntimeContext:
                 ...
             }
     """
-    PRODUCE = '_produce'
-    CONSUME = '_consume'
-    SKIP = '_skip'
-    CONTRIBUTION = '_contribution'
-    POSITIVE = '_positive'
-    NEGATIVE = '_negative'
+
+    PRODUCE = "_produce"
+    CONSUME = "_consume"
+    SKIP = "_skip"
+    CONTRIBUTION = "_contribution"
+    POSITIVE = "_positive"
+    NEGATIVE = "_negative"
 
     def __init__(self):
         """
@@ -61,7 +62,9 @@ class RuntimeContext:
             for decorator in (self.PRODUCE, self.CONSUME):
                 if key in self._vars[func].get(decorator, {}):
                     value = self._vars[func][decorator][key]
-                    GLOBAL_LOGGER.debug(f"Retrieved variable '{key}' with value '{value}' from function '{func}'")
+                    GLOBAL_LOGGER.debug(
+                        f"Retrieved variable '{key}' with value '{value}' from function '{func}'"
+                    )
                     return value
         return None
 
@@ -91,8 +94,12 @@ class RuntimeContext:
         if decorator not in self._vars[func]:
             self._vars[func][decorator] = {}
         self._vars[func][decorator][key] = value
-        GLOBAL_LOGGER.info(f"Set variable '{key}' to '{value}' in function '{func}' under decorator '{decorator}'")
-        GLOBAL_LOGGER.debug(f"Set variable '{key}' to '{value}' in function '{func}' under decorator '{decorator}'")
+        GLOBAL_LOGGER.info(
+            f"Set variable '{key}' to '{value}' in function '{func}' under decorator '{decorator}'"
+        )
+        GLOBAL_LOGGER.debug(
+            f"Set variable '{key}' to '{value}' in function '{func}' under decorator '{decorator}'"
+        )
         GLOBAL_LOGGER.debug(f"Updated context: {self._vars[func]}")
 
     def set(self, key, value):
@@ -131,7 +138,9 @@ class RuntimeContext:
         """
         if func not in self._vars:
             return False
-        return key in self._vars[func].get(self.PRODUCE, {}) or key in self._vars[func].get(self.CONSUME, {})
+        return key in self._vars[func].get(self.PRODUCE, {}) or key in self._vars[func].get(
+            self.CONSUME, {}
+        )
 
     def set_from_config(self, key, value, decorator=CONSUME):
         """
@@ -173,11 +182,10 @@ class RuntimeContext:
         """
         if func not in self._vars:
             self._vars[func] = {}
-        self._vars[func][self.SKIP] = {
-            'value': value,
-            'reason': reason
-        }
-        GLOBAL_LOGGER.debug(f"Set skip status for function '{func}' to {value} with reason: {reason}")
+        self._vars[func][self.SKIP] = {"value": value, "reason": reason}
+        GLOBAL_LOGGER.debug(
+            f"Set skip status for function '{func}' to {value} with reason: {reason}"
+        )
 
     def set_contribution(self, func, contribution_type: str, variables: list[str]):
         """
@@ -197,12 +205,11 @@ class RuntimeContext:
         if func not in self._vars:
             self._vars[func] = {}
         if self.CONTRIBUTION not in self._vars[func]:
-            self._vars[func][self.CONTRIBUTION] = {
-                self.POSITIVE: [],
-                self.NEGATIVE: []
-            }
+            self._vars[func][self.CONTRIBUTION] = {self.POSITIVE: [], self.NEGATIVE: []}
         self._vars[func][self.CONTRIBUTION][contribution_type].extend(variables)
-        GLOBAL_LOGGER.debug(f"Set {contribution_type} contribution for function '{func}' with variables: {variables}")
+        GLOBAL_LOGGER.debug(
+            f"Set {contribution_type} contribution for function '{func}' with variables: {variables}"
+        )
 
     def get_contributions(self, func: str) -> Dict[str, List[str]]:
         """
@@ -214,10 +221,9 @@ class RuntimeContext:
         Returns:
             dict: {'_positive': [...], '_negative': [...]} — lists may be empty.
         """
-        return self._vars.get(func, {}).get(RuntimeContext.CONTRIBUTION, {
-            self.POSITIVE: [],
-            self.NEGATIVE: []
-        })
+        return self._vars.get(func, {}).get(
+            RuntimeContext.CONTRIBUTION, {self.POSITIVE: [], self.NEGATIVE: []}
+        )
 
     def __repr__(self):
         """

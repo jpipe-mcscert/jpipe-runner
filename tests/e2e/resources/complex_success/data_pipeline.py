@@ -2,8 +2,8 @@ import os
 
 from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
 
-
 ###### Justification: vaccination_campaign ######
+
 
 # -------------------------
 # 1) Evidence functions (defined first)
@@ -17,7 +17,9 @@ def approved_press_release_document(press_release_path: str, settings: dict, pro
 
 
 @jpipe(consume=["social_posts_path", "settings"], produce=["social_posts"])
-def set_of_preapproved_social_media_posts_and_graphics(social_posts_path: str, settings: dict, produce) -> bool:
+def set_of_preapproved_social_media_posts_and_graphics(
+    social_posts_path: str, settings: dict, produce
+) -> bool:
     threshold = settings["thresholds"]["pass_size"]
     result = os.path.isfile(social_posts_path) and os.path.getsize(social_posts_path) > threshold
     produce("social_posts", result)
@@ -25,7 +27,9 @@ def set_of_preapproved_social_media_posts_and_graphics(social_posts_path: str, s
 
 
 @jpipe(consume=["event_calendar_path", "settings"], produce=["event_calendar"])
-def list_of_scheduled_events_with_dates_and_venues(event_calendar_path: str, settings: dict, produce) -> bool:
+def list_of_scheduled_events_with_dates_and_venues(
+    event_calendar_path: str, settings: dict, produce
+) -> bool:
     min_lines = settings["thresholds"]["min_lines"]
     if not os.path.isfile(event_calendar_path):
         produce("event_calendar", False)
@@ -81,7 +85,9 @@ def approved_extendedhours_operation_schedule(schedule_plan_path: str, produce) 
 
 
 @jpipe(consume=["leader_commitments_path"], produce=["leader_commitments"])
-def written_commitments_from_local_leaders_to_participate(leader_commitments_path: str, produce) -> bool:
+def written_commitments_from_local_leaders_to_participate(
+    leader_commitments_path: str, produce
+) -> bool:
     result = os.path.isfile(leader_commitments_path)
     produce("leader_commitments", result)
     return result
@@ -112,42 +118,53 @@ def frequently_asked_questions_document(faq_document_path: str, produce) -> bool
 # 2) Strategy functions (consume evidence -> produce strategy outputs)
 # -------------------------
 @jpipe(consume=["press_release", "social_posts"], produce=["media_outreach"])
-def distribute_information_through_local_media_and_social_channels(press_release: bool, social_posts: bool,
-                                                                   produce) -> bool:
+def distribute_information_through_local_media_and_social_channels(
+    press_release: bool, social_posts: bool, produce
+) -> bool:
     result = press_release and social_posts
     produce("media_outreach", result)
     return result
 
 
 @jpipe(consume=["event_calendar", "speakers_list"], produce=["community_events"])
-def host_informational_events_in_public_gathering_spaces(event_calendar: bool, speakers_list: bool, produce) -> bool:
+def host_informational_events_in_public_gathering_spaces(
+    event_calendar: bool, speakers_list: bool, produce
+) -> bool:
     result = event_calendar and speakers_list
     produce("community_events", result)
     return result
 
 
 @jpipe(consume=["fleet_available", "trained_staff"], produce=["mobile_units"])
-def deploy_mobile_vaccination_units_to_remote_areas(fleet_available: bool, trained_staff: bool, produce) -> bool:
+def deploy_mobile_vaccination_units_to_remote_areas(
+    fleet_available: bool, trained_staff: bool, produce
+) -> bool:
     result = fleet_available and trained_staff
     produce("mobile_units", result)
     return result
 
 
 @jpipe(consume=["schedule_plan"], produce=["extended_hours"])
-def keep_vaccination_centers_open_during_evenings_and_weekends(schedule_plan: bool, produce) -> bool:
+def keep_vaccination_centers_open_during_evenings_and_weekends(
+    schedule_plan: bool, produce
+) -> bool:
     produce("extended_hours", schedule_plan)
     return schedule_plan
 
 
 @jpipe(consume=["leader_commitments", "testimonial_videos"], produce=["trusted_voices"])
-def involve_respected_local_leaders_in_advocacy(leader_commitments: bool, testimonial_videos: bool, produce) -> bool:
+def involve_respected_local_leaders_in_advocacy(
+    leader_commitments: bool, testimonial_videos: bool, produce
+) -> bool:
     result = leader_commitments and testimonial_videos
     produce("trusted_voices", result)
     return result
 
 
 @jpipe(consume=["safety_report", "faq_document"], produce=["transparent_info"])
-def publish_transparent_and_accessible_safety_data(safety_report: bool, faq_document: bool, produce) -> bool:
+def publish_transparent_and_accessible_safety_data(
+    safety_report: bool, faq_document: bool, produce
+) -> bool:
     result = safety_report and faq_document
     produce("transparent_info", result)
     return result
@@ -168,22 +185,24 @@ def publish_transparent_and_accessible_safety_data(safety_report: bool, faq_docu
     produce=["multi_pronged"],
 )
 def use_multiple_coordinated_outreach_and_delivery_approaches(
-        media_outreach: bool,
-        community_events: bool,
-        mobile_units: bool,
-        extended_hours: bool,
-        trusted_voices: bool,
-        transparent_info: bool,
-        produce,
+    media_outreach: bool,
+    community_events: bool,
+    mobile_units: bool,
+    extended_hours: bool,
+    trusted_voices: bool,
+    transparent_info: bool,
+    produce,
 ) -> bool:
-    result = all([
-        media_outreach,
-        community_events,
-        mobile_units,
-        extended_hours,
-        trusted_voices,
-        transparent_info,
-    ])
+    result = all(
+        [
+            media_outreach,
+            community_events,
+            mobile_units,
+            extended_hours,
+            trusted_voices,
+            transparent_info,
+        ]
+    )
     produce("multi_pronged", result)
     return result
 

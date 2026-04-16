@@ -1,4 +1,5 @@
 import unittest
+
 from jpipe_runner.framework.context import RuntimeContext
 
 
@@ -60,5 +61,5 @@ class TestRuntimeContext(unittest.TestCase):
         self.assertIn("value1", repr_str)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

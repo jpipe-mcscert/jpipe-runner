@@ -10,6 +10,7 @@ from enum import Enum
 
 class ClassType(Enum):
     """justification / pattern / composition"""
+
     JUSTIFICATION = "justification"
     PATTERN = "pattern"
     COMPOSITION = "composition"
@@ -17,6 +18,7 @@ class ClassType(Enum):
 
 class VariableType(Enum):
     """evidence / strategy / sub-conclusion / conclusion / @support"""
+
     EVIDENCE = "evidence"
     STRATEGY = "strategy"
     SUB_CONCLUSION = "sub-conclusion"
@@ -26,6 +28,7 @@ class VariableType(Enum):
 
 class StatusType(Enum):
     """PASS / FAIL / SKIP"""
+
     PASS = "PASS"
     FAIL = "FAIL"
     SKIP = "SKIP"

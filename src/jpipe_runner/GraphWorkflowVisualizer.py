@@ -2,9 +2,11 @@ import networkx as nx
 
 try:
     import tkinter as tk
+
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
     from matplotlib.patches import Patch
+
     GUI_AVAILABLE = True
 except ImportError:
     GUI_AVAILABLE = False
@@ -76,7 +78,7 @@ class GraphWorkflowVisualizer:
         VALIDATE_PIPELINE,
         EXECUTE_JUSTIFICATION,
         SUMMARIZE_RESULTS,
-        EXPORT_OUTPUT
+        EXPORT_OUTPUT,
     ]
 
     workflow_edges = [
@@ -91,7 +93,7 @@ class GraphWorkflowVisualizer:
         (REGISTER_DECORATORS, VALIDATE_PIPELINE),
         (VALIDATE_PIPELINE, EXECUTE_JUSTIFICATION),
         (EXECUTE_JUSTIFICATION, SUMMARIZE_RESULTS),
-        (SUMMARIZE_RESULTS, EXPORT_OUTPUT)
+        (SUMMARIZE_RESULTS, EXPORT_OUTPUT),
     ]
 
     color_map = {
@@ -99,12 +101,14 @@ class GraphWorkflowVisualizer:
         CURRENT: "#1E90FF",
         DONE: "limegreen",
         FAIL: "red",
-        SKIP: "gold"
+        SKIP: "gold",
     }
 
     def __init__(self, master):
         if not GUI_AVAILABLE:
-            raise ImportError("GUI dependencies not available. Install with: pip install jpipe-runner[gui]")
+            raise ImportError(
+                "GUI dependencies not available. Install with: pip install jpipe-runner[gui]"
+            )
         print("Initializing GraphWorkflowVisualizer...")
         self.master = master
         self.master.title("Project Workflow Graph")
@@ -121,7 +125,9 @@ class GraphWorkflowVisualizer:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        self.status = {node: GraphWorkflowVisualizer.IDLE for node in GraphWorkflowVisualizer.workflow_nodes}
+        self.status = {
+            node: GraphWorkflowVisualizer.IDLE for node in GraphWorkflowVisualizer.workflow_nodes
+        }
         self.subgraphs = {}
         self.substatus = {}
         self.subgraph_nodes = {}
@@ -141,7 +147,9 @@ class GraphWorkflowVisualizer:
 
     def draw_graph(self):
         self.ax.clear()
-        node_colors = [GraphWorkflowVisualizer.color_map.get(self.status[n], "gray") for n in self.G.nodes()]
+        node_colors = [
+            GraphWorkflowVisualizer.color_map.get(self.status[n], "gray") for n in self.G.nodes()
+        ]
 
         nx.draw(
             self.G,
@@ -150,9 +158,9 @@ class GraphWorkflowVisualizer:
             node_color=node_colors,
             node_size=2000,
             font_size=9,
-            font_weight='bold',
+            font_weight="bold",
             arrows=True,
-            ax=self.ax
+            ax=self.ax,
         )
         self.draw_legend()
         self.ax.set_title("Project Workflow Execution", fontsize=14)
@@ -227,17 +235,18 @@ class GraphWorkflowVisualizer:
             node_colors = []
             for n in subgraph.nodes():
                 st = substatus.get(n, GraphWorkflowVisualizer.IDLE)
-                node_colors.append(GraphWorkflowVisualizer.color_map.get(st, 'gray'))
+                node_colors.append(GraphWorkflowVisualizer.color_map.get(st, "gray"))
 
             nx.draw(
-                subgraph, pos,
+                subgraph,
+                pos,
                 with_labels=True,
                 node_color=node_colors,
                 node_size=1200,
                 font_size=9,
-                font_weight='bold',
+                font_weight="bold",
                 arrows=True,
-                ax=self.ax
+                ax=self.ax,
             )
             self.draw_legend()
             self.ax.set_title(f"Subgraph for: {' > '.join(self.current_path)}", fontsize=14)
@@ -271,13 +280,13 @@ class GraphWorkflowVisualizer:
 
     def draw_legend(self):
         legend_elements = [
-            Patch(facecolor='lightgray', label='Idle'),
-            Patch(facecolor='#1E90FF', label='Current'),
-            Patch(facecolor='limegreen', label='Done'),
-            Patch(facecolor='red', label='Fail'),
-            Patch(facecolor='gold', label='Skipped'),
+            Patch(facecolor="lightgray", label="Idle"),
+            Patch(facecolor="#1E90FF", label="Current"),
+            Patch(facecolor="limegreen", label="Done"),
+            Patch(facecolor="red", label="Fail"),
+            Patch(facecolor="gold", label="Skipped"),
         ]
-        self.ax.legend(handles=legend_elements, loc='lower right')
+        self.ax.legend(handles=legend_elements, loc="lower right")
 
     def on_close(self):
         self.master.quit()

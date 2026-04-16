@@ -1,7 +1,7 @@
 from functools import wraps
-from typing import Optional, List
+from typing import List, Optional
 
-from jpipe_runner.framework.context import ctx, RuntimeContext
+from jpipe_runner.framework.context import RuntimeContext, ctx
 
 
 def contribution(positive: Optional[List[str]] = None, negative: Optional[List[str]] = None):
@@ -18,8 +18,11 @@ def contribution(positive: Optional[List[str]] = None, negative: Optional[List[s
     def decorator(func):
         ctx.set_contribution(func.__name__, RuntimeContext.NEGATIVE, negative)
         ctx.set_contribution(func.__name__, RuntimeContext.POSITIVE, positive)
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
+
         return wrapper
+
     return decorator

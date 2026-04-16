@@ -5,11 +5,10 @@ jpipe_runner.utils
 This module contains the utilities of jPipe Runner.
 """
 
-import os
-import re
 import ast
 import json
-
+import os
+import re
 from contextlib import contextmanager
 
 # ANSI color codes
@@ -35,7 +34,7 @@ def colored(text, color=None, attrs=None):
 @contextmanager
 def group_github_logs():
     """Wrap logs around github action logging group tags if running in github action.
-    
+
     See https://github.com/actions/toolkit/blob/main/docs/commands.md#group-and-ungroup-log-lines
     for further details about github action logs grouping and related syntax.
     """
@@ -52,11 +51,9 @@ def group_github_logs():
 def sanitize_string(s: str) -> str:
     # Convert to snake case
     # Ref: https://stackoverflow.com/a/1176023/9243111
-    s = re.sub(r'(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', '_', s).lower()
+    s = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", s).lower()
     # Use re to keep only allowed characters.
-    sanitized = re.sub(r'[^a-z0-9_]', '',
-                       re.sub(r'\s+', '_',
-                              re.sub(r'[/|\\]', ' ', s).strip()))
+    sanitized = re.sub(r"[^a-z0-9_]", "", re.sub(r"\s+", "_", re.sub(r"[/|\\]", " ", s).strip()))
     return sanitized
 
 
@@ -102,8 +99,9 @@ def parse_value(raw):
                 pass
 
         # --- Quoted string ---
-        if (stripped.startswith('"') and stripped.endswith('"')) or \
-           (stripped.startswith("'") and stripped.endswith("'")):
+        if (stripped.startswith('"') and stripped.endswith('"')) or (
+            stripped.startswith("'") and stripped.endswith("'")
+        ):
             return stripped[1:-1]
 
         # --- Try JSON parsing ---
@@ -112,11 +110,10 @@ def parse_value(raw):
         except Exception:
             pass
 
-
         # Try hybrid: replace JSON bool/null with Python equivalents
-        hybrid = re.sub(r'\btrue\b', 'True', stripped, flags=re.IGNORECASE)
-        hybrid = re.sub(r'\bfalse\b', 'False', hybrid, flags=re.IGNORECASE)
-        hybrid = re.sub(r'\bnull\b', 'None', hybrid, flags=re.IGNORECASE)
+        hybrid = re.sub(r"\btrue\b", "True", stripped, flags=re.IGNORECASE)
+        hybrid = re.sub(r"\bfalse\b", "False", hybrid, flags=re.IGNORECASE)
+        hybrid = re.sub(r"\bnull\b", "None", hybrid, flags=re.IGNORECASE)
         try:
             return ast.literal_eval(hybrid)
         except Exception:

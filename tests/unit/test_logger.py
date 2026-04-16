@@ -1,5 +1,6 @@
 import logging
 import unittest
+
 from jpipe_runner.framework.logger import InMemoryLogHandler
 
 
@@ -12,8 +13,7 @@ class TestInMemoryLogHandler(unittest.TestCase):
 
     def _emit(self, handler, level, message):
         record = logging.LogRecord(
-            name="test", level=level, pathname="", lineno=0,
-            msg=message, args=(), exc_info=None
+            name="test", level=level, pathname="", lineno=0, msg=message, args=(), exc_info=None
         )
         handler.emit(record)
 
