@@ -32,7 +32,7 @@ class InMemoryLogHandler(logging.Handler):
         self.logs.append(log_entry)
 
     def has_errors(self):
-        return any("ERROR" or "WARNING" in log for log in self.logs)
+        return any("ERROR" in log or "WARNING" in log for log in self.logs)
 
     def dump_to_stderr(self):
         for log in self.logs:
