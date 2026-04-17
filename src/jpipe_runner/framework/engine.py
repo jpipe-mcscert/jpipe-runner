@@ -603,7 +603,13 @@ class PipelineEngine:
         self._style_nodes(dot, G, status_dict)
         self._style_edges(dot, G, status_dict)
 
-        dot.render(str(resolved_path), format=format, engine="dot", cleanup=True)
+        dot.render(
+            str(resolved_path),
+            format=format,
+            engine="dot",
+            cleanup=True,
+            outfile=str(resolved_path.with_suffix(f".{format}")),
+        )
 
     @staticmethod
     def _resolve_output_path(output_path: str, filename: str) -> Path:
