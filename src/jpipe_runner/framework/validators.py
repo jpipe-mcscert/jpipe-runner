@@ -1,10 +1,10 @@
-from typing import Any, Callable
+from typing import Any
 
 import networkx as nx
 
 from jpipe_runner.framework.context import RuntimeContext
+
 from .logger import GLOBAL_LOGGER
-from ..GraphWorkflowVisualizer import GraphWorkflowVisualizer
 
 
 class BaseValidator:
@@ -24,7 +24,7 @@ class BaseValidator:
         self.errors: list[str] = []
         self.warnings: list[str] = []
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Abstract method for performing validation.
 
@@ -37,6 +37,7 @@ class BaseValidator:
         """
         raise NotImplementedError("Subclasses must implement the `validate()` method.")
 
+
 class MissingVariableValidator(BaseValidator):
     """
     Validator that checks for missing variables in the pipeline context.
@@ -48,7 +49,7 @@ class MissingVariableValidator(BaseValidator):
     Variables that are declared as consumed but have no known source will raise an error.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that all consumed variables are available in the context or produced upstream.
 
@@ -58,10 +59,14 @@ class MissingVariableValidator(BaseValidator):
         GLOBAL_LOGGER.info("Running MissingVariableValidator...")
         for func_key, var_maps in self.ctx._vars.items():
             consume_vars = var_maps.get(RuntimeContext.CONSUME, {})
-            GLOBAL_LOGGER.debug(f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}")
+            GLOBAL_LOGGER.debug(
+                f"Checking function '{func_key}' with consumed variables: {list(consume_vars)}"
+            )
             for var in consume_vars:
                 if consume_vars[var] is not None:
-                    GLOBAL_LOGGER.debug(f"Variable '{var}' already resolved in context for '{func_key}'. Skipping.")
+                    GLOBAL_LOGGER.debug(
+                        f"Variable '{var}' already resolved in context for '{func_key}'. Skipping."
+                    )
                     continue
                 producer_key = self.pipeline.get_producer_key(var)
                 GLOBAL_LOGGER.debug(f"Producer for variable '{var}' is: {producer_key}")
@@ -93,7 +98,7 @@ class SelfDependencyValidator(BaseValidator):
     Valid configuration alternatives are suggested in the error message.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that no function is both the producer and consumer of the same variable.
 
@@ -106,7 +111,9 @@ class SelfDependencyValidator(BaseValidator):
             GLOBAL_LOGGER.debug(f"Checking function '{func_key}' for self-dependencies.")
             for var in consume_vars:
                 producer_key = self.pipeline.get_producer_key(var)
-                GLOBAL_LOGGER.debug(f"Variable '{var}' consumed by '{func_key}' is produced by '{producer_key}'")
+                GLOBAL_LOGGER.debug(
+                    f"Variable '{var}' consumed by '{func_key}' is produced by '{producer_key}'"
+                )
                 if producer_key == func_key:
                     self.errors.append(
                         (
@@ -120,7 +127,9 @@ class SelfDependencyValidator(BaseValidator):
                             "      - If you truly need to consume an initial '{var}' and then produce an updated '{var}',\n"
                             "        ensure that initial '{var}' is provided in context or by another function under a distinct name,\n"
                             "        so the dependency graph does not treat the same function as its own producer.\n"
-                        ).replace("{var}", var).replace("{func_key}", func_key)
+                        )
+                        .replace("{var}", var)
+                        .replace("{func_key}", func_key)
                     )
         GLOBAL_LOGGER.info(f"SelfDependencyValidator completed with {len(self.errors)} error(s).")
         return self.errors, self.warnings
@@ -134,7 +143,7 @@ class OrderValidator(BaseValidator):
     This validator ensures that no function executes before its required inputs are available.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that all consumed variables are available at execution time.
 
@@ -156,7 +165,9 @@ class OrderValidator(BaseValidator):
             GLOBAL_LOGGER.debug(f"Checking order for function '{func_key}'")
             for var in consume_vars:
                 producer = self.pipeline.get_producer_key(var)
-                GLOBAL_LOGGER.debug(f"Variable '{var}' consumed by '{func_key}' is produced by '{producer}'")
+                GLOBAL_LOGGER.debug(
+                    f"Variable '{var}' consumed by '{func_key}' is produced by '{producer}'"
+                )
                 if producer is None:
                     continue
                 if producer == func_key:
@@ -205,7 +216,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
     redundant or misconfigured pipeline steps.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that all produced variables by functions are consumed by at least one other function.
 
@@ -235,7 +246,9 @@ class ProducedButNotConsumedValidator(BaseValidator):
                         )
                     )
 
-        GLOBAL_LOGGER.info(f"ProducedButNotConsumedValidator completed with {len(self.errors)} error(s).")
+        GLOBAL_LOGGER.info(
+            f"ProducedButNotConsumedValidator completed with {len(self.errors)} error(s)."
+        )
         return self.errors, self.warnings
 
 
@@ -247,7 +260,7 @@ class DuplicateProducerValidator(BaseValidator):
     clear data provenance and avoid ambiguity in execution dependencies.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that each produced variable is only produced by a single function.
 
@@ -276,7 +289,9 @@ class DuplicateProducerValidator(BaseValidator):
                 )
                 self.warnings.append(error_message)
 
-        GLOBAL_LOGGER.info(f"DuplicateProducerValidator completed with {len(self.errors)} error(s).")
+        GLOBAL_LOGGER.info(
+            f"DuplicateProducerValidator completed with {len(self.errors)} error(s)."
+        )
         return self.errors, self.warnings
 
 
@@ -289,7 +304,9 @@ class EvidenceDependencyValidator(BaseValidator):
     2. Every strategy node directly connected above an evidence node consumes all variables produced by that evidence.
     """
 
-    def __init__(self, pipeline: "PipelineEngine", ctx: "RuntimeContext", graph: nx.DiGraph) -> None:
+    def __init__(
+        self, pipeline: "PipelineEngine", ctx: "RuntimeContext", graph: nx.DiGraph
+    ) -> None:
         """
         Initialize the EvidenceDependencyValidator.
 
@@ -320,7 +337,7 @@ class EvidenceDependencyValidator(BaseValidator):
         errors = []
         warnings = []
 
-        evidence_nodes = self._get_nodes_by_type('evidence')
+        evidence_nodes = self._get_nodes_by_type("evidence")
         evidence_strategy_edges = self._get_evidence_strategy_edges()
 
         for evidence in evidence_nodes:
@@ -350,9 +367,9 @@ class EvidenceDependencyValidator(BaseValidator):
         :rtype: list[str]
         """
         return [
-            self.graph.nodes[n].get('function_name')
+            self.graph.nodes[n].get("function_name")
             for n, d in self.graph.nodes(data=True)
-            if d.get('type') == node_type
+            if d.get("type") == node_type
         ]
 
     def _get_evidence_strategy_edges(self) -> list[tuple[str, str]]:
@@ -363,10 +380,12 @@ class EvidenceDependencyValidator(BaseValidator):
         :rtype: list[tuple[str, str]]
         """
         return [
-            (self.graph.nodes[u].get('function_name'), self.graph.nodes[v].get('function_name'))
+            (self.graph.nodes[u].get("function_name"), self.graph.nodes[v].get("function_name"))
             for u, v, d in self.graph.edges(data=True)
-            if (self.graph.nodes[u].get('type') == 'evidence' and
-                self.graph.nodes[v].get('type') == 'strategy')
+            if (
+                self.graph.nodes[u].get("type") == "evidence"
+                and self.graph.nodes[v].get("type") == "strategy"
+            )
         ]
 
     def _get_produced_variables(self, function_name: str) -> list[str]:
@@ -392,7 +411,9 @@ class EvidenceDependencyValidator(BaseValidator):
         return list(self.ctx._vars.get(function_name, {}).get(RuntimeContext.CONSUME, {}).keys())
 
     @staticmethod
-    def _get_connected_strategies(evidence: str, evidence_strategy_edges: list[tuple[str, str]]) -> list[str]:
+    def _get_connected_strategies(
+        evidence: str, evidence_strategy_edges: list[tuple[str, str]]
+    ) -> list[str]:
         """
         Get all strategy function names that are directly connected to a given evidence node.
 
@@ -403,16 +424,10 @@ class EvidenceDependencyValidator(BaseValidator):
         :return: List of strategy function names.
         :rtype: list[str]
         """
-        return [
-            strategy for ev, strategy in evidence_strategy_edges
-            if ev == evidence
-        ]
+        return [strategy for ev, strategy in evidence_strategy_edges if ev == evidence]
 
     def _validate_strategy_consumption(
-            self,
-            evidence: str,
-            produced_vars: list[str],
-            connected_strategies: list[str]
+        self, evidence: str, produced_vars: list[str], connected_strategies: list[str]
     ) -> list[str]:
         """
         Check that all connected strategies consume every variable produced by the evidence.
@@ -435,9 +450,9 @@ class EvidenceDependencyValidator(BaseValidator):
                 non_consuming_strategies.append(strategy)
 
         if non_consuming_strategies:
-            errors.append(self._create_consumption_error(
-                evidence, produced_vars, non_consuming_strategies
-            ))
+            errors.append(
+                self._create_consumption_error(evidence, produced_vars, non_consuming_strategies)
+            )
 
         return errors
 
@@ -461,7 +476,9 @@ class EvidenceDependencyValidator(BaseValidator):
         )
 
     @staticmethod
-    def _create_consumption_error(evidence: str, produced_vars: list[str], strategies: list[str]) -> str:
+    def _create_consumption_error(
+        evidence: str, produced_vars: list[str], strategies: list[str]
+    ) -> str:
         """
         Generate an error message when strategy nodes do not consume all variables produced by an evidence node.
 
@@ -508,63 +525,40 @@ class JustificationSchemaValidator:
     REQUIRED_TOP_KEYS = {"name", "type", "elements", "relations"}
     VALID_TYPES = {"evidence", "strategy", "conclusion", "sub-conclusion"}
 
-    def __init__(self, data: dict[str, Any], mark_substep: Callable[[str, str, str], None]) -> None:
+    def __init__(self, data: dict[str, Any]) -> None:
         """
-         Initialize the validator with parsed justification JSON data.
+        Initialize the validator with parsed justification JSON data.
 
-         :param data: Dictionary representing the justification JSON content.
-         :type data: dict[str, Any]
-         :param mark_substep: Function to mark validation steps in the workflow visualizer.
-         :type mark_substep: Callable[[str, str, str], None]
+        :param data: Dictionary representing the justification JSON content.
+        :type data: dict[str, Any]
         """
         self.data = data
-        self.mark_substep = mark_substep
         self.element_ids = set()
 
     def validate(self) -> None:
         """
-         Executes the full validation pipeline on the justification structure.
+        Executes the full validation pipeline on the justification structure.
 
-         Steps:
-         - Verifies the presence of top-level keys.
-         - Validates individual elements for required structure and valid types.
-         - Validates that relations correctly reference existing element IDs.
+        Steps:
+        - Verifies the presence of top-level keys.
+        - Validates individual elements for required structure and valid types.
+        - Validates that relations correctly reference existing element IDs.
 
-         :raises ValueError: If any of the structural checks fail.
-         """
+        :raises ValueError: If any of the structural checks fail.
+        """
         GLOBAL_LOGGER.debug("Starting justification schema validation")
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-            "Checking Top-level keys",
-            GraphWorkflowVisualizer.CURRENT
-        )
-
-        # Check top-level keys
         missing = self.REQUIRED_TOP_KEYS - self.data.keys()
         if missing:
-            self.mark_substep(
-                GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                "Checking Top-level keys",
-                GraphWorkflowVisualizer.FAIL
-            )
             raise ValueError(f"Missing top-level key(s): {missing}")
         GLOBAL_LOGGER.info("Top-level keys validated")
-        self.mark_substep(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-            "Checking Top-level keys",
-            GraphWorkflowVisualizer.DONE
-        )
 
-        # Validate elements
         self._validate_elements()
-
-        # Validate relations
         self._validate_relations()
 
         GLOBAL_LOGGER.info("Justification schema validation completed successfully")
 
-    def _validate_elements(self):
+    def _validate_elements(self) -> None:
         """
         Validates the structure of each element in the justification.
 
@@ -575,56 +569,26 @@ class JustificationSchemaValidator:
 
         :raises ValueError: If any element is invalid or duplicates are found.
         """
-        self.mark_substep(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-            GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
-            GraphWorkflowVisualizer.CURRENT
-        )
         elements = self.data.get("elements", [])
         if not isinstance(elements, list):
-            self.mark_substep(
-                GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
-                GraphWorkflowVisualizer.FAIL
-            )
             raise ValueError("'elements' must be a list")
 
         for i, element in enumerate(elements):
             for key in ["id", "label", "type"]:
                 if key not in element:
-                    self.mark_substep(
-                        GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                        GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
-                        GraphWorkflowVisualizer.FAIL
-                    )
                     raise ValueError(f"Element {i} is missing required key '{key}'")
 
             if element["type"] not in self.VALID_TYPES:
-                self.mark_substep(
-                    GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                    GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
-                    GraphWorkflowVisualizer.FAIL
-                )
                 raise ValueError(f"Invalid type '{element['type']}' in element '{element['id']}'")
 
             if element["id"] in self.element_ids:
-                self.mark_substep(
-                    GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                    GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
-                    GraphWorkflowVisualizer.FAIL
-                )
                 raise ValueError(f"Duplicate element id: '{element['id']}'")
 
             self.element_ids.add(element["id"])
 
         GLOBAL_LOGGER.debug("All elements validated: %s", self.element_ids)
-        self.mark_substep(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-            GraphWorkflowVisualizer.VALIDATE_STRUCTURE_ELEMENTS,
-            GraphWorkflowVisualizer.DONE
-        )
 
-    def _validate_relations(self):
+    def _validate_relations(self) -> None:
         """
         Validates the structure and references of each relation in the justification.
 
@@ -634,41 +598,16 @@ class JustificationSchemaValidator:
 
         :raises ValueError: If relations are malformed or refer to unknown elements.
         """
-        self.mark_substep(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-            GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
-            GraphWorkflowVisualizer.CURRENT
-        )
         relations = self.data.get("relations", [])
         if not isinstance(relations, list):
-            self.mark_substep(
-                GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
-                GraphWorkflowVisualizer.FAIL
-            )
             raise ValueError("'relations' must be a list")
 
         for i, rel in enumerate(relations):
             for key in ["source", "target"]:
                 if key not in rel:
-                    self.mark_substep(
-                        GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                        GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
-                        GraphWorkflowVisualizer.FAIL
-                    )
                     raise ValueError(f"Relation {i} is missing required key '{key}'")
 
                 if rel[key] not in self.element_ids:
-                    self.mark_substep(
-                        GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-                        GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
-                        GraphWorkflowVisualizer.FAIL
-                    )
                     raise ValueError(f"Relation {i} refers to unknown {key} id '{rel[key]}'")
 
         GLOBAL_LOGGER.debug("All relations validated: %d total", len(relations))
-        self.mark_substep(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE,
-            GraphWorkflowVisualizer.VALIDATE_RELATIONS_STRUCTURES,
-            GraphWorkflowVisualizer.DONE
-        )

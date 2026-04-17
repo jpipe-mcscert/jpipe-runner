@@ -24,10 +24,11 @@ class PythonRuntime:
     - Setting variables across loaded modules
     """
 
-    def __init__(self,
-                 libraries: Optional[Iterable[str]] = None,
-                 variables: Optional[Iterable[Tuple[str, str]]] = None,
-                 ):
+    def __init__(
+        self,
+        libraries: Optional[Iterable[str]] = None,
+        variables: Optional[Iterable[Tuple[str, str]]] = None,
+    ):
         """
         Initialize the runtime with optional libraries and variables.
 
@@ -64,12 +65,9 @@ class PythonRuntime:
         if not os.path.isfile(file_path):
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        module_name, _ = os.path.splitext(
-            os.path.basename(file_path))
-        spec = importlib.util. \
-            spec_from_file_location(module_name, file_path)
-        module = importlib.util. \
-            module_from_spec(spec)
+        module_name, _ = os.path.splitext(os.path.basename(file_path))
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
         self._modules.append(module)

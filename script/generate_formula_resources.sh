@@ -1,13 +1,7 @@
 #!/bin/bash
 set -e
 
-if [[ "$1" == "--with-gui" ]]; then
-    # Export requirements with GUI dependencies
-    poetry export --extras gui -f requirements.txt --without-hashes -o deps.txt
-else
-    # Export base requirements
-    poetry export -f requirements.txt --without-hashes -o deps.txt
-fi
+poetry export -f requirements.txt --without-hashes -o deps.txt
 
 RESOURCES=""
 

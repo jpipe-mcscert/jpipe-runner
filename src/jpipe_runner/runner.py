@@ -13,10 +13,8 @@ import os
 import shutil
 import sys
 import textwrap
-import threading
 from typing import Iterable
 
-from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from jpipe_runner.enums import StatusType
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
@@ -46,7 +44,7 @@ STDERR_OUTPUT_BEGIN = r"""
 
 """
 
-IMAGE_EXPORT_FORMAT = ['dot', 'gif', 'jpeg', 'jpg', 'pdf', 'png', 'svg']
+IMAGE_EXPORT_FORMAT = ["dot", "gif", "jpeg", "jpg", "pdf", "png", "svg"]
 
 
 def parse_args(argv: list[str] | None = None):
@@ -72,39 +70,59 @@ def parse_args(argv: list[str] | None = None):
     try:
         version = importlib.metadata.version("jpipe-runner")
         version_info = f" - Version {version}"
-    except ImportError:
+    except (ImportError, importlib.metadata.PackageNotFoundError):
         version_info = ""
 
-    parser = argparse.ArgumentParser(prog="jpipe-runner",
-                                     description=("McMaster University - McSCert (c) 2023-..."
-                                                  + version_info
-                                                  + JPIPE_RUNNER_ASCII),
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("--variable", "-v", action="append", default=[],
-                        help="Define a variable in the format NAME:VALUE")
-    parser.add_argument("--library", "-l", action="append", default=[],
-                        help="Specify a Python library to load")
-    parser.add_argument("--diagram", "-d", metavar="PATTERN", default="*",
-                        help="Specify diagram pattern or wildcard")
-    parser.add_argument("--format", "-f", choices=IMAGE_EXPORT_FORMAT,
-                        help=(
-                            "Format for the generated diagram image. \n"
-                            "Supported formats include: dot, gif, jpeg, jpg, png, svg"
-                        ))
-    parser.add_argument("--output-path", "-o", metavar="PATH",
-                        default=".",
-                        help="Path to save the generated diagram image. ")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Perform a dry run without actually executing justifications")
-    parser.add_argument("--verbose", "-V", action="store_true",
-                        help="Enable verbose (debug) output")
-    parser.add_argument("--config-file",
-                        help="Path to the config .yaml file")
-    parser.add_argument("jd_file",
-                        help="Path to the justification .jd file")
-    # argument to enable GUI
-    parser.add_argument("--gui", action="store_true",
-                        help="Enable GUI mode for visualizing workflow steps")
+    parser = argparse.ArgumentParser(
+        prog="jpipe-runner",
+        description=(
+            "McMaster University - McSCert (c) 2023-..." + version_info + JPIPE_RUNNER_ASCII
+        ),
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        "--variable",
+        "-v",
+        action="append",
+        default=[],
+        help="Define a variable in the format NAME:VALUE",
+    )
+    parser.add_argument(
+        "--library", "-l", action="append", default=[], help="Specify a Python library to load"
+    )
+    parser.add_argument(
+        "--diagram",
+        "-d",
+        metavar="PATTERN",
+        default="*",
+        help="Specify diagram pattern or wildcard",
+    )
+    parser.add_argument(
+        "--format",
+        "-f",
+        choices=IMAGE_EXPORT_FORMAT,
+        help=(
+            "Format for the generated diagram image. \n"
+            "Supported formats include: dot, gif, jpeg, jpg, png, svg"
+        ),
+    )
+    parser.add_argument(
+        "--output-path",
+        "-o",
+        metavar="PATH",
+        default=".",
+        help="Path to save the generated diagram image. ",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Perform a dry run without actually executing justifications",
+    )
+    parser.add_argument(
+        "--verbose", "-V", action="store_true", help="Enable verbose (info) output"
+    )
+    parser.add_argument("--config-file", help="Path to the config .yaml file")
+    parser.add_argument("jd_file", help="Path to the justification .json file")
 
     return parser.parse_args(argv)
 
@@ -149,11 +167,11 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
         print("=" * width)
 
         for data in result:
-            var_type = data['var_type']
-            var_name = data['name']
-            label = data['label']
-            exception = data.get('exception')
-            status = data['status']
+            var_type = data["var_type"]
+            var_name = data["name"]
+            label = data["label"]
+            exception = data.get("exception")
+            status = data["status"]
             status_bar = f"| {colored_statuses[status]} |"
             status_bar_len = len(status_bar)
 
@@ -183,63 +201,35 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
 
     # Print final summary
     print(f"{jpipe_title}")
-    print(f"{total_justifications} justification{'s' if total_justifications != 1 else ''},",
-          f"{passed_justifications} passed,",
-          f"{failed_justifications} failed,",
-          f"{skipped_justifications} skipped")
+    print(
+        f"{total_justifications} justification{'s' if total_justifications != 1 else ''},",
+        f"{passed_justifications} passed,",
+        f"{failed_justifications} failed,",
+        f"{skipped_justifications} skipped",
+    )
     print("=" * width)
 
-    return total_justifications, passed_justifications, failed_justifications, skipped_justifications
-
-
-workflow_ui: GraphWorkflowVisualizer | None = None
-
-
-def mark_step(step, status):
-    global workflow_ui
-    if workflow_ui:
-        workflow_ui.master.after(0, lambda: workflow_ui.mark_step(step, status=status))
-
-
-def mark_substep(node, substep_name, status):
-    global workflow_ui
-    if workflow_ui:
-        workflow_ui.master.after(0, lambda: workflow_ui.mark_substep(node, substep_name, status=status))
-
-
-def mark_node_as_graph(parent_node: str, substep_name: str):
-    global workflow_ui
-    if workflow_ui:
-        workflow_ui.master.after(0, lambda: workflow_ui.mark_node_as_graph(parent_node, substep_name))
+    return (
+        total_justifications,
+        passed_justifications,
+        failed_justifications,
+        skipped_justifications,
+    )
 
 
 def run_workflow_logic():
-    mark_step(GraphWorkflowVisualizer.PARSE_CLI_ARGS, status=GraphWorkflowVisualizer.CURRENT)
-
     args = parse_args(sys.argv[1:])
-
-    mark_step(GraphWorkflowVisualizer.PARSE_CLI_ARGS, status=GraphWorkflowVisualizer.DONE)
-    mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.CURRENT)
 
     if args.verbose:
         GLOBAL_LOGGER.setLevel(logging.INFO)
 
-    mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.DONE)
-
-    mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.CURRENT)
-
     if not args.jd_file:
         print("No justification json file provided. Please specify a .json file.", file=sys.stderr)
-        mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.FAIL)
         sys.exit(1)
 
-    if not args.jd_file.endswith('.json'):
+    if not args.jd_file.endswith(".json"):
         print("The provided justification file is not a .json file.", file=sys.stderr)
-        mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.FAIL)
         sys.exit(1)
-
-    mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.DONE)
-    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)
 
     # Check that each library path exists
     not_matched_files = []
@@ -251,19 +241,15 @@ def run_workflow_logic():
     if not_matched_files:
         print(f"No library found for path(s): {', '.join(not_matched_files)}", file=sys.stderr)
         print("Please check the provided library paths.", file=sys.stderr)
-        mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.FAIL)
         sys.exit(1)
 
-    runtime = PythonRuntime(libraries=[i for l in args.library
-                                       for i in glob.glob(l)])
-    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
+    runtime = PythonRuntime(libraries=[i for lib in args.library for i in glob.glob(lib)])
 
-    jpipe = PipelineEngine(config_path=args.config_file,
-                           justification_path=args.jd_file,
-                           variables=args.variable,
-                           mark_step=mark_step,
-                           mark_substep=mark_substep,
-                           mark_node_as_graph=mark_node_as_graph)
+    jpipe = PipelineEngine(
+        config_path=args.config_file,
+        justification_path=args.jd_file,
+        variables=args.variable,
+    )
 
     diagrams = [(jpipe.justification_name, jpipe.graph)]
 
@@ -281,39 +267,36 @@ def run_workflow_logic():
             exit(1)
         exit(0)
 
-    mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.CURRENT)
-
     print(JPIPE_RUNNER_ASCII)
     _, _, total_fail, _ = pretty_display([(jpipe.justification_name, justification_result)])
 
-    mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
-
     if args.format:
-        mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
-        output_path = args.output_path.lower()
-        if output_path in {"stdout", "stderr"}:
+        if args.output_path.lower() in {"stdout", "stderr"}:
             print("Streamed diagram output is not supported yet.", file=sys.stderr)
-            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             sys.exit(1)
 
         status_dict = {item["name"]: item["status"].value for item in justification_result}
 
         if args.format in IMAGE_EXPORT_FORMAT:
-            jpipe.export_to_format(status_dict=status_dict,
-                                   output_path=args.output_path,
-                                   filename=jpipe.justification_name,
-                                   format=args.format)
-            if args.output_path in ['.', './']:
+            jpipe.export_to_format(
+                status_dict=status_dict,
+                output_path=args.output_path,
+                filename=jpipe.justification_name,
+                format=args.format,
+            )
+            if args.output_path in [".", "./"]:
                 output_location = f"{jpipe.justification_name}.{args.format}"
             else:
-                output_location = os.path.join(args.output_path, f"{jpipe.justification_name}.{args.format}")
+                output_location = os.path.join(
+                    args.output_path, f"{jpipe.justification_name}.{args.format}"
+                )
 
             print(f"{jpipe.justification_name} diagram saved to: {output_location}")
-            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.DONE)
         else:
-            print(f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
-                  file=sys.stderr)
-            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
+            print(
+                f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
+                file=sys.stderr,
+            )
             print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
             log_buffer.dump_to_stderr()
             sys.exit(1)
@@ -327,33 +310,8 @@ def run_workflow_logic():
 
 
 def main():
-    if "--gui" in sys.argv:
-        try:
-            from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
-            import tkinter as tk
-        except ImportError:
-            print("Error: GUI mode requires additional dependencies that are not installed.\n\n"
-                  "You can install them with one of the following methods:\n\n"
-                  "  • If using pip:\n"
-                  "      pip install jpipe-runner[gui]\n\n"
-                  "  • If using apt (Debian/Ubuntu):\n"
-                  "      sudo apt install jpipe-runner-gui\n\n"
-                  "  • If using Homebrew (macOS):\n"
-                  "      brew install jpipe-runner-gui\n\n"
-                  "Alternatively, run without --gui to use command-line mode."
-                  , file=sys.stderr)
-            sys.exit(1)
-
-        root = tk.Tk()
-        global workflow_ui
-        workflow_ui = GraphWorkflowVisualizer(root)
-
-        root.after(300, lambda: threading.Thread(target=run_workflow_logic, daemon=True).start())
-
-        root.mainloop()
-    else:
-        run_workflow_logic()
+    run_workflow_logic()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

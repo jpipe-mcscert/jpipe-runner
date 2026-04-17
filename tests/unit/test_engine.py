@@ -1,6 +1,6 @@
 import json
 from typing import Iterable
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import networkx as nx
 import pytest
@@ -46,10 +46,11 @@ def test_init_without_config_with_variables(sample_justification):
     # Should initialize and parse justification with no config path
     with patch("jpipe_runner.framework.engine.PipelineEngine.load_config") as mock_load_config:
         variables: Iterable[tuple[str, str]] | None = [("var1", "value1"), ("var2", "value2")]
-        engine = PipelineEngine(None, sample_justification, mark_step=MagicMock(),
-                                mark_substep=MagicMock(),
-                                mark_node_as_graph=MagicMock(),
-                                variables=variables)
+        engine = PipelineEngine(
+            None,
+            sample_justification,
+            variables=variables,
+        )
         mock_load_config.assert_called_once_with(None, variables)
         assert isinstance(engine.graph, nx.DiGraph)
         assert engine.justification_name == "Test Justification"
@@ -57,19 +58,19 @@ def test_init_without_config_with_variables(sample_justification):
 
 def test_init_with_config(sample_config, sample_justification):
     with patch("jpipe_runner.framework.engine.PipelineEngine.load_config") as mock_load_config:
-        engine = PipelineEngine(sample_config, sample_justification,
-                                mark_step=MagicMock(),
-                                mark_substep=MagicMock(),
-                                mark_node_as_graph=MagicMock())
+        engine = PipelineEngine(
+            sample_config,
+            sample_justification,
+        )
         mock_load_config.assert_called_once_with(sample_config, None)
         assert isinstance(engine.graph, nx.DiGraph)
 
 
 def test_parse_justification_success(sample_justification):
-    engine = PipelineEngine(None, sample_justification,
-                            mark_step=MagicMock(),
-                            mark_substep=MagicMock(),
-                            mark_node_as_graph=MagicMock())
+    engine = PipelineEngine(
+        None,
+        sample_justification,
+    )
     graph = engine.parse_justification(sample_justification)
     assert isinstance(graph, nx.DiGraph)
     assert graph.number_of_nodes() == 3
@@ -79,20 +80,14 @@ def test_parse_justification_success(sample_justification):
 def test_parse_justification_invalid_json(tmp_path):
     path = tmp_path / "bad.json"
     path.write_text("invalid json")
-    engine = PipelineEngine(None, path,
-                            mark_step=MagicMock(),
-                            mark_substep=MagicMock(),
-                            mark_node_as_graph=MagicMock())
+    engine = PipelineEngine(None, None)
     graph = engine.parse_justification(str(path))
     assert isinstance(graph, nx.DiGraph)
     assert graph.number_of_nodes() == 0
 
 
 def test_get_producer_key_found():
-    engine = PipelineEngine(None, None,
-                            mark_step=MagicMock(),
-                            mark_substep=MagicMock(),
-                            mark_node_as_graph=MagicMock())
+    engine = PipelineEngine(None, None)
     ctx._vars = {
         "funcA": {RuntimeContext.PRODUCE: {"varX": 123}},
         "funcB": {RuntimeContext.PRODUCE: {"varY": 456}},
@@ -109,15 +104,21 @@ def test_validate_all_passes(sample_justification):
     mock_validator.errors = []
     mock_validator.warnings = []
 
-    with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mock_validator), \
-            patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=mock_validator), \
-            patch("jpipe_runner.framework.engine.OrderValidator", return_value=mock_validator), \
-            patch("jpipe_runner.framework.engine.ProducedButNotConsumedValidator", return_value=mock_validator):
-        engine = PipelineEngine(config_path=None,
-                                justification_path=None,
-                                mark_step=MagicMock(),
-                                mark_substep=MagicMock(),
-                                mark_node_as_graph=MagicMock())
+    with (
+        patch(
+            "jpipe_runner.framework.engine.MissingVariableValidator", return_value=mock_validator
+        ),
+        patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=mock_validator),
+        patch("jpipe_runner.framework.engine.OrderValidator", return_value=mock_validator),
+        patch(
+            "jpipe_runner.framework.engine.ProducedButNotConsumedValidator",
+            return_value=mock_validator,
+        ),
+    ):
+        engine = PipelineEngine(
+            config_path=None,
+            justification_path=None,
+        )
         engine.graph = MagicMock()
 
         assert engine.validate() is True
@@ -139,14 +140,15 @@ def test_validate_missing_variable_fails():
     o_validator.errors = []
     o_validator.warnings = []
 
-    with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator), \
-            patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator), \
-            patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator):
-        engine = PipelineEngine(config_path=None,
-                                justification_path=None,
-                                mark_step=MagicMock(),
-                                mark_substep=MagicMock(),
-                                mark_node_as_graph=MagicMock())
+    with (
+        patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator),
+        patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator),
+        patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator),
+    ):
+        engine = PipelineEngine(
+            config_path=None,
+            justification_path=None,
+        )
         engine.graph = MagicMock()
 
         assert engine.validate() is False
@@ -168,14 +170,15 @@ def test_validate_self_dependency_fails():
     o_validator.errors = []
     o_validator.warnings = []
 
-    with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator), \
-            patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator), \
-            patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator):
-        engine = PipelineEngine(config_path=None,
-                                justification_path=None,
-                                mark_step=MagicMock(),
-                                mark_substep=MagicMock(),
-                                mark_node_as_graph=MagicMock())
+    with (
+        patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator),
+        patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator),
+        patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator),
+    ):
+        engine = PipelineEngine(
+            config_path=None,
+            justification_path=None,
+        )
         engine.graph = MagicMock()
 
         assert engine.validate() is False
@@ -197,14 +200,15 @@ def test_validate_order_error():
     o_validator.errors = ["Order error: A before B"]
     o_validator.warnings = []
 
-    with patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator), \
-            patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator), \
-            patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator):
-        engine = PipelineEngine(config_path=None,
-                                justification_path=None,
-                                mark_step=MagicMock(),
-                                mark_substep=MagicMock(),
-                                mark_node_as_graph=MagicMock())
+    with (
+        patch("jpipe_runner.framework.engine.MissingVariableValidator", return_value=mv_validator),
+        patch("jpipe_runner.framework.engine.SelfDependencyValidator", return_value=sd_validator),
+        patch("jpipe_runner.framework.engine.OrderValidator", return_value=o_validator),
+    ):
+        engine = PipelineEngine(
+            config_path=None,
+            justification_path=None,
+        )
         engine.graph = MagicMock()
 
         assert engine.validate() is False
@@ -212,10 +216,10 @@ def test_validate_order_error():
 
 def test_get_execution_order_valid_graph():
     # Arrange
-    engine = PipelineEngine(config_path=None, justification_path=None,
-                            mark_step=MagicMock(),
-                            mark_substep=MagicMock(),
-                            mark_node_as_graph=MagicMock())
+    engine = PipelineEngine(
+        config_path=None,
+        justification_path=None,
+    )
     engine.graph = nx.DiGraph()
     engine.graph.add_edges_from([("A", "B"), ("B", "C")])
 
@@ -228,10 +232,10 @@ def test_get_execution_order_valid_graph():
 
 def test_get_execution_order_with_cycle_logs_error():
     # Arrange
-    engine = PipelineEngine(config_path=None, justification_path=None,
-                            mark_step=MagicMock(),
-                            mark_substep=MagicMock(),
-                            mark_node_as_graph=MagicMock())
+    engine = PipelineEngine(
+        config_path=None,
+        justification_path=None,
+    )
     engine.graph = nx.DiGraph()
     engine.graph.add_edges_from([("A", "B"), ("B", "A")])  # cycle
 
@@ -243,10 +247,7 @@ def test_get_execution_order_with_cycle_logs_error():
 
 
 def test_get_execution_order_and_cycle():
-    engine = PipelineEngine(None, None,
-                            mark_step=MagicMock(),
-                            mark_substep=MagicMock(),
-                            mark_node_as_graph=MagicMock())
+    engine = PipelineEngine(None, None)
     g = nx.DiGraph()
     g.add_edge("a", "b")
     g.add_edge("b", "c")
@@ -261,10 +262,10 @@ def test_get_execution_order_and_cycle():
 
 
 def test_justify_dry_run_and_normal(sample_justification):
-    engine = PipelineEngine(None, sample_justification,
-                            mark_step=MagicMock(),
-                            mark_substep=MagicMock(),
-                            mark_node_as_graph=MagicMock())
+    engine = PipelineEngine(
+        None,
+        sample_justification,
+    )
     engine.validate = MagicMock(return_value=True)
 
     # Mock execution order to control flow
@@ -290,5 +291,5 @@ def test_justify_dry_run_and_normal(sample_justification):
     assert any(r["status"] == StatusType.FAIL for r in results)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pytest.main([__file__])

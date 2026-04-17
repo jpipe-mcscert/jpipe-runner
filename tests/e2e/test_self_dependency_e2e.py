@@ -23,25 +23,28 @@ class TestSelfDependencyE2E(unittest.TestCase):
             "SelfDependencyValidator",
         ]
 
-        self.assertTrue(self.justification_file.exists(), f"Justification file not found: {self.justification_file}")
+        self.assertTrue(
+            self.justification_file.exists(),
+            f"Justification file not found: {self.justification_file}",
+        )
         self.assertTrue(self.config_file.exists(), f"Config file not found: {self.config_file}")
         self.assertTrue(self.python_file.exists(), f"Python file not found: {self.python_file}")
 
     def _run_jpipe_runner(self, additional_args=None, expected_exit_code=1):
         cmd = [
-            sys.executable, "-m", "jpipe_runner.runner",
-            "--library", str(self.python_file),
-            str(self.justification_file)
+            sys.executable,
+            "-m",
+            "jpipe_runner.runner",
+            "--library",
+            str(self.python_file),
+            str(self.justification_file),
         ]
 
         if additional_args:
             cmd.extend(additional_args)
 
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=self.test_dir.parent.parent.parent
+            cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
         )
 
         if result.returncode != expected_exit_code:
@@ -62,8 +65,10 @@ class TestSelfDependencyE2E(unittest.TestCase):
         """Test execution with self dependency and variable, should also fail."""
         result = self._run_jpipe_runner(
             additional_args=[
-                "--variable", "var_a:a",
-                "--variable", "var_b:b",
+                "--variable",
+                "var_a:a",
+                "--variable",
+                "var_b:b",
             ]
         )
         self.assertTrue(result.stderr)
@@ -71,10 +76,9 @@ class TestSelfDependencyE2E(unittest.TestCase):
 
     def test_self_dependency_dry_run(self):
         """Test dry run mode, should also fail due to self dependency."""
-        result = self._run_jpipe_runner(additional_args=[
-            "--dry-run",
-            "--config-file", str(self.config_file)
-        ])
+        result = self._run_jpipe_runner(
+            additional_args=["--dry-run", "--config-file", str(self.config_file)]
+        )
         self.assertTrue(result.stderr)
         self.assertEqual(result.returncode, 1)
 
@@ -83,8 +87,10 @@ class TestSelfDependencyE2E(unittest.TestCase):
         result = self._run_jpipe_runner(
             additional_args=[
                 "--dry-run",
-                "--variable", "var_a:a",
-                "--variable", "var_b:b",
+                "--variable",
+                "var_a:a",
+                "--variable",
+                "var_b:b",
             ]
         )
         self.assertTrue(result.stderr)
@@ -96,14 +102,19 @@ class TestSelfDependencyE2E(unittest.TestCase):
             output_path = Path(temp_dir)
             result = self._run_jpipe_runner(
                 additional_args=[
-                    "--config-file", str(self.config_file),
-                    "--output-path", str(output_path),
-                    "--format", "svg"
+                    "--config-file",
+                    str(self.config_file),
+                    "--output-path",
+                    str(output_path),
+                    "--format",
+                    "svg",
                 ]
             )
             output_path = output_path / self.justification_name
             expected_file = output_path.with_suffix(".svg")
-            self.assertFalse(expected_file.exists(), f"Diagram file should not be generated: {expected_file}")
+            self.assertFalse(
+                expected_file.exists(), f"Diagram file should not be generated: {expected_file}"
+            )
             self.assertTrue(result.stderr)
             self.assertEqual(result.returncode, 1)
 
@@ -113,36 +124,43 @@ class TestSelfDependencyE2E(unittest.TestCase):
             output_path = Path(temp_dir)
             result = self._run_jpipe_runner(
                 additional_args=[
-                    "--variable", "var_a:a",
-                    "--variable", "var_b:b",
-                    "--output-path", str(output_path),
-                    "--format", "svg"
+                    "--variable",
+                    "var_a:a",
+                    "--variable",
+                    "var_b:b",
+                    "--output-path",
+                    str(output_path),
+                    "--format",
+                    "svg",
                 ]
             )
             output_path = output_path / self.justification_name
             expected_file = output_path.with_suffix(".svg")
-            self.assertFalse(expected_file.exists(), f"Diagram file should not be generated: {expected_file}")
+            self.assertFalse(
+                expected_file.exists(), f"Diagram file should not be generated: {expected_file}"
+            )
             self.assertTrue(result.stderr)
             self.assertEqual(result.returncode, 1)
 
     def test_self_dependency_invalid_justification_fails(self):
         """Test that invalid justification files are properly rejected."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"invalid": "structure"}, f)
             invalid_file = f.name
 
         try:
             cmd = [
-                sys.executable, "-m", "jpipe_runner.runner",
-                "--config-file", str(self.config_file),
-                "--library", str(self.python_file),
-                invalid_file
+                sys.executable,
+                "-m",
+                "jpipe_runner.runner",
+                "--config-file",
+                str(self.config_file),
+                "--library",
+                str(self.python_file),
+                invalid_file,
             ]
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=self.test_dir.parent.parent.parent
+                cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertTrue(result.stderr, "Expected validation error not found in stderr")
@@ -152,16 +170,17 @@ class TestSelfDependencyE2E(unittest.TestCase):
     def test_self_dependency_missing_library_fails(self):
         """Test that missing library files cause appropriate failure."""
         cmd = [
-            sys.executable, "-m", "jpipe_runner.runner",
-            "--config-file", str(self.config_file),
-            "--library", "nonexistent_file.py",
-            str(self.justification_file)
+            sys.executable,
+            "-m",
+            "jpipe_runner.runner",
+            "--config-file",
+            str(self.config_file),
+            "--library",
+            "nonexistent_file.py",
+            str(self.justification_file),
         ]
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=self.test_dir.parent.parent.parent
+            cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
         )
         self.assertNotEqual(result.returncode, 0)
 
@@ -171,7 +190,8 @@ class TestSelfDependencyE2E(unittest.TestCase):
         """
         result = self._run_jpipe_runner(
             additional_args=[
-                "--config-file", str(self.config_file),
+                "--config-file",
+                str(self.config_file),
             ]
         )
 
@@ -180,9 +200,11 @@ class TestSelfDependencyE2E(unittest.TestCase):
 
         # Should not contain any validation errors
         for validator in self.validators:
-            self.assertIn(validator.lower(), result.stderr.lower(),
-                             f"Validation error found for {validator}")
+            self.assertIn(
+                validator.lower(), result.stderr.lower(), f"Validation error found for {validator}"
+            )
         self.assertEqual(result.returncode, 1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

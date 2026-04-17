@@ -44,7 +44,7 @@ rm -rf deb_dist/ dist/ ./*.tar.gz 2>/dev/null || true
 VERSION=$(python3 setup.py --version)
 echo ">>> Detected version: $VERSION"
 
-pip install --upgrade setuptools stdeb wheel
+python3 -m pip install --upgrade setuptools stdeb wheel tomli
 
 # --- 6. Build base Debian source package ---
 # FIXME: https://github.com/astraw/stdeb?tab=readme-ov-file#sdist-dsc-distutils-command

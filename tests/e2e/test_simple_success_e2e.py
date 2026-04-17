@@ -28,25 +28,28 @@ class TestSimpleSuccessE2E(unittest.TestCase):
             "EvidenceDependencyValidator",
         ]
 
-        self.assertTrue(self.justification_file.exists(), f"Justification file not found: {self.justification_file}")
+        self.assertTrue(
+            self.justification_file.exists(),
+            f"Justification file not found: {self.justification_file}",
+        )
         self.assertTrue(self.config_file.exists(), f"Config file not found: {self.config_file}")
         self.assertTrue(self.python_file.exists(), f"Python file not found: {self.python_file}")
 
     def _run_jpipe_runner(self, additional_args=None, expected_exit_code=0):
         cmd = [
-            sys.executable, "-m", "jpipe_runner.runner",
-            "--library", str(self.python_file),
-            str(self.justification_file)
+            sys.executable,
+            "-m",
+            "jpipe_runner.runner",
+            "--library",
+            str(self.python_file),
+            str(self.justification_file),
         ]
 
         if additional_args:
             cmd.extend(additional_args)
 
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=self.test_dir.parent.parent.parent
+            cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
         )
 
         if result.returncode != expected_exit_code:
@@ -61,9 +64,7 @@ class TestSimpleSuccessE2E(unittest.TestCase):
         """
         Test pipeline with a file that exists.
         """
-        result = self._run_jpipe_runner(
-            additional_args=["--config-file", str(self.config_file)]
-        )
+        result = self._run_jpipe_runner(additional_args=["--config-file", str(self.config_file)])
         self.assertIn(self.justification_name, result.stdout.lower())
         self.assertEqual(result.returncode, 0)
 
@@ -73,8 +74,10 @@ class TestSimpleSuccessE2E(unittest.TestCase):
         """
         result = self._run_jpipe_runner(
             additional_args=[
-                "--config-file", str(self.config_file),
-                "--variable", "e2e/resources/simple_success/data/test_file.txt"
+                "--config-file",
+                str(self.config_file),
+                "--variable",
+                "e2e/resources/simple_success/data/test_file.txt",
             ]
         )
         self.assertIn(self.justification_name, result.stdout.lower())
@@ -84,9 +87,7 @@ class TestSimpleSuccessE2E(unittest.TestCase):
         """
         Test execution with empty data that should fail validation.
         """
-        result = self._run_jpipe_runner(
-            expected_exit_code=1
-        )
+        result = self._run_jpipe_runner(expected_exit_code=1)
 
         self.assertEqual(result.returncode, 1)
 
@@ -94,10 +95,9 @@ class TestSimpleSuccessE2E(unittest.TestCase):
         """
         Test dry run mode to ensure no actual execution occurs.
         """
-        result = self._run_jpipe_runner(additional_args=[
-            "--config-file", str(self.config_file),
-            "--dry-run"
-        ])
+        result = self._run_jpipe_runner(
+            additional_args=["--config-file", str(self.config_file), "--dry-run"]
+        )
 
         self.assertFalse(result.stderr)
         self.assertEqual(result.returncode, 0)
@@ -111,31 +111,37 @@ class TestSimpleSuccessE2E(unittest.TestCase):
 
             result = self._run_jpipe_runner(
                 additional_args=[
-                    "--config-file", str(self.config_file),
-                    "--output-path", str(output_path),
-                    "--format", "svg"
+                    "--config-file",
+                    str(self.config_file),
+                    "--output-path",
+                    str(output_path),
+                    "--format",
+                    "svg",
                 ]
             )
 
-            output_path = output_path / self.justification_name  # output svg same name as justification name
+            output_path = (
+                output_path / self.justification_name
+            )  # output svg same name as justification name
 
             # Check that diagram was generated
             expected_file = output_path.with_suffix(".svg")
-            self.assertTrue(expected_file.exists(), f"Expected diagram file not found: {expected_file}")
+            self.assertTrue(
+                expected_file.exists(), f"Expected diagram file not found: {expected_file}"
+            )
             self.assertEqual(result.returncode, 0)
 
     def test_simple_success_validation_passes(self):
         """
         Test that the simple success justification passes validation.
         """
-        result = self._run_jpipe_runner(
-            additional_args=["--config-file", str(self.config_file)]
-        )
+        result = self._run_jpipe_runner(additional_args=["--config-file", str(self.config_file)])
 
         # Should not contain any validation errors
         for validator in self.validators:
-            self.assertNotIn(validator.lower(), result.stderr.lower(),
-                             f"Validation error found for {validator}")
+            self.assertNotIn(
+                validator.lower(), result.stderr.lower(), f"Validation error found for {validator}"
+            )
         self.assertEqual(result.returncode, 0)
 
     def test_simple_success_invalid_justification_fails(self):
@@ -143,23 +149,24 @@ class TestSimpleSuccessE2E(unittest.TestCase):
         Test that invalid justification files are properly rejected.
         """
         # Create a temporary invalid justification file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"invalid": "structure"}, f)
             invalid_file = f.name
 
         try:
             cmd = [
-                sys.executable, "-m", "jpipe_runner.runner",
-                "--config-file", str(self.config_file),
-                "--library", str(self.python_file),
-                invalid_file
+                sys.executable,
+                "-m",
+                "jpipe_runner.runner",
+                "--config-file",
+                str(self.config_file),
+                "--library",
+                str(self.python_file),
+                invalid_file,
             ]
 
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=self.test_dir.parent.parent.parent
+                cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
             )
 
             self.assertNotEqual(result.returncode, 0)
@@ -171,21 +178,22 @@ class TestSimpleSuccessE2E(unittest.TestCase):
     def test_simple_success_missing_library_fails(self):
         """Test that missing library files cause appropriate failure."""
         cmd = [
-            sys.executable, "-m", "jpipe_runner.runner",
-            "--config-file", str(self.config_file),
-            "--library", "nonexistent_file.py",
-            str(self.justification_file)
+            sys.executable,
+            "-m",
+            "jpipe_runner.runner",
+            "--config-file",
+            str(self.config_file),
+            "--library",
+            "nonexistent_file.py",
+            str(self.justification_file),
         ]
 
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=self.test_dir.parent.parent.parent
+            cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
         )
 
         self.assertNotEqual(result.returncode, 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -18,24 +18,27 @@ class TestMissingConsumerE2E(unittest.TestCase):
         self.python_file = self.test_dir / "math_operation.py"
         self.justification_name = "string_operations"
 
-        self.assertTrue(self.justification_file.exists(), f"Justification file not found: {self.justification_file}")
+        self.assertTrue(
+            self.justification_file.exists(),
+            f"Justification file not found: {self.justification_file}",
+        )
         self.assertTrue(self.python_file.exists(), f"Python file not found: {self.python_file}")
 
     def _run_jpipe_runner(self, additional_args=None, expected_exit_code=0):
         cmd = [
-            sys.executable, "-m", "jpipe_runner.runner",
-            "--library", str(self.python_file),
-            str(self.justification_file)
+            sys.executable,
+            "-m",
+            "jpipe_runner.runner",
+            "--library",
+            str(self.python_file),
+            str(self.justification_file),
         ]
 
         if additional_args:
             cmd.extend(additional_args)
 
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=self.test_dir.parent.parent.parent
+            cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
         )
 
         if result.returncode != expected_exit_code:
@@ -50,9 +53,7 @@ class TestMissingConsumerE2E(unittest.TestCase):
         """
         Test pipeline with a file that exists.
         """
-        result = self._run_jpipe_runner(
-            expected_exit_code=1
-        )
+        result = self._run_jpipe_runner(expected_exit_code=1)
         self.assertTrue(result.stderr)
         self.assertEqual(result.returncode, 1)
 
@@ -60,11 +61,7 @@ class TestMissingConsumerE2E(unittest.TestCase):
         """
         Test dry run mode to ensure no actual execution occurs.
         """
-        result = self._run_jpipe_runner(additional_args=[
-            "--dry-run"
-        ],
-            expected_exit_code=1
-        )
+        result = self._run_jpipe_runner(additional_args=["--dry-run"], expected_exit_code=1)
 
         self.assertTrue(result.stderr)
         self.assertEqual(result.returncode, 1)
@@ -77,18 +74,19 @@ class TestMissingConsumerE2E(unittest.TestCase):
             output_path = Path(temp_dir)
 
             result = self._run_jpipe_runner(
-                additional_args=[
-                    "--output-path", str(output_path),
-                    "--format", "svg"
-                ],
-                expected_exit_code=1
+                additional_args=["--output-path", str(output_path), "--format", "svg"],
+                expected_exit_code=1,
             )
 
-            output_path = output_path / self.justification_name  # output svg same name as justification name
+            output_path = (
+                output_path / self.justification_name
+            )  # output svg same name as justification name
 
             # Check that diagram was generated
             expected_file = output_path.with_suffix(".svg")
-            self.assertTrue(not expected_file.exists(), f"Expected diagram file not found: {expected_file}")
+            self.assertTrue(
+                not expected_file.exists(), f"Expected diagram file not found: {expected_file}"
+            )
             self.assertTrue(result.stderr)
             self.assertEqual(result.returncode, 1)
 
@@ -97,22 +95,22 @@ class TestMissingConsumerE2E(unittest.TestCase):
         Test that invalid justification files are properly rejected.
         """
         # Create a temporary invalid justification file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"invalid": "structure"}, f)
             invalid_file = f.name
 
         try:
             cmd = [
-                sys.executable, "-m", "jpipe_runner.runner",
-                "--library", str(self.python_file),
-                invalid_file
+                sys.executable,
+                "-m",
+                "jpipe_runner.runner",
+                "--library",
+                str(self.python_file),
+                invalid_file,
             ]
 
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=self.test_dir.parent.parent.parent
+                cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
             )
 
             # Should fail with validation error
@@ -126,21 +124,21 @@ class TestMissingConsumerE2E(unittest.TestCase):
     def test_missing_consumer_missing_library_fails(self):
         """Test that missing library files cause appropriate failure."""
         cmd = [
-            sys.executable, "-m", "jpipe_runner.runner",
-            "--library", "nonexistent_file.py",
-            str(self.justification_file)
+            sys.executable,
+            "-m",
+            "jpipe_runner.runner",
+            "--library",
+            "nonexistent_file.py",
+            str(self.justification_file),
         ]
 
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            cwd=self.test_dir.parent.parent.parent
+            cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
         )
 
         self.assertTrue(result.stderr)
         self.assertEqual(result.returncode, 1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

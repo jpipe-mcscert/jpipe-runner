@@ -4,11 +4,12 @@ from unittest.mock import MagicMock, patch
 from jpipe_runner.framework.context import RuntimeContext
 from jpipe_runner.framework.validators import (
     BaseValidator,
+    DuplicateProducerValidator,
+    JustificationSchemaValidator,
     MissingVariableValidator,
-    SelfDependencyValidator,
     OrderValidator,
     ProducedButNotConsumedValidator,
-    JustificationSchemaValidator, DuplicateProducerValidator
+    SelfDependencyValidator,
 )
 
 
@@ -24,11 +25,7 @@ class TestBaseValidator(unittest.TestCase):
 class TestMissingVariableValidator(unittest.TestCase):
     def test_missing_variable_detected(self):
         mock_ctx = MagicMock()
-        mock_ctx._vars = {
-            "func1": {
-                RuntimeContext.CONSUME: {"var1": None}
-            }
-        }
+        mock_ctx._vars = {"func1": {RuntimeContext.CONSUME: {"var1": None}}}
 
         mock_pipeline = MagicMock()
         mock_pipeline.get_producer_key.return_value = None
@@ -40,11 +37,7 @@ class TestMissingVariableValidator(unittest.TestCase):
 
     def test_no_error_when_variable_produced(self):
         mock_ctx = MagicMock()
-        mock_ctx._vars = {
-            "func1": {
-                RuntimeContext.CONSUME: {"var1": None}
-            }
-        }
+        mock_ctx._vars = {"func1": {RuntimeContext.CONSUME: {"var1": None}}}
 
         mock_pipeline = MagicMock()
         mock_pipeline.get_producer_key.return_value = "func0"
@@ -57,11 +50,7 @@ class TestMissingVariableValidator(unittest.TestCase):
 class TestSelfDependencyValidator(unittest.TestCase):
     def test_self_dependency_detected(self):
         mock_ctx = MagicMock()
-        mock_ctx._vars = {
-            "func1": {
-                RuntimeContext.CONSUME: {"var1": None}
-            }
-        }
+        mock_ctx._vars = {"func1": {RuntimeContext.CONSUME: {"var1": None}}}
 
         mock_pipeline = MagicMock()
         mock_pipeline.get_producer_key.return_value = "func1"
@@ -73,11 +62,7 @@ class TestSelfDependencyValidator(unittest.TestCase):
 
     def test_no_self_dependency(self):
         mock_ctx = MagicMock()
-        mock_ctx._vars = {
-            "func1": {
-                RuntimeContext.CONSUME: {"var1": None}
-            }
-        }
+        mock_ctx._vars = {"func1": {RuntimeContext.CONSUME: {"var1": None}}}
 
         mock_pipeline = MagicMock()
         mock_pipeline.get_producer_key.return_value = "func0"
@@ -90,11 +75,7 @@ class TestSelfDependencyValidator(unittest.TestCase):
 class TestOrderValidator(unittest.TestCase):
     def test_self_dependency_in_order(self):
         mock_ctx = MagicMock()
-        mock_ctx._vars = {
-            "func1": {
-                RuntimeContext.CONSUME: {"var1": None}
-            }
-        }
+        mock_ctx._vars = {"func1": {RuntimeContext.CONSUME: {"var1": None}}}
 
         mock_pipeline = MagicMock()
         mock_pipeline.get_execution_order.return_value = ["func1"]
@@ -107,11 +88,7 @@ class TestOrderValidator(unittest.TestCase):
 
     def test_order_violation(self):
         mock_ctx = MagicMock()
-        mock_ctx._vars = {
-            "func1": {
-                RuntimeContext.CONSUME: {"var1": None}
-            }
-        }
+        mock_ctx._vars = {"func1": {RuntimeContext.CONSUME: {"var1": None}}}
 
         mock_pipeline = MagicMock()
         mock_pipeline.get_execution_order.return_value = ["func1", "func2"]
@@ -124,11 +101,7 @@ class TestOrderValidator(unittest.TestCase):
 
     def test_valid_order(self):
         mock_ctx = MagicMock()
-        mock_ctx._vars = {
-            "func2": {
-                RuntimeContext.CONSUME: {"var1": None}
-            }
-        }
+        mock_ctx._vars = {"func2": {RuntimeContext.CONSUME: {"var1": None}}}
 
         mock_pipeline = MagicMock()
         mock_pipeline.get_execution_order.return_value = ["func1", "func2"]
@@ -141,7 +114,7 @@ class TestOrderValidator(unittest.TestCase):
 
 class TestProducedButNotConsumedValidator(unittest.TestCase):
     def setUp(self):
-        patcher = patch('jpipe_runner.framework.logger.GLOBAL_LOGGER')
+        patcher = patch("jpipe_runner.framework.logger.GLOBAL_LOGGER")
         self.addCleanup(patcher.stop)
         self.mock_logger = patcher.start()
 
@@ -156,14 +129,14 @@ class TestProducedButNotConsumedValidator(unittest.TestCase):
 
     def test_produced_and_consumed_variable(self):
         self.mock_ctx._vars = {
-            'func1': {
-                RuntimeContext.PRODUCE: {'var1': None},
+            "func1": {
+                RuntimeContext.PRODUCE: {"var1": None},
                 RuntimeContext.CONSUME: {},
             },
-            'func2': {
+            "func2": {
                 RuntimeContext.PRODUCE: {},
-                RuntimeContext.CONSUME: {'var1': None},
-            }
+                RuntimeContext.CONSUME: {"var1": None},
+            },
         }
         validator = ProducedButNotConsumedValidator(self.pipeline, self.mock_ctx)
         errors, _ = validator.validate()
@@ -171,14 +144,14 @@ class TestProducedButNotConsumedValidator(unittest.TestCase):
 
     def test_produced_but_not_consumed_variable(self):
         self.mock_ctx._vars = {
-            'func1': {
-                RuntimeContext.PRODUCE: {'var1': None},
+            "func1": {
+                RuntimeContext.PRODUCE: {"var1": None},
                 RuntimeContext.CONSUME: {},
             },
-            'func2': {
+            "func2": {
                 RuntimeContext.PRODUCE: {},
                 RuntimeContext.CONSUME: {},
-            }
+            },
         }
         validator = ProducedButNotConsumedValidator(self.pipeline, self.mock_ctx)
         _, warnings = validator.validate()
@@ -189,10 +162,9 @@ class TestProducedButNotConsumedValidator(unittest.TestCase):
 
 
 class TestDuplicateProducerValidator(unittest.TestCase):
-
     def setUp(self):
         # Patch ctx globally where DuplicateProducerValidator is defined
-        patcher = patch('jpipe_runner.framework.context.ctx')
+        patcher = patch("jpipe_runner.framework.context.ctx")
         self.mock_ctx = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -203,8 +175,8 @@ class TestDuplicateProducerValidator(unittest.TestCase):
     def test_no_duplicate_producers(self):
         # Simulate context: one function produces 'x', another produces 'y'
         self.mock_ctx._vars = {
-            'func_a': {RuntimeContext.PRODUCE: {'x': None}},
-            'func_b': {RuntimeContext.PRODUCE: {'y': None}},
+            "func_a": {RuntimeContext.PRODUCE: {"x": None}},
+            "func_b": {RuntimeContext.PRODUCE: {"y": None}},
         }
 
         errors, _ = self.validator.validate()
@@ -213,8 +185,8 @@ class TestDuplicateProducerValidator(unittest.TestCase):
     def test_single_duplicate_variable(self):
         # Simulate two functions producing 'x'
         self.mock_ctx._vars = {
-            'func_a': {RuntimeContext.PRODUCE: {'x': None}},
-            'func_b': {RuntimeContext.PRODUCE: {'x': None}},
+            "func_a": {RuntimeContext.PRODUCE: {"x": None}},
+            "func_b": {RuntimeContext.PRODUCE: {"x": None}},
         }
 
         _, warnings = self.validator.validate()
@@ -226,9 +198,9 @@ class TestDuplicateProducerValidator(unittest.TestCase):
     def test_multiple_duplicates(self):
         # Simulate multiple variables with duplicate producers
         self.mock_ctx._vars = {
-            'func_a': {RuntimeContext.PRODUCE: {'x': None, 'y': None}},
-            'func_b': {RuntimeContext.PRODUCE: {'y': None, 'z': None}},
-            'func_c': {RuntimeContext.PRODUCE: {'x': None}},
+            "func_a": {RuntimeContext.PRODUCE: {"x": None, "y": None}},
+            "func_b": {RuntimeContext.PRODUCE: {"y": None, "z": None}},
+            "func_c": {RuntimeContext.PRODUCE: {"x": None}},
         }
 
         _, warnings = self.validator.validate()
@@ -244,7 +216,6 @@ class TestDuplicateProducerValidator(unittest.TestCase):
 
 
 class TestJustificationSchemaValidator(unittest.TestCase):
-
     def setUp(self):
         self.valid_justification = {
             "name": "notebook_quality",
@@ -253,13 +224,11 @@ class TestJustificationSchemaValidator(unittest.TestCase):
                 {"id": "notebook", "label": "Notebook exists", "type": "evidence"},
                 {"id": "pep8", "label": "PEP8 check", "type": "strategy"},
             ],
-            "relations": [
-                {"source": "notebook", "target": "pep8"}
-            ]
+            "relations": [{"source": "notebook", "target": "pep8"}],
         }
 
     def test_valid_justification_does_not_raise(self):
-        validator = JustificationSchemaValidator(self.valid_justification, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(self.valid_justification)
         try:
             validator.validate()
         except Exception as e:
@@ -270,7 +239,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
             with self.subTest(key=key):
                 data = self.valid_justification.copy()
                 del data[key]
-                validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+                validator = JustificationSchemaValidator(data)
                 with self.assertRaises(ValueError) as context:
                     validator.validate()
                 self.assertIn("Missing top-level key(s)", str(context.exception))
@@ -278,7 +247,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
     def test_invalid_element_type_raises(self):
         data = self.valid_justification.copy()
         data["elements"] = [{"id": "e1", "label": "invalid", "type": "banana"}]
-        validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
         self.assertEqual(str(context.exception), "Invalid type 'banana' in element 'e1'")
@@ -287,9 +256,9 @@ class TestJustificationSchemaValidator(unittest.TestCase):
         data = self.valid_justification.copy()
         data["elements"] = [
             {"id": "dup", "label": "First", "type": "evidence"},
-            {"id": "dup", "label": "Duplicate", "type": "strategy"}
+            {"id": "dup", "label": "Duplicate", "type": "strategy"},
         ]
-        validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
         self.assertEqual(str(context.exception), "Duplicate element id: 'dup'")
@@ -297,7 +266,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
     def test_missing_element_keys_raises(self):
         data = self.valid_justification.copy()
         data["elements"] = [{"id": "e1", "label": "missing type"}]
-        validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
         self.assertIn("is missing required key 'type'", str(context.exception))
@@ -305,7 +274,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
     def test_non_list_elements_raises(self):
         data = self.valid_justification.copy()
         data["elements"] = "not a list"
-        validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
         self.assertIn("'elements' must be a list", str(context.exception))
@@ -313,7 +282,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
     def test_non_list_relations_raises(self):
         data = self.valid_justification.copy()
         data["relations"] = "not a list"
-        validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
         self.assertIn("'relations' must be a list", str(context.exception))
@@ -321,7 +290,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
     def test_relation_missing_keys_raises(self):
         data = self.valid_justification.copy()
         data["relations"] = [{"source": "notebook"}]  # Missing target
-        validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
         self.assertIn("is missing required key 'target'", str(context.exception))
@@ -329,10 +298,12 @@ class TestJustificationSchemaValidator(unittest.TestCase):
     def test_relation_with_unknown_id_raises(self):
         data = self.valid_justification.copy()
         data["relations"] = [{"source": "unknown_id", "target": "pep8"}]
-        validator = JustificationSchemaValidator(data, mark_substep=MagicMock())
+        validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
-        self.assertEqual(str(context.exception), "Relation 0 refers to unknown source id 'unknown_id'")
+        self.assertEqual(
+            str(context.exception), "Relation 0 refers to unknown source id 'unknown_id'"
+        )
 
 
 if __name__ == "__main__":
