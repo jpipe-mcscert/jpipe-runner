@@ -25,7 +25,7 @@ class BaseValidator:
         self.errors: list[str] = []
         self.warnings: list[str] = []
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Abstract method for performing validation.
 
@@ -50,7 +50,7 @@ class MissingVariableValidator(BaseValidator):
     Variables that are declared as consumed but have no known source will raise an error.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that all consumed variables are available in the context or produced upstream.
 
@@ -99,7 +99,7 @@ class SelfDependencyValidator(BaseValidator):
     Valid configuration alternatives are suggested in the error message.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that no function is both the producer and consumer of the same variable.
 
@@ -144,7 +144,7 @@ class OrderValidator(BaseValidator):
     This validator ensures that no function executes before its required inputs are available.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that all consumed variables are available at execution time.
 
@@ -217,7 +217,7 @@ class ProducedButNotConsumedValidator(BaseValidator):
     redundant or misconfigured pipeline steps.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that all produced variables by functions are consumed by at least one other function.
 
@@ -261,7 +261,7 @@ class DuplicateProducerValidator(BaseValidator):
     clear data provenance and avoid ambiguity in execution dependencies.
     """
 
-    def validate(self) -> tuple[list[Any], list[Any]]:
+    def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that each produced variable is only produced by a single function.
 
@@ -582,7 +582,7 @@ class JustificationSchemaValidator:
 
         GLOBAL_LOGGER.info("Justification schema validation completed successfully")
 
-    def _validate_elements(self):
+    def _validate_elements(self) -> None:
         """
         Validates the structure of each element in the justification.
 
@@ -642,7 +642,7 @@ class JustificationSchemaValidator:
             GraphWorkflowVisualizer.DONE,
         )
 
-    def _validate_relations(self):
+    def _validate_relations(self) -> None:
         """
         Validates the structure and references of each relation in the justification.
 

@@ -24,7 +24,7 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
         produce_checker = _init_checker(ProducedVariableChecker, func, produce)
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             if consume_checker:
                 kwargs = consume_checker.inject_arguments(kwargs)
             if produce_checker:
@@ -42,7 +42,9 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
     return decorator
 
 
-def _init_checker(CheckerClass, func: Callable, params: List[str]):
+def _init_checker(
+    CheckerClass: type, func: Callable, params: List[str]
+) -> "ConsumedVariableChecker | ProducedVariableChecker | None":
     if not params:
         return None
     checker = CheckerClass(func, params)
@@ -114,7 +116,7 @@ class ConsumedVariableChecker:
             kwargs[param] = value
         return kwargs
 
-    def _get_used_variables(self) -> set:
+    def _get_used_variables(self) -> set[str]:
         """
         Extracts all variable names used inside the body of the given function using AST parsing.
 
@@ -129,10 +131,10 @@ class ConsumedVariableChecker:
         tree = ast.parse(source)
 
         class VarVisitor(ast.NodeVisitor):
-            def __init__(self):
-                self.used_vars = set()
+            def __init__(self) -> None:
+                self.used_vars: set[str] = set()
 
-            def visit_Name(self, node):
+            def visit_Name(self, node: ast.Name) -> None:
                 self.used_vars.add(node.id)
 
         visitor = VarVisitor()
@@ -181,7 +183,7 @@ class ProducedVariableChecker:
                 ctx._set(self.func_name, param, None, RuntimeContext.PRODUCE)
                 GLOBAL_LOGGER.debug(f"[{self.func_name}] Variable '{param}' registered as PRODUCE")
 
-    def produce(self, param: str, value: Any):
+    def produce(self, param: str, value: Any) -> None:
         """
         Produces a variable by setting it in the context.
 
@@ -198,7 +200,7 @@ class ProducedVariableChecker:
         ctx.set(param, value)
         GLOBAL_LOGGER.info(f"[{self.func_name}] Produced variable '{param}' with value: {value}")
 
-    def validate_produced(self):
+    def validate_produced(self) -> None:
         """
         Ensures all declared variables were actually produced during execution.
 
