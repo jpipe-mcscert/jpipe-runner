@@ -291,5 +291,73 @@ def test_justify_dry_run_and_normal(sample_justification):
     assert any(r["status"] == StatusType.FAIL for r in results)
 
 
+class TestStyleNodes:
+    def _make_graph(self, nodes):
+        G = nx.DiGraph()
+        for node in nodes:
+            G.add_node(node["id"], **node)
+        return G
+
+    def _run(self, nodes, status_dict=None):
+        import graphviz as gv
+        dot = gv.Digraph()
+        G = self._make_graph(nodes)
+        PipelineEngine._style_nodes(dot, G, status_dict or {})
+        return dot.source
+
+    # --- label rendering ---
+
+    def test_label_from_attrs_appears_in_dot_source(self):
+        source = self._run([{"id": "e1", "type": "evidence", "label": "My Evidence"}])
+        assert "My Evidence" in source
+
+    def test_label_falls_back_to_node_id_when_missing(self):
+        source = self._run([{"id": "e1", "type": "evidence"}])
+        assert "e1" in source
+
+    def test_all_node_labels_present(self):
+        nodes = [
+            {"id": "n1", "type": "evidence", "label": "Evidence Label"},
+            {"id": "n2", "type": "strategy", "label": "Strategy Label"},
+            {"id": "n3", "type": "conclusion", "label": "Conclusion Label"},
+        ]
+        source = self._run(nodes)
+        assert "Evidence Label" in source
+        assert "Strategy Label" in source
+        assert "Conclusion Label" in source
+
+    def test_label_attribute_is_set_in_dot_source(self):
+        source = self._run([{"id": "e1", "type": "evidence", "label": "Human Readable Name"}])
+        assert 'label="Human Readable Name"' in source or "label=Human Readable Name" in source
+
+    # --- node styles aligned with Java reference ---
+
+    def test_conclusion_style(self):
+        source = self._run([{"id": "c1", "type": "conclusion", "label": "C"}])
+        assert "rect" in source
+        assert "filled,rounded" in source
+        assert "lightgrey" in source
+
+    def test_sub_conclusion_style(self):
+        source = self._run([{"id": "sc1", "type": "sub-conclusion", "label": "SC"}])
+        assert "rect" in source
+        assert "#0072B2" in source
+
+    def test_strategy_style(self):
+        source = self._run([{"id": "s1", "type": "strategy", "label": "S"}])
+        assert "hexagon" in source
+        assert "#F0C27F" in source
+
+    def test_evidence_style(self):
+        source = self._run([{"id": "ev1", "type": "evidence", "label": "E"}])
+        assert "note" in source
+        assert "#9ECAE1" in source
+
+    def test_support_style(self):
+        source = self._run([{"id": "sup1", "type": "support", "label": "Sup"}])
+        assert "rect" in source
+        assert "dotted" in source
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

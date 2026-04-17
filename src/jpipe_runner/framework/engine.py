@@ -592,21 +592,18 @@ class PipelineEngine:
         :param filename: Output filename (without extension).
         :param format: Image format string (e.g. "png", "svg", "pdf").
         """
-        try:
-            from networkx.drawing.nx_agraph import to_agraph
-        except ImportError as e:
-            raise ImportError("pygraphviz is required to enable this feature") from e
+        import graphviz as gv
 
         resolved_path = self._resolve_output_path(output_path, filename)
 
         G = self.graph.copy()
-        A = to_agraph(G)
-        A.graph_attr.update(rankdir="BT")
+        dot = gv.Digraph()
+        dot.attr(rankdir="BT")
 
-        self._style_nodes(A, G, status_dict)
-        self._style_edges(A, G, status_dict)
+        self._style_nodes(dot, G, status_dict)
+        self._style_edges(dot, G, status_dict)
 
-        A.draw(resolved_path.with_suffix(f".{format}"), format=format, prog="dot")
+        dot.render(str(resolved_path), format=format, engine="dot", cleanup=True)
 
     @staticmethod
     def _resolve_output_path(output_path: str, filename: str) -> Path:
@@ -623,63 +620,54 @@ class PipelineEngine:
         return path / filename
 
     @staticmethod
-    def _style_nodes(A: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
+    def _style_nodes(dot: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
         """
         Apply visual styles to graph nodes based on their type and execution status.
 
-        :param A: AGraph (pygraphviz) instance to style.
+        :param dot: graphviz.Digraph instance to add nodes to.
         :param G: NetworkX DiGraph with node attribute data.
         :param status_dict: Mapping of node id -> status string ("PASS", "FAIL", "SKIP").
         """
         node_attr_map = {
-            "conclusion": dict(fillcolor="lightgrey", shape="rect", style="filled"),
-            "strategy": dict(fillcolor="palegreen", shape="parallelogram", style="filled"),
-            "sub-conclusion": dict(color="dodgerblue", shape="rect"),
-            "evidence": dict(fillcolor="lightskyblue2", shape="rect", style="filled"),
-            "support": dict(fillcolor="lightcoral", shape="rect", style="filled"),
+            "conclusion":     {"shape": "rect",    "style": "filled,rounded", "fillcolor": "lightgrey"},
+            "sub-conclusion": {"shape": "rect",    "color": "#0072B2"},
+            "strategy":       {"shape": "hexagon", "style": "filled",         "fillcolor": "#F0C27F"},
+            "evidence":       {"shape": "note",    "style": "filled",         "fillcolor": "#9ECAE1"},
+            "support":        {"shape": "rect",    "style": "dotted"},
         }
         for node_id, attrs in G.nodes(data=True):
             var_type = attrs.get("type", "").lower()
-            style = node_attr_map.get(
+            style = dict(node_attr_map.get(
                 var_type, dict(fillcolor="white", shape="ellipse", style="filled")
-            )
-            n = A.get_node(node_id)
-            for k, v in style.items():
-                n.attr[k] = v
+            ))
 
             status = status_dict.get(node_id, "UNKNOWN")
             logging.info("Setting node color for %s with status %s", node_id, status)
             if status == StatusType.FAIL.name:
-                n.attr["style"] = "filled"
-                n.attr["fillcolor"] = "red"
-                n.attr["fontcolor"] = "white"
-                n.attr["fontname"] = "Helvetica-Bold"
+                style.update(style="filled", fillcolor="red", fontcolor="white", fontname="Helvetica-Bold")
             elif status == StatusType.SKIP.name:
-                n.attr["style"] = "filled"
-                n.attr["fillcolor"] = "#cccccc"
-                n.attr["opacity"] = "1"
-                n.attr["fontcolor"] = "white"
-                n.attr["fontname"] = "Helvetica-Bold"
+                style.update(style="filled", fillcolor="#cccccc", opacity="1", fontcolor="white", fontname="Helvetica-Bold")
+
+            label = attrs.get("label", node_id)
+            dot.node(node_id, label=label, **style)
 
     @staticmethod
-    def _style_edges(A: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
+    def _style_edges(dot: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
         """
         Apply visual styles to graph edges based on the execution status of their source node.
 
-        :param A: AGraph (pygraphviz) instance to style.
+        :param dot: graphviz.Digraph instance to add edges to.
         :param G: NetworkX DiGraph with edge data.
         :param status_dict: Mapping of node id -> status string ("PASS", "FAIL", "SKIP").
         """
         for source, target in G.edges():
             status = status_dict.get(source, "UNKNOWN")
             logging.info("Setting edge color for %s -> %s with status %s", source, target, status)
-            e = A.get_edge(source, target)
             if status == StatusType.PASS.name:
-                e.attr["color"] = "black"
+                dot.edge(source, target, color="black")
             elif status == StatusType.FAIL.name:
-                e.attr["color"] = "red"
+                dot.edge(source, target, color="red")
             elif status == StatusType.SKIP.name:
-                e.attr["color"] = "#cccccc"
-                e.attr["opacity"] = "1"
+                dot.edge(source, target, color="#cccccc", opacity="1")
             else:
-                e.attr["color"] = "gray"
+                dot.edge(source, target, color="gray")
