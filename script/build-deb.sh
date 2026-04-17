@@ -21,6 +21,7 @@ sudo apt-get install -y \
   python3-all \
   python3-setuptools \
   python3-pip \
+  python3-tomli \
   lintian
 
 # --- 2. Install stdeb if needed ---
@@ -44,7 +45,7 @@ rm -rf deb_dist/ dist/ ./*.tar.gz 2>/dev/null || true
 VERSION=$(python3 setup.py --version)
 echo ">>> Detected version: $VERSION"
 
-python3 -m pip install --upgrade setuptools stdeb wheel tomli
+python3 -m pip install --upgrade setuptools stdeb wheel
 
 # --- 6. Build base Debian source package ---
 # FIXME: https://github.com/astraw/stdeb?tab=readme-ov-file#sdist-dsc-distutils-command
