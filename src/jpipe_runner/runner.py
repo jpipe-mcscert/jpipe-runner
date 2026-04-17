@@ -13,13 +13,11 @@ import os
 import shutil
 import sys
 import textwrap
-import threading
 from typing import Iterable
 
 from jpipe_runner.enums import StatusType
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
-from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from jpipe_runner.runtime import PythonRuntime
 from jpipe_runner.utils import colored
 
@@ -125,10 +123,6 @@ def parse_args(argv: list[str] | None = None):
     )
     parser.add_argument("--config-file", help="Path to the config .yaml file")
     parser.add_argument("jd_file", help="Path to the justification .jd file")
-    # argument to enable GUI
-    parser.add_argument(
-        "--gui", action="store_true", help="Enable GUI mode for visualizing workflow steps"
-    )
 
     return parser.parse_args(argv)
 
@@ -223,64 +217,19 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
     )
 
 
-workflow_ui: GraphWorkflowVisualizer | None = None
-
-
-def mark_step(step, status):
-    global workflow_ui
-    if workflow_ui:
-        workflow_ui.master.after(0, lambda: workflow_ui.mark_step(step, status=status))
-
-
-def mark_substep(node, substep_name, status):
-    global workflow_ui
-    if workflow_ui:
-        workflow_ui.master.after(
-            0, lambda: workflow_ui.mark_substep(node, substep_name, status=status)
-        )
-
-
-def mark_node_as_graph(parent_node: str, substep_name: str):
-    global workflow_ui
-    if workflow_ui:
-        workflow_ui.master.after(
-            0, lambda: workflow_ui.mark_node_as_graph(parent_node, substep_name)
-        )
-
-
 def run_workflow_logic():
-    mark_step(GraphWorkflowVisualizer.PARSE_CLI_ARGS, status=GraphWorkflowVisualizer.CURRENT)
-
     args = parse_args(sys.argv[1:])
-
-    mark_step(GraphWorkflowVisualizer.PARSE_CLI_ARGS, status=GraphWorkflowVisualizer.DONE)
-    mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.CURRENT)
 
     if args.verbose:
         GLOBAL_LOGGER.setLevel(logging.INFO)
 
-    mark_step(GraphWorkflowVisualizer.SET_LOGGER_LEVEL, status=GraphWorkflowVisualizer.DONE)
-
-    mark_step(
-        GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.CURRENT
-    )
-
     if not args.jd_file:
         print("No justification json file provided. Please specify a .json file.", file=sys.stderr)
-        mark_step(
-            GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.FAIL
-        )
         sys.exit(1)
 
     if not args.jd_file.endswith(".json"):
         print("The provided justification file is not a .json file.", file=sys.stderr)
-        mark_step(
-            GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.FAIL
-        )
         sys.exit(1)
-
-    mark_step(GraphWorkflowVisualizer.VALIDATE_ARGUMENTS_FILES, status=GraphWorkflowVisualizer.DONE)
-    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.CURRENT)
 
     # Check that each library path exists
     not_matched_files = []
@@ -292,19 +241,14 @@ def run_workflow_logic():
     if not_matched_files:
         print(f"No library found for path(s): {', '.join(not_matched_files)}", file=sys.stderr)
         print("Please check the provided library paths.", file=sys.stderr)
-        mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.FAIL)
         sys.exit(1)
 
     runtime = PythonRuntime(libraries=[i for lib in args.library for i in glob.glob(lib)])
-    mark_step(GraphWorkflowVisualizer.INITIALIZE_RUNTIME, status=GraphWorkflowVisualizer.DONE)
 
     jpipe = PipelineEngine(
         config_path=args.config_file,
         justification_path=args.jd_file,
         variables=args.variable,
-        mark_step=mark_step,
-        mark_substep=mark_substep,
-        mark_node_as_graph=mark_node_as_graph,
     )
 
     diagrams = [(jpipe.justification_name, jpipe.graph)]
@@ -323,19 +267,13 @@ def run_workflow_logic():
             exit(1)
         exit(0)
 
-    mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.CURRENT)
-
     print(JPIPE_RUNNER_ASCII)
     _, _, total_fail, _ = pretty_display([(jpipe.justification_name, justification_result)])
 
-    mark_step(GraphWorkflowVisualizer.SUMMARIZE_RESULTS, status=GraphWorkflowVisualizer.DONE)
-
     if args.format:
-        mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.CURRENT)
         output_path = args.output_path.lower()
         if output_path in {"stdout", "stderr"}:
             print("Streamed diagram output is not supported yet.", file=sys.stderr)
-            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             sys.exit(1)
 
         status_dict = {item["name"]: item["status"].value for item in justification_result}
@@ -355,13 +293,11 @@ def run_workflow_logic():
                 )
 
             print(f"{jpipe.justification_name} diagram saved to: {output_location}")
-            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.DONE)
         else:
             print(
                 f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
                 file=sys.stderr,
             )
-            mark_step(GraphWorkflowVisualizer.EXPORT_OUTPUT, status=GraphWorkflowVisualizer.FAIL)
             print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
             log_buffer.dump_to_stderr()
             sys.exit(1)
@@ -375,35 +311,7 @@ def run_workflow_logic():
 
 
 def main():
-    if "--gui" in sys.argv:
-        try:
-            import tkinter as tk
-
-            from jpipe_runner.GraphWorkflowVisualizer import GraphWorkflowVisualizer
-        except ImportError:
-            print(
-                "Error: GUI mode requires additional dependencies that are not installed.\n\n"
-                "You can install them with one of the following methods:\n\n"
-                "  • If using pip:\n"
-                "      pip install jpipe-runner[gui]\n\n"
-                "  • If using apt (Debian/Ubuntu):\n"
-                "      sudo apt install jpipe-runner-gui\n\n"
-                "  • If using Homebrew (macOS):\n"
-                "      brew install jpipe-runner-gui\n\n"
-                "Alternatively, run without --gui to use command-line mode.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        root = tk.Tk()
-        global workflow_ui
-        workflow_ui = GraphWorkflowVisualizer(root)
-
-        root.after(300, lambda: threading.Thread(target=run_workflow_logic, daemon=True).start())
-
-        root.mainloop()
-    else:
-        run_workflow_logic()
+    run_workflow_logic()
 
 
 if __name__ == "__main__":

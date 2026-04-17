@@ -290,7 +290,6 @@ jobs:
       - name: Export requirements.txt from Poetry
         run: |
           poetry export -f requirements.txt --without-hashes -o requirements.txt
-          poetry export --extras gui -f requirements.txt --output requirements-gui.txt --without-hashes
 
       - name: Install Python packaging tools
         run: |
@@ -309,22 +308,11 @@ jobs:
           chmod +x script/build-deb.sh
           script/build-deb.sh ${{ secrets.DEBFULLNAME }} ${{ secrets.DEBEMAIL }} ${{ secrets.GPG_ID }}
 
-      - name: Build Debian GUI package
-        run: |
-          chmod +x script/build-deb-gui.sh
-          script/build-deb-gui.sh ${{ secrets.DEBFULLNAME }} ${{ secrets.DEBEMAIL }} ${{ secrets.GPG_ID }}
-
       - name: Upload Debian artifacts
         uses: actions/upload-artifact@v4
         with:
           name: deb-packages
           path: deb_dist/
-
-      - name: Upload Debian GUI artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: deb-packages-gui
-          path: deb_dist_gui/
 
   release:
     permissions:
@@ -353,13 +341,6 @@ jobs:
           name: deb-packages
           path: deb_dist/
 
-      # Download Debian GUI source package artifacts
-      - name: Download Debian GUI source package artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: deb-packages-gui
-          path: deb_dist_gui/
-
       # Install Debian build tools
       - name: Install Debian build tools
         run: |
@@ -378,18 +359,6 @@ jobs:
             fi
           done
 
-      # Build binary .deb packages for GUI version
-      - name: Build binary .deb packages for GUI version
-        run: |
-          for PKG_DIR in deb_dist_gui/jpipe-runner-gui-*; do
-            if [ -d "$PKG_DIR" ]; then
-              echo "Building GUI .deb package in $PKG_DIR"
-              cd "$PKG_DIR"
-              debuild -b -us -uc
-              cd - > /dev/null
-            fi
-          done
-
       # Create GitHub release and upload all artifacts
       - name: Create GitHub release and upload assets
         uses: softprops/action-gh-release@v1
@@ -399,7 +368,6 @@ jobs:
             dist/*.whl
             dist/*.tar.gz
             deb_dist/*.deb
-            deb_dist_gui/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -495,25 +463,6 @@ jobs:
           # Generate versioned formula file
           envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner@$VERSION.rb
           
-          ###############
-          #   With GUI  #
-          ###############
-          
-          # Define Formula class name for GUI version
-          export CLASS_NAME="JpipeRunnerGui"
-          
-          # Generate GUI formula (with matplotlib/Tkinter)
-          export RESOURCES="$(bash script/generate_formula_resources.sh --with-gui)"
-          
-          # Generate GUI formula file
-          envsubst < Formula/homebrew_formula_gui_template.rb > tap/Formula/jpipe-runner-gui.rb
-          
-          # Generate versioned GUI formula file
-          export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
-          
-          # Generate versioned GUI formula file
-          envsubst < Formula/homebrew_formula_gui_template.rb > tap/Formula/jpipe-runner-gui@$VERSION.rb
-
       - name: Upload updated tap directory
         uses: actions/upload-artifact@v4
         with:
@@ -531,12 +480,6 @@ jobs:
         with:
           name: deb-packages
           path: deb_dist/
-
-      - name: Download GUI artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: deb-packages-gui
-          path: deb_dist_gui/
 
       - name: Set up GPG and dput config
         run: |
@@ -556,7 +499,6 @@ jobs:
         run: |
           chmod +x script/publish-ppa.sh
           script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
-          script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist_gui/*.changes
 
   publish-pypi:
     needs: [ build-homebrew-formula ]
@@ -659,8 +601,6 @@ jobs:
           echo "VERSION: $VERSION"
           cp tap/Formula/jpipe-runner.rb tap-repo/
           cp tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/
-          cp tap/Formula/jpipe-runner-gui.rb tap-repo/
-          cp tap/Formula/jpipe-runner-gui@${VERSION}.rb tap-repo/
 
       - name: Commit and push formula
         run: |
@@ -668,6 +608,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          git add jpipe-runner.rb jpipe-runner@${{ needs.validate-version.outputs.version }}.rb jpipe-runner-gui.rb jpipe-runner-gui@${{ needs.validate-version.outputs.version }}.rb
+          git add jpipe-runner.rb jpipe-runner@${{ needs.validate-version.outputs.version }}.rb
           git commit -m "Update jpipe-runner formula to version ${{ needs.validate-version.outputs.version }}"
           git push origin main

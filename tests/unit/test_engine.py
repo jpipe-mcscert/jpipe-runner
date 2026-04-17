@@ -49,9 +49,6 @@ def test_init_without_config_with_variables(sample_justification):
         engine = PipelineEngine(
             None,
             sample_justification,
-            mark_step=MagicMock(),
-            mark_substep=MagicMock(),
-            mark_node_as_graph=MagicMock(),
             variables=variables,
         )
         mock_load_config.assert_called_once_with(None, variables)
@@ -64,9 +61,6 @@ def test_init_with_config(sample_config, sample_justification):
         engine = PipelineEngine(
             sample_config,
             sample_justification,
-            mark_step=MagicMock(),
-            mark_substep=MagicMock(),
-            mark_node_as_graph=MagicMock(),
         )
         mock_load_config.assert_called_once_with(sample_config, None)
         assert isinstance(engine.graph, nx.DiGraph)
@@ -76,9 +70,6 @@ def test_parse_justification_success(sample_justification):
     engine = PipelineEngine(
         None,
         sample_justification,
-        mark_step=MagicMock(),
-        mark_substep=MagicMock(),
-        mark_node_as_graph=MagicMock(),
     )
     graph = engine.parse_justification(sample_justification)
     assert isinstance(graph, nx.DiGraph)
@@ -89,18 +80,14 @@ def test_parse_justification_success(sample_justification):
 def test_parse_justification_invalid_json(tmp_path):
     path = tmp_path / "bad.json"
     path.write_text("invalid json")
-    engine = PipelineEngine(
-        None, path, mark_step=MagicMock(), mark_substep=MagicMock(), mark_node_as_graph=MagicMock()
-    )
+    engine = PipelineEngine(None, None)
     graph = engine.parse_justification(str(path))
     assert isinstance(graph, nx.DiGraph)
     assert graph.number_of_nodes() == 0
 
 
 def test_get_producer_key_found():
-    engine = PipelineEngine(
-        None, None, mark_step=MagicMock(), mark_substep=MagicMock(), mark_node_as_graph=MagicMock()
-    )
+    engine = PipelineEngine(None, None)
     ctx._vars = {
         "funcA": {RuntimeContext.PRODUCE: {"varX": 123}},
         "funcB": {RuntimeContext.PRODUCE: {"varY": 456}},
@@ -131,9 +118,6 @@ def test_validate_all_passes(sample_justification):
         engine = PipelineEngine(
             config_path=None,
             justification_path=None,
-            mark_step=MagicMock(),
-            mark_substep=MagicMock(),
-            mark_node_as_graph=MagicMock(),
         )
         engine.graph = MagicMock()
 
@@ -164,9 +148,6 @@ def test_validate_missing_variable_fails():
         engine = PipelineEngine(
             config_path=None,
             justification_path=None,
-            mark_step=MagicMock(),
-            mark_substep=MagicMock(),
-            mark_node_as_graph=MagicMock(),
         )
         engine.graph = MagicMock()
 
@@ -197,9 +178,6 @@ def test_validate_self_dependency_fails():
         engine = PipelineEngine(
             config_path=None,
             justification_path=None,
-            mark_step=MagicMock(),
-            mark_substep=MagicMock(),
-            mark_node_as_graph=MagicMock(),
         )
         engine.graph = MagicMock()
 
@@ -230,9 +208,6 @@ def test_validate_order_error():
         engine = PipelineEngine(
             config_path=None,
             justification_path=None,
-            mark_step=MagicMock(),
-            mark_substep=MagicMock(),
-            mark_node_as_graph=MagicMock(),
         )
         engine.graph = MagicMock()
 
@@ -244,9 +219,6 @@ def test_get_execution_order_valid_graph():
     engine = PipelineEngine(
         config_path=None,
         justification_path=None,
-        mark_step=MagicMock(),
-        mark_substep=MagicMock(),
-        mark_node_as_graph=MagicMock(),
     )
     engine.graph = nx.DiGraph()
     engine.graph.add_edges_from([("A", "B"), ("B", "C")])
@@ -263,9 +235,6 @@ def test_get_execution_order_with_cycle_logs_error():
     engine = PipelineEngine(
         config_path=None,
         justification_path=None,
-        mark_step=MagicMock(),
-        mark_substep=MagicMock(),
-        mark_node_as_graph=MagicMock(),
     )
     engine.graph = nx.DiGraph()
     engine.graph.add_edges_from([("A", "B"), ("B", "A")])  # cycle
@@ -278,9 +247,7 @@ def test_get_execution_order_with_cycle_logs_error():
 
 
 def test_get_execution_order_and_cycle():
-    engine = PipelineEngine(
-        None, None, mark_step=MagicMock(), mark_substep=MagicMock(), mark_node_as_graph=MagicMock()
-    )
+    engine = PipelineEngine(None, None)
     g = nx.DiGraph()
     g.add_edge("a", "b")
     g.add_edge("b", "c")
@@ -298,9 +265,6 @@ def test_justify_dry_run_and_normal(sample_justification):
     engine = PipelineEngine(
         None,
         sample_justification,
-        mark_step=MagicMock(),
-        mark_substep=MagicMock(),
-        mark_node_as_graph=MagicMock(),
     )
     engine.validate = MagicMock(return_value=True)
 

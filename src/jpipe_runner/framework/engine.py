@@ -1,14 +1,13 @@
 import json
 import logging
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator, Optional, Tuple
+from typing import Any, Iterable, Iterator, Optional, Tuple
 
 import networkx as nx
 import yaml
 
 from ..enums import StatusType
 from ..exceptions import FunctionException
-from ..GraphWorkflowVisualizer import GraphWorkflowVisualizer
 from ..runtime import PythonRuntime
 from ..utils import normalize_structure, parse_value, sanitize_string
 from .context import RuntimeContext, ctx
@@ -43,9 +42,6 @@ class PipelineEngine:
         self,
         config_path: str,
         justification_path: str,
-        mark_step: Callable[[Any, Any], None],
-        mark_substep: Callable[[str, str, str], None],
-        mark_node_as_graph: Callable[[str, str], None],
         variables: Optional[Iterable[str]] = None,
     ) -> None:
         """
@@ -57,23 +53,12 @@ class PipelineEngine:
         :type config_path: str
         :param justification_path: Path to the justification file.
         :type justification_path: str
-        :param mark_step: Function to mark workflow steps in the UI.
-        :type mark_step: Callable[[Any, Any], None]
-        :param mark_substep: Function to mark substeps in the UI.
-        :type mark_substep: Callable[[str, str, str], None]
-        :param mark_node_as_graph: Function to mark a node as a graph in the UI.
-        :type mark_node_as_graph: Callable[[str, str], None]
         :param variables: Optional iterable of (name, value) pairs to set as context variables.
         :type variables: Optional[Iterable[Tuple[str, Any]]]
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
-        self.mark_step = mark_step
-        self.mark_substep = mark_substep
-        self.mark_node_as_graph = mark_node_as_graph
-        self.mark_step(GraphWorkflowVisualizer.LOAD_CONFIGURATION, GraphWorkflowVisualizer.CURRENT)
         self.load_config(config_path, variables)
-        self.mark_step(GraphWorkflowVisualizer.LOAD_CONFIGURATION, GraphWorkflowVisualizer.DONE)
         self.graph = self.parse_justification(justification_path)
         GLOBAL_LOGGER.debug(
             "PipelineEngine initialized with context vars count: %d", len(ctx._vars)
@@ -112,11 +97,6 @@ class PipelineEngine:
         GLOBAL_LOGGER.info("Loading config from: %s", path)
         config = {}
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-            "Loading configuration file",
-            GraphWorkflowVisualizer.CURRENT,
-        )
         # Load YAML config if a path is provided
         if path:
             try:
@@ -127,11 +107,6 @@ class PipelineEngine:
                 GLOBAL_LOGGER.info(f"Configuration loaded from {path}")
             except Exception as e:
                 GLOBAL_LOGGER.error("Failed to load config from %s: %s", path, e)
-                self.mark_substep(
-                    GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-                    "Loading configuration file",
-                    GraphWorkflowVisualizer.FAIL,
-                )
                 return
 
         if variables:
@@ -153,17 +128,7 @@ class PipelineEngine:
             GLOBAL_LOGGER.info("Context variables set successfully.")
         except Exception as e:
             GLOBAL_LOGGER.error("Failed to set context variables: %s", e)
-            self.mark_substep(
-                GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-                "Set context variables",
-                GraphWorkflowVisualizer.FAIL,
-            )
             return
-        self.mark_substep(
-            GraphWorkflowVisualizer.LOAD_CONFIGURATION,
-            "Set context variables",
-            GraphWorkflowVisualizer.DONE,
-        )
 
     def parse_justification(self, path: str) -> nx.DiGraph:
         """
@@ -183,38 +148,16 @@ class PipelineEngine:
         if data is None:
             return nx.DiGraph()
 
-        self.mark_step(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE, GraphWorkflowVisualizer.CURRENT
-        )
         try:
             GLOBAL_LOGGER.debug("Validating justification schema...")
-            JustificationSchemaValidator(data, self.mark_substep).validate()
+            JustificationSchemaValidator(data).validate()
         except ValueError as e:
             GLOBAL_LOGGER.error("Justification validation failed: %s", e)
-            self.mark_step(
-                GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE, GraphWorkflowVisualizer.FAIL
-            )
             return nx.DiGraph()
-        self.mark_step(
-            GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE, GraphWorkflowVisualizer.DONE
-        )
 
-        self.mark_step(
-            GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH, GraphWorkflowVisualizer.CURRENT
-        )
-        self.mark_substep(
-            GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-            GraphWorkflowVisualizer.EXTRACTING_JUSTIFICATION_NAME,
-            GraphWorkflowVisualizer.CURRENT,
-        )
         if "name" in data:
             self.justification_name = data["name"]
             GLOBAL_LOGGER.info("Justification name set to: %s", self.justification_name)
-        self.mark_substep(
-            GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-            GraphWorkflowVisualizer.EXTRACTING_JUSTIFICATION_NAME,
-            GraphWorkflowVisualizer.DONE,
-        )
 
         G = nx.DiGraph()
 
@@ -229,9 +172,6 @@ class PipelineEngine:
             G.number_of_nodes(),
             G.number_of_edges(),
         )
-        self.mark_step(
-            GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH, GraphWorkflowVisualizer.DONE
-        )
         return G
 
     def _load_justification_json(self, path: str) -> dict | None:
@@ -242,20 +182,11 @@ class PipelineEngine:
         :return: Parsed JSON data as a dict, or None on failure.
         """
         try:
-            self.mark_step(
-                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.CURRENT
-            )
             with open(path, "r") as f:
                 data = json.load(f)
-            self.mark_step(
-                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.DONE
-            )
             return data
         except Exception as e:
             GLOBAL_LOGGER.error("Failed to load JSON justification: %s", e)
-            self.mark_step(
-                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.FAIL
-            )
             return None
 
     def _add_nodes_to_graph(self, G: nx.DiGraph, data: dict) -> bool:
@@ -267,29 +198,14 @@ class PipelineEngine:
         :return: True on success, False on KeyError.
         """
         try:
-            self.mark_substep(
-                GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-                GraphWorkflowVisualizer.ADDING_NODE_TO_GRAPH,
-                GraphWorkflowVisualizer.CURRENT,
-            )
             for element in data.get("elements", []):
                 G.add_node(element["id"], **element)
                 G.nodes[element["id"]]["function_name"] = sanitize_string(
                     element.get("label", "")
                 )
-            self.mark_substep(
-                GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-                GraphWorkflowVisualizer.ADDING_NODE_TO_GRAPH,
-                GraphWorkflowVisualizer.DONE,
-            )
             return True
         except KeyError as e:
             GLOBAL_LOGGER.error("Missing required key in justification elements: %s", e)
-            self.mark_substep(
-                GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-                GraphWorkflowVisualizer.ADDING_NODE_TO_GRAPH,
-                GraphWorkflowVisualizer.FAIL,
-            )
             return False
 
     def _add_edges_to_graph(self, G: nx.DiGraph, data: dict) -> bool:
@@ -301,26 +217,11 @@ class PipelineEngine:
         :return: True on success, False on KeyError.
         """
         try:
-            self.mark_substep(
-                GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-                GraphWorkflowVisualizer.ADDING_EDGES_TO_GRAPH,
-                GraphWorkflowVisualizer.CURRENT,
-            )
             for rel in data.get("relations", []):
                 G.add_edge(rel["source"], rel["target"])
-            self.mark_substep(
-                GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-                GraphWorkflowVisualizer.ADDING_EDGES_TO_GRAPH,
-                GraphWorkflowVisualizer.DONE,
-            )
             return True
         except KeyError as e:
             GLOBAL_LOGGER.error("Missing required key in justification relations: %s", e)
-            self.mark_substep(
-                GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
-                GraphWorkflowVisualizer.ADDING_EDGES_TO_GRAPH,
-                GraphWorkflowVisualizer.FAIL,
-            )
             return False
 
     @staticmethod
@@ -358,31 +259,26 @@ class PipelineEngine:
         """
 
         GLOBAL_LOGGER.info("Validating pipeline...")
-        node = GraphWorkflowVisualizer.VALIDATE_PIPELINE
 
         validators = [
-            (MissingVariableValidator(self, ctx), "Check for missing variables"),
-            (SelfDependencyValidator(self, ctx), "Check for self-dependencies"),
-            (OrderValidator(self, ctx), "Validate execution order"),
-            (ProducedButNotConsumedValidator(self, ctx), "Check unused produced variables"),
-            (DuplicateProducerValidator(self, ctx), "Detect duplicate producers"),
-            (EvidenceDependencyValidator(self, ctx, self.graph), "Check evidence dependencies"),
+            MissingVariableValidator(self, ctx),
+            SelfDependencyValidator(self, ctx),
+            OrderValidator(self, ctx),
+            ProducedButNotConsumedValidator(self, ctx),
+            DuplicateProducerValidator(self, ctx),
+            EvidenceDependencyValidator(self, ctx, self.graph),
         ]
 
         all_passed = True
         all_errors = []
         all_warnings = []
 
-        for validator, label in validators:
-            self.mark_substep(node, label, GraphWorkflowVisualizer.CURRENT)
+        for validator in validators:
             errors, warnings = validator.validate()
             if errors or warnings:
                 all_passed = False
                 all_errors.extend(errors)
                 all_warnings.extend(warnings)
-                self.mark_substep(node, label, GraphWorkflowVisualizer.FAIL)
-            else:
-                self.mark_substep(node, label, GraphWorkflowVisualizer.DONE)
 
         if not all_passed:
             if all_warnings:
@@ -478,12 +374,7 @@ class PipelineEngine:
         Returns:
             bool: True if validation passes, False otherwise.
         """
-        self.mark_step(GraphWorkflowVisualizer.VALIDATE_PIPELINE, GraphWorkflowVisualizer.CURRENT)
-        if self.validate():
-            self.mark_step(GraphWorkflowVisualizer.VALIDATE_PIPELINE, GraphWorkflowVisualizer.DONE)
-            return True
-        self.mark_step(GraphWorkflowVisualizer.VALIDATE_PIPELINE, GraphWorkflowVisualizer.FAIL)
-        return False
+        return self.validate()
 
     def _get_and_mark_execution_order(self) -> Optional[list]:
         """
@@ -494,15 +385,6 @@ class PipelineEngine:
         Returns:
             list or None: Ordered list of node identifiers if successful, None if retrieval fails.
         """
-        self.mark_step(
-            GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, GraphWorkflowVisualizer.CURRENT
-        )
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION,
-            GraphWorkflowVisualizer.FETCH_EXECUTION_ORDER,
-            GraphWorkflowVisualizer.CURRENT,
-        )
-
         execution_order = self.get_execution_order()
         GLOBAL_LOGGER.debug("Execution order: %s", execution_order)
 
@@ -510,18 +392,8 @@ class PipelineEngine:
             GLOBAL_LOGGER.error(
                 "No valid execution order found. Cannot proceed with justification."
             )
-            self.mark_substep(
-                GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION,
-                GraphWorkflowVisualizer.FETCH_EXECUTION_ORDER,
-                GraphWorkflowVisualizer.FAIL,
-            )
             return None
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION,
-            GraphWorkflowVisualizer.FETCH_EXECUTION_ORDER,
-            GraphWorkflowVisualizer.DONE,
-        )
         return execution_order
 
     def _process_node(self, node: str, runtime: PythonRuntime, dry_run: bool) -> dict:
@@ -546,7 +418,6 @@ class PipelineEngine:
         exception = None
 
         GLOBAL_LOGGER.debug("Processing node: %s", node)
-        self._init_node_execution(label)
 
         # --- Check if this node should be skipped based on context ---
         skip_config = ctx._vars.get(fn_name, {}).get(RuntimeContext.SKIP, {})
@@ -556,12 +427,10 @@ class PipelineEngine:
             GLOBAL_LOGGER.info(
                 f"Skipping function '{fn_name}' for node '{node}' due to context: {exception}"
             )
-            self.mark_substep(label, "status", GraphWorkflowVisualizer.SKIP)
 
         # --- Check if predecessor failure or implicit skip should block execution ---
         elif self._should_skip_due_to_predecessors(node):
             status = StatusType.SKIP
-            self.mark_substep(label, "status", GraphWorkflowVisualizer.SKIP)
 
         # --- Attempt function execution (or dry-run) ---
         elif node_type in {"evidence", "strategy"}:
@@ -572,7 +441,6 @@ class PipelineEngine:
         # --- Default handling for conclusion nodes ---
         else:
             status = StatusType.PASS
-            self.mark_substep(label, "status", GraphWorkflowVisualizer.DONE)
 
         # --- Append contribution loss message for skips or failures ---
         if status in {StatusType.SKIP, StatusType.FAIL}:
@@ -625,19 +493,6 @@ class PipelineEngine:
 
         return False
 
-    def _init_node_execution(self, label: str):
-        """
-        Initializes visualization markers and tracking for a node before execution.
-
-        Args:
-            label (str): Human-readable label of the node.
-        """
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, label, GraphWorkflowVisualizer.CURRENT
-        )
-        self.mark_node_as_graph(GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, label)
-        self.mark_substep(label, "status", GraphWorkflowVisualizer.CURRENT)
-
     def _execute_justification_fn(
         self, label: str, fn_name: str, runtime: PythonRuntime, dry_run: bool, node: str
     ) -> tuple:
@@ -657,22 +512,11 @@ class PipelineEngine:
             tuple: (status, exception) where status is a StatusType and exception is a string or None.
         """
         if dry_run:
-            self.mark_substep(label, "status", GraphWorkflowVisualizer.DONE)
             return StatusType.PASS, None
 
         try:
             GLOBAL_LOGGER.debug("Calling function '%s' with runtime.", fn_name)
-            self.mark_substep(
-                label, GraphWorkflowVisualizer.CALL_FUNCTION, GraphWorkflowVisualizer.CURRENT
-            )
             result = runtime.call_function(fn_name)
-            self.mark_substep(
-                label, GraphWorkflowVisualizer.CALL_FUNCTION, GraphWorkflowVisualizer.DONE
-            )
-
-            self.mark_substep(
-                label, GraphWorkflowVisualizer.CHECK_RETURN_TYPE, GraphWorkflowVisualizer.CURRENT
-            )
 
             if not isinstance(result, bool):
                 raise FunctionException(
@@ -690,18 +534,9 @@ class PipelineEngine:
                     f"  - The function must return True to indicate a successful check."
                 )
 
-            self.mark_substep(
-                label, GraphWorkflowVisualizer.CHECK_RETURN_TYPE, GraphWorkflowVisualizer.DONE
-            )
             return StatusType.PASS, None
 
         except Exception as e:
-            self.mark_substep(
-                label, GraphWorkflowVisualizer.CALL_FUNCTION, GraphWorkflowVisualizer.FAIL
-            )
-            self.mark_substep(
-                label, GraphWorkflowVisualizer.CHECK_RETURN_TYPE, GraphWorkflowVisualizer.FAIL
-            )
             return StatusType.FAIL, f"{type(e).__name__}: {e}"
 
     def _finalize_node_execution(self, node: str, label: str, status: str):
@@ -713,24 +548,7 @@ class PipelineEngine:
             label (str): Human-readable label.
             status (str): Final execution status (PASS, FAIL, SKIP).
         """
-        self.mark_substep(
-            label, GraphWorkflowVisualizer.HANDLE_RESULT_STATUS, GraphWorkflowVisualizer.CURRENT
-        )
         self.graph.nodes[node]["status"] = status
-
-        visual_status = {
-            StatusType.PASS: GraphWorkflowVisualizer.DONE,
-            StatusType.SKIP: GraphWorkflowVisualizer.SKIP,
-            StatusType.FAIL: GraphWorkflowVisualizer.FAIL,
-        }[status]
-
-        self.mark_substep(label, GraphWorkflowVisualizer.HANDLE_RESULT_STATUS, visual_status)
-        self.mark_substep(GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, label, visual_status)
-
-        if status == StatusType.FAIL:
-            self.mark_step(
-                GraphWorkflowVisualizer.EXECUTE_JUSTIFICATION, GraphWorkflowVisualizer.FAIL
-            )
 
     @staticmethod
     def _format_lost_contributions(fn_name: str) -> Optional[str]:
@@ -772,98 +590,20 @@ class PipelineEngine:
         :param format: Image format string (e.g. "png", "svg", "pdf").
         """
         try:
-            self.mark_substep(
-                GraphWorkflowVisualizer.EXPORT_OUTPUT,
-                GraphWorkflowVisualizer.IMPORTING_PYGRAPHVIZ,
-                GraphWorkflowVisualizer.CURRENT,
-            )
             from networkx.drawing.nx_agraph import to_agraph
-
-            self.mark_substep(
-                GraphWorkflowVisualizer.EXPORT_OUTPUT,
-                GraphWorkflowVisualizer.IMPORTING_PYGRAPHVIZ,
-                GraphWorkflowVisualizer.DONE,
-            )
         except ImportError as e:
-            self.mark_substep(
-                GraphWorkflowVisualizer.EXPORT_OUTPUT,
-                GraphWorkflowVisualizer.IMPORTING_PYGRAPHVIZ,
-                GraphWorkflowVisualizer.FAIL,
-            )
             raise ImportError("pygraphviz is required to enable this feature") from e
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
-            GraphWorkflowVisualizer.CURRENT,
-        )
         resolved_path = self._resolve_output_path(output_path, filename)
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
-            GraphWorkflowVisualizer.DONE,
-        )
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.PREPARE_STYLES,
-            GraphWorkflowVisualizer.CURRENT,
-        )
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.PREPARE_STYLES,
-            GraphWorkflowVisualizer.DONE,
-        )
-
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.CREATE_GRAPH,
-            GraphWorkflowVisualizer.CURRENT,
-        )
         G = self.graph.copy()
         A = to_agraph(G)
         A.graph_attr.update(rankdir="BT")
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.CREATE_GRAPH,
-            GraphWorkflowVisualizer.DONE,
-        )
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.STYLE_NODES,
-            GraphWorkflowVisualizer.CURRENT,
-        )
         self._style_nodes(A, G, status_dict)
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.STYLE_NODES,
-            GraphWorkflowVisualizer.DONE,
-        )
-
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.STYLE_EDGES,
-            GraphWorkflowVisualizer.CURRENT,
-        )
         self._style_edges(A, G, status_dict)
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.STYLE_EDGES,
-            GraphWorkflowVisualizer.DONE,
-        )
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.DRAW_GRAPH,
-            GraphWorkflowVisualizer.CURRENT,
-        )
         A.draw(resolved_path.with_suffix(f".{format}"), format=format, prog="dot")
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.DRAW_GRAPH,
-            GraphWorkflowVisualizer.DONE,
-        )
 
     @staticmethod
     def _resolve_output_path(output_path: str, filename: str) -> Path:
