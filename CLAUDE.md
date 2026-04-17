@@ -105,15 +105,7 @@ Triggered by pushing a `v*.*.*` tag whose version matches `pyproject.toml`. The 
   ```
   Homebrew's Poetry leaks system packages (e.g. `tbb`) into its resolver, breaking plugin installs.
 
-- **Graphviz system dependency**: pygraphviz compiles a C extension — Graphviz headers must be on the compiler path. On macOS with Homebrew:
-  ```bash
-  brew install graphviz
-  export CFLAGS="-I$(brew --prefix graphviz)/include"
-  export LDFLAGS="-L$(brew --prefix graphviz)/lib"
-  poetry install
-  ```
-  Add the two `export` lines to `~/.zshrc` to avoid setting them every session.
-  On Linux: `sudo apt-get install graphviz libgraphviz-dev pkg-config build-essential python3-dev`.
+- **Graphviz system dependency**: the `graphviz` Python package calls the `dot` binary at runtime — only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
 
 - The `setup.py` is only needed for Debian packaging (stdeb); Poetry handles everything else.
 - Python version is pinned to `>=3.11` in `pyproject.toml` but CI only tests 3.11 — consider matrix testing.
