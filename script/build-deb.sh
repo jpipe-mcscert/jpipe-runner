@@ -19,7 +19,6 @@ sudo apt-get install -y \
   debhelper \
   dh-python \
   python3-all \
-  python3.11 \
   python3-setuptools \
   python3-pip \
   lintian
@@ -42,18 +41,16 @@ echo ">>> Cleaning build artifacts"
 rm -rf deb_dist/ dist/ ./*.tar.gz 2>/dev/null || true
 
 # --- 5. Extract version from setup.py ---
-VERSION=$(python3.11 setup.py --version)
+VERSION=$(python3 setup.py --version)
 echo ">>> Detected version: $VERSION"
 
-python3.11 -m pip install --upgrade setuptools stdeb wheel tomli
-# Also install tomli for system python3 (3.10 on Ubuntu 22.04) — debian/rules uses it
-python3 -m pip install --upgrade tomli
+python3 -m pip install --upgrade setuptools stdeb wheel tomli
 
 # --- 6. Build base Debian source package ---
 # FIXME: https://github.com/astraw/stdeb?tab=readme-ov-file#sdist-dsc-distutils-command
 # FIXME: https://manpages.ubuntu.com/manpages/questing/en/man1/lintian.1.html
 echo ">>> Building base source package"
-python3.11 setup.py --command-packages=stdeb.command sdist_dsc
+python3 setup.py --command-packages=stdeb.command sdist_dsc
 
 # Find generated package directory (e.g., deb_dist/jpipe-runner-2.0.0b5)
 BASE_DIR=$(find deb_dist -maxdepth 1 -type d -name "jpipe-runner*" | head -n1)

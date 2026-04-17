@@ -40,8 +40,8 @@ class PipelineEngine:
 
     def __init__(
         self,
-        config_path: str,
-        justification_path: str,
+        config_path: Optional[str],
+        justification_path: Optional[str],
         variables: Optional[Iterable[str]] = None,
     ) -> None:
         """
@@ -50,16 +50,19 @@ class PipelineEngine:
         dependency graphs.
 
         :param config_path: Path to the YAML configuration file.
-        :type config_path: str
+        :type config_path: Optional[str]
         :param justification_path: Path to the justification file.
-        :type justification_path: str
+        :type justification_path: Optional[str]
         :param variables: Optional iterable of (name, value) pairs to set as context variables.
         :type variables: Optional[Iterable[Tuple[str, Any]]]
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
         self.load_config(config_path, variables)
-        self.graph = self.parse_justification(justification_path)
+        if justification_path:
+            self.graph = self.parse_justification(justification_path)
+        else:
+            self.graph = nx.DiGraph()
         GLOBAL_LOGGER.debug(
             "PipelineEngine initialized with context vars count: %d", len(ctx._vars)
         )

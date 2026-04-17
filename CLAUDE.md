@@ -28,7 +28,7 @@ CLI (runner.py:main)
         │     ├─ @jpipe        registers produce/consume + injects args via AST
         │     ├─ @skip         conditional skip
         │     └─ @contribution marks contribution nodes
-        └─ Output / Viz        Graphviz export, optional Tkinter GUI
+        └─ Output / Viz        Graphviz export
 ```
 
 Key design choices:
@@ -49,8 +49,7 @@ Key design choices:
 | `src/jpipe_runner/framework/logger.py` | Logging — **contains a known bug** (see below) |
 | `src/jpipe_runner/framework/decorators/jpipe_decorator.py` | `@jpipe` decorator + AST checks |
 | `src/jpipe_runner/runtime.py` | Dynamic Python module loader |
-| `src/jpipe_runner/GraphWorkflowVisualizer.py` | Optional Tkinter GUI (matplotlib extra) |
-| `pyproject.toml` | Dependencies, entry points, optional extras (`gui`, `docs`, `full`) |
+| `pyproject.toml` | Dependencies, entry points, optional extras (`docs`, `full`) |
 | `.github/workflows/ci.yml` | CI — pytest on push to `main` |
 | `.github/workflows/release.yml` | Multi-stage release pipeline (see Release section) |
 
@@ -67,7 +66,7 @@ Test layout:
 - `tests/unit/` — engine, context, decorators, validators, structure normalisation
 - `tests/e2e/` — full CLI invocations covering success, exceptions, circular deps, missing producers/consumers, self-deps, skip scenarios
 
-Note: no coverage metrics are configured yet (see tech debt backlog).
+Coverage metrics are configured via `pytest-cov` (see `pyproject.toml` and `pytest.ini`).
 
 ## Release Process
 
@@ -77,7 +76,7 @@ Triggered by pushing a `v*.*.*` tag whose version matches `pyproject.toml`. The 
 2. Runs full test suite
 3. Builds Sphinx HTML docs
 4. Builds Python wheel + sdist
-5. Builds `.deb` packages (base + GUI variant) — GPG-signed
+5. Builds the `.deb` package — GPG-signed
 6. Creates GitHub Release with all artifacts
 7. Publishes to PyPI (trusted publishers)
 8. Uploads to Ubuntu PPA (Launchpad)
@@ -117,5 +116,4 @@ Triggered by pushing a `v*.*.*` tag whose version matches `pyproject.toml`. The 
   On Linux: `sudo apt-get install graphviz libgraphviz-dev pkg-config build-essential python3-dev`.
 
 - The `setup.py` is only needed for Debian packaging (stdeb); Poetry handles everything else.
-- GUI extra (`matplotlib`) is distributed as a separate `.deb` package and Homebrew formula.
 - Python version is pinned to `>=3.11` in `pyproject.toml` but CI only tests 3.11 — consider matrix testing.

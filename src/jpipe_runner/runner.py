@@ -70,7 +70,7 @@ def parse_args(argv: list[str] | None = None):
     try:
         version = importlib.metadata.version("jpipe-runner")
         version_info = f" - Version {version}"
-    except ImportError:
+    except (ImportError, importlib.metadata.PackageNotFoundError):
         version_info = ""
 
     parser = argparse.ArgumentParser(
@@ -119,10 +119,10 @@ def parse_args(argv: list[str] | None = None):
         help="Perform a dry run without actually executing justifications",
     )
     parser.add_argument(
-        "--verbose", "-V", action="store_true", help="Enable verbose (debug) output"
+        "--verbose", "-V", action="store_true", help="Enable verbose (info) output"
     )
     parser.add_argument("--config-file", help="Path to the config .yaml file")
-    parser.add_argument("jd_file", help="Path to the justification .jd file")
+    parser.add_argument("jd_file", help="Path to the justification .json file")
 
     return parser.parse_args(argv)
 
@@ -271,8 +271,7 @@ def run_workflow_logic():
     _, _, total_fail, _ = pretty_display([(jpipe.justification_name, justification_result)])
 
     if args.format:
-        output_path = args.output_path.lower()
-        if output_path in {"stdout", "stderr"}:
+        if args.output_path.lower() in {"stdout", "stderr"}:
             print("Streamed diagram output is not supported yet.", file=sys.stderr)
             sys.exit(1)
 
