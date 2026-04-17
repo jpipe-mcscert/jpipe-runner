@@ -178,24 +178,11 @@ class PipelineEngine:
         :rtype: nx.DiGraph
         """
         GLOBAL_LOGGER.info("Parsing justification JSON from: %s", path)
-        try:
-            self.mark_step(
-                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.CURRENT
-            )
-            with open(path, "r") as f:
-                data = json.load(f)
-        except Exception as e:
-            GLOBAL_LOGGER.error("Failed to load JSON justification: %s", e)
-            self.mark_step(
-                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.FAIL
-            )
+
+        data = self._load_justification_json(path)
+        if data is None:
             return nx.DiGraph()
 
-        self.mark_step(
-            GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.DONE
-        )
-
-        # Validate the structure
         self.mark_step(
             GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE, GraphWorkflowVisualizer.CURRENT
         )
@@ -208,15 +195,13 @@ class PipelineEngine:
                 GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE, GraphWorkflowVisualizer.FAIL
             )
             return nx.DiGraph()
-
         self.mark_step(
             GraphWorkflowVisualizer.VALIDATE_JUSTIFICATION_FILE, GraphWorkflowVisualizer.DONE
         )
+
         self.mark_step(
             GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH, GraphWorkflowVisualizer.CURRENT
         )
-
-        # Check if the justification has a name
         self.mark_substep(
             GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
             GraphWorkflowVisualizer.EXTRACTING_JUSTIFICATION_NAME,
@@ -225,7 +210,6 @@ class PipelineEngine:
         if "name" in data:
             self.justification_name = data["name"]
             GLOBAL_LOGGER.info("Justification name set to: %s", self.justification_name)
-
         self.mark_substep(
             GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
             GraphWorkflowVisualizer.EXTRACTING_JUSTIFICATION_NAME,
@@ -234,7 +218,54 @@ class PipelineEngine:
 
         G = nx.DiGraph()
 
-        # Add all nodes
+        if not self._add_nodes_to_graph(G, data):
+            return nx.DiGraph()
+
+        if not self._add_edges_to_graph(G, data):
+            return nx.DiGraph()
+
+        GLOBAL_LOGGER.info(
+            "Parsed %d nodes and %d relations into justification graph.",
+            G.number_of_nodes(),
+            G.number_of_edges(),
+        )
+        self.mark_step(
+            GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH, GraphWorkflowVisualizer.DONE
+        )
+        return G
+
+    def _load_justification_json(self, path: str) -> dict | None:
+        """
+        Load and parse the justification JSON file.
+
+        :param path: Path to the JSON file.
+        :return: Parsed JSON data as a dict, or None on failure.
+        """
+        try:
+            self.mark_step(
+                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.CURRENT
+            )
+            with open(path, "r") as f:
+                data = json.load(f)
+            self.mark_step(
+                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.DONE
+            )
+            return data
+        except Exception as e:
+            GLOBAL_LOGGER.error("Failed to load JSON justification: %s", e)
+            self.mark_step(
+                GraphWorkflowVisualizer.LOAD_JUSTIFICATION_FILE, GraphWorkflowVisualizer.FAIL
+            )
+            return None
+
+    def _add_nodes_to_graph(self, G: nx.DiGraph, data: dict) -> bool:
+        """
+        Add element nodes to the justification graph.
+
+        :param G: The graph to populate.
+        :param data: Parsed justification JSON.
+        :return: True on success, False on KeyError.
+        """
         try:
             self.mark_substep(
                 GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
@@ -243,14 +274,15 @@ class PipelineEngine:
             )
             for element in data.get("elements", []):
                 G.add_node(element["id"], **element)
-                fn_name = sanitize_string(element.get("label", ""))
-                G.nodes[element["id"]]["function_name"] = fn_name
-
+                G.nodes[element["id"]]["function_name"] = sanitize_string(
+                    element.get("label", "")
+                )
             self.mark_substep(
                 GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
                 GraphWorkflowVisualizer.ADDING_NODE_TO_GRAPH,
                 GraphWorkflowVisualizer.DONE,
             )
+            return True
         except KeyError as e:
             GLOBAL_LOGGER.error("Missing required key in justification elements: %s", e)
             self.mark_substep(
@@ -258,10 +290,17 @@ class PipelineEngine:
                 GraphWorkflowVisualizer.ADDING_NODE_TO_GRAPH,
                 GraphWorkflowVisualizer.FAIL,
             )
-            return nx.DiGraph()
+            return False
 
+    def _add_edges_to_graph(self, G: nx.DiGraph, data: dict) -> bool:
+        """
+        Add dependency edges to the justification graph.
+
+        :param G: The graph to populate.
+        :param data: Parsed justification JSON.
+        :return: True on success, False on KeyError.
+        """
         try:
-            # Add directed edges (dependencies)
             self.mark_substep(
                 GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH,
                 GraphWorkflowVisualizer.ADDING_EDGES_TO_GRAPH,
@@ -274,6 +313,7 @@ class PipelineEngine:
                 GraphWorkflowVisualizer.ADDING_EDGES_TO_GRAPH,
                 GraphWorkflowVisualizer.DONE,
             )
+            return True
         except KeyError as e:
             GLOBAL_LOGGER.error("Missing required key in justification relations: %s", e)
             self.mark_substep(
@@ -281,18 +321,7 @@ class PipelineEngine:
                 GraphWorkflowVisualizer.ADDING_EDGES_TO_GRAPH,
                 GraphWorkflowVisualizer.FAIL,
             )
-            return nx.DiGraph()
-
-        GLOBAL_LOGGER.info(
-            "Parsed %d nodes and %d relations into justification graph.",
-            G.number_of_nodes(),
-            G.number_of_edges(),
-        )
-
-        self.mark_step(
-            GraphWorkflowVisualizer.PARSE_JUSTIFICATION_GRAPH, GraphWorkflowVisualizer.DONE
-        )
-        return G
+            return False
 
     @staticmethod
     def get_producer_key(var: str) -> str | None:
@@ -734,12 +763,14 @@ class PipelineEngine:
         self, status_dict: dict[str, str], output_path: str, filename: str, format: str
     ) -> None:
         """
-        Export the justification graph to any image format (png, svg, pdf etc), styling nodes by VariableType and edges by status.
+        Export the justification graph to any image format (png, svg, pdf etc),
+        styling nodes by VariableType and edges by status.
 
         :param status_dict: Mapping node id -> status ("PASS", "FAIL", "SKIP")
-        :param output_path: Path to save the exported graph image.
+        :param output_path: Directory path to save the exported graph image.
+        :param filename: Output filename (without extension).
+        :param format: Image format string (e.g. "png", "svg", "pdf").
         """
-
         try:
             self.mark_substep(
                 GraphWorkflowVisualizer.EXPORT_OUTPUT,
@@ -766,16 +797,7 @@ class PipelineEngine:
             GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
             GraphWorkflowVisualizer.CURRENT,
         )
-
-        # Prepare an output path
-        output_path = Path(output_path)
-
-        if output_path.exists():
-            output_path = output_path / filename
-        else:
-            output_path.mkdir(parents=True, exist_ok=True)
-            output_path = output_path / filename
-
+        resolved_path = self._resolve_output_path(output_path, filename)
         self.mark_substep(
             GraphWorkflowVisualizer.EXPORT_OUTPUT,
             GraphWorkflowVisualizer.PREPARE_OUTPUT_PATH,
@@ -787,14 +809,6 @@ class PipelineEngine:
             GraphWorkflowVisualizer.PREPARE_STYLES,
             GraphWorkflowVisualizer.CURRENT,
         )
-        # Mapping from VariableType to node attributes
-        node_attr_map = {
-            "conclusion": dict(fillcolor="lightgrey", shape="rect", style="filled"),
-            "strategy": dict(fillcolor="palegreen", shape="parallelogram", style="filled"),
-            "sub-conclusion": dict(color="dodgerblue", shape="rect"),
-            "evidence": dict(fillcolor="lightskyblue2", shape="rect", style="filled"),
-            "support": dict(fillcolor="lightcoral", shape="rect", style="filled"),
-        }
         self.mark_substep(
             GraphWorkflowVisualizer.EXPORT_OUTPUT,
             GraphWorkflowVisualizer.PREPARE_STYLES,
@@ -808,10 +822,7 @@ class PipelineEngine:
         )
         G = self.graph.copy()
         A = to_agraph(G)
-
-        A.graph_attr.update(
-            rankdir="BT",  # bottom-to-top layout
-        )
+        A.graph_attr.update(rankdir="BT")
         self.mark_substep(
             GraphWorkflowVisualizer.EXPORT_OUTPUT,
             GraphWorkflowVisualizer.CREATE_GRAPH,
@@ -823,11 +834,69 @@ class PipelineEngine:
             GraphWorkflowVisualizer.STYLE_NODES,
             GraphWorkflowVisualizer.CURRENT,
         )
-        for node in G.nodes(data=True):
-            node_id, attrs = node
-            var_type = attrs.get("type", "").lower()
+        self._style_nodes(A, G, status_dict)
+        self.mark_substep(
+            GraphWorkflowVisualizer.EXPORT_OUTPUT,
+            GraphWorkflowVisualizer.STYLE_NODES,
+            GraphWorkflowVisualizer.DONE,
+        )
 
-            # Apply node style based on VariableType
+        self.mark_substep(
+            GraphWorkflowVisualizer.EXPORT_OUTPUT,
+            GraphWorkflowVisualizer.STYLE_EDGES,
+            GraphWorkflowVisualizer.CURRENT,
+        )
+        self._style_edges(A, G, status_dict)
+        self.mark_substep(
+            GraphWorkflowVisualizer.EXPORT_OUTPUT,
+            GraphWorkflowVisualizer.STYLE_EDGES,
+            GraphWorkflowVisualizer.DONE,
+        )
+
+        self.mark_substep(
+            GraphWorkflowVisualizer.EXPORT_OUTPUT,
+            GraphWorkflowVisualizer.DRAW_GRAPH,
+            GraphWorkflowVisualizer.CURRENT,
+        )
+        A.draw(resolved_path.with_suffix(f".{format}"), format=format, prog="dot")
+        self.mark_substep(
+            GraphWorkflowVisualizer.EXPORT_OUTPUT,
+            GraphWorkflowVisualizer.DRAW_GRAPH,
+            GraphWorkflowVisualizer.DONE,
+        )
+
+    @staticmethod
+    def _resolve_output_path(output_path: str, filename: str) -> Path:
+        """
+        Resolve and prepare the output file path, creating the directory if needed.
+
+        :param output_path: Directory path for the output file.
+        :param filename: Output filename (without extension).
+        :return: Full Path object pointing to the output file location.
+        """
+        path = Path(output_path)
+        if not path.exists():
+            path.mkdir(parents=True, exist_ok=True)
+        return path / filename
+
+    @staticmethod
+    def _style_nodes(A: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
+        """
+        Apply visual styles to graph nodes based on their type and execution status.
+
+        :param A: AGraph (pygraphviz) instance to style.
+        :param G: NetworkX DiGraph with node attribute data.
+        :param status_dict: Mapping of node id -> status string ("PASS", "FAIL", "SKIP").
+        """
+        node_attr_map = {
+            "conclusion": dict(fillcolor="lightgrey", shape="rect", style="filled"),
+            "strategy": dict(fillcolor="palegreen", shape="parallelogram", style="filled"),
+            "sub-conclusion": dict(color="dodgerblue", shape="rect"),
+            "evidence": dict(fillcolor="lightskyblue2", shape="rect", style="filled"),
+            "support": dict(fillcolor="lightcoral", shape="rect", style="filled"),
+        }
+        for node_id, attrs in G.nodes(data=True):
+            var_type = attrs.get("type", "").lower()
             style = node_attr_map.get(
                 var_type, dict(fillcolor="white", shape="ellipse", style="filled")
             )
@@ -835,7 +904,6 @@ class PipelineEngine:
             for k, v in style.items():
                 n.attr[k] = v
 
-            # Add node border color based on status
             status = status_dict.get(node_id, "UNKNOWN")
             logging.info("Setting node color for %s with status %s", node_id, status)
             if status == StatusType.FAIL.name:
@@ -850,22 +918,19 @@ class PipelineEngine:
                 n.attr["fontcolor"] = "white"
                 n.attr["fontname"] = "Helvetica-Bold"
 
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.STYLE_NODES,
-            GraphWorkflowVisualizer.DONE,
-        )
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.STYLE_EDGES,
-            GraphWorkflowVisualizer.CURRENT,
-        )
-        # Color edges based on source node status
+    @staticmethod
+    def _style_edges(A: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
+        """
+        Apply visual styles to graph edges based on the execution status of their source node.
+
+        :param A: AGraph (pygraphviz) instance to style.
+        :param G: NetworkX DiGraph with edge data.
+        :param status_dict: Mapping of node id -> status string ("PASS", "FAIL", "SKIP").
+        """
         for source, target in G.edges():
             status = status_dict.get(source, "UNKNOWN")
             logging.info("Setting edge color for %s -> %s with status %s", source, target, status)
             e = A.get_edge(source, target)
-
             if status == StatusType.PASS.name:
                 e.attr["color"] = "black"
             elif status == StatusType.FAIL.name:
@@ -875,20 +940,3 @@ class PipelineEngine:
                 e.attr["opacity"] = "1"
             else:
                 e.attr["color"] = "gray"
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.STYLE_EDGES,
-            GraphWorkflowVisualizer.DONE,
-        )
-
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.DRAW_GRAPH,
-            GraphWorkflowVisualizer.CURRENT,
-        )
-        A.draw(output_path.with_suffix(f".{format}"), format=format, prog="dot")
-        self.mark_substep(
-            GraphWorkflowVisualizer.EXPORT_OUTPUT,
-            GraphWorkflowVisualizer.DRAW_GRAPH,
-            GraphWorkflowVisualizer.DONE,
-        )
