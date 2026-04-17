@@ -62,9 +62,9 @@ echo "13" > debian/compat
 
 CONTROL_FILE="debian/control"
 if grep -q '^Build-Depends:' "$CONTROL_FILE"; then
-  sed -i 's/^Build-Depends:.*/Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools/' "$CONTROL_FILE"
+  sed -i 's/^Build-Depends:.*/Build-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools, python3-tomli/' "$CONTROL_FILE"
 else
-  sed -i '1aBuild-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools' "$CONTROL_FILE"
+  sed -i '1aBuild-Depends: debhelper (>= 10), dh-python, python3-all, python3-setuptools, python3-tomli' "$CONTROL_FILE"
 fi
 
 # Rename binary package if needed
