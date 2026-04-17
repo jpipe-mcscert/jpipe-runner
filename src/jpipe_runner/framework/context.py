@@ -29,6 +29,13 @@ class RuntimeContext:
                 },
                 ...
             }
+
+    Thread safety:
+        This class and the module-level ``ctx`` singleton are **not thread-safe**.
+        All pipeline functions must run in a single thread. Concurrent access to
+        ``_vars`` (e.g. from threading or async execution) may produce race conditions
+        or data corruption. If parallel execution is needed in future, replace the
+        global singleton with a per-execution context passed explicitly.
     """
 
     PRODUCE = "_produce"
@@ -235,4 +242,4 @@ class RuntimeContext:
         return f"RuntimeContext(vars={self._vars})"
 
 
-ctx = RuntimeContext()
+ctx = RuntimeContext()  # module-level singleton — not thread-safe (see class docstring)
