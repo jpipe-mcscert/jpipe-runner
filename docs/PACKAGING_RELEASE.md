@@ -281,7 +281,7 @@ Here’s what we do, and why:
 ### Adding a new distribution
 
 To add a new distribution to the build process, you need to add the distribution name to the `DISTROS`
-array in the `build-deb.sh` and `build-deb-gui.sh` files.
+array in the `build-deb.sh` file.
 
 ```shell
 DISTROS=("jammy" "noble")

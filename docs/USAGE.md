@@ -27,7 +27,6 @@ executing `jpipe-runner`.**
 | `--dry-run`     |       | Simulate the execution without performing any justifications or outputs (checks justification validity).        |
 | `--verbose`     | `-V`  | Enable verbose/debug logging to help diagnose issues.                                                           |
 | `--config-file` |       | Path to a YAML configuration file that can specify variables, libraries, diagrams, and other settings.          |
-| `--gui`         |       | Launch a graphical interface (Tkinter-based) to visualize and interact with workflow execution steps.           |
 
 ## Supported Output Image Formats
 
@@ -130,18 +129,9 @@ jpipe-runner -l './libraries/notebook.py' --config-file ./config/settings.yaml .
 
 Loads variables, libraries, and other settings from a YAML config file instead of specifying on the command line.
 
-### Launch GUI Visualizer
-
-```bash
-jpipe-runner --gui -l './libraries/notebook.py' ./models/02_quality_full.jd.json
-```
-
-Runs the justification with a Tkinter-based GUI that shows execution steps interactively.
-
 ## Notes
 
 * Multiple `--variable` and `--library` options can be specified by repeating the flags.
 * The `--output-path` must be a valid directory where the output image can be saved.
 * The diagram output format depends on the file extension specified in `--format`.
 * Use `--verbose` to get detailed logs, especially useful for debugging complex justification.
-* The `--gui` mode is helpful for visually inspecting the flow and step execution.

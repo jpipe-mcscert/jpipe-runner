@@ -18,7 +18,7 @@ A Justification Runner designed for jPipe.
 ```bash
 poetry run jpipe-runner [-h] [--variable NAME:VALUE] [--library LIB] \
                          [--diagram PATTERN] [--output FILE] [--dry-run] \
-                         [--verbose] [--config-file PATH] [--gui] jd_file
+                         [--verbose] [--config-file PATH] jd_file
 ```
 
 **Key options:**
@@ -30,8 +30,6 @@ poetry run jpipe-runner [-h] [--variable NAME:VALUE] [--library LIB] \
 * `--dry-run`: Validate workflow without executing.
 * `--verbose`, `-V`: Enable debug logging.
 * `--config-file`: Load workflow config from a YAML file.
-* `--gui`: Launch the Tkinter-based `GraphWorkflowVisualizer`
-
 Example:
 
 ```bash
@@ -48,7 +46,6 @@ For detailed instructions on how to execute the project, including descriptions 
 * Python 3.10+
 * [Poetry](https://python-poetry.org)
 * [Graphviz](https://graphviz.org/) (`libgraphviz-dev`, `pkg-config`)
-* Optional for GUI version: [Tkinter](https://docs.python.org/3/library/tkinter.html)
 
 ### From Source
 

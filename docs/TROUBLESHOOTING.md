@@ -123,7 +123,7 @@ This guide helps you resolve common errors and issues encountered when setting u
 |-------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Windows** | - Use official Python from python.org for best compatibility.<br>- Add all installed tools to PATH.<br>- Use PowerShell or WSL for a better shell experience.               |
 | **Linux**   | - Use native package managers (apt, yum) to install dependencies.<br>- Use virtualenv or Poetry for Python isolation.                                                       |
-| **macOS**   | - Use Homebrew to install system dependencies.<br>- Use Python 3 installed via Homebrew for best compatibility.<br>- GUI apps may require permissions or security settings. |
+| **macOS**   | - Use Homebrew to install system dependencies.<br>- Use Python 3 installed via Homebrew for best compatibility. |
 
 ## 7. General Troubleshooting Tips
 
