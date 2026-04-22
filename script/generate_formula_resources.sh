@@ -5,19 +5,6 @@ poetry export -f requirements.txt --without-hashes -o deps.txt
 
 RESOURCES=""
 
-# Return the first JSON object matching a jq filter from $JSON for $VERSION
-first_release() {
-  echo "$JSON" | jq -rc ".releases[\"$VERSION\"][]? | select($1)" | head -1
-}
-
-resource_block() {
-  local name="$1" data="$2"
-  local url sha256
-  url=$(echo "$data" | jq -r '.url')
-  sha256=$(echo "$data" | jq -r '.digests.sha256')
-  printf '  resource "%s" do\n    url "%s"\n    sha256 "%s"\n  end\n' "$name" "$url" "$sha256"
-}
-
 while read -r dep; do
   [[ "$dep" =~ ^#.*$ ]] && continue
   [[ -z "$dep" ]] && continue
@@ -33,47 +20,30 @@ while read -r dep; do
 
   JSON=$(curl -s "https://pypi.org/pypi/${PKG_NAME}/json")
 
-  # 1. Pure Python wheel (works on all platforms)
-  DATA=$(first_release '(.packagetype == "bdist_wheel") and (.filename | test("(py3|py2\\.py3)-none-any"))')
-  if [[ -n "$DATA" ]]; then
-    RESOURCES+="$(resource_block "$PKG_NAME" "$DATA")"$'\n'
+  # Homebrew's virtualenv_install_with_resources installs from extracted archives,
+  # so sdist (source) is required — wheels are zip files that pip cannot install
+  # from a directory. With `depends_on "rust" => :build` in the formula, packages
+  # like rpds-py that need maturin can compile from source.
+  RELEASE_DATA=$(echo "$JSON" | jq -rc ".releases[\"$VERSION\"][]? | select(.packagetype == \"sdist\")" | head -1)
+
+  # Fall back to wheel only for packages that ship no sdist at all
+  if [[ -z "$RELEASE_DATA" ]]; then
+    RELEASE_DATA=$(echo "$JSON" | jq -rc ".releases[\"$VERSION\"][]? | select(.packagetype == \"bdist_wheel\")" | head -1)
+  fi
+
+  if [[ -z "$RELEASE_DATA" ]]; then
+    echo "Warning: No distribution found for $PKG_NAME $VERSION" >&2
     continue
   fi
 
-  # 2. Universal macOS wheel (works on both arm64 and x86_64)
-  DATA=$(first_release '(.packagetype == "bdist_wheel") and (.filename | test("cp311.*macosx.*universal2"))')
-  if [[ -n "$DATA" ]]; then
-    RESOURCES+="$(resource_block "$PKG_NAME" "$DATA")"$'\n'
-    continue
-  fi
+  URL=$(echo "$RELEASE_DATA" | jq -r '.url')
+  SHA256=$(echo "$RELEASE_DATA" | jq -r '.digests.sha256')
 
-  # 3. Architecture-specific macOS wheels — emit on_arm / on_intel blocks
-  ARM_DATA=$(first_release '(.packagetype == "bdist_wheel") and (.filename | test("cp311.*macosx.*arm64"))')
-  INTEL_DATA=$(first_release '(.packagetype == "bdist_wheel") and (.filename | test("cp311.*macosx.*x86_64"))')
-
-  if [[ -n "$ARM_DATA" || -n "$INTEL_DATA" ]]; then
-    if [[ -n "$ARM_DATA" ]]; then
-      RESOURCES+="  on_arm do"$'\n'
-      RESOURCES+="$(resource_block "$PKG_NAME" "$ARM_DATA" | sed 's/^/  /')"$'\n'
-      RESOURCES+="  end"$'\n'
-    fi
-    if [[ -n "$INTEL_DATA" ]]; then
-      RESOURCES+="  on_intel do"$'\n'
-      RESOURCES+="$(resource_block "$PKG_NAME" "$INTEL_DATA" | sed 's/^/  /')"$'\n'
-      RESOURCES+="  end"$'\n'
-    fi
-    continue
-  fi
-
-  # 4. Fall back to sdist
-  DATA=$(first_release '.packagetype == "sdist"')
-  if [[ -n "$DATA" ]]; then
-    echo "Warning: Using sdist for $PKG_NAME $VERSION (no macOS wheel available)" >&2
-    RESOURCES+="$(resource_block "$PKG_NAME" "$DATA")"$'\n'
-    continue
-  fi
-
-  echo "Warning: No distribution found for $PKG_NAME $VERSION" >&2
+  RESOURCES+="  resource \"$PKG_NAME\" do
+    url \"$URL\"
+    sha256 \"$SHA256\"
+  end
+"
 
 done < deps.txt
 
