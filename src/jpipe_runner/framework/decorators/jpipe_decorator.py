@@ -5,6 +5,7 @@ from functools import wraps
 from typing import Any, Callable, List, Optional
 
 from jpipe_runner.framework.context import RuntimeContext, ctx
+from jpipe_runner.framework.decorators.link_decorator import jpipe_link  # noqa: F401
 from jpipe_runner.framework.logger import GLOBAL_LOGGER
 
 

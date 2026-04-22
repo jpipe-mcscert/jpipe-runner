@@ -115,6 +115,22 @@ class PythonRuntime:
         with group_github_logs():
             return self.__getattr__(name)(*args, **kwargs)
 
+    def build_link_registry(self) -> dict[str, str]:
+        """
+        Scan all loaded modules and return a mapping of element id to attribute name
+        for every callable decorated with @jpipe_link.
+
+        :return: Dict mapping element_id → attr_name in the loaded modules.
+        :rtype: dict[str, str]
+        """
+        registry = {}
+        for module in self._modules:
+            for attr_name in dir(module):
+                obj = getattr(module, attr_name, None)
+                if callable(obj) and (eid := getattr(obj, "__jpipe_link_id__", None)):
+                    registry[eid] = attr_name
+        return registry
+
     def set_variable(self, name: str, value: Any) -> None:
         """
         Set a variable with the given name and value in all modules where it exists.

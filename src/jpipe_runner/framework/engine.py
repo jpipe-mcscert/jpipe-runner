@@ -312,7 +312,7 @@ class PipelineEngine:
                 cycle = None
 
             if cycle:
-                cycle_labels = [self.graph.nodes[n].get("label", n) for n in cycle]
+                cycle_labels = [self.graph.nodes[n].get("label", self._qualified_id(n)) for n in cycle]
                 error_msg = (
                     "[ExecutionOrder]\n"
                     "Pipeline validation error: cycle detected in justification graph.\n"
@@ -358,6 +358,8 @@ class PipelineEngine:
         """
         GLOBAL_LOGGER.info("Running pipeline...")
 
+        self._apply_link_registry(runtime.build_link_registry())
+
         if not self._validate_pipeline():
             return
 
@@ -367,6 +369,52 @@ class PipelineEngine:
 
         for node in execution_order:
             yield self._process_node(node, runtime, dry_run)
+
+    def _apply_link_registry(self, registry: dict[str, str]) -> None:
+        """
+        Override the stored function_name for nodes that have an explicit @jpipe_link binding.
+
+        Called before validation so that all downstream lookups (skip checks, contribution
+        lookups, function dispatch) use the correct function name instead of the sanitized label.
+
+        Supports two id formats:
+        - Plain element id:              ``"e1"``
+        - Qualified id with justification name: ``"performant:e1"``
+
+        :param registry: Mapping of link_id → attr_name produced by runtime.build_link_registry().
+        :type registry: dict[str, str]
+        """
+        for link_id, attr_name in registry.items():
+            node_id = self._resolve_node_id(link_id)
+            if node_id is not None:
+                GLOBAL_LOGGER.debug(
+                    "Linking node '%s' to function '%s' via @jpipe_link.", node_id, attr_name
+                )
+                self.graph.nodes[node_id]["function_name"] = attr_name
+
+    def _qualified_id(self, node_id: str) -> str:
+        """Return the fully qualified node id (``justification_name:node_id``)."""
+        return f"{self.justification_name}:{node_id}"
+
+    def _resolve_node_id(self, link_id: str) -> str | None:
+        """
+        Resolve a @jpipe_link id to a graph node id.
+
+        Accepts plain ids (``"e1"``) or qualified ids (``"justification_name:e1"``).
+        For qualified ids the justification-name prefix must match this pipeline's name.
+
+        :param link_id: The id value passed to @jpipe_link.
+        :type link_id: str
+        :return: The matching graph node id, or None if not found.
+        :rtype: str | None
+        """
+        if link_id in self.graph.nodes:
+            return link_id
+        if ":" in link_id:
+            qualifier, element_id = link_id.rsplit(":", 1)
+            if qualifier == self.justification_name and element_id in self.graph.nodes:
+                return element_id
+        return None
 
     def _validate_pipeline(self) -> bool:
         """
@@ -417,7 +465,7 @@ class PipelineEngine:
         node_data = self.graph.nodes[node]
         node_type = node_data.get("type")
         label = node_data.get("label")
-        fn_name = sanitize_string(label)
+        fn_name = node_data.get("function_name")
         exception = None
 
         GLOBAL_LOGGER.debug("Processing node: %s", node)
@@ -428,7 +476,7 @@ class PipelineEngine:
             status = StatusType.SKIP
             exception = skip_config.get("reason", "Skipped by context")
             GLOBAL_LOGGER.info(
-                f"Skipping function '{fn_name}' for node '{node}' due to context: {exception}"
+                f"Skipping function '{fn_name}' for node '{self._qualified_id(node)}' due to context: {exception}"
             )
 
         # --- Check if predecessor failure or implicit skip should block execution ---
@@ -483,8 +531,7 @@ class PipelineEngine:
         for pred in self.graph.predecessors(node):
             pred_data = self.graph.nodes[pred]
             status = pred_data.get("status")
-            pred_label = pred_data.get("label")
-            fn_name = sanitize_string(pred_label)
+            fn_name = pred_data.get("function_name")
 
             if status is None or status == StatusType.FAIL:
                 return True
@@ -524,14 +571,14 @@ class PipelineEngine:
             if not isinstance(result, bool):
                 raise FunctionException(
                     f"Function '{fn_name}' returned an unexpected type: {type(result).__name__}.\n"
-                    f"  - The function associated with node '{node}' (label: '{label}') must return either True or False.\n"
+                    f"  - The function associated with node '{self._qualified_id(node)}' (label: '{label}') must return either True or False.\n"
                     f"  - Received: {result!r} ({type(result).__name__})\n"
                     f"  - Please ensure the function implementation returns a boolean to indicate pass/fail status correctly."
                 )
             if not result:
                 raise FunctionException(
                     f"\nFunction '{fn_name}' returned False, indicating failure.\n"
-                    f"  - The function associated with node '{node}' (label: '{label}') executed but did not pass its check.\n"
+                    f"  - The function associated with node '{self._qualified_id(node)}' (label: '{label}') executed but did not pass its check.\n"
                     f"  - Please review the implementation and input data for this function.\n"
                     f"  - Returned value: {result!r}\n"
                     f"  - The function must return True to indicate a successful check."

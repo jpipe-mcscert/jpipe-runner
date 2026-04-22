@@ -12,7 +12,6 @@ import logging
 import os
 import shutil
 import sys
-import textwrap
 from typing import Iterable
 
 from jpipe_runner.enums import StatusType
@@ -173,18 +172,15 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
             exception = data.get("exception")
             status = data["status"]
             status_bar = f"| {colored_statuses[status]} |"
-            status_bar_len = len(status_bar)
+            status_bar_visual_len = len(f"| {status.value} |")
 
-            # Format and wrap the main line
-            line_prefix = f"{var_type}<{var_name}> :: "
+            # Format the main line, truncating with "..." if it exceeds available width
+            line_prefix = f"{var_type}<{name}:{var_name}> :: "
             full_line = f"{line_prefix}{label}"
-            wrapped_label_lines = textwrap.wrap(full_line, width=width - status_bar_len - 1)
-
-            for i, line in enumerate(wrapped_label_lines):
-                if i == 0:
-                    print(line.ljust(width - status_bar_len) + status_bar)
-                else:
-                    print(line.ljust(width))
+            max_content = width - status_bar_visual_len - 1
+            if len(full_line) > max_content:
+                full_line = full_line[: max_content - 3] + "..."
+            print(full_line.ljust(width - status_bar_visual_len) + status_bar)
 
             if exception:
                 GLOBAL_LOGGER.warning(exception)
