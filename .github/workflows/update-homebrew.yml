@@ -30,6 +30,9 @@ jobs:
       - name: Add Poetry to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      - name: Install dependencies
+        run: poetry install --no-root
+
       - name: Download source tarball from GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,7 +55,12 @@ jobs:
           export PYTHON_VERSION="${{ env.PYTHON_VERSION }}"
           mkdir -p tap/Formula
 
-          export RESOURCES="$(bash script/generate_formula_resources.sh)"
+          RESOURCES="$(bash script/generate_formula_resources.sh)"
+          if [[ -z "$RESOURCES" ]]; then
+            echo "ERROR: resource generation produced no output" >&2
+            exit 1
+          fi
+          export RESOURCES
           envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
 
           export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
