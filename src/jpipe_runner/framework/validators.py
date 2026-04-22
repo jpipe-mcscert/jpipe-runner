@@ -1,10 +1,16 @@
+import importlib.resources
+import json
 from typing import Any
 
+import jsonschema
 import networkx as nx
 
 from jpipe_runner.framework.context import RuntimeContext
 
 from .logger import GLOBAL_LOGGER
+
+_schema_file = importlib.resources.files("jpipe_runner.schema").joinpath("justification.schema.json")
+JUSTIFICATION_JSON_SCHEMA = json.loads(_schema_file.read_text(encoding="utf-8"))
 
 
 class BaseValidator:
@@ -522,9 +528,6 @@ class JustificationSchemaValidator:
         ValueError: If any structural validation check fails.
     """
 
-    REQUIRED_TOP_KEYS = {"name", "type", "elements", "relations"}
-    VALID_TYPES = {"evidence", "strategy", "conclusion", "sub-conclusion"}
-
     def __init__(self, data: dict[str, Any]) -> None:
         """
         Initialize the validator with parsed justification JSON data.
@@ -539,19 +542,21 @@ class JustificationSchemaValidator:
         """
         Executes the full validation pipeline on the justification structure.
 
-        Steps:
-        - Verifies the presence of top-level keys.
-        - Validates individual elements for required structure and valid types.
-        - Validates that relations correctly reference existing element IDs.
+        Structural validation (required fields, types, enums) is delegated to
+        ``JUSTIFICATION_JSON_SCHEMA`` via ``jsonschema``. Semantic checks that
+        go beyond what JSON Schema can express (ID uniqueness, cross-references)
+        are handled by the private helper methods below.
 
-        :raises ValueError: If any of the structural checks fail.
+        :raises ValueError: If any structural or semantic check fails.
         """
         GLOBAL_LOGGER.debug("Starting justification schema validation")
 
-        missing = self.REQUIRED_TOP_KEYS - self.data.keys()
-        if missing:
-            raise ValueError(f"Missing top-level key(s): {missing}")
-        GLOBAL_LOGGER.info("Top-level keys validated")
+        try:
+            jsonschema.validate(instance=self.data, schema=JUSTIFICATION_JSON_SCHEMA)
+        except jsonschema.ValidationError as e:
+            raise ValueError(e.message) from e
+
+        GLOBAL_LOGGER.info("Top-level keys and structural constraints validated via JSON Schema")
 
         self._validate_elements()
         self._validate_relations()
@@ -560,53 +565,26 @@ class JustificationSchemaValidator:
 
     def _validate_elements(self) -> None:
         """
-        Validates the structure of each element in the justification.
+        Checks that all element IDs are unique (semantic check not expressible in JSON Schema).
 
-        Each element must:
-        - Be a dictionary with `id`, `label`, and `type` keys.
-        - Have a `type` that is among the allowed VALID_TYPES.
-        - Use a unique `id` across all elements.
-
-        :raises ValueError: If any element is invalid or duplicates are found.
+        :raises ValueError: If duplicate element IDs are found.
         """
-        elements = self.data.get("elements", [])
-        if not isinstance(elements, list):
-            raise ValueError("'elements' must be a list")
-
-        for i, element in enumerate(elements):
-            for key in ["id", "label", "type"]:
-                if key not in element:
-                    raise ValueError(f"Element {i} is missing required key '{key}'")
-
-            if element["type"] not in self.VALID_TYPES:
-                raise ValueError(f"Invalid type '{element['type']}' in element '{element['id']}'")
-
+        for element in self.data.get("elements", []):
             if element["id"] in self.element_ids:
                 raise ValueError(f"Duplicate element id: '{element['id']}'")
-
             self.element_ids.add(element["id"])
 
-        GLOBAL_LOGGER.debug("All elements validated: %s", self.element_ids)
+        GLOBAL_LOGGER.debug("All element IDs validated for uniqueness: %s", self.element_ids)
 
     def _validate_relations(self) -> None:
         """
-        Validates the structure and references of each relation in the justification.
+        Checks that every relation source/target references an existing element ID.
 
-        Each relation must:
-        - Be a dictionary with `source` and `target` keys.
-        - Reference only valid element IDs defined in the `elements` section.
-
-        :raises ValueError: If relations are malformed or refer to unknown elements.
+        :raises ValueError: If a relation references an unknown element ID.
         """
         relations = self.data.get("relations", [])
-        if not isinstance(relations, list):
-            raise ValueError("'relations' must be a list")
-
         for i, rel in enumerate(relations):
             for key in ["source", "target"]:
-                if key not in rel:
-                    raise ValueError(f"Relation {i} is missing required key '{key}'")
-
                 if rel[key] not in self.element_ids:
                     raise ValueError(f"Relation {i} refers to unknown {key} id '{rel[key]}'")
 

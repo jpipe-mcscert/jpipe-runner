@@ -242,7 +242,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
                 validator = JustificationSchemaValidator(data)
                 with self.assertRaises(ValueError) as context:
                     validator.validate()
-                self.assertIn("Missing top-level key(s)", str(context.exception))
+                self.assertIn("is a required property", str(context.exception))
 
     def test_invalid_element_type_raises(self):
         data = self.valid_justification.copy()
@@ -250,7 +250,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
         validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
-        self.assertEqual(str(context.exception), "Invalid type 'banana' in element 'e1'")
+        self.assertIn("'banana' is not one of", str(context.exception))
 
     def test_duplicate_element_ids_raises(self):
         data = self.valid_justification.copy()
@@ -269,7 +269,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
         validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
-        self.assertIn("is missing required key 'type'", str(context.exception))
+        self.assertIn("'type' is a required property", str(context.exception))
 
     def test_non_list_elements_raises(self):
         data = self.valid_justification.copy()
@@ -277,7 +277,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
         validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
-        self.assertIn("'elements' must be a list", str(context.exception))
+        self.assertIn("is not of type 'array'", str(context.exception))
 
     def test_non_list_relations_raises(self):
         data = self.valid_justification.copy()
@@ -285,7 +285,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
         validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
-        self.assertIn("'relations' must be a list", str(context.exception))
+        self.assertIn("is not of type 'array'", str(context.exception))
 
     def test_relation_missing_keys_raises(self):
         data = self.valid_justification.copy()
@@ -293,7 +293,7 @@ class TestJustificationSchemaValidator(unittest.TestCase):
         validator = JustificationSchemaValidator(data)
         with self.assertRaises(ValueError) as context:
             validator.validate()
-        self.assertIn("is missing required key 'target'", str(context.exception))
+        self.assertIn("'target' is a required property", str(context.exception))
 
     def test_relation_with_unknown_id_raises(self):
         data = self.valid_justification.copy()
@@ -304,6 +304,35 @@ class TestJustificationSchemaValidator(unittest.TestCase):
         self.assertEqual(
             str(context.exception), "Relation 0 refers to unknown source id 'unknown_id'"
         )
+
+
+    def test_optional_escaped_field_is_allowed(self):
+        data = {
+            **self.valid_justification,
+            "elements": [{"id": "e1", "label": "L", "type": "evidence", "escaped": "l"}],
+            "relations": [],
+        }
+        try:
+            JustificationSchemaValidator(data).validate()
+        except Exception as e:
+            self.fail(f"escaped field raised unexpected exception: {e}")
+
+    def test_invalid_top_level_type_raises(self):
+        data = {**self.valid_justification, "type": "not_justification"}
+        with self.assertRaises(ValueError) as context:
+            JustificationSchemaValidator(data).validate()
+        self.assertIn("is not one of", str(context.exception))
+
+    def test_extra_element_fields_are_allowed(self):
+        data = {
+            **self.valid_justification,
+            "elements": [{"id": "e1", "label": "L", "type": "evidence", "extra": "ok"}],
+            "relations": [],
+        }
+        try:
+            JustificationSchemaValidator(data).validate()
+        except Exception as e:
+            self.fail(f"extra element field raised unexpected exception: {e}")
 
 
 if __name__ == "__main__":

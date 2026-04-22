@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Justification Pipeline",
+  "type": "object",
+  "required": ["name", "type", "elements", "relations"],
+  "properties": {
+    "name": {"type": "string"},
+    "type": {"type": "string", "enum": ["justification"]},
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "type"],
+        "properties": {
+          "id":      {"type": "string"},
+          "label":   {"type": "string"},
+          "type":    {"type": "string",
+                      "enum": ["evidence", "strategy", "conclusion", "sub-conclusion"]},
+          "escaped": {"type": "string"}
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target"],
+        "properties": {
+          "source": {"type": "string"},
+          "target": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
