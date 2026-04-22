@@ -128,6 +128,11 @@ class PythonRuntime:
             for attr_name in dir(module):
                 obj = getattr(module, attr_name, None)
                 if callable(obj) and (eid := getattr(obj, "__jpipe_link_id__", None)):
+                    if eid in registry and registry[eid] != attr_name:
+                        raise RuntimeException(
+                            f"Duplicate @jpipe_link id '{eid}': bound to both "
+                            f"'{registry[eid]}' and '{attr_name}'"
+                        )
                     registry[eid] = attr_name
         return registry
 

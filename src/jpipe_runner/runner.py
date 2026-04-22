@@ -179,7 +179,12 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
             full_line = f"{line_prefix}{label}"
             max_content = width - status_bar_visual_len - 1
             if len(full_line) > max_content:
-                full_line = full_line[: max_content - 3] + "..."
+                if max_content <= 0:
+                    full_line = ""
+                elif max_content <= 3:
+                    full_line = "..."[:max_content]
+                else:
+                    full_line = full_line[: max_content - 3] + "..."
             print(full_line.ljust(width - status_bar_visual_len) + status_bar)
 
             if exception:

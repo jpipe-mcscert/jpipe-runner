@@ -312,7 +312,12 @@ class PipelineEngine:
                 cycle = None
 
             if cycle:
-                cycle_labels = [self.graph.nodes[n].get("label", self._qualified_id(n)) for n in cycle]
+                cycle_labels = [
+                    f"{label} ({self._qualified_id(n)})"
+                    if (label := self.graph.nodes[n].get("label"))
+                    else self._qualified_id(n)
+                    for n in cycle
+                ]
                 error_msg = (
                     "[ExecutionOrder]\n"
                     "Pipeline validation error: cycle detected in justification graph.\n"

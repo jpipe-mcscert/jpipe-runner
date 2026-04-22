@@ -1,7 +1,9 @@
-from typing import Callable
+from typing import Callable, TypeVar
+
+F = TypeVar("F", bound=Callable)
 
 
-def jpipe_link(element_id: str) -> Callable:
+def jpipe_link(element_id: str) -> Callable[[F], F]:
     """
     Decorator to explicitly bind a Python function to a JSON pipeline element by its id.
 
@@ -24,7 +26,7 @@ def jpipe_link(element_id: str) -> Callable:
             return True
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: F) -> F:
         func.__jpipe_link_id__ = element_id
         return func
 
