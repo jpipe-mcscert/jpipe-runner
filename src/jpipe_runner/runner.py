@@ -15,6 +15,7 @@ import sys
 from typing import Iterable
 
 from jpipe_runner.enums import StatusType
+from jpipe_runner.exceptions import RuntimeException
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
 from jpipe_runner.runtime import PythonRuntime
@@ -244,7 +245,11 @@ def run_workflow_logic():
         print("Please check the provided library paths.", file=sys.stderr)
         sys.exit(1)
 
-    runtime = PythonRuntime(libraries=[i for lib in args.library for i in glob.glob(lib)])
+    try:
+        runtime = PythonRuntime(libraries=[i for lib in args.library for i in glob.glob(lib)])
+    except RuntimeException as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
 
     jpipe = PipelineEngine(
         config_path=args.config_file,

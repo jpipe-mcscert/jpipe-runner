@@ -68,7 +68,12 @@ class PythonRuntime:
         module_name, _ = os.path.splitext(os.path.basename(file_path))
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        try:
+            spec.loader.exec_module(module)
+        except ValueError as e:
+            raise RuntimeException(
+                f"Error loading '{file_path}':\n{e}"
+            ) from None
 
         self._modules.append(module)
 
