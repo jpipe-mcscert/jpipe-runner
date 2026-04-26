@@ -176,7 +176,7 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
             status_bar_visual_len = len(f"| {status.value} |")
 
             # Format the main line, truncating with "..." if it exceeds available width
-            line_prefix = f"{var_type}<{name}:{var_name}> :: "
+            line_prefix = f"{var_type}<{var_name}> :: "
             full_line = f"{line_prefix}{label}"
             max_content = width - status_bar_visual_len - 1
             if len(full_line) > max_content:
