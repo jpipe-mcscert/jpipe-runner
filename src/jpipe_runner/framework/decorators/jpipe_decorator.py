@@ -45,16 +45,25 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
 
 
 def _check_produce_param(func: Callable, produce: List[str]) -> None:
-    if not produce:
-        return
     params = list(inspect.signature(func).parameters)
-    if not params or params[-1] != "produce":
+    last_is_produce = bool(params) and params[-1] == "produce"
+
+    if produce and not last_is_produce:
         raise ValueError(
             f"[jpipe] Function '{func.__name__}' declares produce={produce!r} "
             f"but its last parameter is not 'produce'.\n"
             f"  • Actual signature: {func.__name__}({', '.join(params)})\n"
             f"  • Fix: add 'produce' as the final parameter, "
             f"typed as Callable[[str, Any], None]."
+        )
+
+    if last_is_produce and not produce:
+        raise ValueError(
+            f"[jpipe] Function '{func.__name__}' has 'produce' as its last parameter "
+            f"but does not declare produce=[...] in @jpipe.\n"
+            f"  • Actual signature: {func.__name__}({', '.join(params)})\n"
+            f"  • Fix: either add produce=[\"var_name\", ...] to @jpipe, "
+            f"or remove the 'produce' parameter if the function produces no variables."
         )
 
 

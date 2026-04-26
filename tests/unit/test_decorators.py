@@ -281,6 +281,14 @@ class TestProduceParamCheck(unittest.TestCase):
             return x
         # No exception even though there's no produce param
 
+    def test_produce_param_present_but_produce_list_empty_raises_error(self):
+        with self.assertRaises(ValueError) as cm:
+            @jpipe(consume=["x"], produce=[])
+            def func(x, produce):  # has 'produce' param but produce=[]
+                return x
+        self.assertIn("produce", str(cm.exception))
+        self.assertIn("produce=[", str(cm.exception))
+
 
 class TestAstLoadOnlyDetectsReads(unittest.TestCase):
     def setUp(self):
