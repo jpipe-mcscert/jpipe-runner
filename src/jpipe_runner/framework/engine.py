@@ -20,6 +20,7 @@ from .validators import (
     OrderValidator,
     ProducedButNotConsumedValidator,
     SelfDependencyValidator,
+    UnboundElementValidator,
 )
 
 
@@ -58,6 +59,7 @@ class PipelineEngine:
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
+        self._link_registry: dict[str, str] = {}
         self.load_config(config_path, variables)
         if justification_path:
             self.graph = self.parse_justification(justification_path)
@@ -270,6 +272,7 @@ class PipelineEngine:
             ProducedButNotConsumedValidator(self, ctx),
             DuplicateProducerValidator(self, ctx),
             EvidenceDependencyValidator(self, ctx, self.graph),
+            UnboundElementValidator(self, ctx, self._link_registry),
         ]
 
         all_passed = True
@@ -389,6 +392,7 @@ class PipelineEngine:
         :param registry: Mapping of link_id → attr_name produced by runtime.build_link_registry().
         :type registry: dict[str, str]
         """
+        self._link_registry = registry
         for link_id, attr_name in registry.items():
             node_id = self._resolve_node_id(link_id)
             if node_id is not None:

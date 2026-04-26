@@ -54,19 +54,15 @@ class TestConsumedVariableChecker(unittest.TestCase):
             matching_logs, "Expected error log about missing consumed variable 'a' not found."
         )
 
-    def test_inject_arguments_warns_for_unused_param(self):
-        def func(x):  # declares 'a' but does not use it
+    def test_register_variables_raises_error_for_unused_param(self):
+        def func(x):  # declares 'a' in consume but does not use it
             return x
 
         checker = ConsumedVariableChecker(func, ("a",))
-        checker.register_variables()
-        ctx._set("func", "a", 123, RuntimeContext.CONSUME)
-        ctx.set("a", 123)
-        with patch("jpipe_runner.framework.validators.GLOBAL_LOGGER.warning") as mock_warn:
-            checker.inject_arguments({})
-            mock_warn.assert_called_with(
-                "Consumed variable 'a' is declared but not used in function 'func'."
-            )
+        with self.assertRaises(ValueError) as cm:
+            checker.register_variables()
+        self.assertIn("'a'", str(cm.exception))
+        self.assertIn("never referenced", str(cm.exception))
 
     def test_get_used_variables_returns_correct_vars(self):
         def f(x, y):
@@ -248,6 +244,66 @@ class TestProduceDecorator(unittest.TestCase):
         self.assertTrue(
             matching_logs, "Expected error log about missing produced variable 'out2' not found."
         )
+
+
+class TestProduceParamCheck(unittest.TestCase):
+    def setUp(self):
+        self.ctx_backup = ctx._vars.copy()
+        ctx._vars.clear()
+
+    def tearDown(self):
+        ctx._vars = self.ctx_backup
+
+    def test_produce_param_missing_raises_error(self):
+        with self.assertRaises(ValueError) as cm:
+            @jpipe(produce=["out"])
+            def func():  # missing 'produce' as last param
+                pass
+        self.assertIn("produce", str(cm.exception))
+        self.assertIn("last parameter", str(cm.exception))
+
+    def test_produce_param_not_last_raises_error(self):
+        with self.assertRaises(ValueError) as cm:
+            @jpipe(produce=["out"])
+            def func(produce, x):  # produce is not last
+                produce("out", x)
+        self.assertIn("produce", str(cm.exception))
+
+    def test_produce_param_last_passes(self):
+        @jpipe(produce=["out"])
+        def func(produce):
+            produce("out", 1)
+        # No exception raised
+
+    def test_no_produce_decl_skips_check(self):
+        @jpipe(consume=["x"])
+        def func(x):
+            return x
+        # No exception even though there's no produce param
+
+
+class TestAstLoadOnlyDetectsReads(unittest.TestCase):
+    def setUp(self):
+        self.ctx_backup = ctx._vars.copy()
+        ctx._vars.clear()
+
+    def tearDown(self):
+        ctx._vars = self.ctx_backup
+
+    def test_variable_not_in_body_is_not_counted_as_use(self):
+        def func(x):
+            return True  # x is never read in Load context
+
+        checker = ConsumedVariableChecker(func, ("x",))
+        with self.assertRaises(ValueError):
+            checker.register_variables()
+
+    def test_load_use_is_counted(self):
+        def func(x):
+            return x + 1  # x used in Load context
+
+        checker = ConsumedVariableChecker(func, ("x",))
+        checker.register_variables()  # Should not raise
 
 
 if __name__ == "__main__":
