@@ -24,6 +24,8 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
         _check_produce_param(func, produce)
         consume_checker = _init_checker(ConsumedVariableChecker, func, consume)
         produce_checker = _init_checker(ProducedVariableChecker, func, produce)
+        params = list(inspect.signature(func).parameters)
+        _has_produce_slot = bool(params) and params[-1] == "produce"
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -31,6 +33,8 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
                 kwargs = consume_checker.inject_arguments(kwargs)
             if produce_checker:
                 kwargs["produce"] = produce_checker.produce
+            elif _has_produce_slot:
+                kwargs["produce"] = _noop_produce
 
             result = func(*args, **kwargs)
 
@@ -45,10 +49,10 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
 
 
 def _check_produce_param(func: Callable, produce: List[str]) -> None:
+    if not produce:
+        return
     params = list(inspect.signature(func).parameters)
-    last_is_produce = bool(params) and params[-1] == "produce"
-
-    if produce and not last_is_produce:
+    if not params or params[-1] != "produce":
         raise ValueError(
             f"[jpipe] Function '{func.__name__}' declares produce={produce!r} "
             f"but its last parameter is not 'produce'.\n"
@@ -57,14 +61,11 @@ def _check_produce_param(func: Callable, produce: List[str]) -> None:
             f"typed as Callable[[str, Any], None]."
         )
 
-    if last_is_produce and not produce:
-        raise ValueError(
-            f"[jpipe] Function '{func.__name__}' has 'produce' as its last parameter "
-            f"but does not declare produce=[...] in @jpipe.\n"
-            f"  • Actual signature: {func.__name__}({', '.join(params)})\n"
-            f"  • Fix: either add produce=[\"var_name\", ...] to @jpipe, "
-            f"or remove the 'produce' parameter if the function produces no variables."
-        )
+
+def _noop_produce(name: str, value: Any) -> None:
+    # Intentional no-op: allows functions to keep a produce param for consistency
+    # when produce=[] — calls are accepted and silently discarded.
+    pass
 
 
 def _init_checker(

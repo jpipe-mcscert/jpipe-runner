@@ -281,13 +281,16 @@ class TestProduceParamCheck(unittest.TestCase):
             return x
         # No exception even though there's no produce param
 
-    def test_produce_param_present_but_produce_list_empty_raises_error(self):
-        with self.assertRaises(ValueError) as cm:
-            @jpipe(consume=["x"], produce=[])
-            def func(x, produce):  # has 'produce' param but produce=[]
-                return x
-        self.assertIn("produce", str(cm.exception))
-        self.assertIn("produce=[", str(cm.exception))
+    def test_produce_param_with_empty_list_passes_and_injects_noop(self):
+        @jpipe(consume=["x"], produce=[])
+        def func(x, produce):
+            produce("ignored", x)  # no-op: produce=[] so nothing is registered
+            return x
+
+        ctx._set("func", "x", None, RuntimeContext.CONSUME)
+        ctx.set("x", 7)
+        result = func()
+        self.assertEqual(result, 7)
 
 
 class TestAstLoadOnlyDetectsReads(unittest.TestCase):
