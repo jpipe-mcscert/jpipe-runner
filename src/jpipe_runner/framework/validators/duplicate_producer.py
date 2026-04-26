@@ -39,7 +39,7 @@ class DuplicateProducerValidator(BaseValidator):
                     f"    - Choose a single function to produce '{var}' and remove it from the others.\n"
                     "    - If multiple outputs are required, consider renaming or splitting the variables.\n"
                 )
-                self.warnings.append(error_message)
+                self.errors.append(error_message)
 
         GLOBAL_LOGGER.info(
             f"DuplicateProducerValidator completed with {len(self.errors)} error(s)."

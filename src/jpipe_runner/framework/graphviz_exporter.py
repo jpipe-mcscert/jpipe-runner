@@ -5,13 +5,13 @@ jpipe_runner.framework.graphviz_exporter
 Graphviz rendering for justification pipeline graphs.
 """
 
-import logging
 from pathlib import Path
 from typing import Any
 
 import networkx as nx
 
 from ..enums import StatusType
+from .logger import GLOBAL_LOGGER
 
 
 class GraphvizExporter:
@@ -74,7 +74,7 @@ class GraphvizExporter:
             ))
 
             status = status_dict.get(node_id, "UNKNOWN")
-            logging.info("Setting node color for %s with status %s", node_id, status)
+            GLOBAL_LOGGER.info("Setting node color for %s with status %s", node_id, status)
             if status == StatusType.FAIL.name:
                 style.update(style="filled", fillcolor="red", fontcolor="white", fontname="Helvetica-Bold")
             elif status == StatusType.SKIP.name:
@@ -87,7 +87,7 @@ class GraphvizExporter:
         """Add edges to *dot* colored by the source node's execution status."""
         for source, target in self.graph.edges():
             status = status_dict.get(source, "UNKNOWN")
-            logging.info("Setting edge color for %s -> %s with status %s", source, target, status)
+            GLOBAL_LOGGER.info("Setting edge color for %s -> %s with status %s", source, target, status)
             if status == StatusType.PASS.name:
                 dot.edge(self._dot_id(source), self._dot_id(target), color="black")
             elif status == StatusType.FAIL.name:

@@ -32,20 +32,16 @@ class SelfDependencyValidator(BaseValidator):
                 )
                 if producer_key == func_key:
                     self.errors.append(
-                        (
-                            "[SelfDependencyValidator]\n"
-                            "Pipeline validation error: self-dependency detected.\n"
-                            f"  • Function '{func_key}' declares variable '{var}' as both consumed and produced by itself.\n"
-                            "    This is likely a misconfiguration:\n"
-                            "      - If '{var}' should come from outside, remove it from this function's produce list\n"
-                            "        and ensure an external provider supplies it.\n"
-                            "      - If this function is the sole producer for downstream use, remove '{var}' from its consume list.\n"
-                            "      - If you truly need to consume an initial '{var}' and then produce an updated '{var}',\n"
-                            "        ensure that initial '{var}' is provided in context or by another function under a distinct name,\n"
-                            "        so the dependency graph does not treat the same function as its own producer.\n"
-                        )
-                        .replace("{var}", var)
-                        .replace("{func_key}", func_key)
+                        "[SelfDependencyValidator]\n"
+                        "Pipeline validation error: self-dependency detected.\n"
+                        f"  • Function '{func_key}' declares variable '{var}' as both consumed and produced by itself.\n"
+                        "    This is likely a misconfiguration:\n"
+                        f"      - If '{var}' should come from outside, remove it from this function's produce list\n"
+                        "        and ensure an external provider supplies it.\n"
+                        f"      - If this function is the sole producer for downstream use, remove '{var}' from its consume list.\n"
+                        f"      - If you truly need to consume an initial '{var}' and then produce an updated '{var}',\n"
+                        f"        ensure that initial '{var}' is provided in context or by another function under a distinct name,\n"
+                        f"        so the dependency graph does not treat the same function as its own producer.\n"
                     )
         GLOBAL_LOGGER.info(f"SelfDependencyValidator completed with {len(self.errors)} error(s).")
         return self.errors, self.warnings

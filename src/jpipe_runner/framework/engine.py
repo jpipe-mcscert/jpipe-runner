@@ -493,7 +493,10 @@ class PipelineEngine:
 
         # --- Attempt function execution (or dry-run) ---
         elif node_type in {"evidence", "strategy"} or (
-            node_type == "sub-conclusion" and node in self._link_registry
+            node_type == "sub-conclusion" and (
+                node in self._link_registry
+                or f"{self.justification_name}:{node}" in self._link_registry
+            )
         ):
             status, exception = self._execute_justification_fn(
                 label, fn_name, runtime, dry_run, node

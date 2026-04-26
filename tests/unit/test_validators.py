@@ -193,11 +193,11 @@ class TestDuplicateProducerValidator(unittest.TestCase):
             "func_b": {RuntimeContext.PRODUCE: {"x": None}},
         }
 
-        _, warnings = self.validator.validate()
-        self.assertEqual(len(warnings), 1)
-        self.assertIn("Variable 'x' is produced by multiple functions", warnings[0])
-        self.assertIn("func_a", warnings[0])
-        self.assertIn("func_b", warnings[0])
+        errors, _ = self.validator.validate()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Variable 'x' is produced by multiple functions", errors[0])
+        self.assertIn("func_a", errors[0])
+        self.assertIn("func_b", errors[0])
 
     def test_multiple_duplicates(self):
         # Simulate multiple variables with duplicate producers
@@ -207,10 +207,10 @@ class TestDuplicateProducerValidator(unittest.TestCase):
             "func_c": {RuntimeContext.PRODUCE: {"x": None}},
         }
 
-        _, warnings = self.validator.validate()
-        self.assertEqual(len(warnings), 2)
-        self.assertTrue(any("Variable 'x'" in e for e in warnings))
-        self.assertTrue(any("Variable 'y'" in e for e in warnings))
+        errors, _ = self.validator.validate()
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("Variable 'x'" in e for e in errors))
+        self.assertTrue(any("Variable 'y'" in e for e in errors))
 
     def test_empty_context(self):
         self.mock_ctx._vars = {}
