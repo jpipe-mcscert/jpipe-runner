@@ -493,12 +493,14 @@ class PipelineEngine:
             status = StatusType.SKIP
 
         # --- Attempt function execution (or dry-run) ---
-        elif node_type in {"evidence", "strategy"}:
+        elif node_type in {"evidence", "strategy"} or (
+            node_type == "sub-conclusion" and node in self._link_registry
+        ):
             status, exception = self._execute_justification_fn(
                 label, fn_name, runtime, dry_run, node
             )
 
-        # --- Default handling for conclusion nodes ---
+        # --- Default handling for conclusion and unbound sub-conclusion nodes ---
         else:
             status = StatusType.PASS
 
