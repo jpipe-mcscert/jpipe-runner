@@ -76,6 +76,8 @@ cat > debian/rules <<'EOF'
 #!/usr/bin/make -f
 %:
 	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_test:
 EOF
 chmod +x debian/rules
 
