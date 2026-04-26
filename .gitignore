@@ -52,6 +52,7 @@ pyvenv.cfg
 # IDEs
 /.idea
 /.vscode
+.claude
 
 # macOS
 .DS_Store
