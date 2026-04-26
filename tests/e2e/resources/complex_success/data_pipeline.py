@@ -1,6 +1,7 @@
 import os
 
 from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
+from jpipe_runner.framework.decorators.link_decorator import jpipe_link
 
 ###### Justification: vaccination_campaign ######
 
@@ -8,6 +9,7 @@ from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
 # -------------------------
 # 1) Evidence functions (defined first)
 # -------------------------
+@jpipe_link("press_release")
 @jpipe(consume=["press_release_path", "settings"], produce=["press_release"])
 def approved_press_release_document(press_release_path: str, settings: dict, produce) -> bool:
     threshold = settings["thresholds"]["pass_size"]
@@ -16,6 +18,7 @@ def approved_press_release_document(press_release_path: str, settings: dict, pro
     return result
 
 
+@jpipe_link("social_posts")
 @jpipe(consume=["social_posts_path", "settings"], produce=["social_posts"])
 def set_of_preapproved_social_media_posts_and_graphics(
     social_posts_path: str, settings: dict, produce
@@ -26,6 +29,7 @@ def set_of_preapproved_social_media_posts_and_graphics(
     return result
 
 
+@jpipe_link("event_calendar")
 @jpipe(consume=["event_calendar_path", "settings"], produce=["event_calendar"])
 def list_of_scheduled_events_with_dates_and_venues(
     event_calendar_path: str, settings: dict, produce
@@ -41,6 +45,7 @@ def list_of_scheduled_events_with_dates_and_venues(
     return result
 
 
+@jpipe_link("speakers_list")
 @jpipe(consume=["speakers_list_path"], produce=["speakers_list"])
 def list_of_trained_community_speakers(speakers_list_path: str, produce) -> bool:
     if not os.path.isfile(speakers_list_path):
@@ -53,6 +58,7 @@ def list_of_trained_community_speakers(speakers_list_path: str, produce) -> bool
     return result
 
 
+@jpipe_link("fleet_available")
 @jpipe(consume=["fleet_info_path"], produce=["fleet_available"])
 def three_operational_mobile_medical_units(fleet_info_path: str, produce) -> bool:
     if not os.path.isfile(fleet_info_path):
@@ -65,6 +71,7 @@ def three_operational_mobile_medical_units(fleet_info_path: str, produce) -> boo
     return result
 
 
+@jpipe_link("trained_staff")
 @jpipe(consume=["staff_roster_path"], produce=["trained_staff"])
 def roster_of_trained_vaccination_staff_for_mobile_units(staff_roster_path: str, produce) -> bool:
     if not os.path.isfile(staff_roster_path):
@@ -77,6 +84,7 @@ def roster_of_trained_vaccination_staff_for_mobile_units(staff_roster_path: str,
     return result
 
 
+@jpipe_link("schedule_plan")
 @jpipe(consume=["schedule_plan_path"], produce=["schedule_plan"])
 def approved_extendedhours_operation_schedule(schedule_plan_path: str, produce) -> bool:
     result = os.path.isfile(schedule_plan_path) and os.path.getsize(schedule_plan_path) > 20
@@ -84,6 +92,7 @@ def approved_extendedhours_operation_schedule(schedule_plan_path: str, produce) 
     return result
 
 
+@jpipe_link("leader_commitments")
 @jpipe(consume=["leader_commitments_path"], produce=["leader_commitments"])
 def written_commitments_from_local_leaders_to_participate(
     leader_commitments_path: str, produce
@@ -93,6 +102,7 @@ def written_commitments_from_local_leaders_to_participate(
     return result
 
 
+@jpipe_link("testimonial_videos")
 @jpipe(consume=["testimonial_videos_path"], produce=["testimonial_videos"])
 def recorded_testimonials_from_trusted_figures(testimonial_videos_path: str, produce) -> bool:
     result = os.path.isfile(testimonial_videos_path)
@@ -100,6 +110,7 @@ def recorded_testimonials_from_trusted_figures(testimonial_videos_path: str, pro
     return result
 
 
+@jpipe_link("safety_report")
 @jpipe(consume=["safety_report_path"], produce=["safety_report"])
 def public_safety_report_approved_by_health_authority(safety_report_path: str, produce) -> bool:
     result = os.path.isfile(safety_report_path) and safety_report_path.lower().endswith(".pdf")
@@ -107,6 +118,7 @@ def public_safety_report_approved_by_health_authority(safety_report_path: str, p
     return result
 
 
+@jpipe_link("faq_document")
 @jpipe(consume=["faq_document_path"], produce=["faq_document"])
 def frequently_asked_questions_document(faq_document_path: str, produce) -> bool:
     result = os.path.isfile(faq_document_path) and os.path.getsize(faq_document_path) > 50
@@ -117,6 +129,7 @@ def frequently_asked_questions_document(faq_document_path: str, produce) -> bool
 # -------------------------
 # 2) Strategy functions (consume evidence -> produce strategy outputs)
 # -------------------------
+@jpipe_link("media_outreach")
 @jpipe(consume=["press_release", "social_posts"], produce=["media_outreach"])
 def distribute_information_through_local_media_and_social_channels(
     press_release: bool, social_posts: bool, produce
@@ -126,6 +139,7 @@ def distribute_information_through_local_media_and_social_channels(
     return result
 
 
+@jpipe_link("community_events")
 @jpipe(consume=["event_calendar", "speakers_list"], produce=["community_events"])
 def host_informational_events_in_public_gathering_spaces(
     event_calendar: bool, speakers_list: bool, produce
@@ -135,6 +149,7 @@ def host_informational_events_in_public_gathering_spaces(
     return result
 
 
+@jpipe_link("mobile_units")
 @jpipe(consume=["fleet_available", "trained_staff"], produce=["mobile_units"])
 def deploy_mobile_vaccination_units_to_remote_areas(
     fleet_available: bool, trained_staff: bool, produce
@@ -144,6 +159,7 @@ def deploy_mobile_vaccination_units_to_remote_areas(
     return result
 
 
+@jpipe_link("extended_hours")
 @jpipe(consume=["schedule_plan"], produce=["extended_hours"])
 def keep_vaccination_centers_open_during_evenings_and_weekends(
     schedule_plan: bool, produce
@@ -152,6 +168,7 @@ def keep_vaccination_centers_open_during_evenings_and_weekends(
     return schedule_plan
 
 
+@jpipe_link("trusted_voices")
 @jpipe(consume=["leader_commitments", "testimonial_videos"], produce=["trusted_voices"])
 def involve_respected_local_leaders_in_advocacy(
     leader_commitments: bool, testimonial_videos: bool, produce
@@ -161,6 +178,7 @@ def involve_respected_local_leaders_in_advocacy(
     return result
 
 
+@jpipe_link("transparent_info")
 @jpipe(consume=["safety_report", "faq_document"], produce=["transparent_info"])
 def publish_transparent_and_accessible_safety_data(
     safety_report: bool, faq_document: bool, produce
@@ -173,6 +191,7 @@ def publish_transparent_and_accessible_safety_data(
 # -------------------------
 # 4) Aggregation strategy (consumes sub-conclusions -> produces multi_pronged)
 # -------------------------
+@jpipe_link("multi_pronged")
 @jpipe(
     consume=[
         "media_outreach",

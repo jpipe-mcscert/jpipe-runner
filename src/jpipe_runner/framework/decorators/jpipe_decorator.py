@@ -21,8 +21,11 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
     produce = produce or []
 
     def decorator(func: Callable) -> Callable:
+        _check_produce_param(func, produce)
         consume_checker = _init_checker(ConsumedVariableChecker, func, consume)
         produce_checker = _init_checker(ProducedVariableChecker, func, produce)
+        params = list(inspect.signature(func).parameters)
+        _has_produce_slot = bool(params) and params[-1] == "produce"
 
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -30,6 +33,8 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
                 kwargs = consume_checker.inject_arguments(kwargs)
             if produce_checker:
                 kwargs["produce"] = produce_checker.produce
+            elif _has_produce_slot:
+                kwargs["produce"] = _noop_produce
 
             result = func(*args, **kwargs)
 
@@ -41,6 +46,26 @@ def jpipe(consume: Optional[List[str]] = None, produce: Optional[List[str]] = No
         return wrapper
 
     return decorator
+
+
+def _check_produce_param(func: Callable, produce: List[str]) -> None:
+    if not produce:
+        return
+    params = list(inspect.signature(func).parameters)
+    if not params or params[-1] != "produce":
+        raise ValueError(
+            f"[jpipe] Function '{func.__name__}' declares produce={produce!r} "
+            f"but its last parameter is not 'produce'.\n"
+            f"  • Actual signature: {func.__name__}({', '.join(params)})\n"
+            f"  • Fix: add 'produce' as the final parameter, "
+            f"typed as Callable[[str, Any], None]."
+        )
+
+
+def _noop_produce(name: str, value: Any) -> None:
+    # Intentional no-op: allows functions to keep a produce param for consistency
+    # when produce=[] — calls are accepted and silently discarded.
+    pass
 
 
 def _init_checker(
@@ -93,6 +118,15 @@ class ConsumedVariableChecker:
                 ctx._set(self.func_name, param, None, RuntimeContext.CONSUME)
                 GLOBAL_LOGGER.debug(f"[{self.func_name}] Variable '{param}' registered as CONSUME")
 
+        unused = set(self.declared_params) - self.used_params
+        if unused:
+            raise ValueError(
+                f"[jpipe] Function '{self.func_name}' declares consumed variable(s) "
+                f"{sorted(unused)!r} that are never referenced in the function body.\n"
+                f"  • Fix: either reference each variable in the function body, "
+                f"or remove it from consume=[]."
+            )
+
     def inject_arguments(self, kwargs: dict) -> dict:
         """
         Injects variable values from the context into the function’s keyword arguments.
@@ -102,10 +136,6 @@ class ConsumedVariableChecker:
         :raises ValueError: If a declared variable is missing from the context.
         """
         for param in self.declared_params:
-            if param not in self.used_params:
-                GLOBAL_LOGGER.warning(
-                    f"Consumed variable '{param}' is declared but not used in function '{self.func_name}'."
-                )
             value = ctx.get(param)
             GLOBAL_LOGGER.debug(
                 f"[{self.func_name}] Injecting consumed variable '{param}' = {value}"
@@ -136,7 +166,8 @@ class ConsumedVariableChecker:
                 self.used_vars: set[str] = set()
 
             def visit_Name(self, node: ast.Name) -> None:
-                self.used_vars.add(node.id)
+                if isinstance(node.ctx, ast.Load):
+                    self.used_vars.add(node.id)
 
         visitor = VarVisitor()
         visitor.visit(tree)

@@ -9,6 +9,7 @@ from jpipe_runner.enums import StatusType
 from jpipe_runner.exceptions import FunctionException
 from jpipe_runner.framework.context import RuntimeContext, ctx
 from jpipe_runner.framework.engine import PipelineEngine
+from jpipe_runner.framework.graphviz_exporter import GraphvizExporter
 
 
 @pytest.fixture
@@ -302,7 +303,7 @@ class TestStyleNodes:
         import graphviz as gv
         dot = gv.Digraph()
         G = self._make_graph(nodes)
-        PipelineEngine._style_nodes(dot, G, status_dict or {})
+        GraphvizExporter(G)._style_nodes(dot, status_dict or {})
         return dot.source
 
     # --- label rendering ---

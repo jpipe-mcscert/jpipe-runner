@@ -1,6 +1,8 @@
 from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
+from jpipe_runner.framework.decorators.link_decorator import jpipe_link
 
 
+@jpipe_link("S1")
 @jpipe(consume=["denominator"], produce=["result"])
 def divide_by_number(denominator: int, produce) -> bool:
     """Divide 100 by denominator - may raise exception"""

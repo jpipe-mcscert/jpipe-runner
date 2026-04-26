@@ -1,8 +1,10 @@
 import os
 
 from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
+from jpipe_runner.framework.decorators.link_decorator import jpipe_link
 
 
+@jpipe_link("E1")
 @jpipe(consume=["file_path"], produce=["file_exists"])
 def check_file_exists(file_path: str, produce) -> bool:
     """Check if a file exists"""

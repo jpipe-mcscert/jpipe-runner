@@ -1,7 +1,9 @@
 from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
+from jpipe_runner.framework.decorators.link_decorator import jpipe_link
 from jpipe_runner.framework.decorators.skip_decorator import skip
 
 
+@jpipe_link("S1")
 @skip(reason="Skipping this test for testing purposes")
 @jpipe(consume=["enable_feature"], produce=["feature_result"])
 def optional_feature(enable_feature: bool, produce) -> bool:

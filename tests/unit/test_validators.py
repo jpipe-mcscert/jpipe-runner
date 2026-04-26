@@ -1,15 +1,19 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
+import networkx as nx
+
 from jpipe_runner.framework.context import RuntimeContext
 from jpipe_runner.framework.validators import (
     BaseValidator,
     DuplicateProducerValidator,
+    EvidenceDependencyValidator,
     JustificationSchemaValidator,
     MissingVariableValidator,
     OrderValidator,
     ProducedButNotConsumedValidator,
     SelfDependencyValidator,
+    UnboundElementValidator,
 )
 
 
@@ -189,11 +193,11 @@ class TestDuplicateProducerValidator(unittest.TestCase):
             "func_b": {RuntimeContext.PRODUCE: {"x": None}},
         }
 
-        _, warnings = self.validator.validate()
-        self.assertEqual(len(warnings), 1)
-        self.assertIn("Variable 'x' is produced by multiple functions", warnings[0])
-        self.assertIn("func_a", warnings[0])
-        self.assertIn("func_b", warnings[0])
+        errors, _ = self.validator.validate()
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Variable 'x' is produced by multiple functions", errors[0])
+        self.assertIn("func_a", errors[0])
+        self.assertIn("func_b", errors[0])
 
     def test_multiple_duplicates(self):
         # Simulate multiple variables with duplicate producers
@@ -203,10 +207,10 @@ class TestDuplicateProducerValidator(unittest.TestCase):
             "func_c": {RuntimeContext.PRODUCE: {"x": None}},
         }
 
-        _, warnings = self.validator.validate()
-        self.assertEqual(len(warnings), 2)
-        self.assertTrue(any("Variable 'x'" in e for e in warnings))
-        self.assertTrue(any("Variable 'y'" in e for e in warnings))
+        errors, _ = self.validator.validate()
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(any("Variable 'x'" in e for e in errors))
+        self.assertTrue(any("Variable 'y'" in e for e in errors))
 
     def test_empty_context(self):
         self.mock_ctx._vars = {}
@@ -333,6 +337,185 @@ class TestJustificationSchemaValidator(unittest.TestCase):
             JustificationSchemaValidator(data).validate()
         except Exception as e:
             self.fail(f"extra element field raised unexpected exception: {e}")
+
+
+def _make_graph(*nodes):
+    """Helper: build a DiGraph from (node_id, type, fn_name, label) tuples plus optional edges."""
+    g = nx.DiGraph()
+    for item in nodes:
+        if isinstance(item, tuple) and len(item) == 4:
+            nid, ntype, fn, label = item
+            g.add_node(nid, type=ntype, function_name=fn, label=label)
+        elif isinstance(item, tuple) and len(item) == 2:
+            g.add_edge(*item)
+    return g
+
+
+class TestEvidenceDependencyValidator(unittest.TestCase):
+    def _make_pipeline(self, graph):
+        p = MagicMock()
+        p.graph = graph
+        return p
+
+    def _make_ctx(self, vars_dict):
+        c = MagicMock()
+        c._vars = vars_dict
+        return c
+
+    def test_evidence_no_produce_raises_error(self):
+        g = nx.DiGraph()
+        g.add_node("E1", type="evidence", function_name="check_file", label="Check file")
+        g.add_node("S1", type="strategy", function_name="process", label="Process")
+        g.add_edge("E1", "S1")
+
+        ctx = self._make_ctx({"check_file": {RuntimeContext.PRODUCE: {}}})
+        v = EvidenceDependencyValidator(self._make_pipeline(g), ctx, g)
+        errors, _ = v.validate()
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("E1", errors[0])
+        self.assertIn("Check file", errors[0])
+
+    def test_evidence_produces_and_strategy_consumes_passes(self):
+        g = nx.DiGraph()
+        g.add_node("E1", type="evidence", function_name="check_file", label="Check file")
+        g.add_node("S1", type="strategy", function_name="process", label="Process")
+        g.add_edge("E1", "S1")
+
+        ctx = self._make_ctx({
+            "check_file": {RuntimeContext.PRODUCE: {"file_exists": True}},
+            "process": {RuntimeContext.CONSUME: {"file_exists": None}},
+        })
+        v = EvidenceDependencyValidator(self._make_pipeline(g), ctx, g)
+        errors, _ = v.validate()
+        self.assertEqual(errors, [])
+
+    def test_strategy_missing_consumption_of_evidence_var(self):
+        g = nx.DiGraph()
+        g.add_node("E1", type="evidence", function_name="gen", label="Gen")
+        g.add_node("S1", type="strategy", function_name="process", label="Process")
+        g.add_edge("E1", "S1")
+
+        ctx = self._make_ctx({
+            "gen": {RuntimeContext.PRODUCE: {"file_exists": True}},
+            "process": {RuntimeContext.CONSUME: {"other_var": None}},
+        })
+        v = EvidenceDependencyValidator(self._make_pipeline(g), ctx, g)
+        errors, _ = v.validate()
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("E1", errors[0])
+        self.assertIn("process", errors[0])
+
+    def test_sub_conclusion_bound_predecessor_is_checked(self):
+        g = nx.DiGraph()
+        g.add_node("SC1", type="sub-conclusion", function_name="sub_fn", label="Sub")
+        g.add_node("S1", type="strategy", function_name="strat_fn", label="Strategy")
+        g.add_edge("SC1", "S1")
+
+        ctx = self._make_ctx({
+            "sub_fn": {RuntimeContext.PRODUCE: {"sub_result": True}},
+            "strat_fn": {RuntimeContext.CONSUME: {"other": None}},
+        })
+        v = EvidenceDependencyValidator(self._make_pipeline(g), ctx, g)
+        errors, _ = v.validate()
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("SC1", errors[0])
+
+    def test_sub_conclusion_without_ctx_entry_is_skipped(self):
+        g = nx.DiGraph()
+        g.add_node("SC1", type="sub-conclusion", function_name="sub_fn", label="Sub")
+        g.add_node("S1", type="strategy", function_name="strat_fn", label="Strategy")
+        g.add_edge("SC1", "S1")
+
+        # ctx has no entry for "sub_fn" → dict.get() returns None → sub-conclusion skipped
+        ctx = self._make_ctx({"strat_fn": {RuntimeContext.CONSUME: {}}})
+        v = EvidenceDependencyValidator(self._make_pipeline(g), ctx, g)
+        errors, _ = v.validate()
+        self.assertEqual(errors, [])
+
+
+class TestUnboundElementValidator(unittest.TestCase):
+    def _make_pipeline(self, graph, name="test_pipeline"):
+        p = MagicMock()
+        p.graph = graph
+        p.justification_name = name
+        return p
+
+    def test_unbound_evidence_raises_error(self):
+        g = nx.DiGraph()
+        g.add_node("E1", type="evidence", function_name="fn", label="Evidence")
+
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        errors, _ = v.validate()
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("E1", errors[0])
+        self.assertIn("unbound", errors[0].lower())
+
+    def test_unbound_strategy_raises_error(self):
+        g = nx.DiGraph()
+        g.add_node("S1", type="strategy", function_name="fn", label="Strategy")
+
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        errors, _ = v.validate()
+
+        self.assertEqual(len(errors), 1)
+        self.assertIn("S1", errors[0])
+
+    def test_conclusion_not_checked(self):
+        g = nx.DiGraph()
+        g.add_node("C1", type="conclusion", function_name="fn", label="Conclusion")
+
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        errors, _ = v.validate()
+        self.assertEqual(errors, [])
+
+    def test_sub_conclusion_not_checked(self):
+        g = nx.DiGraph()
+        g.add_node("SC1", type="sub-conclusion", function_name="fn", label="Sub")
+
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        errors, _ = v.validate()
+        self.assertEqual(errors, [])
+
+    def test_bound_by_plain_id_passes(self):
+        g = nx.DiGraph()
+        g.add_node("E1", type="evidence", function_name="fn", label="Evidence")
+
+        v = UnboundElementValidator(
+            self._make_pipeline(g), MagicMock(), registry={"E1": "fn"}
+        )
+        errors, _ = v.validate()
+        self.assertEqual(errors, [])
+
+    def test_bound_by_qualified_id_passes(self):
+        g = nx.DiGraph()
+        g.add_node("E1", type="evidence", function_name="fn", label="Evidence")
+
+        v = UnboundElementValidator(
+            self._make_pipeline(g, name="my_pipeline"),
+            MagicMock(),
+            registry={"my_pipeline:E1": "fn"},
+        )
+        errors, _ = v.validate()
+        self.assertEqual(errors, [])
+
+    def test_multiple_nodes_some_bound(self):
+        g = nx.DiGraph()
+        g.add_node("E1", type="evidence", function_name="fn1", label="Ev1")
+        g.add_node("S1", type="strategy", function_name="fn2", label="St1")
+        g.add_node("C1", type="conclusion", function_name="fn3", label="Con")
+
+        v = UnboundElementValidator(
+            self._make_pipeline(g), MagicMock(), registry={"E1": "fn1"}
+        )
+        errors, _ = v.validate()
+
+        # S1 is unbound, C1 is not checked
+        self.assertEqual(len(errors), 1)
+        self.assertIn("S1", errors[0])
 
 
 if __name__ == "__main__":

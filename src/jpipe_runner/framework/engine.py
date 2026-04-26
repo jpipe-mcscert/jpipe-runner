@@ -1,6 +1,4 @@
 import json
-import logging
-from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional, Tuple
 
 import networkx as nx
@@ -11,6 +9,7 @@ from ..exceptions import FunctionException
 from ..runtime import PythonRuntime
 from ..utils import normalize_structure, parse_value, sanitize_string
 from .context import RuntimeContext, ctx
+from .graphviz_exporter import GraphvizExporter
 from .logger import GLOBAL_LOGGER
 from .validators import (
     DuplicateProducerValidator,
@@ -20,6 +19,7 @@ from .validators import (
     OrderValidator,
     ProducedButNotConsumedValidator,
     SelfDependencyValidator,
+    UnboundElementValidator,
 )
 
 
@@ -58,6 +58,7 @@ class PipelineEngine:
         """
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
+        self._link_registry: dict[str, str] = {}
         self.load_config(config_path, variables)
         if justification_path:
             self.graph = self.parse_justification(justification_path)
@@ -270,6 +271,7 @@ class PipelineEngine:
             ProducedButNotConsumedValidator(self, ctx),
             DuplicateProducerValidator(self, ctx),
             EvidenceDependencyValidator(self, ctx, self.graph),
+            UnboundElementValidator(self, ctx, self._link_registry),
         ]
 
         all_passed = True
@@ -389,6 +391,7 @@ class PipelineEngine:
         :param registry: Mapping of link_id → attr_name produced by runtime.build_link_registry().
         :type registry: dict[str, str]
         """
+        self._link_registry = registry
         for link_id, attr_name in registry.items():
             node_id = self._resolve_node_id(link_id)
             if node_id is not None:
@@ -489,12 +492,17 @@ class PipelineEngine:
             status = StatusType.SKIP
 
         # --- Attempt function execution (or dry-run) ---
-        elif node_type in {"evidence", "strategy"}:
+        elif node_type in {"evidence", "strategy"} or (
+            node_type == "sub-conclusion" and (
+                node in self._link_registry
+                or f"{self.justification_name}:{node}" in self._link_registry
+            )
+        ):
             status, exception = self._execute_justification_fn(
                 label, fn_name, runtime, dry_run, node
             )
 
-        # --- Default handling for conclusion nodes ---
+        # --- Default handling for conclusion and unbound sub-conclusion nodes ---
         else:
             status = StatusType.PASS
 
@@ -636,96 +644,11 @@ class PipelineEngine:
         self, status_dict: dict[str, str], output_path: str, filename: str, format: str
     ) -> None:
         """
-        Export the justification graph to any image format (png, svg, pdf etc),
-        styling nodes by VariableType and edges by status.
+        Export the justification graph to an image file.
 
         :param status_dict: Mapping node id -> status ("PASS", "FAIL", "SKIP")
         :param output_path: Directory path to save the exported graph image.
         :param filename: Output filename (without extension).
-        :param format: Image format string (e.g. "png", "svg", "pdf").
+        :param format: Image format string (e.g. "png", "svg", "dot").
         """
-        import graphviz as gv
-
-        resolved_path = self._resolve_output_path(output_path, filename)
-
-        G = self.graph.copy()
-        dot = gv.Digraph()
-        dot.attr(rankdir="BT")
-
-        self._style_nodes(dot, G, status_dict)
-        self._style_edges(dot, G, status_dict)
-
-        dot.render(
-            str(resolved_path),
-            format=format,
-            engine="dot",
-            cleanup=True,
-            outfile=str(resolved_path.with_suffix(f".{format}")),
-        )
-
-    @staticmethod
-    def _resolve_output_path(output_path: str, filename: str) -> Path:
-        """
-        Resolve and prepare the output file path, creating the directory if needed.
-
-        :param output_path: Directory path for the output file.
-        :param filename: Output filename (without extension).
-        :return: Full Path object pointing to the output file location.
-        """
-        path = Path(output_path)
-        if not path.exists():
-            path.mkdir(parents=True, exist_ok=True)
-        return path / filename
-
-    @staticmethod
-    def _style_nodes(dot: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
-        """
-        Apply visual styles to graph nodes based on their type and execution status.
-
-        :param dot: graphviz.Digraph instance to add nodes to.
-        :param G: NetworkX DiGraph with node attribute data.
-        :param status_dict: Mapping of node id -> status string ("PASS", "FAIL", "SKIP").
-        """
-        node_attr_map = {
-            "conclusion":     {"shape": "rect",    "style": "filled,rounded", "fillcolor": "lightgrey"},
-            "sub-conclusion": {"shape": "rect",    "color": "#0072B2"},
-            "strategy":       {"shape": "hexagon", "style": "filled",         "fillcolor": "#F0C27F"},
-            "evidence":       {"shape": "note",    "style": "filled",         "fillcolor": "#9ECAE1"},
-            "support":        {"shape": "rect",    "style": "dotted"},
-        }
-        for node_id, attrs in G.nodes(data=True):
-            var_type = attrs.get("type", "").lower()
-            style = dict(node_attr_map.get(
-                var_type, dict(fillcolor="white", shape="ellipse", style="filled")
-            ))
-
-            status = status_dict.get(node_id, "UNKNOWN")
-            logging.info("Setting node color for %s with status %s", node_id, status)
-            if status == StatusType.FAIL.name:
-                style.update(style="filled", fillcolor="red", fontcolor="white", fontname="Helvetica-Bold")
-            elif status == StatusType.SKIP.name:
-                style.update(style="filled", fillcolor="#cccccc", opacity="1", fontcolor="white", fontname="Helvetica-Bold")
-
-            label = attrs.get("label", node_id)
-            dot.node(node_id, label=label, **style)
-
-    @staticmethod
-    def _style_edges(dot: Any, G: nx.DiGraph, status_dict: dict[str, str]) -> None:
-        """
-        Apply visual styles to graph edges based on the execution status of their source node.
-
-        :param dot: graphviz.Digraph instance to add edges to.
-        :param G: NetworkX DiGraph with edge data.
-        :param status_dict: Mapping of node id -> status string ("PASS", "FAIL", "SKIP").
-        """
-        for source, target in G.edges():
-            status = status_dict.get(source, "UNKNOWN")
-            logging.info("Setting edge color for %s -> %s with status %s", source, target, status)
-            if status == StatusType.PASS.name:
-                dot.edge(source, target, color="black")
-            elif status == StatusType.FAIL.name:
-                dot.edge(source, target, color="red")
-            elif status == StatusType.SKIP.name:
-                dot.edge(source, target, color="#cccccc", opacity="1")
-            else:
-                dot.edge(source, target, color="gray")
+        GraphvizExporter(self.graph).export(status_dict, output_path, filename, format)
