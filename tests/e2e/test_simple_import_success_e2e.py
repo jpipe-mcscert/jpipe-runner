@@ -14,6 +14,7 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
         self.test_dir = Path(__file__).parent / "resources" / "simple_import_success"
         self.justification_file = self.test_dir / "file_validation.json"
         self.config_file = self.test_dir / "config.yaml"
+        self.config_file_cwd = self.test_dir / "config_cwd.yaml"
         self.python_file = self.test_dir / "steps" / "file_validation.py"
         self.justification_name = "file_validation"
         self.assertTrue(
@@ -23,15 +24,13 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
         self.assertTrue(self.config_file.exists(), f"Config file not found: {self.config_file}")
         self.assertTrue(self.python_file.exists(), f"Python file not found: {self.python_file}")
 
-    def _run_jpipe_runner(self, additional_args=None, expected_exit_code=0):
+    def _run_jpipe_runner(self, additional_args=None, expected_exit_code=0, cwd=None):
         cmd = [
             sys.executable,
             "-m",
             "jpipe_runner.runner",
             "--library",
             str(self.python_file),
-            "--python-path",
-            str(self.test_dir),
             str(self.justification_file),
         ]
 
@@ -39,7 +38,7 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
             cmd.extend(additional_args)
 
         result = subprocess.run(
-            cmd, capture_output=True, text=True, cwd=self.test_dir.parent.parent.parent
+            cmd, capture_output=True, text=True, cwd=cwd or self.test_dir.parent.parent.parent
         )
 
         if result.returncode != expected_exit_code:
@@ -54,7 +53,14 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
         """
         Test pipeline with a file that exists.
         """
-        result = self._run_jpipe_runner(additional_args=["--config-file", str(self.config_file)])
+        result = self._run_jpipe_runner(
+            additional_args=[
+                "--config-file",
+                str(self.config_file),
+                "--python-path",
+                str(self.test_dir),
+            ]
+        )
         self.assertIn(self.justification_name, result.stdout.lower())
         self.assertEqual(result.returncode, 0)
 
@@ -73,6 +79,8 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
                     str(output_path),
                     "--format",
                     "svg",
+                    "--python-path",
+                    str(self.test_dir),
                 ]
             )
 
@@ -86,6 +94,17 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
                 expected_file.exists(), f"Expected diagram file not found: {expected_file}"
             )
             self.assertEqual(result.returncode, 0)
+
+    def test_simple_import_success_cwd_execution(self):
+        """
+        Test pipeline execution with current working directory set to the test directory.
+        """
+        result = self._run_jpipe_runner(
+            additional_args=["--config-file", str(self.config_file_cwd)],
+            cwd=self.test_dir,
+        )
+        self.assertIn(self.justification_name, result.stdout.lower())
+        self.assertEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":
