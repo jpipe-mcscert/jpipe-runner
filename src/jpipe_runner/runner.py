@@ -118,10 +118,19 @@ def parse_args(argv: list[str] | None = None):
         action="store_true",
         help="Perform a dry run without actually executing justifications",
     )
-    parser.add_argument(
-        "--verbose", "-V", action="store_true", help="Enable verbose (info) output"
-    )
+    parser.add_argument("--verbose", "-V", action="store_true", help="Enable verbose (info) output")
     parser.add_argument("--config-file", help="Path to the config .yaml file")
+    parser.add_argument(
+        "--python-path",
+        "-p",
+        action="append",
+        default=["."],
+        help=(
+            "Extra folders to search for your Python files/modules."
+            "Can be used multiple times. Default: current directory."
+        ),
+    )
+
     parser.add_argument("jd_file", help="Path to the justification .json file")
 
     return parser.parse_args(argv)
@@ -246,7 +255,10 @@ def run_workflow_logic():
         sys.exit(1)
 
     try:
-        runtime = PythonRuntime(libraries=[i for lib in args.library for i in glob.glob(lib)])
+        runtime = PythonRuntime(
+            libraries=[i for lib in args.library for i in glob.glob(lib)],
+            additional_paths=args.python_path,
+        )
     except RuntimeException as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)
