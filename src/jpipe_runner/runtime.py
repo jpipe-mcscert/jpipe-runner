@@ -63,6 +63,8 @@ class PythonRuntime:
         """
         Dynamically import a single Python file as a module.
 
+        Adds additional paths to sys.path during execution.
+
         :param file_path: Path to the Python file.
         :type file_path: str
         :raises FileNotFoundError: If the file does not exist.
@@ -120,6 +122,8 @@ class PythonRuntime:
         Call a function by name with the given arguments.
 
         Execution is wrapped in a context manager for GitHub Actions grouping.
+
+        Adds additional paths to sys.path during execution.
 
         :param name: Name of the function to call.
         :type name: str

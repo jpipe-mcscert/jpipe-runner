@@ -60,6 +60,7 @@ def parse_args(argv: list[str] | None = None):
         --dry-run: Simulate execution without performing actual justifications.\n
         --verbose, -V: Enable verbose logging.\n
         --config-file: Path to a YAML configuration file.\n
+        --python-path, -p: Extra folders to search for your Python files/modules (can be used multiple times).\n
         jd_file: Path to the justification (.jd) file.\n
 
     :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
@@ -126,7 +127,7 @@ def parse_args(argv: list[str] | None = None):
         action="append",
         default=["."],
         help=(
-            "Extra folders to search for your Python files/modules."
+            "Extra folders to search for your Python files/modules. \n"
             "Can be used multiple times. Default: current directory."
         ),
     )
