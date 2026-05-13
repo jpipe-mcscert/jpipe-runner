@@ -12,7 +12,6 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
     a pipeline that relies on different import styles:
     - a root-level module (root_utils)
     - a nested package module (steps.step_utils)
-    - a sibling module (step_utils)
     """
 
     def setUp(self):
