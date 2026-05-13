@@ -60,7 +60,9 @@ def parse_args(argv: list[str] | None = None):
         --dry-run: Simulate execution without performing actual justifications.\n
         --verbose, -V: Enable verbose logging.\n
         --config-file: Path to a YAML configuration file.\n
-        --python-path, -p: Extra folders to search for your Python files/modules (can be used multiple times).\n
+        --python-path, -p: Extra folders to search for Python files/modules.
+                If not specified, defaults to the current directory (".").
+                If at least one path is provided, only those paths are used.\n
         jd_file: Path to the justification (.jd) file.\n
 
     :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
@@ -125,16 +127,22 @@ def parse_args(argv: list[str] | None = None):
         "--python-path",
         "-p",
         action="append",
-        default=["."],
+        default=[],
         help=(
             "Extra folders to search for your Python files/modules. \n"
-            "Can be used multiple times. Default: current directory."
+            'If not specified, defaults to the current directory ("."). \n'
+            "If at least one path is provided, only those paths are used."
         ),
     )
 
     parser.add_argument("jd_file", help="Path to the justification .json file")
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    if not args.python_path:
+        args.python_path = ["."]
+
+    return args
 
 
 def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int, int, int, int]:
