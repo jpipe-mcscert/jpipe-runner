@@ -11,6 +11,16 @@
       "type": "evidence"
     },
     {
+      "id": "E3",
+      "label": "Generate number c",
+      "type": "evidence"
+    },
+    {
+      "id": "E4",
+      "label": "Generate number d",
+      "type": "evidence"
+    },
+    {
       "id": "S1",
       "label": "Add numbers",
       "type": "strategy"
@@ -29,6 +39,14 @@
     },
     {
       "source": "E2",
+      "target": "S1"
+    },
+    {
+      "source": "E3",
+      "target": "S1"
+    },
+    {
+      "source": "E4",
       "target": "S1"
     },
     {

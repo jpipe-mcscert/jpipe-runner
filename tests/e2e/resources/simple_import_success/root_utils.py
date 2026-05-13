@@ -8,3 +8,13 @@ def get_root_number_a() -> int:
     (e.g., via 'from root_utils import get_root_number_a').
     """
     return 10
+
+
+def get_root_number_c() -> int:
+    """
+    Return a fixed number (20) for testing imports from the 'root_utils' module.
+
+    Same as get_root_number_a, but used to verify that imports can be done at runtime.
+    (e.g., local import 'from root_utils import get_root_number_c' inside a function).
+    """
+    return 20

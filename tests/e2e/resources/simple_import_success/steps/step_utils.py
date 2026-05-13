@@ -7,3 +7,13 @@ def get_step_number_b() -> int:
     (e.g., via 'from steps.step_utils import get_step_number_b').
     """
     return 5
+
+
+def get_step_number_d() -> int:
+    """
+    Return a fixed number (2) for testing imports from the 'steps.step_utils' module.
+
+    Same as get_step_number_b, but used to verify that imports can be done at runtime.
+    (e.g., local import 'from steps.step_utils import get_step_number_d' inside a function).
+    """
+    return 2
