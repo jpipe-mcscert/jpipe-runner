@@ -7,12 +7,11 @@ This module contains the runtimes that can be used by jPipe Runner.
 
 import importlib.util
 import os
-import sys
 from ast import literal_eval
 from typing import Any, Iterable, Optional, Tuple
 
 from jpipe_runner.exceptions import RuntimeException
-from jpipe_runner.utils import group_github_logs
+from jpipe_runner.utils import group_github_logs, path_context
 
 
 class PythonRuntime:
@@ -38,11 +37,11 @@ class PythonRuntime:
         :type libraries: Optional[Iterable[str]]
         :param variables: Iterable of (name, value) string pairs to set as variables.
         :type variables: Optional[Iterable[Tuple[str, str]]]
-        :param additional_paths: Additional paths to add to sys.path for imports.
+        :param additional_paths: Additional paths to add to sys.path for imports and function calls.
         :type additional_paths: Optional[Iterable[str]]
         """
         self._modules = []
-        self.additional_paths = additional_paths or []
+        self._additional_paths = additional_paths or []
         self.load_files(libraries or [])
 
         for k, v in variables or []:
@@ -76,17 +75,11 @@ class PythonRuntime:
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         module = importlib.util.module_from_spec(spec)
 
-        old_path = sys.path.copy()
-        for path in self.additional_paths:
-            if path not in sys.path:
-                sys.path.insert(0, path)
-
-        try:
-            spec.loader.exec_module(module)
-        except ValueError as e:
-            raise RuntimeException(f"Error loading '{file_path}':\n{e}") from None
-        finally:
-            sys.path = old_path
+        with path_context(self._additional_paths):
+            try:
+                spec.loader.exec_module(module)
+            except ValueError as e:
+                raise RuntimeException(f"Error loading '{file_path}':\n{e}") from None
 
         self._modules.append(module)
 
@@ -133,7 +126,8 @@ class PythonRuntime:
         :rtype: Any
         """
         with group_github_logs():
-            return self.__getattr__(name)(*args, **kwargs)
+            with path_context(self._additional_paths):
+                return self.__getattr__(name)(*args, **kwargs)
 
     def build_link_registry(self) -> dict[str, str]:
         """

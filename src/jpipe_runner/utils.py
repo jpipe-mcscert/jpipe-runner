@@ -9,7 +9,9 @@ import ast
 import json
 import os
 import re
+import sys
 from contextlib import contextmanager
+from typing import Iterable
 
 # ANSI color codes
 COLOR_CODES = {
@@ -135,3 +137,21 @@ def normalize_structure(data):
         return [normalize_structure(parse_value(v)) for v in data]
     else:
         return parse_value(data)
+
+
+@contextmanager
+def path_context(additional_paths: Iterable[str]):
+    """
+    Temporarily add paths to sys.path
+
+    :param additional_paths: Iterable of paths to add to sys.path
+    :type additional_paths: Iterable[str]
+    """
+    original_path = sys.path.copy()
+    for path in additional_paths:
+        if path not in sys.path:
+            sys.path.insert(0, path)
+    try:
+        yield
+    finally:
+        sys.path[:] = original_path
