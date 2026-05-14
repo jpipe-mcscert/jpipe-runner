@@ -81,6 +81,20 @@ class TestSimpleImportE2E(unittest.TestCase):
         self.assertIn(self.justification_name, result.stdout.lower())
         self.assertEqual(result.returncode, 0)
 
+    def test_simple_import_failure_no_path(self):
+        """
+        Test that the pipeline fails when the test directory is missing from python path and CWD isn't set.
+
+        This verifies that executing the runner without properly configuring imports
+        results in a failure during module load or execution.
+        """
+        result = self._run_jpipe_runner(
+            expected_exit_code=1,
+        )
+        self.assertTrue(result.stderr)
+        self.assertIn("ModuleNotFoundError", result.stderr)
+        self.assertEqual(result.returncode, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
