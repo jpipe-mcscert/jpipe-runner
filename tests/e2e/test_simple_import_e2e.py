@@ -4,9 +4,9 @@ import unittest
 from pathlib import Path
 
 
-class TestSimpleImportSuccessE2E(unittest.TestCase):
+class TestSimpleImportE2E(unittest.TestCase):
     """
-    End-to-end tests for the "simple_import_success" pipeline.
+    End-to-end tests for the "simple_import" pipeline.
 
     These tests validate that the jpipe runner can correctly import and execute
     a pipeline that relies on different import styles:
@@ -17,7 +17,7 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
     """
 
     def setUp(self):
-        self.test_dir = Path(__file__).parent / "resources" / "simple_import_success"
+        self.test_dir = Path(__file__).parent / "resources" / "simple_import"
         self.justification_file = self.test_dir / "math_operation.json"
         self.python_file = self.test_dir / "steps" / "math_operation.py"
         self.justification_name = "math_operation"
@@ -52,7 +52,7 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
         self.assertEqual(result.returncode, expected_exit_code)
         return result
 
-    def test_simple_import_success_normal_execution(self):
+    def test_simple_import_normal_execution(self):
         """
         Test that the pipeline succeeds when the test directory is explicitly added to --python-path.
 
@@ -68,7 +68,7 @@ class TestSimpleImportSuccessE2E(unittest.TestCase):
         self.assertIn(self.justification_name, result.stdout.lower())
         self.assertEqual(result.returncode, 0)
 
-    def test_simple_import_success_cwd_execution(self):
+    def test_simple_import_cwd_execution(self):
         """
         Test that the pipeline succeeds when executed with the test directory as the current working directory.
 
