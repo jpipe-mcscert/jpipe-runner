@@ -14,6 +14,7 @@ import shutil
 import sys
 from typing import Iterable
 
+from jpipe_runner.append_else_default_action import _AppendElseDefaultAction
 from jpipe_runner.enums import StatusType
 from jpipe_runner.exceptions import RuntimeException
 from jpipe_runner.framework.engine import PipelineEngine
@@ -126,8 +127,8 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--python-path",
         "-p",
-        action="append",
-        default=[],
+        action=_AppendElseDefaultAction,
+        default=["."],
         help=(
             "Extra folders to search for your Python files/modules. \n"
             'If not specified, defaults to the current directory ("."). \n'
@@ -137,12 +138,7 @@ def parse_args(argv: list[str] | None = None):
 
     parser.add_argument("jd_file", help="Path to the justification .json file")
 
-    args = parser.parse_args(argv)
-
-    if not args.python_path:
-        args.python_path = ["."]
-
-    return args
+    return parser.parse_args(argv)
 
 
 def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int, int, int, int]:
