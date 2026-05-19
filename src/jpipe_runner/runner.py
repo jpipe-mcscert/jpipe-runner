@@ -60,6 +60,9 @@ def parse_args(argv: list[str] | None = None):
         --dry-run: Simulate execution without performing actual justifications.\n
         --verbose, -V: Enable verbose logging.\n
         --config-file: Path to a YAML configuration file.\n
+        --python-path, -p: Extra folders to search for Python files/modules.
+                If not specified, defaults to the current directory (".").
+                If at least one path is provided, only those paths are used.\n
         jd_file: Path to the justification (.jd) file.\n
 
     :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
@@ -118,13 +121,28 @@ def parse_args(argv: list[str] | None = None):
         action="store_true",
         help="Perform a dry run without actually executing justifications",
     )
-    parser.add_argument(
-        "--verbose", "-V", action="store_true", help="Enable verbose (info) output"
-    )
+    parser.add_argument("--verbose", "-V", action="store_true", help="Enable verbose (info) output")
     parser.add_argument("--config-file", help="Path to the config .yaml file")
+    parser.add_argument(
+        "--python-path",
+        "-p",
+        action="append",
+        default=[],
+        help=(
+            "Extra folders to search for your Python files/modules. \n"
+            'If not specified, defaults to the current directory ("."). \n'
+            "If at least one path is provided, only those paths are used."
+        ),
+    )
+
     parser.add_argument("jd_file", help="Path to the justification .json file")
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+
+    if not args.python_path:
+        args.python_path = ["."]
+
+    return args
 
 
 def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int, int, int, int]:
@@ -246,7 +264,10 @@ def run_workflow_logic():
         sys.exit(1)
 
     try:
-        runtime = PythonRuntime(libraries=[i for lib in args.library for i in glob.glob(lib)])
+        runtime = PythonRuntime(
+            libraries=[i for lib in args.library for i in glob.glob(lib)],
+            additional_paths=args.python_path,
+        )
     except RuntimeException as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)

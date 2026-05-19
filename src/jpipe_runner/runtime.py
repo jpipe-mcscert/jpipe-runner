@@ -11,7 +11,7 @@ from ast import literal_eval
 from typing import Any, Iterable, Optional, Tuple
 
 from jpipe_runner.exceptions import RuntimeException
-from jpipe_runner.utils import group_github_logs
+from jpipe_runner.utils import group_github_logs, path_context
 
 
 class PythonRuntime:
@@ -28,6 +28,7 @@ class PythonRuntime:
         self,
         libraries: Optional[Iterable[str]] = None,
         variables: Optional[Iterable[Tuple[str, str]]] = None,
+        additional_paths: Optional[Iterable[str]] = None,
     ):
         """
         Initialize the runtime with optional libraries and variables.
@@ -36,8 +37,11 @@ class PythonRuntime:
         :type libraries: Optional[Iterable[str]]
         :param variables: Iterable of (name, value) string pairs to set as variables.
         :type variables: Optional[Iterable[Tuple[str, str]]]
+        :param additional_paths: Additional paths to add to sys.path for imports and function calls.
+        :type additional_paths: Optional[Iterable[str]]
         """
         self._modules = []
+        self._additional_paths = additional_paths or []
         self.load_files(libraries or [])
 
         for k, v in variables or []:
@@ -58,6 +62,8 @@ class PythonRuntime:
         """
         Dynamically import a single Python file as a module.
 
+        Adds additional paths to sys.path during execution.
+
         :param file_path: Path to the Python file.
         :type file_path: str
         :raises FileNotFoundError: If the file does not exist.
@@ -68,12 +74,12 @@ class PythonRuntime:
         module_name, _ = os.path.splitext(os.path.basename(file_path))
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         module = importlib.util.module_from_spec(spec)
-        try:
-            spec.loader.exec_module(module)
-        except ValueError as e:
-            raise RuntimeException(
-                f"Error loading '{file_path}':\n{e}"
-            ) from None
+
+        with path_context(self._additional_paths):
+            try:
+                spec.loader.exec_module(module)
+            except ValueError as e:
+                raise RuntimeException(f"Error loading '{file_path}':\n{e}") from None
 
         self._modules.append(module)
 
@@ -110,6 +116,8 @@ class PythonRuntime:
 
         Execution is wrapped in a context manager for GitHub Actions grouping.
 
+        Adds additional paths to sys.path during execution.
+
         :param name: Name of the function to call.
         :type name: str
         :param args: Positional arguments to the function.
@@ -118,7 +126,8 @@ class PythonRuntime:
         :rtype: Any
         """
         with group_github_logs():
-            return self.__getattr__(name)(*args, **kwargs)
+            with path_context(self._additional_paths):
+                return self.__getattr__(name)(*args, **kwargs)
 
     def build_link_registry(self) -> dict[str, str]:
         """
