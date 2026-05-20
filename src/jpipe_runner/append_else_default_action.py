@@ -2,6 +2,13 @@ from argparse import _AppendAction, _copy_items
 
 
 class _AppendElseDefaultAction(_AppendAction):
+    """
+    This works like 'append', but the ``default`` value is only used when
+    the option is not present on the command line.  If the option is given
+    at least once, the initial default is discarded and the provided values
+    are appended to an initially empty list.
+    """
+
     def __init__(
         self,
         option_strings,
