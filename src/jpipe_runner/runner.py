@@ -20,7 +20,7 @@ from jpipe_runner.exceptions import RuntimeException
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
 from jpipe_runner.runtime import PythonRuntime
-from jpipe_runner.utils import colored
+from jpipe_runner.utils.terminal import colored
 
 # Generate:
 # - https://patorjk.com/software/taag/#p=display&f=Ivrit&t=jPipe%20%20Runner%0A
