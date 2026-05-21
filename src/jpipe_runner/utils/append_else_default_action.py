@@ -1,7 +1,7 @@
-from argparse import _AppendAction, _copy_items
+from argparse import OPTIONAL, Action
 
 
-class _AppendElseDefaultAction(_AppendAction):
+class AppendElseDefaultAction(Action):
     """
     This works like 'append', but the ``default`` value is only used when
     the option is not present on the command line.  If the option is given
@@ -23,12 +23,20 @@ class _AppendElseDefaultAction(_AppendAction):
         metavar=None,
         deprecated=False,
     ):
+        if nargs == 0:
+            raise ValueError(
+                "nargs for append actions must be != 0; if arg "
+                "strings are not supplying the value to append, "
+                "the append const action may be more appropriate"
+            )
+        if const is not None and nargs != OPTIONAL:
+            raise ValueError("nargs must be %r to supply const" % OPTIONAL)
         if default is None:
             raise ValueError(
                 "append_else_default action requires a default value "
                 "(the fallback list to use when the option is not given)"
             )
-        super(_AppendElseDefaultAction, self).__init__(
+        super().__init__(
             option_strings=option_strings,
             dest=dest,
             nargs=nargs,
@@ -50,3 +58,13 @@ class _AppendElseDefaultAction(_AppendAction):
             items = _copy_items(items)
         items.append(values)
         setattr(namespace, self.dest, items)
+
+
+def _copy_items(items):
+    if items is None:
+        return []
+    if type(items) is list:
+        return items[:]
+    import copy
+
+    return copy.copy(items)

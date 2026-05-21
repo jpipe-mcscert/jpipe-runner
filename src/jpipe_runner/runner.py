@@ -14,12 +14,12 @@ import shutil
 import sys
 from typing import Iterable
 
-from jpipe_runner.append_else_default_action import _AppendElseDefaultAction
 from jpipe_runner.enums import StatusType
 from jpipe_runner.exceptions import RuntimeException
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
 from jpipe_runner.runtime import PythonRuntime
+from jpipe_runner.utils.append_else_default_action import AppendElseDefaultAction
 from jpipe_runner.utils.terminal import colored
 
 # Generate:
@@ -127,7 +127,7 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--python-path",
         "-p",
-        action=_AppendElseDefaultAction,
+        action=AppendElseDefaultAction,
         default=["."],
         help=(
             "Extra folders to search for your Python files/modules. \n"
