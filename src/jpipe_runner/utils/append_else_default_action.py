@@ -25,7 +25,7 @@ class AppendElseDefaultAction(Action):
     ):
         if nargs == 0:
             raise ValueError(
-                "nargs for append actions must be != 0; if arg "
+                "nargs for append_else_default actions must be != 0; if arg "
                 "strings are not supplying the value to append, "
                 "the append const action may be more appropriate"
             )
@@ -34,7 +34,8 @@ class AppendElseDefaultAction(Action):
         if default is None:
             raise ValueError(
                 "append_else_default action requires a default value "
-                "(the fallback list to use when the option is not given)"
+                "(the fallback list to use when the option is not given) "
+                "if you don't need a fallback, consider using 'append' instead"
             )
         super().__init__(
             option_strings=option_strings,
@@ -61,6 +62,10 @@ class AppendElseDefaultAction(Action):
 
 
 def _copy_items(items):
+    """
+    From argparse._copy_items, which is not public
+    but we need similar logic to avoid mutating the default list.
+    """
     if items is None:
         return []
     if type(items) is list:
