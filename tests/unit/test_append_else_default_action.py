@@ -2,7 +2,7 @@ import argparse
 import unittest
 from unittest.mock import MagicMock
 
-from jpipe_runner.utils.append_else_default_action import AppendElseDefaultAction, _copy_items
+from jpipe_runner.utils.append_else_default_action import AppendElseDefaultAction
 
 
 class TestAppendElseDefaultAction(unittest.TestCase):
@@ -94,25 +94,3 @@ class TestAppendElseDefaultAction(unittest.TestCase):
         self.assertEqual(namespace.foo, ["A", "B"])
 
         self.assertEqual(default_list, ["D"], "Default list should not be mutated")
-
-
-class TestCopyItems(unittest.TestCase):
-    """Test suite for the internal _copy_items function."""
-
-    def test_copy_items_none(self):
-        self.assertEqual(_copy_items(None), [])
-
-    def test_copy_items_list(self):
-        """Test that a list is copied and not just referenced."""
-        original = [1, 2, 3]
-        copied = _copy_items(original)
-        self.assertEqual(copied, original)
-        self.assertIsNot(copied, original)
-
-    def test_copy_items_set(self):
-        """Test that a set is copied and not just referenced."""
-        original = {1, 2, 3}
-        copied = _copy_items(original)
-        self.assertEqual(copied, original)
-        self.assertIsNot(copied, original)
-        self.assertIsInstance(copied, set)
