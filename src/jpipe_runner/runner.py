@@ -84,6 +84,13 @@ def parse_args(argv: list[str] | None = None):
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+
+    # Register a custom AppendElseDefaultAction,
+    # This is not yet a built‑in argparse action; if the upstream PR
+    # (proposing `append_else_default`) is accepted and released,
+    # this registration line can be removed.
+    parser.register("action", "append_else_default", AppendElseDefaultAction)
+
     parser.add_argument(
         "--variable",
         "-v",
@@ -127,7 +134,7 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--python-path",
         "-p",
-        action=AppendElseDefaultAction,
+        action="append_else_default",
         default=["."],
         help=(
             "Extra folders to search for your Python files/modules. \n"
