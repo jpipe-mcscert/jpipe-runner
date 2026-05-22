@@ -64,7 +64,7 @@ def parse_args(argv: list[str] | None = None):
         --python-path, -p: Extra folders to search for Python files/modules.
                 If not specified, defaults to the current directory (".").
                 If at least one path is provided, only those paths are used.\n
-        jd_file: Path to the justification (.jd) file.\n
+        jd_file: Path to the justification (.json) file.\n
 
     :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
     :type argv: list[str] or None
