@@ -7,7 +7,8 @@ import yaml
 from ..enums import StatusType
 from ..exceptions import FunctionException
 from ..runtime import PythonRuntime
-from ..utils import normalize_structure, parse_value, sanitize_string
+from ..utils.parsing import normalize_structure, parse_value
+from ..utils.sanitize import sanitize_string
 from .context import RuntimeContext, ctx
 from .graphviz_exporter import GraphvizExporter
 from .logger import GLOBAL_LOGGER
@@ -204,9 +205,7 @@ class PipelineEngine:
         try:
             for element in data.get("elements", []):
                 G.add_node(element["id"], **element)
-                G.nodes[element["id"]]["function_name"] = sanitize_string(
-                    element.get("label", "")
-                )
+                G.nodes[element["id"]]["function_name"] = sanitize_string(element.get("label", ""))
             return True
         except KeyError as e:
             GLOBAL_LOGGER.error("Missing required key in justification elements: %s", e)
@@ -493,7 +492,8 @@ class PipelineEngine:
 
         # --- Attempt function execution (or dry-run) ---
         elif node_type in {"evidence", "strategy"} or (
-            node_type == "sub-conclusion" and (
+            node_type == "sub-conclusion"
+            and (
                 node in self._link_registry
                 or f"{self.justification_name}:{node}" in self._link_registry
             )

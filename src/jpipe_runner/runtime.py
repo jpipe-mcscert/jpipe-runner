@@ -11,7 +11,8 @@ from ast import literal_eval
 from typing import Any, Iterable, Optional, Tuple
 
 from jpipe_runner.exceptions import RuntimeException
-from jpipe_runner.utils import group_github_logs, path_context
+from jpipe_runner.utils.github_logs import group_github_logs
+from jpipe_runner.utils.syspath import path_context
 
 
 class PythonRuntime:

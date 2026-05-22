@@ -2,7 +2,7 @@ import unittest
 
 import yaml
 
-from jpipe_runner.utils import normalize_structure, parse_value
+from jpipe_runner.utils.parsing import normalize_structure, parse_value
 
 
 class TestRuntimeContext(unittest.TestCase):

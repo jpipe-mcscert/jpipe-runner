@@ -1,7 +1,7 @@
 import sys
 import unittest
 
-from jpipe_runner.utils import path_context
+from jpipe_runner.utils.syspath import path_context
 
 
 class TestPathContext(unittest.TestCase):
