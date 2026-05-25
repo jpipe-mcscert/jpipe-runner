@@ -10,6 +10,13 @@ from .base import GroupLogger
 from .github_actions import GitHubActionsGroupLogger
 from .plain import PlainGroupLogger
 
+__all__ = [
+    "GroupLogger",
+    "GitHubActionsGroupLogger",
+    "PlainGroupLogger",
+    "get_group_logger",
+]
+
 
 def get_group_logger() -> GroupLogger:
     """
