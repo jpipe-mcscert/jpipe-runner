@@ -21,7 +21,6 @@ class AppendElseDefaultAction(Action):
         required=False,
         help=None,
         metavar=None,
-        deprecated=False,
     ):
         if nargs == 0:
             raise ValueError(
@@ -48,7 +47,6 @@ class AppendElseDefaultAction(Action):
             required=required,
             help=help,
             metavar=metavar,
-            deprecated=deprecated,
         )
 
     def __call__(self, parser, namespace, values, option_string=None):

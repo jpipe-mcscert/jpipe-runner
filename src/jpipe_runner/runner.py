@@ -64,7 +64,7 @@ def parse_args(argv: list[str] | None = None):
         --python-path, -p: Extra folders to search for Python files/modules.
                 If not specified, defaults to the current directory (".").
                 If at least one path is provided, only those paths are used.\n
-        jd_file: Path to the justification (.jd) file.\n
+        jd_file: Path to the justification (.json) file.\n
 
     :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
     :type argv: list[str] or None
@@ -84,6 +84,13 @@ def parse_args(argv: list[str] | None = None):
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+
+    # Register a custom AppendElseDefaultAction,
+    # This is not yet a built‑in argparse action; if the upstream PR
+    # (proposing `append_else_default`) is accepted and released,
+    # this registration line can be removed.
+    parser.register("action", "append_else_default", AppendElseDefaultAction)
+
     parser.add_argument(
         "--variable",
         "-v",
@@ -127,7 +134,7 @@ def parse_args(argv: list[str] | None = None):
     parser.add_argument(
         "--python-path",
         "-p",
-        action=AppendElseDefaultAction,
+        action="append_else_default",
         default=["."],
         help=(
             "Extra folders to search for your Python files/modules. \n"
