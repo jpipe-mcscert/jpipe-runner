@@ -12,6 +12,9 @@ class GitHubActionsGroupLogger(GroupLogger):
     allowing logs to be collapsed in the GitHub UI.
     """
 
+    GROUP_START_TAG = "##[group]Execution logs:"
+    GROUP_END_TAG = "##[endgroup]"
+
     @classmethod
     def applies(cls) -> bool:
         """
@@ -24,12 +27,12 @@ class GitHubActionsGroupLogger(GroupLogger):
         """
         Start the GitHub Actions log group.
         """
-        print("##[group]Execution logs:", flush=True)
+        print(self.GROUP_START_TAG, flush=True)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         """
         End the GitHub Actions log group.
         """
-        print("##[endgroup]", flush=True)
+        print(self.GROUP_END_TAG, flush=True)
         return False  # Don't suppress exceptions, if any occurred within the block

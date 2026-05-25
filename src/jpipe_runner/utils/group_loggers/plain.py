@@ -18,7 +18,13 @@ class PlainGroupLogger(GroupLogger):
         return True
 
     def __enter__(self) -> "PlainGroupLogger":
+        """
+        Enter the context. This logger does not perform any grouping, so this is a no-op.
+        """
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """
+        Exit the context. This logger does not perform any grouping, so this is a no-op.
+        """
         return False  # Don't suppress exceptions, if any occurred within the block
