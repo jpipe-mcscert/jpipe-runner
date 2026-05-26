@@ -11,7 +11,7 @@ from ast import literal_eval
 from typing import Any, Iterable, Optional, Tuple
 
 from jpipe_runner.exceptions import RuntimeException
-from jpipe_runner.utils.github_logs import group_github_logs
+from jpipe_runner.utils.group_loggers import get_group_logger
 from jpipe_runner.utils.syspath import path_context
 
 
@@ -115,7 +115,7 @@ class PythonRuntime:
         """
         Call a function by name with the given arguments.
 
-        Execution is wrapped in a context manager for GitHub Actions grouping.
+        Execution is wrapped in an environment-aware context manager for log grouping.
 
         Adds additional paths to sys.path during execution.
 
@@ -126,7 +126,7 @@ class PythonRuntime:
         :return: Result of the function call.
         :rtype: Any
         """
-        with group_github_logs():
+        with get_group_logger():
             with path_context(self._additional_paths):
                 return self.__getattr__(name)(*args, **kwargs)
 
