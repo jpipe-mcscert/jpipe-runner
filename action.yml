@@ -98,6 +98,7 @@ runs:
     - name: Run jPipe Runner
       id: run_jpipe
       shell: bash
+      working-directory: ${{ inputs.working_directory }}
       env:
         PYTHON_PATH: ${{ inputs.python_path || 'python' }}
         JD_FILE: ${{ inputs.jd_file }}
