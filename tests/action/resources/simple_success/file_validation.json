@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Check file exists",
+      "type": "evidence"
+    },
+    {
+      "id": "C1",
+      "label": "File is valid",
+      "type": "conclusion"
+    }
+  ],
+  "name": "file_validation",
+  "relations": [
+    {
+      "source": "E1",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}
