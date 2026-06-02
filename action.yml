@@ -69,6 +69,14 @@ inputs:
     description: "GitHub read permission only token to generate the raw URL of the image for accessing URLs in private repositories (Read access to actions, code, and metadata)"
     required: false
 
+outputs:
+  result:
+    description: "Exit code of the jPipe Runner execution"
+    value: ${{ steps.run_jpipe.outputs.result }}
+  diagram_path:
+    description: "Path to the generated diagram artifact"
+    value: ${{ steps.run_jpipe.outputs.diagram_path }}
+
 runs:
   using: "composite"
   steps:
