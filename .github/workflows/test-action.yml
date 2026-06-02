@@ -5,23 +5,28 @@ on:
     branches:
       - main
       - dev
-      - test/add-end-to-end-integration-tests-for-the-github-action # todo: remove this branch after the PR is merged
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  test-action:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  test-simple-success:
+    if: github.event.pull_request.draft == false
+    uses: ./.github/workflows/test-template.yml
+    with:
+      working_directory: 'tests/action/resources/simple_success'
+      jd_file: 'file_validation.json'
+      library: 'file_validation.py'
+      config-file: 'config.yaml'
+      expected_result: '0'
+    secrets: inherit
 
-      - name: Run jPipe Runner Action
-        uses: ./
-        with:
-          working_directory: 'tests/action/resources/simple_success'
-          jd_file: 'file_validation.json'
-          library: 'file_validation.py'
-          config-file: 'config.yaml'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  test-missing-consumer:
+    if: github.event.pull_request.draft == false
+    uses: ./.github/workflows/test-template.yml
+    with:
+      working_directory: 'tests/action/resources/missing_consumer'
+      jd_file: 'math_operation.json'
+      library: 'math_operation.py'
+      expected_result: '1'
+    secrets: inherit
