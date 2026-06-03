@@ -18,9 +18,10 @@ def generate_number_b(produce) -> bool:
     return True
 
 
-# Intentionally consumes a variable that has no producer
 @jpipe_link("S1")
-@jpipe(consume=["missing_var"])
-def add_numbers(missing_var: int) -> bool:
-    """Add two numbers - fails due to missing variable"""
-    return missing_var > 0
+@jpipe(consume=["number_a", "number_b"])
+def add_numbers(number_a, number_b) -> bool:
+    """Add two numbers"""
+    result = number_a + number_b
+    print(f"Result of addition: {result}")
+    return True
