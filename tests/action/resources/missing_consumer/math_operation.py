@@ -23,5 +23,6 @@ def generate_number_b(produce) -> bool:
 def add_numbers(number_a, number_b) -> bool:
     """Add two numbers"""
     result = number_a + number_b
+    raise Exception("fake exception for testing")
     print(f"Result of addition: {result}")
     return True
