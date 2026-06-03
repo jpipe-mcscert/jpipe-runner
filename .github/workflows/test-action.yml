@@ -22,12 +22,12 @@ jobs:
       expected_result: '0'
     secrets: inherit
 
-  test-missing-consumer:
+  test-raise-exception:
     if: github.event.pull_request.draft == false
     uses: ./.github/workflows/test-template.yml
     with:
-      working_directory: 'tests/action/resources/missing_consumer'
-      jd_file: 'math_operation.json'
-      library: 'math_operation.py'
+      working_directory: 'tests/action/resources/raise_exception'
+      jd_file: 'raise_exception.json'
+      library: 'raise_exception.py'
       expected_result: '1'
     secrets: inherit
