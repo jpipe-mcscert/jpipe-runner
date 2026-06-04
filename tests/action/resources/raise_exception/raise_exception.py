@@ -14,4 +14,7 @@ def test_evidence(produce) -> bool:
 @jpipe(consume=["value"])
 def raise_exception(value) -> bool:
     """Strategy that raises an exception"""
-    raise Exception("fake exception for testing")
+    raise Exception(
+        "This is an intentional exception raised by the test to verify that "
+        "the action correctly adds the error message to the PR comment."
+    )

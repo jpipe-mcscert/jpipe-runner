@@ -13,21 +13,50 @@ permissions:
 jobs:
   test-simple-success:
     if: github.event.pull_request.draft == false
-    uses: ./.github/workflows/test-template.yml
-    with:
-      working_directory: 'tests/action/resources/simple_success'
-      jd_file: 'file_validation.json'
-      library: 'file_validation.py'
-      config-file: 'config.yaml'
-      expected_result: '0'
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test
+        id: test
+        uses: ./.github/actions/test-template
+        with:
+          working_directory: 'tests/action/resources/simple_success'
+          jd_file: 'file_validation.json'
+          library: 'file_validation.py'
+          config-file: 'config.yaml'
+          expected_result: '0'
 
   test-raise-exception:
     if: github.event.pull_request.draft == false
-    uses: ./.github/workflows/test-template.yml
-    with:
-      working_directory: 'tests/action/resources/raise_exception'
-      jd_file: 'raise_exception.json'
-      library: 'raise_exception.py'
-      expected_result: '1'
-    secrets: inherit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test
+        id: test
+        uses: ./.github/actions/test-template
+        with:
+          working_directory: 'tests/action/resources/raise_exception'
+          jd_file: 'raise_exception.json'
+          library: 'raise_exception.py'
+          expected_result: '1'
+
+      - name: Verify PR comment content
+        shell: bash
+        env:
+          PR_COMMENT: ${{ steps.test.outputs.pr_comment }}
+        run: |
+          expected_msg="This is a intentional exception raised by the test to verify that the action correctly add the error message to the PR comment."
+
+          if echo "$PR_COMMENT" | grep -qF "$expected_msg"; then
+            echo "SUCCESS: PR comment contains the expected exception message"
+          else
+            echo "ERROR: PR comment does not contain the expected exception message"
+            echo "--- PR comment content ---"
+            echo "$PR_COMMENT"
+            echo "--------------------------"
+            exit 1
+          fi

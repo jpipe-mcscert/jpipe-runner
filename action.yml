@@ -76,6 +76,9 @@ outputs:
   diagram_path:
     description: "Path to the generated diagram artifact"
     value: ${{ steps.run_jpipe.outputs.diagram_path }}
+  pr_comment_id:
+    description: "ID of the PR comment posted"
+    value: ${{ steps.post_pr_comment.outputs.comment_id }}
 
 runs:
   using: "composite"
@@ -175,6 +178,7 @@ runs:
 
     - name: Post PR comment
       if: always()
+      id: post_pr_comment
       uses: actions/github-script@v7
       env:
         PR_COMMENT_MESSAGE: ${{ steps.comment_content.outputs.msg }}
@@ -187,15 +191,19 @@ runs:
           // Check if the workflow was triggered by a pull request
           if (!context.issue || !context.issue.number) {
               console.log("This action was not triggered by a pull request, skipping comment.");
-              return;
+              return { id: null };
           }
           
-          github.rest.issues.createComment({
+          const response = await github.rest.issues.createComment({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
             body: message
           });
+          
+          // Capture the comment ID
+          core.setOutput("comment_id", response.data.id.toString());
+          return response.data;
 
     - name: Fail if jPipe Runner failed
       if: ${{ steps.run_jpipe.outputs.result != '0' }}

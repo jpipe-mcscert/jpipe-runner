@@ -1,0 +1,87 @@
+name: "Test Template"
+description: "Composite action to run jPipe Runner tests"
+
+inputs:
+  working_directory:
+    required: true
+    type: string
+  jd_file:
+    required: true
+    type: string
+  library:
+    required: true
+    type: string
+  config-file:
+    required: false
+    type: string
+    default: ''
+  expected_result:
+    required: false
+    type: string
+    default: '0'
+
+outputs:
+  pr_comment_id:
+    description: "ID of the PR comment"
+    value: ${{ steps.fetch_comment.outputs.comment_id }}
+  pr_comment:
+    description: "Content of the PR comment"
+    value: ${{ steps.fetch_comment.outputs.content }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run jPipe Runner Action
+      id: run_jpipe
+      uses: ./
+      continue-on-error: true
+      with:
+        working_directory: ${{ inputs.working_directory }}
+        jd_file: ${{ inputs.jd_file }}
+        library: ${{ inputs.library }}
+        config-file: ${{ inputs.config-file }}
+        github-token: ${{ github.token }}
+
+    - name: Check expected result
+      shell: bash
+      run: |
+        if [ "${{ steps.run_jpipe.outputs.result }}" != "${{ inputs.expected_result }}" ]; then
+          echo "ERROR: Expected result '${{ inputs.expected_result }}' but got '${{ steps.run_jpipe.outputs.result }}'"
+          exit 1
+        fi
+
+    - name: Fetch PR comment by ID
+      id: fetch_comment
+      uses: actions/github-script@v7
+      env:
+        COMMENT_ID: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          
+          const commentIdRaw = process.env.COMMENT_ID;
+          // Validate the comment ID
+          if (!commentIdRaw) {
+            core.setFailed("No comment ID provided by the runner action");
+            return;
+          }
+          
+          const commentId = Number(commentIdRaw);
+          // Check if the comment ID is a valid positive number
+          if (Number.isNaN(commentId) || commentId <= 0) {
+            core.setFailed(`The provided comment ID "${commentIdRaw}" is not a valid positive number.`);
+            return;
+          }
+          // Fetch the comment details using the GitHub API
+          try {
+            const response = await github.rest.issues.getComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: Number(commentId)
+            });
+
+            core.setOutput("comment_id", response.data.id.toString());
+            core.setOutput("content", response.data.body);
+          } catch (error) {
+            core.setFailed(`PR comment with ID ${commentId} not found: ${error.message}`);
+          }
