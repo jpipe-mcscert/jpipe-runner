@@ -49,7 +49,7 @@ jobs:
         env:
           PR_COMMENT: ${{ steps.test.outputs.pr_comment }}
         run: |
-          expected_msg="This is a intentional exception raised by the test to verify that the action correctly add the error message to the PR comment."
+          expected_msg="This is an intentional exception raised by the test to verify that the action correctly adds the error message to the PR comment."
 
           if echo "$PR_COMMENT" | grep -qF "$expected_msg"; then
             echo "SUCCESS: PR comment contains the expected exception message"
