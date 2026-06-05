@@ -1,0 +1,31 @@
+{
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Check config value",
+      "type": "evidence"
+    },
+    {
+      "id": "E2",
+      "label": "Check library import",
+      "type": "evidence"
+    },
+    {
+      "id": "E3",
+      "label": "Check user variable",
+      "type": "evidence"
+    },
+    {
+      "id": "S1",
+      "label": "All conditions are met",
+      "type": "strategy"
+    }
+  ],
+  "name": "validation_test",
+  "relations": [
+    { "source": "E1", "target": "S1" },
+    { "source": "E2", "target": "S1" },
+    { "source": "E3", "target": "S1" }
+  ],
+  "type": "justification"
+}

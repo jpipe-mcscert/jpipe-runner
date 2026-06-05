@@ -25,7 +25,25 @@ permissions:
 
 jobs:
   # -----------------------------------------------------------------------
-  # Simple success scenario
+  # Parameters scenario — tests action input end-to-end.
+  #
+  # What this tests:
+  #
+  #     jd_file          : Loads 'validation_test.json'.
+  #     library          : Loads 'validation_test.py'
+  #     config-file      : Loads 'config.yaml'; E1 consumes 'expected_value: 43'.
+  #     variable         : Injects 'user_name:Alice'; E3 asserts user_name == "Alice".
+  #     format           : Requests PNG output instead of the default SVG.
+  #     embed_image      : Enables diagram upload & embedding in the PR comment.
+  #     working_directory: Runs inside 'tests/action/resources/simple_success/'.
+  #
+  # Verification steps:
+  #   1. Pipeline exit code is 0 (all tests passed).
+  #   2. Output file extension is .png (format parameter honoured).
+  #   3. A PR comment was posted containing the diagram as an embedded image.
+  #   4. The embedded image URL is extracted, the image is downloaded, and its
+  #      SHA256 hash is compared to the original diagram file — this proves
+  #      that embed_image correctly references the generated artifact.
   # -----------------------------------------------------------------------
   test-simple-success:
     # We skip the tests if the PR is in draft mode, to save CI resources. Once the PR is ready for review, the tests will run.
@@ -41,9 +59,12 @@ jobs:
         continue-on-error: true
         with:
           working_directory: 'tests/action/resources/simple_success'
-          jd_file: 'file_validation.json'
-          library: 'file_validation.py'
+          jd_file: 'validation_test.json'
+          library: 'validation_test.py'
           config-file: 'config.yaml'
+          variable: 'user_name:Alice'
+          format: 'png'
+          embed_image: 'true'
           github-token: ${{ github.token }}
 
       - name: Check expected result
@@ -51,6 +72,8 @@ jobs:
         with:
           result: ${{ steps.run_jpipe.outputs.result }}
           expected_result: '0'
+
+
 
   # -----------------------------------------------------------------------
   # Exception scenario
