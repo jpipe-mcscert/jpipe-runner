@@ -1,0 +1,48 @@
+name: "Check Expected Result"
+description: "Check that the jpipe runner exit code matches the expected value"
+
+# ---------------------------------------------------------------------------
+# Check Expected Result
+#
+# What it does:
+#   Compares the actual exit code produced by the jPipe Runner action with
+#   the expected exit code provided by the caller. If they differ, the step
+#   fails the workflow with a clear error message.
+#
+# Why this exists:
+#   Tests for jPipe Runner include scenarios that expect either success (0)
+#   or failure (1). Centralising this comparison in a small composite action
+#   keeps test templates concise and ensures consistent error messages.
+#
+# ---------------------------------------------------------------------------
+
+inputs:
+  result:
+    description: "Actual exit code from jpipe runner execution"
+    required: true
+    type: string
+  expected_result:
+    description: "Expected exit code (0 for success, 1 for failure)"
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    # ---------------------------------------------------------------
+    # Check that the exit code is what we expect
+    # ---------------------------------------------------------------
+    # expected_result is "0" for success, "1" for failure.
+    # If it doesn't match, the test fails here.
+    - name: Check expected result
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.result }}" ]; then
+          echo "ERROR: The input 'result' is empty or not set."
+          echo "Please provide the exit code from the jpipe runner execution."
+          exit 1
+        fi
+        if [ "${{ inputs.result }}" != "${{ inputs.expected_result }}" ]; then
+          echo "ERROR: Expected result '${{ inputs.expected_result }}' but got '${{ inputs.result }}'"
+          exit 1
+        fi
