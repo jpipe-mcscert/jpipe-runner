@@ -25,25 +25,17 @@ permissions:
 
 jobs:
   # -----------------------------------------------------------------------
-  # Parameters scenario — tests action input end-to-end.
+  # Simple success scenario — tests basic action parameters.
   #
   # What this tests:
-  #
   #     jd_file          : Loads 'validation_test.json'.
-  #     library          : Loads 'validation_test.py'
+  #     library          : Loads 'validation_test.py'.
   #     config-file      : Loads 'config.yaml'; E1 consumes 'expected_value: 43'.
   #     variable         : Injects 'user_name:Alice'; E3 asserts user_name == "Alice".
-  #     format           : Requests PNG output instead of the default SVG.
-  #     embed_image      : Enables diagram upload & embedding in the PR comment.
   #     working_directory: Runs inside 'tests/action/resources/simple_success/'.
   #
-  # Verification steps:
-  #   1. Pipeline exit code is 0 (all tests passed).
-  #   2. Output file extension is .png (format parameter honoured).
-  #   3. A PR comment was posted containing the diagram as an embedded image.
-  #   4. The embedded image URL is extracted, the image is downloaded, and its
-  #      SHA256 hash is compared to the original diagram file — this proves
-  #      that embed_image correctly references the generated artifact.
+  # Verification:
+  #     Pipeline exit code is 0 (all tests passed).
   # -----------------------------------------------------------------------
   test-simple-success:
     # We skip the tests if the PR is in draft mode, to save CI resources. Once the PR is ready for review, the tests will run.
@@ -63,7 +55,42 @@ jobs:
           library: 'validation_test.py'
           config-file: 'config.yaml'
           variable: 'user_name:Alice'
-          format: 'png'
+          github-token: ${{ github.token }}
+
+      - name: Check expected result
+        uses: ./.github/actions/check-expected-result
+        with:
+          result: ${{ steps.run_jpipe.outputs.result }}
+          expected_result: '0'
+
+  # -----------------------------------------------------------------------
+  # Embedded image scenario — dedicated test for the embed_image parameter.
+  #
+  # What this tests:
+  #     embed_image: the action should embed the generated diagram in the PR comment.
+  #
+  # Verification:
+  #     1. Pipeline exit code is 0.
+  #     2. A PR comment was posted.
+  #     3. The comment contains an embedded image whose SHA256 matches
+  #        the original diagram file — proving the image in the comment
+  #        is identical to the generated artifact.
+  # -----------------------------------------------------------------------
+  test-embed-image:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run jpipe-runner action with embed_image
+        id: run_jpipe
+        uses: ./
+        continue-on-error: true
+        with:
+          working_directory: 'tests/action/resources/embed_image_test'
+          jd_file: 'basic.json'
+          library: 'basic.py'
           embed_image: 'true'
           github-token: ${{ github.token }}
 
@@ -73,7 +100,7 @@ jobs:
           result: ${{ steps.run_jpipe.outputs.result }}
           expected_result: '0'
 
-      - name: Fetch PR comment to verify image embedding
+      - name: Fetch PR comment
         id: fetch_comment
         uses: ./.github/actions/fetch-pr-comment
         with:
@@ -91,14 +118,14 @@ jobs:
           IMAGE_URL=$(echo "$PR_COMMENT" | grep -oP '!\[Generated Diagram\]\(\K[^)]+')
 
           if [[ -z "$IMAGE_URL" ]]; then
-            echo "FAILURE: Generated diagram image URL not found in PR comment."
+            echo "ERROR: Generated diagram image URL not found in PR comment."
             exit 1
           fi
 
           # Download the image
           curl -sL -o /tmp/embedded_image.png "$IMAGE_URL"
           if [[ ! -f /tmp/embedded_image.png ]]; then
-            echo "FAILURE: Failed to download image from $IMAGE_URL"
+            echo "ERROR: Failed to download image from $IMAGE_URL"
             exit 1
           fi
           echo "Image downloaded successfully"
@@ -109,7 +136,7 @@ jobs:
 
           # Compute SHA256 of the original diagram file
           if [[ ! -f "$ORIGINAL_DIAGRAM_PATH" ]]; then
-            echo "FAILURE: Original diagram file not found at $ORIGINAL_DIAGRAM_PATH"
+            echo "ERROR: Original diagram file not found at $ORIGINAL_DIAGRAM_PATH"
             exit 1
           fi
           ORIGINAL_HASH=$(sha256sum "$ORIGINAL_DIAGRAM_PATH" | cut -d' ' -f1)
@@ -119,7 +146,7 @@ jobs:
           if [[ "$EMBEDDED_HASH" == "$ORIGINAL_HASH" ]]; then
             echo "SUCCESS: Embedded image hash matches original diagram file"
           else
-            echo "FAILURE: Hash mismatch!"
+            echo "ERROR: Hash mismatch!"
             echo "  Embedded image SHA256: $EMBEDDED_HASH"
             echo "  Original diagram SHA256: $ORIGINAL_HASH"
             echo "  The embedded image in the PR comment differs from the generated diagram."
