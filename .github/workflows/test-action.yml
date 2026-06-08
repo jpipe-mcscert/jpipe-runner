@@ -73,7 +73,58 @@ jobs:
           result: ${{ steps.run_jpipe.outputs.result }}
           expected_result: '0'
 
+      - name: Fetch PR comment to verify image embedding
+        id: fetch_comment
+        uses: ./.github/actions/fetch-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
 
+      - name: Download embedded image and verify hash matches original
+        shell: bash
+        env:
+          PR_COMMENT: ${{ steps.fetch_comment.outputs.pr_comment }}
+          ORIGINAL_DIAGRAM_PATH: ${{ steps.run_jpipe.outputs.diagram_path }}
+        run: |
+          # Extract the image URL from the PR comment
+          # The comment contains: ![Generated Diagram](<URL>)
+          IMAGE_URL=$(echo "$PR_COMMENT" | grep -oP '!\[Generated Diagram\]\(\K[^)]+')
+
+          if [[ -z "$IMAGE_URL" ]]; then
+            echo "FAILURE: Generated diagram image URL not found in PR comment."
+            exit 1
+          fi
+
+          # Download the image
+          curl -sL -o /tmp/embedded_image.png "$IMAGE_URL"
+          if [[ ! -f /tmp/embedded_image.png ]]; then
+            echo "FAILURE: Failed to download image from $IMAGE_URL"
+            exit 1
+          fi
+          echo "Image downloaded successfully"
+
+          # Compute SHA256 of the downloaded image
+          EMBEDDED_HASH=$(sha256sum /tmp/embedded_image.png | cut -d' ' -f1)
+          echo "Embedded image SHA256: $EMBEDDED_HASH"
+
+          # Compute SHA256 of the original diagram file
+          if [[ ! -f "$ORIGINAL_DIAGRAM_PATH" ]]; then
+            echo "FAILURE: Original diagram file not found at $ORIGINAL_DIAGRAM_PATH"
+            exit 1
+          fi
+          ORIGINAL_HASH=$(sha256sum "$ORIGINAL_DIAGRAM_PATH" | cut -d' ' -f1)
+          echo "Original diagram SHA256: $ORIGINAL_HASH"
+
+          # Compare the two hashes
+          if [[ "$EMBEDDED_HASH" == "$ORIGINAL_HASH" ]]; then
+            echo "SUCCESS: Embedded image hash matches original diagram file"
+          else
+            echo "FAILURE: Hash mismatch!"
+            echo "  Embedded image SHA256: $EMBEDDED_HASH"
+            echo "  Original diagram SHA256: $ORIGINAL_HASH"
+            echo "  The embedded image in the PR comment differs from the generated diagram."
+            exit 1
+          fi
 
   # -----------------------------------------------------------------------
   # Exception scenario
