@@ -215,13 +215,13 @@ jobs:
   #                  instead of the default one (python3.11).
   #
   # How it works:
-  #     1. We install Python 3.9.
-  #     2. We pass that path as `python3.9` to the action.
-  #     3. The evidence E1 checks sys.version_info == 3.9.
+  #     1. We install Python 3.12.
+  #     2. We pass that path as `python3.12` to the action.
+  #     3. The evidence E1 checks sys.version_info == 3.12.
   #     4. If the check passes, the action used the interpreter we specified.
   #
   # Verification:
-  #     Pipeline exit code is 0 (E1 asserted that Python version is 3.9).
+  #     Pipeline exit code is 0 (E1 asserted that Python version is 3.12).
   # -----------------------------------------------------------------------
   test-python-path:
     if: github.event.pull_request.draft == false
@@ -230,11 +230,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.9
+      - name: Set up Python 3.12
         id: setup-python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.12"
 
       - name: Run jpipe-runner action with python_path
         id: run_jpipe

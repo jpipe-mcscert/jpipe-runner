@@ -15,10 +15,10 @@ from jpipe_runner.framework.decorators.link_decorator import jpipe_link
 @jpipe(produce=["python_version_ok"])
 def check_python_version(produce) -> bool:
     """
-    Verify that the Python interpreter is version 3.9.x.
+    Verify that the Python interpreter is version 3.12.x.
     """
     version = sys.version_info
-    python_version_ok = version.major == 3 and version.minor == 9
+    python_version_ok = version.major == 3 and version.minor == 12
     produce("python_version_ok", python_version_ok)
     return python_version_ok
 
