@@ -9,6 +9,9 @@ name: Test Action
 #
 # This serves as an end-to-end test of the action in a real PR context, including
 # posting PR comments.
+#
+# Each test job cleans up its PR comment with delete-pr-comment so the
+# PR stays clean after running.
 # ---------------------------------------------------------------------------
 
 on:
@@ -62,6 +65,13 @@ jobs:
         with:
           result: ${{ steps.run_jpipe.outputs.result }}
           expected_result: '0'
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
 
   # -----------------------------------------------------------------------
   # Embedded image scenario — dedicated test for the embed_image parameter.
@@ -153,13 +163,24 @@ jobs:
             exit 1
           fi
 
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
+
   # -----------------------------------------------------------------------
-  # Exception scenario
+  # Exception scenario — tests that pipeline failure posts the error in a PR comment.
+  #
+  # What this tests:
+  #     The pipeline should fail (exit 1) when a strategy element raises an exception.
+  #     The error message must be visible in the PR comment posted by the runner.
+  #
+  # Verification:
+  #     1. Pipeline exit code is 1 (failure expected).
+  #     2. The PR comment contains the expected exception message.
   # -----------------------------------------------------------------------
-  # A justification where the strategy element raises an exception.
-  # The pipeline should fail (exit 1). We then fetch the PR comment that
-  # was posted by jpipe-runner and check that the exception message is
-  # visible in the comment.
   test-raise-exception:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -201,11 +222,20 @@ jobs:
             echo "SUCCESS: PR comment contains the expected exception message"
           else
             echo "ERROR: PR comment does not contain the expected exception message"
+            echo "Expected message:"
+            echo "$expected_msg"
             echo "--- PR comment content ---"
             echo "$PR_COMMENT"
             echo "--------------------------"
             exit 1
           fi
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
 
   # -----------------------------------------------------------------------
   # Python path scenario — test for the python_path parameter.
@@ -252,3 +282,10 @@ jobs:
         with:
           result: ${{ steps.run_jpipe.outputs.result }}
           expected_result: '0'
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
