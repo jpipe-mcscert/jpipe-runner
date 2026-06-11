@@ -40,7 +40,8 @@ runs:
           const commentIdRaw = process.env.COMMENT_ID;
           // Validate the comment ID
           if (!commentIdRaw) {
-            core.setFailed("No comment ID provided by the runner action");
+            // if the comment ID is not provided, log a warning and exit without failing the action to avoid masking the original test failure
+            core.warning("No comment ID provided by the runner action");
             return;
           }
 

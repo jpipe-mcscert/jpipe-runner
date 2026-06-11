@@ -191,6 +191,7 @@ runs:
           // Check if the workflow was triggered by a pull request
           if (!context.issue || !context.issue.number) {
               console.log("This action was not triggered by a pull request, skipping comment.");
+              core.setOutput("comment_id", "");
               return { id: null };
           }
           
