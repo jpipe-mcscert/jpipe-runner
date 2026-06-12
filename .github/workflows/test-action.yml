@@ -125,7 +125,7 @@ jobs:
         run: |
           # Extract the image URL from the PR comment
           # The comment contains: ![Generated Diagram](<URL>)
-          IMAGE_URL=$(echo "$PR_COMMENT" | grep -oP '!\[Generated Diagram\]\(\K[^)]+')
+          IMAGE_URL=$(echo "$PR_COMMENT" | sed -n 's/.*!\[Generated Diagram\](\([^)]*\)).*/\1/p')
 
           if [[ -z "$IMAGE_URL" ]]; then
             echo "ERROR: Generated diagram image URL not found in PR comment."
