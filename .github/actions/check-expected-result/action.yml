@@ -36,13 +36,16 @@ runs:
     # If it doesn't match, the test fails here.
     - name: Check expected result
       shell: bash
+      env:
+        INPUT_RESULT: ${{ inputs.result }}
+        INPUT_EXPECTED_RESULT: ${{ inputs.expected_result }}
       run: |
-        if [ -z "${{ inputs.result }}" ]; then
+        if [ -z "$INPUT_RESULT" ]; then
           echo "ERROR: The input 'result' is empty or not set."
           echo "Please provide the exit code from the jpipe runner execution."
           exit 1
         fi
-        if [ "${{ inputs.result }}" != "${{ inputs.expected_result }}" ]; then
-          echo "ERROR: Expected result '${{ inputs.expected_result }}' but got '${{ inputs.result }}'"
+        if [ "$INPUT_RESULT" != "$INPUT_EXPECTED_RESULT" ]; then
+          echo "ERROR: Expected result '$INPUT_EXPECTED_RESULT' but got '$INPUT_RESULT'"
           exit 1
         fi
