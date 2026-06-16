@@ -134,8 +134,7 @@ jobs:
           fi
 
           # Download the image
-          curl -sL -o /tmp/embedded_image.png "$IMAGE_URL"
-          if [[ ! -f /tmp/embedded_image.png ]]; then
+          if ! curl -fsSL -o /tmp/embedded_image.png "$IMAGE_URL"; then
             echo "ERROR: Failed to download image from $IMAGE_URL"
             exit 1
           fi
