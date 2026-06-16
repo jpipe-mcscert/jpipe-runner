@@ -25,4 +25,4 @@ def raise_exception(value) -> bool:
         "This is an intentional exception raised by the test to verify that "
         "the action correctly adds the error message to the PR comment."
     )
-    return value == 42
+    return value == 42  # This line is never reached, but it satisfies the @jpipe consume validation
