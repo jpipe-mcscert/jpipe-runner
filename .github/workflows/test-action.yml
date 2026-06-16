@@ -42,7 +42,8 @@ jobs:
   # -----------------------------------------------------------------------
   test-simple-success:
     # We skip the tests if the PR is in draft mode, to save CI resources. Once the PR is ready for review, the tests will run.
-    if: github.event.pull_request.draft == false
+    # Additionally, we skip the tests if the PR is from a fork, since the action will not have permissions to post comments.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -87,7 +88,7 @@ jobs:
   #        is identical to the generated artifact.
   # -----------------------------------------------------------------------
   test-embed-image:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -182,7 +183,7 @@ jobs:
   #     2. The PR comment contains the expected exception message.
   # -----------------------------------------------------------------------
   test-raise-exception:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -254,7 +255,7 @@ jobs:
   #     Pipeline exit code is 0 (E1 asserted that Python version is 3.12).
   # -----------------------------------------------------------------------
   test-python-path:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
