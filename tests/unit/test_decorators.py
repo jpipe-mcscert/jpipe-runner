@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import patch
 
 from jpipe_runner.framework.context import RuntimeContext, ctx
 from jpipe_runner.framework.decorators.jpipe_decorator import (
@@ -47,7 +46,7 @@ class TestConsumedVariableChecker(unittest.TestCase):
 
         matching_logs = [
             log
-            for log in log_buffer.logs
+            for log in log_buffer.formatted_logs
             if "has not been set in context before calling" in log and "a" in log
         ]
         self.assertTrue(
@@ -108,7 +107,7 @@ class TestProducedVariableChecker(unittest.TestCase):
         # Check that an error was logged about producing an undeclared variable
         matching_logs = [
             log
-            for log in log_buffer.logs
+            for log in log_buffer.formatted_logs
             if "attempted to produce undeclared variable" in log and "not_declared" in log
         ]
         self.assertTrue(
@@ -128,7 +127,7 @@ class TestProducedVariableChecker(unittest.TestCase):
         # Check that an error was logged about missing variable(s)
         matching_logs = [
             log
-            for log in log_buffer.logs
+            for log in log_buffer.formatted_logs
             if "did not produce the following declared variable(s)" in log
         ]
         self.assertTrue(
@@ -173,7 +172,7 @@ class TestConsumeDecorator(unittest.TestCase):
 
         matching_logs = [
             log
-            for log in log_buffer.logs
+            for log in log_buffer.formatted_logs
             if "Consumed variable 'val' has not been set in context before calling 'func'"
             in log  # Adjust based on your logger message
         ]
@@ -214,7 +213,7 @@ class TestProduceDecorator(unittest.TestCase):
 
         matching_logs = [
             log
-            for log in log_buffer.logs
+            for log in log_buffer.formatted_logs
             if "attempted to produce undeclared variable" in log and "not_declared" in log
         ]
 
@@ -238,7 +237,7 @@ class TestProduceDecorator(unittest.TestCase):
 
         matching_logs = [
             log
-            for log in log_buffer.logs
+            for log in log_buffer.formatted_logs
             if "did not produce the following declared variable(s):" in log and "out2" in log
         ]
         self.assertTrue(
@@ -256,29 +255,35 @@ class TestProduceParamCheck(unittest.TestCase):
 
     def test_produce_param_missing_raises_error(self):
         with self.assertRaises(ValueError) as cm:
+
             @jpipe(produce=["out"])
             def func():  # missing 'produce' as last param
                 pass
+
         self.assertIn("produce", str(cm.exception))
         self.assertIn("last parameter", str(cm.exception))
 
     def test_produce_param_not_last_raises_error(self):
         with self.assertRaises(ValueError) as cm:
+
             @jpipe(produce=["out"])
             def func(produce, x):  # produce is not last
                 produce("out", x)
+
         self.assertIn("produce", str(cm.exception))
 
     def test_produce_param_last_passes(self):
         @jpipe(produce=["out"])
         def func(produce):
             produce("out", 1)
+
         # No exception raised
 
     def test_no_produce_decl_skips_check(self):
         @jpipe(consume=["x"])
         def func(x):
             return x
+
         # No exception even though there's no produce param
 
     def test_produce_param_with_empty_list_passes_and_injects_noop(self):

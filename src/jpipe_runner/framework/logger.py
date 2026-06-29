@@ -30,15 +30,21 @@ class InMemoryLogHandler(logging.Handler):
         self.logs = []
 
     def emit(self, record):
-        log_entry = self.format(record)
-        self.logs.append(log_entry)
+        self.logs.append(record)
 
     def has_errors(self):
-        return any("ERROR" in log or "WARNING" in log for log in self.logs)
+        return any(
+            record.levelno >= logging.ERROR or record.levelno >= logging.WARNING
+            for record in self.logs
+        )
+
+    @property
+    def formatted_logs(self):
+        return [self.format(record) for record in self.logs]
 
     def dump_to_stderr(self):
-        for log in self.logs:
-            print(log, file=sys.stderr)
+        for log_entry in self.formatted_logs:
+            print(log_entry, file=sys.stderr)
 
 
 # Set up in-memory handler
