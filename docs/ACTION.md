@@ -36,7 +36,7 @@ and artifact management.
 | `diagram`              | Specify diagram pattern or wildcard                            | `*`                                       |
 | `format`               | Output format for the diagram (`dot`, `gif`, `jpeg`, etc.)     | `svg`                                     |
 | `dry_run`              | Perform a dry run without executing justifications             | `false`                                   |
-| `python_exec_path`     | Path to Python interpreter                                     | `python`                                  |
+| `python_exec_path`     | Path to Python interpreter                                     | (defaults to system Python)               |
 | `python_path`          | Extra folders to search for modules separated by newlines      | `.`                                       |
 | `working_directory`    | Working directory to run jPipe Runner                          | `.`                                       |
 | `version`              | jPipe Runner version to use (e.g., `0.0.1`)                    | `main`                                    |

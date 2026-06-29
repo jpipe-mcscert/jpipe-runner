@@ -33,7 +33,7 @@ inputs:
   python_exec_path:
     description: "Specify a Python interpreter path to run jPipe Runner"
     required: false
-    default: "python"
+    default: ""
   python_path:
     description: "Specify one or more extra folders to search for Python files/modules, separated by newlines"
     required: false
@@ -101,7 +101,7 @@ runs:
     - name: Install jpipe-runner
       shell: bash
       env:
-        PYTHON_EXEC_PATH: ${{ inputs.python_exec_path }}
+        PYTHON_EXEC_PATH: ${{ inputs.python_exec_path || 'python' }}
         VERSION: ${{ inputs.version }}
       run: |
         echo "::group::Install jPipe Runner"
@@ -114,7 +114,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
-        PYTHON_EXEC_PATH: ${{ inputs.python_exec_path }}
+        PYTHON_EXEC_PATH: ${{ inputs.python_exec_path || 'python' }}
         PYTHON_PATH: ${{ inputs.python_path }}
         JD_FILE: ${{ inputs.jd_file }}
         VARIABLE: ${{ inputs.variable }}
