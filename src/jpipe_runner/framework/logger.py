@@ -33,10 +33,8 @@ class InMemoryLogHandler(logging.Handler):
         self.logs.append(record)
 
     def has_errors(self):
-        return any(
-            record.levelno >= logging.ERROR or record.levelno >= logging.WARNING
-            for record in self.logs
-        )
+        # Check if any log record is WARNING or higher
+        return any(record.levelno >= logging.WARNING for record in self.logs)
 
     @property
     def formatted_logs(self):
