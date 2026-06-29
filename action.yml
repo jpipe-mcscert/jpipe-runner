@@ -30,10 +30,13 @@ inputs:
     description: "Perform a dry run without actually executing justifications"
     required: false
     default: "false"
-  python_path:
-    description: "Specify a Python path to run jPipe Runner"
+  python_exec_path:
+    description: "Specify a Python interpreter path to run jPipe Runner"
     required: false
-    default: ""
+    default: "python"
+  python_path:
+    description: "Specify one or more extra folders to search for Python files/modules, separated by newlines"
+    required: false
   working_directory:
     description: "Specify a working directory to run jPipe Runner"
     required: false
@@ -90,7 +93,7 @@ runs:
         sudo apt-get install -y graphviz
 
     - name: Set up Python
-      if: ${{ !inputs.python_path }}
+      if: ${{ !inputs.python_exec_path }}
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
@@ -98,7 +101,7 @@ runs:
     - name: Install jpipe-runner
       shell: bash
       env:
-        PYTHON_PATH: ${{ inputs.python_path || 'python' }}
+        PYTHON_EXEC_PATH: ${{ inputs.python_exec_path }}
         VERSION: ${{ inputs.version }}
       run: |
         echo "::group::Install jPipe Runner"
@@ -111,7 +114,8 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
-        PYTHON_PATH: ${{ inputs.python_path || 'python' }}
+        PYTHON_EXEC_PATH: ${{ inputs.python_exec_path }}
+        PYTHON_PATH: ${{ inputs.python_path }}
         JD_FILE: ${{ inputs.jd_file }}
         VARIABLE: ${{ inputs.variable }}
         LIBRARY: ${{ inputs.library }}

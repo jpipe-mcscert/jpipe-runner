@@ -37,7 +37,7 @@ This ensures that all required native dependencies are available before running 
 
 #### 2. Conditional Python Setup
 
-If no `python_path` is provided, the action automatically sets up **Python 3.11** via `actions/setup-python@v5`. This
+If no `python_exec_path` is provided, the action automatically sets up **Python 3.11** via `actions/setup-python@v5`. This
 supports both minimal and advanced usage depending on project needs.
 
 #### 3. Smart Dependency Management
@@ -88,7 +88,7 @@ error message.
 
 These environment variables are used to maintain consistent behavior across steps:
 
-* **`PYTHON_PATH`**: Defines the Python executable used for installation and execution.
+* **`PYTHON_EXEC_PATH`**: Defines the Python executable used for installation and execution.
 * **`working-directory`**: The base path for execution (matches user input or defaults to `.`, the current directory).
 * **`OUTPUT_DIR`**: Internal path where diagram files are saved (used for file discovery and artifact upload).
 * **`GITHUB_TOKEN`**: Required to post comments on PRs and issues via GitHub API.
