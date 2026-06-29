@@ -1,0 +1,8 @@
+# --------------------------------------------------------------------------------
+# Tests the `config-file` parameter of the GitHub Action.
+#
+# This file is loaded by jpipe-runner when the action receives
+# `config-file: 'config.yaml'`. The `expected_value` is then
+# consumed by evidence E1 to verify that config loading works correctly.
+# --------------------------------------------------------------------------------
+expected_value: 43

@@ -1,0 +1,291 @@
+name: Test Action
+
+# ---------------------------------------------------------------------------
+# Test Action – workflow that runs jpipe-runner in a PR context
+#
+# What this does:
+#   Triggers on PR, runs the jpipe-runner action with different test
+#   scenarios.
+#
+# This serves as an end-to-end test of the action in a real PR context, including
+# posting PR comments.
+#
+# Each test job cleans up its PR comment with delete-pr-comment so the
+# PR stays clean after running.
+# ---------------------------------------------------------------------------
+
+on:
+  pull_request:
+    # We don't want to run these tests on every push to the PR, only when it is opened or updated, to save CI resources.
+    # If the PR is in draft mode, we skip the tests. When the PR is ready for review, we run the tests.
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+      - dev
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # -----------------------------------------------------------------------
+  # Simple success scenario — tests basic action parameters.
+  #
+  # What this tests:
+  #     jd_file          : Loads 'validation_test.json'.
+  #     library          : Loads 'validation_test.py'.
+  #     config-file      : Loads 'config.yaml'; E1 consumes 'expected_value: 43'.
+  #     variable         : Injects 'user_name:Alice'; E3 asserts user_name == "Alice".
+  #     working_directory: Runs inside 'tests/action/resources/simple_success/'.
+  #
+  # Verification:
+  #     Pipeline exit code is 0 (all tests passed).
+  # -----------------------------------------------------------------------
+  test-simple-success:
+    # We skip the tests if the PR is in draft mode, to save CI resources. Once the PR is ready for review, the tests will run.
+    # Additionally, we skip the tests if the PR is from a fork, since the action will not have permissions to post comments.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run jpipe-runner action
+        id: run_jpipe
+        uses: ./
+        continue-on-error: true
+        with:
+          working_directory: 'tests/action/resources/simple_success'
+          jd_file: 'validation_test.json'
+          library: 'validation_test.py'
+          config-file: 'config.yaml'
+          variable: 'user_name:Alice'
+          github-token: ${{ github.token }}
+
+      - name: Check expected result
+        uses: ./.github/actions/check-expected-result
+        with:
+          result: ${{ steps.run_jpipe.outputs.result }}
+          expected_result: '0'
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
+
+  # -----------------------------------------------------------------------
+  # Embedded image scenario — dedicated test for the embed_image parameter.
+  #
+  # What this tests:
+  #     embed_image: the action should embed the generated diagram in the PR comment.
+  #
+  # Verification:
+  #     1. Pipeline exit code is 0.
+  #     2. A PR comment was posted.
+  #     3. The comment contains an embedded image whose SHA256 matches
+  #        the original diagram file — proving the image in the comment
+  #        is identical to the generated artifact.
+  # -----------------------------------------------------------------------
+  test-embed-image:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run jpipe-runner action with embed_image
+        id: run_jpipe
+        uses: ./
+        continue-on-error: true
+        with:
+          working_directory: 'tests/action/resources/embed_image_test'
+          jd_file: 'basic.json'
+          library: 'basic.py'
+          embed_image: 'true'
+          github-token: ${{ github.token }}
+
+      - name: Check expected result
+        uses: ./.github/actions/check-expected-result
+        with:
+          result: ${{ steps.run_jpipe.outputs.result }}
+          expected_result: '0'
+
+      - name: Fetch PR comment
+        id: fetch_comment
+        uses: ./.github/actions/fetch-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download embedded image and verify hash matches original
+        shell: bash
+        env:
+          PR_COMMENT: ${{ steps.fetch_comment.outputs.pr_comment }}
+          ORIGINAL_DIAGRAM_PATH: ${{ steps.run_jpipe.outputs.diagram_path }}
+        run: |
+          # Extract the image URL from the PR comment
+          # The comment contains: ![Generated Diagram](<URL>)
+          IMAGE_URL=$(echo "$PR_COMMENT" | sed -n 's/.*!\[Generated Diagram\](\([^)]*\)).*/\1/p')
+
+          if [[ -z "$IMAGE_URL" ]]; then
+            echo "ERROR: Generated diagram image URL not found in PR comment."
+            exit 1
+          fi
+
+          # Download the image
+          if ! curl -fsSL -o /tmp/embedded_image.png "$IMAGE_URL"; then
+            echo "ERROR: Failed to download image from $IMAGE_URL"
+            exit 1
+          fi
+          echo "Image downloaded successfully"
+
+          # Compute SHA256 of the downloaded image
+          EMBEDDED_HASH=$(sha256sum /tmp/embedded_image.png | cut -d' ' -f1)
+          echo "Embedded image SHA256: $EMBEDDED_HASH"
+
+          # Compute SHA256 of the original diagram file
+          if [[ ! -f "$ORIGINAL_DIAGRAM_PATH" ]]; then
+            echo "ERROR: Original diagram file not found at $ORIGINAL_DIAGRAM_PATH"
+            exit 1
+          fi
+          ORIGINAL_HASH=$(sha256sum "$ORIGINAL_DIAGRAM_PATH" | cut -d' ' -f1)
+          echo "Original diagram SHA256: $ORIGINAL_HASH"
+
+          # Compare the two hashes
+          if [[ "$EMBEDDED_HASH" == "$ORIGINAL_HASH" ]]; then
+            echo "SUCCESS: Embedded image hash matches original diagram file"
+          else
+            echo "ERROR: Hash mismatch!"
+            echo "  Embedded image SHA256: $EMBEDDED_HASH"
+            echo "  Original diagram SHA256: $ORIGINAL_HASH"
+            echo "  The embedded image in the PR comment differs from the generated diagram."
+            exit 1
+          fi
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
+
+  # -----------------------------------------------------------------------
+  # Exception scenario — tests that pipeline failure posts the error in a PR comment.
+  #
+  # What this tests:
+  #     The pipeline should fail (exit 1) when a strategy element raises an exception.
+  #     The error message must be visible in the PR comment posted by the runner.
+  #
+  # Verification:
+  #     1. Pipeline exit code is 1 (failure expected).
+  #     2. The PR comment contains the expected exception message.
+  # -----------------------------------------------------------------------
+  test-raise-exception:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run jpipe-runner action
+        id: run_jpipe
+        uses: ./
+        continue-on-error: true
+        with:
+          working_directory: 'tests/action/resources/raise_exception'
+          jd_file: 'raise_exception.json'
+          library: 'raise_exception.py'
+          github-token: ${{ github.token }}
+
+      - name: Check expected result
+        uses: ./.github/actions/check-expected-result
+        with:
+          result: ${{ steps.run_jpipe.outputs.result }}
+          expected_result: '1'
+
+      - name: Fetch PR comment by ID
+        id: fetch_comment
+        uses: ./.github/actions/fetch-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify PR comment content
+        shell: bash
+        env:
+          PR_COMMENT: ${{ steps.fetch_comment.outputs.pr_comment }}
+        run: |
+          expected_msg="This is an intentional exception raised by the test to verify that the action correctly adds the error message to the PR comment."
+
+          if echo "$PR_COMMENT" | grep -qF "$expected_msg"; then
+            echo "SUCCESS: PR comment contains the expected exception message"
+          else
+            echo "ERROR: PR comment does not contain the expected exception message"
+            echo "Expected message:"
+            echo "$expected_msg"
+            echo "--- PR comment content ---"
+            echo "$PR_COMMENT"
+            echo "--------------------------"
+            exit 1
+          fi
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
+
+  # -----------------------------------------------------------------------
+  # Python path scenario — test for the python_path parameter.
+  #
+  # What this tests:
+  #     python_path: the action should use the specified Python interpreter
+  #                  instead of the default one (python3.11).
+  #
+  # How it works:
+  #     1. We install Python 3.12.
+  #     2. We pass that path as `python3.12` to the action.
+  #     3. The evidence E1 checks sys.version_info == 3.12.
+  #     4. If the check passes, the action used the interpreter we specified.
+  #
+  # Verification:
+  #     Pipeline exit code is 0 (E1 asserted that Python version is 3.12).
+  # -----------------------------------------------------------------------
+  test-python-path:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run jpipe-runner action with python_path
+        id: run_jpipe
+        uses: ./
+        continue-on-error: true
+        with:
+          working_directory: 'tests/action/resources/python_path_test'
+          jd_file: 'python_path_test.json'
+          library: 'python_path_test.py'
+          python_path: ${{ steps.setup-python.outputs.python-path }}
+          github-token: ${{ github.token }}
+
+      - name: Check expected result
+        uses: ./.github/actions/check-expected-result
+        with:
+          result: ${{ steps.run_jpipe.outputs.result }}
+          expected_result: '0'
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
