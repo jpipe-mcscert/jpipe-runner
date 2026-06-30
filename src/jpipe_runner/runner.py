@@ -268,7 +268,7 @@ def run_workflow_logic():
             additional_paths=args.python_path,
         )
     except RuntimeException as e:
-        raise RuntimeInitializationError(str(e))
+        raise RuntimeInitializationError(str(e)) from e
 
     jpipe = PipelineEngine(
         config_path=args.config_file,
