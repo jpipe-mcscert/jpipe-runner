@@ -23,22 +23,32 @@ class ColoredFormatter(logging.Formatter):
         return super().format(record)
 
 
+class LogEntry:
+    """Represents a single formatted log entry with its severity level."""
+
+    def __init__(self, levelno: int, formatted_message: str):
+        self.levelno = levelno
+        self.formatted_message = formatted_message
+
+
 # Custom handler to collect logs
 class InMemoryLogHandler(logging.Handler):
     def __init__(self):
         super().__init__()
+        # List of LogEntry instances
         self.logs = []
 
     def emit(self, record):
-        self.logs.append(record)
+        formatted_message = self.format(record)
+        self.logs.append(LogEntry(record.levelno, formatted_message))
 
     def has_errors(self):
         # Check if any log record is WARNING or higher
-        return any(record.levelno >= logging.WARNING for record in self.logs)
+        return any(entry.levelno >= logging.WARNING for entry in self.logs)
 
     @property
     def formatted_logs(self):
-        return [self.format(record) for record in self.logs]
+        return [entry.formatted_message for entry in self.logs]
 
     def dump_to_stderr(self):
         for log_entry in self.formatted_logs:
