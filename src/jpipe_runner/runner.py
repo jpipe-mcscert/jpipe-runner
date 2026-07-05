@@ -20,7 +20,6 @@ from jpipe_runner.exceptions import (
     DryRunError,
     InvalidJustificationFileError,
     LibraryNotFoundError,
-    NoDiagramFoundError,
     NoJustificationFileError,
     RuntimeException,
     RuntimeInitializationError,
@@ -275,11 +274,6 @@ def run_workflow_logic():
         justification_path=args.jd_file,
         variables=args.variable,
     )
-
-    diagrams = [(jpipe.justification_name, jpipe.graph)]
-
-    if not diagrams:
-        raise NoDiagramFoundError(args.diagram)
 
     # Run justification logic and gather results
     justification_result = list(jpipe.justify(dry_run=args.dry_run, runtime=runtime))

@@ -106,13 +106,6 @@ class RuntimeInitializationError(WorkflowError):
         super().__init__(message)
 
 
-class NoDiagramFoundError(WorkflowError):
-    """Raised when no justification diagram matches the requested pattern."""
-
-    def __init__(self, diagram: str):
-        super().__init__(f"No justification diagram found: {diagram}")
-
-
 class DryRunError(WorkflowErrorWithLogDump):
     """
     Raised when a dry-run completes but the log buffer contains errors.
