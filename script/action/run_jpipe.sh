@@ -16,7 +16,8 @@ set +e
 #   5. Output results to GitHub Actions environment variables.
 #
 # Required Environment Variables:
-#   PYTHON_PATH   : Path to Python interpreter (default: "python" if unset)
+#   PYTHON_EXEC_PATH   : Path to Python interpreter (default: "python" if unset)
+#   PYTHON_PATH   : Extra folders to search for Python files/modules (--python-path)
 #   JD_FILE       : Path to JD (Justification Json Document) file for jPipe
 #   VARIABLE      : Multi-line variable definitions for jPipe (--variable)
 #   LIBRARY       : Multi-line library imports for jPipe (--library)
@@ -30,13 +31,13 @@ set +e
 # -----------------------------------------------------------------------------
 # STEP 1: Initialize variables
 # -----------------------------------------------------------------------------
-PYTHON_PATH="${PYTHON_PATH:-python}"
+PYTHON_EXEC_PATH="${PYTHON_EXEC_PATH:-python}"
 OUTPUT_DIR="/home/runner/work/"
 
-echo "Using Python interpreter at: $PYTHON_PATH"
+echo "Using Python interpreter at: $PYTHON_EXEC_PATH"
 
 # Base command to run
-CMD="$PYTHON_PATH -m jpipe_runner '${JD_FILE}'"
+CMD="$PYTHON_EXEC_PATH -m jpipe_runner '${JD_FILE}'"
 
 # -----------------------------------------------------------------------------
 # STEP 2: Helper functions for appending flags
@@ -62,6 +63,7 @@ handle_multiline_input() {
 # -----------------------------------------------------------------------------
 handle_multiline_input "${VARIABLE:-}" "--variable"
 handle_multiline_input "${LIBRARY:-}" "--library"
+handle_multiline_input "${PYTHON_PATH:-}" "--python-path"
 
 append_flag "${CONFIG_FILE:-}" "--config-file"
 append_flag "${DIAGRAM:-}" "--diagram"

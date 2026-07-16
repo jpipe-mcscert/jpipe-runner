@@ -60,7 +60,7 @@ def parse_value(raw):
         # --- Try JSON parsing ---
         try:
             return json.loads(stripped)
-        except Exception:
+        except json.JSONDecodeError:
             pass
 
         # Try hybrid: replace JSON bool/null with Python equivalents
@@ -69,7 +69,7 @@ def parse_value(raw):
         hybrid = re.sub(r"\bnull\b", "None", hybrid, flags=re.IGNORECASE)
         try:
             return ast.literal_eval(hybrid)
-        except Exception:
+        except (ValueError, TypeError, SyntaxError):
             pass
 
         # --- Fallback: keep as string ---
