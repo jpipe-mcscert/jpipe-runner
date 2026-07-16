@@ -132,17 +132,23 @@ class PythonRuntime:
 
     def build_link_registry(self) -> dict[str, str]:
         """
-        Scan all loaded modules and return a mapping of element id to attribute name
-        for every callable decorated with @jpipe_link.
+        Scan all loaded modules and return a mapping of element id (or alias) to
+        attribute name for every callable decorated with @jpipe_link.
 
-        :return: Dict mapping element_id → attr_name in the loaded modules.
+        A function may carry several @jpipe_link decorators (all aliases of the same
+        node); every accumulated id/alias is registered as a key pointing to the
+        same attribute name.
+
+        :return: Dict mapping element_id/alias → attr_name in the loaded modules.
         :rtype: dict[str, str]
         """
         registry = {}
         for module in self._modules:
             for attr_name in dir(module):
                 obj = getattr(module, attr_name, None)
-                if callable(obj) and (eid := getattr(obj, "__jpipe_link_id__", None)):
+                if not callable(obj):
+                    continue
+                for eid in getattr(obj, "__jpipe_link_ids__", None) or []:
                     if eid in registry and registry[eid] != attr_name:
                         raise RuntimeException(
                             f"Duplicate @jpipe_link id '{eid}': bound to both "

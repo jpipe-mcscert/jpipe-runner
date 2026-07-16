@@ -10,35 +10,23 @@ class UnboundElementValidator(BaseValidator):
 
     EXECUTABLE_TYPES = {"evidence", "strategy"}
 
-    def __init__(self, pipeline: "PipelineEngine", ctx: "RuntimeContext", registry: dict[str, str]) -> None:
-        """
-        Initialize the validator.
-
-        :param pipeline: The pipeline engine being validated.
-        :param ctx: The runtime context.
-        :param registry: Mapping of element_id → function_name produced by build_link_registry().
-        """
-        super().__init__(pipeline, ctx)
-        self.registry = registry
-
-    def _is_bound(self, node_id: str) -> bool:
-        return (
-            node_id in self.registry
-            or f"{self.pipeline.justification_name}:{node_id}" in self.registry
-        )
-
     def validate(self) -> tuple[list[str], list[str]]:
         """
         Validate that every executable node has an explicit @jpipe_link binding.
+
+        Binding is decided by the pipeline's alias-aware ``_bound_node_ids()`` — a
+        node counts as bound whether the @jpipe_link used its canonical id, a
+        qualified id, or one of its aliases.
 
         :return: A tuple of (errors, warnings).
         :rtype: tuple[list[str], list[str]]
         """
         GLOBAL_LOGGER.info("Running UnboundElementValidator...")
+        bound = self.pipeline._bound_node_ids()
         for node_id, data in self.pipeline.graph.nodes(data=True):
             if data.get("type") not in self.EXECUTABLE_TYPES:
                 continue
-            if not self._is_bound(node_id):
+            if node_id not in bound:
                 label = data.get("label", node_id)
                 node_type = data.get("type")
                 self.errors.append(
