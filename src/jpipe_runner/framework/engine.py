@@ -206,6 +206,20 @@ class PipelineEngine:
         """
         try:
             self._alias_index = {}
+
+            def _index(key: str, canonical_id: str) -> None:
+                # A key (node id or alias) must map to exactly one canonical node.
+                # A collision — an alias shared by two elements, or an alias equal
+                # to another element's id — would make _resolve_node_id() silently
+                # resolve to the wrong node, so reject it instead of last-write-wins.
+                existing = self._alias_index.get(key)
+                if existing is not None and existing != canonical_id:
+                    raise ValueError(
+                        f"Duplicate element id/alias '{key}': maps to both "
+                        f"'{existing}' and '{canonical_id}'."
+                    )
+                self._alias_index[key] = canonical_id
+
             for element in data.get("elements", []):
                 G.add_node(element["id"], **element)
                 G.nodes[element["id"]]["function_name"] = sanitize_string(
@@ -213,12 +227,15 @@ class PipelineEngine:
                 )
                 # Index the canonical id and every alias to the canonical id, so a
                 # @jpipe_link decorated with either resolves to this node.
-                self._alias_index[element["id"]] = element["id"]
+                _index(element["id"], element["id"])
                 for alias in element.get("aliases", []):
-                    self._alias_index[alias] = element["id"]
+                    _index(alias, element["id"])
             return True
         except KeyError as e:
             GLOBAL_LOGGER.error("Missing required key in justification elements: %s", e)
+            return False
+        except ValueError as e:
+            GLOBAL_LOGGER.error("Conflicting element id/alias in justification: %s", e)
             return False
 
     def _add_edges_to_graph(self, G: nx.DiGraph, data: dict) -> bool:

@@ -240,6 +240,14 @@ class TestApplyLinkRegistry(unittest.TestCase):
 
 
 class TestAliasResolution(unittest.TestCase):
+    def _make_engine_from(self, tmp_path, data):
+        path = os.path.join(tmp_path, "j.json")
+        with open(path, "w") as f:
+            json.dump(data, f)
+        from unittest.mock import patch
+        with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
+            return PipelineEngine(None, path)
+
     def _make_engine(self, tmp_path):
         data = {
             "name": "rigor",
@@ -322,6 +330,77 @@ class TestAliasResolution(unittest.TestCase):
             }
             with self.assertRaises(RuntimeException):
                 engine._bound_node_ids()
+
+    def test_alias_shared_by_two_nodes_fails_parsing(self):
+        # A collision (same alias on two elements) must be rejected rather than
+        # silently resolving to whichever element was indexed last.
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {"id": "N1", "type": "evidence", "label": "One", "aliases": ["shared"]},
+                {"id": "N2", "type": "evidence", "label": "Two", "aliases": ["shared"]},
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [{"source": "N1", "target": "C1"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine_from(tmp, data)
+            # Parsing bails out, leaving an empty graph rather than a mis-indexed one.
+            self.assertEqual(engine.graph.number_of_nodes(), 0)
+
+    def test_alias_equal_to_other_node_id_fails_parsing(self):
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {"id": "N1", "type": "evidence", "label": "One", "aliases": ["N2"]},
+                {"id": "N2", "type": "evidence", "label": "Two"},
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [{"source": "N1", "target": "C1"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine_from(tmp, data)
+            self.assertEqual(engine.graph.number_of_nodes(), 0)
+
+
+class TestUnboundValidatorConflict(unittest.TestCase):
+    def test_conflicting_binding_reported_as_error_not_raised(self):
+        from jpipe_runner.framework.context import ctx as global_ctx
+        from jpipe_runner.framework.validators import UnboundElementValidator
+
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {
+                    "id": "rigor:unified_0",
+                    "type": "evidence",
+                    "label": "Metrics",
+                    "aliases": ["rigor:r17:e_metric", "rigor:r18:e"],
+                },
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [{"source": "rigor:unified_0", "target": "C1"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "j.json")
+            with open(path, "w") as f:
+                json.dump(data, f)
+            from unittest.mock import patch
+            with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
+                engine = PipelineEngine(None, path)
+            engine._link_registry = {
+                "rigor:r17:e_metric": "func_a",
+                "rigor:r18:e": "func_b",
+            }
+
+            validator = UnboundElementValidator(engine, global_ctx)
+            # Must NOT raise; the conflict surfaces as a validation error.
+            errors, _ = validator.validate()
+            self.assertEqual(len(errors), 1)
+            self.assertIn("conflicting", errors[0].lower())
 
 
 if __name__ == "__main__":

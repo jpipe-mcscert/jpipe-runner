@@ -1,3 +1,4 @@
+from ...exceptions import RuntimeException
 from ..logger import GLOBAL_LOGGER
 from .base import BaseValidator
 
@@ -22,7 +23,20 @@ class UnboundElementValidator(BaseValidator):
         :rtype: tuple[list[str], list[str]]
         """
         GLOBAL_LOGGER.info("Running UnboundElementValidator...")
-        bound = self.pipeline._bound_node_ids()
+        try:
+            bound = self.pipeline._bound_node_ids()
+        except RuntimeException as e:
+            # A conflicting @jpipe_link binding (e.g. two aliases of one node bound
+            # to different functions) is a user error — report it as a validation
+            # failure so the runner exits cleanly instead of raising a traceback.
+            self.errors.append(
+                "[UnboundElementValidator]\n"
+                "Pipeline validation error: conflicting @jpipe_link binding.\n"
+                f"  • Problem: {e}\n"
+                "  • Fix: Ensure all aliases of a node are bound to the same function.\n"
+            )
+            GLOBAL_LOGGER.info("UnboundElementValidator completed with 1 error(s).")
+            return self.errors, self.warnings
         for node_id, data in self.pipeline.graph.nodes(data=True):
             if data.get("type") not in self.EXECUTABLE_TYPES:
                 continue
