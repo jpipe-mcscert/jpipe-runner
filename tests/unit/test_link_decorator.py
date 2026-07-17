@@ -2,12 +2,15 @@ import json
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
-from jpipe_runner.framework.context import ctx
-from jpipe_runner.framework.decorators.link_decorator import jpipe_link
-from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
-from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.exceptions import RuntimeException
+from jpipe_runner.framework.context import ctx
+from jpipe_runner.framework.context import ctx as global_ctx
+from jpipe_runner.framework.decorators.jpipe_decorator import jpipe
+from jpipe_runner.framework.decorators.link_decorator import jpipe_link
+from jpipe_runner.framework.engine import PipelineEngine
+from jpipe_runner.framework.validators import UnboundElementValidator
 from jpipe_runner.runtime import PythonRuntime
 
 
@@ -27,9 +30,7 @@ class TestJpipeLinkDecorator(unittest.TestCase):
         def my_func():
             return True
 
-        self.assertEqual(
-            my_func.__jpipe_link_ids__, ["rigor:r18:e", "rigor:r17:e_metric"]
-        )
+        self.assertEqual(my_func.__jpipe_link_ids__, ["rigor:r18:e", "rigor:r17:e_metric"])
 
     def test_returns_original_function_unchanged(self):
         def my_func():
@@ -43,6 +44,7 @@ class TestJpipeLinkDecorator(unittest.TestCase):
         ctx_backup = ctx._vars.copy()
         ctx._vars.clear()
         try:
+
             @jpipe(consume=[], produce=[])
             @jpipe_link("E1")
             def my_func():
@@ -56,6 +58,7 @@ class TestJpipeLinkDecorator(unittest.TestCase):
         ctx_backup = ctx._vars.copy()
         ctx._vars.clear()
         try:
+
             @jpipe_link("E1")
             @jpipe(consume=[], produce=[])
             def my_func():
@@ -71,15 +74,14 @@ class TestJpipeLinkDecorator(unittest.TestCase):
         ctx_backup = ctx._vars.copy()
         ctx._vars.clear()
         try:
+
             @jpipe_link("rigor:r17:e_metric")
             @jpipe_link("rigor:r18:e")
             @jpipe(consume=[], produce=[])
             def my_func():
                 return True
 
-            self.assertEqual(
-                my_func.__jpipe_link_ids__, ["rigor:r18:e", "rigor:r17:e_metric"]
-            )
+            self.assertEqual(my_func.__jpipe_link_ids__, ["rigor:r18:e", "rigor:r17:e_metric"])
         finally:
             ctx._vars = ctx_backup
 
@@ -87,6 +89,7 @@ class TestJpipeLinkDecorator(unittest.TestCase):
         ctx_backup = ctx._vars.copy()
         ctx._vars.clear()
         try:
+
             @jpipe_link("E1")
             @jpipe(consume=[], produce=[])
             def my_function():
@@ -181,7 +184,7 @@ class TestApplyLinkRegistry(unittest.TestCase):
         path = os.path.join(tmp_path, "j.json")
         with open(path, "w") as f:
             json.dump(data, f)
-        from unittest.mock import patch
+
         with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
             engine = PipelineEngine(None, path)
         return engine
@@ -244,7 +247,7 @@ class TestAliasResolution(unittest.TestCase):
         path = os.path.join(tmp_path, "j.json")
         with open(path, "w") as f:
             json.dump(data, f)
-        from unittest.mock import patch
+
         with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
             return PipelineEngine(None, path)
 
@@ -263,13 +266,7 @@ class TestAliasResolution(unittest.TestCase):
             ],
             "relations": [{"source": "rigor:unified_0", "target": "C1"}],
         }
-        path = os.path.join(tmp_path, "j.json")
-        with open(path, "w") as f:
-            json.dump(data, f)
-        from unittest.mock import patch
-        with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
-            engine = PipelineEngine(None, path)
-        return engine
+        return self._make_engine_from(tmp_path, data)
 
     def test_alias_index_built_for_id_and_aliases(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -281,21 +278,15 @@ class TestAliasResolution(unittest.TestCase):
     def test_resolve_canonical_id(self):
         with tempfile.TemporaryDirectory() as tmp:
             engine = self._make_engine(tmp)
-            self.assertEqual(
-                engine._resolve_node_id("rigor:unified_0"), "rigor:unified_0"
-            )
+            self.assertEqual(engine._resolve_node_id("rigor:unified_0"), "rigor:unified_0")
 
     def test_resolve_colon_bearing_alias(self):
         # An alias containing colons must match exactly (not be rsplit into a bogus
         # qualifier/element pair) and resolve to the canonical id.
         with tempfile.TemporaryDirectory() as tmp:
             engine = self._make_engine(tmp)
-            self.assertEqual(
-                engine._resolve_node_id("rigor:r17:e_metric"), "rigor:unified_0"
-            )
-            self.assertEqual(
-                engine._resolve_node_id("rigor:r18:e"), "rigor:unified_0"
-            )
+            self.assertEqual(engine._resolve_node_id("rigor:r17:e_metric"), "rigor:unified_0")
+            self.assertEqual(engine._resolve_node_id("rigor:r18:e"), "rigor:unified_0")
 
     def test_apply_registry_binds_via_alias(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -367,9 +358,6 @@ class TestAliasResolution(unittest.TestCase):
 
 class TestUnboundValidatorConflict(unittest.TestCase):
     def test_conflicting_binding_reported_as_error_not_raised(self):
-        from jpipe_runner.framework.context import ctx as global_ctx
-        from jpipe_runner.framework.validators import UnboundElementValidator
-
         data = {
             "name": "rigor",
             "type": "justification",
@@ -388,7 +376,7 @@ class TestUnboundValidatorConflict(unittest.TestCase):
             path = os.path.join(tmp, "j.json")
             with open(path, "w") as f:
                 json.dump(data, f)
-            from unittest.mock import patch
+
             with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
                 engine = PipelineEngine(None, path)
             engine._link_registry = {
