@@ -5,7 +5,7 @@ import networkx as nx
 import yaml
 
 from ..enums import StatusType
-from ..exceptions import FunctionException
+from ..exceptions import FunctionException, RuntimeException
 from ..runtime import PythonRuntime
 from ..utils.parsing import normalize_structure, parse_value
 from ..utils.sanitize import sanitize_string
@@ -60,6 +60,8 @@ class PipelineEngine:
         GLOBAL_LOGGER.info("Initializing PipelineEngine...")
         self.justification_name = "Unknown Justification"
         self._link_registry: dict[str, str] = {}
+        # Maps each node id and each of its aliases → the canonical node id.
+        self._alias_index: dict[str, str] = {}
         self.load_config(config_path, variables)
         if justification_path:
             self.graph = self.parse_justification(justification_path)
@@ -203,12 +205,37 @@ class PipelineEngine:
         :return: True on success, False on KeyError.
         """
         try:
+            self._alias_index = {}
+
+            def _index(key: str, canonical_id: str) -> None:
+                # A key (node id or alias) must map to exactly one canonical node.
+                # A collision — an alias shared by two elements, or an alias equal
+                # to another element's id — would make _resolve_node_id() silently
+                # resolve to the wrong node, so reject it instead of last-write-wins.
+                existing = self._alias_index.get(key)
+                if existing is not None and existing != canonical_id:
+                    raise ValueError(
+                        f"Duplicate element id/alias '{key}': maps to both "
+                        f"'{existing}' and '{canonical_id}'."
+                    )
+                self._alias_index[key] = canonical_id
+
             for element in data.get("elements", []):
                 G.add_node(element["id"], **element)
-                G.nodes[element["id"]]["function_name"] = sanitize_string(element.get("label", ""))
+                G.nodes[element["id"]]["function_name"] = sanitize_string(
+                    element.get("label", "")
+                )
+                # Index the canonical id and every alias to the canonical id, so a
+                # @jpipe_link decorated with either resolves to this node.
+                _index(element["id"], element["id"])
+                for alias in element.get("aliases", []):
+                    _index(alias, element["id"])
             return True
         except KeyError as e:
             GLOBAL_LOGGER.error("Missing required key in justification elements: %s", e)
+            return False
+        except ValueError as e:
+            GLOBAL_LOGGER.error("Conflicting element id/alias in justification: %s", e)
             return False
 
     def _add_edges_to_graph(self, G: nx.DiGraph, data: dict) -> bool:
@@ -270,7 +297,7 @@ class PipelineEngine:
             ProducedButNotConsumedValidator(self, ctx),
             DuplicateProducerValidator(self, ctx),
             EvidenceDependencyValidator(self, ctx, self.graph),
-            UnboundElementValidator(self, ctx, self._link_registry),
+            UnboundElementValidator(self, ctx),
         ]
 
         all_passed = True
@@ -383,8 +410,9 @@ class PipelineEngine:
         Called before validation so that all downstream lookups (skip checks, contribution
         lookups, function dispatch) use the correct function name instead of the sanitized label.
 
-        Supports two id formats:
-        - Plain element id:              ``"e1"``
+        Supports three id formats (see :meth:`_resolve_node_id`):
+        - Plain element id:                     ``"e1"``
+        - Node alias (incl. colon-bearing):     ``"rigor:r17:e_metric"``
         - Qualified id with justification name: ``"performant:e1"``
 
         :param registry: Mapping of link_id → attr_name produced by runtime.build_link_registry().
@@ -407,14 +435,21 @@ class PipelineEngine:
         """
         Resolve a @jpipe_link id to a graph node id.
 
-        Accepts plain ids (``"e1"``) or qualified ids (``"justification_name:e1"``).
-        For qualified ids the justification-name prefix must match this pipeline's name.
+        Resolution order:
+        1. Exact match against the alias index — covers both canonical node ids and
+           aliases, including colon-bearing aliases (``"rigor:r17:e_metric"``). This
+           is tried first so aliases never fall through to the qualified-id splitter.
+        2. Plain id present as a graph node (``"e1"``).
+        3. Qualified id (``"justification_name:e1"``) whose prefix matches this
+           pipeline's name.
 
         :param link_id: The id value passed to @jpipe_link.
         :type link_id: str
         :return: The matching graph node id, or None if not found.
         :rtype: str | None
         """
+        if link_id in self._alias_index:
+            return self._alias_index[link_id]
         if link_id in self.graph.nodes:
             return link_id
         if ":" in link_id:
@@ -422,6 +457,33 @@ class PipelineEngine:
             if qualifier == self.justification_name and element_id in self.graph.nodes:
                 return element_id
         return None
+
+    def _bound_node_ids(self) -> set[str]:
+        """
+        Resolve every @jpipe_link registry key to its canonical graph node id and
+        return the set of node ids that carry an explicit binding.
+
+        This is the single source of truth for "is this node bound?", shared by the
+        UnboundElementValidator and the sub-conclusion execution guard.
+
+        :raises RuntimeException: If two different registry keys (e.g. two aliases of
+            the same unified node) resolve to the same node but were bound to
+            different functions — a conflicting binding.
+        :return: Set of canonical node ids that are explicitly bound.
+        :rtype: set[str]
+        """
+        bound: dict[str, str] = {}  # canonical node id → function name
+        for name, function_name in self._link_registry.items():
+            node_id = self._resolve_node_id(name)
+            if node_id is None:
+                continue
+            if node_id in bound and bound[node_id] != function_name:
+                raise RuntimeException(
+                    f"Conflicting @jpipe_link binding for node '{node_id}': "
+                    f"aliases bound to both '{bound[node_id]}' and '{function_name}'"
+                )
+            bound[node_id] = function_name
+        return set(bound)
 
     def _validate_pipeline(self) -> bool:
         """
@@ -492,11 +554,7 @@ class PipelineEngine:
 
         # --- Attempt function execution (or dry-run) ---
         elif node_type in {"evidence", "strategy"} or (
-            node_type == "sub-conclusion"
-            and (
-                node in self._link_registry
-                or f"{self.justification_name}:{node}" in self._link_registry
-            )
+            node_type == "sub-conclusion" and node in self._bound_node_ids()
         ):
             status, exception = self._execute_justification_fn(
                 label, fn_name, runtime, dry_run, node

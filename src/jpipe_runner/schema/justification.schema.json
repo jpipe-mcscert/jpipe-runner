@@ -16,6 +16,7 @@
           "label":   {"type": "string"},
           "type":    {"type": "string",
                       "enum": ["evidence", "strategy", "conclusion", "sub-conclusion"]},
+          "aliases": {"type": "array", "items": {"type": "string"}},
           "escaped": {"type": "string"}
         }
       }

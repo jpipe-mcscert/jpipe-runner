@@ -437,17 +437,21 @@ class TestEvidenceDependencyValidator(unittest.TestCase):
 
 
 class TestUnboundElementValidator(unittest.TestCase):
-    def _make_pipeline(self, graph, name="test_pipeline"):
+    def _make_pipeline(self, graph, name="test_pipeline", bound=None):
+        # Binding resolution (id / qualified / alias) lives on the engine and is
+        # covered by test_link_decorator.py. Here we drive the validator directly
+        # via the engine's resolved bound-node set.
         p = MagicMock()
         p.graph = graph
         p.justification_name = name
+        p._bound_node_ids.return_value = set(bound or ())
         return p
 
     def test_unbound_evidence_raises_error(self):
         g = nx.DiGraph()
         g.add_node("E1", type="evidence", function_name="fn", label="Evidence")
 
-        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock())
         errors, _ = v.validate()
 
         self.assertEqual(len(errors), 1)
@@ -458,7 +462,7 @@ class TestUnboundElementValidator(unittest.TestCase):
         g = nx.DiGraph()
         g.add_node("S1", type="strategy", function_name="fn", label="Strategy")
 
-        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock())
         errors, _ = v.validate()
 
         self.assertEqual(len(errors), 1)
@@ -468,7 +472,7 @@ class TestUnboundElementValidator(unittest.TestCase):
         g = nx.DiGraph()
         g.add_node("C1", type="conclusion", function_name="fn", label="Conclusion")
 
-        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock())
         errors, _ = v.validate()
         self.assertEqual(errors, [])
 
@@ -476,28 +480,30 @@ class TestUnboundElementValidator(unittest.TestCase):
         g = nx.DiGraph()
         g.add_node("SC1", type="sub-conclusion", function_name="fn", label="Sub")
 
-        v = UnboundElementValidator(self._make_pipeline(g), MagicMock(), registry={})
+        v = UnboundElementValidator(self._make_pipeline(g), MagicMock())
         errors, _ = v.validate()
         self.assertEqual(errors, [])
 
-    def test_bound_by_plain_id_passes(self):
+    def test_bound_node_passes(self):
         g = nx.DiGraph()
         g.add_node("E1", type="evidence", function_name="fn", label="Evidence")
 
         v = UnboundElementValidator(
-            self._make_pipeline(g), MagicMock(), registry={"E1": "fn"}
+            self._make_pipeline(g, bound={"E1"}), MagicMock()
         )
         errors, _ = v.validate()
         self.assertEqual(errors, [])
 
-    def test_bound_by_qualified_id_passes(self):
+    def test_alias_bound_node_passes(self):
+        # The node's canonical id is what appears in the bound set (the engine
+        # resolves the alias); the validator must honour it.
         g = nx.DiGraph()
-        g.add_node("E1", type="evidence", function_name="fn", label="Evidence")
+        g.add_node(
+            "rigor:unified_0", type="evidence", function_name="fn", label="Metrics"
+        )
 
         v = UnboundElementValidator(
-            self._make_pipeline(g, name="my_pipeline"),
-            MagicMock(),
-            registry={"my_pipeline:E1": "fn"},
+            self._make_pipeline(g, bound={"rigor:unified_0"}), MagicMock()
         )
         errors, _ = v.validate()
         self.assertEqual(errors, [])
@@ -509,7 +515,7 @@ class TestUnboundElementValidator(unittest.TestCase):
         g.add_node("C1", type="conclusion", function_name="fn3", label="Con")
 
         v = UnboundElementValidator(
-            self._make_pipeline(g), MagicMock(), registry={"E1": "fn1"}
+            self._make_pipeline(g, bound={"E1"}), MagicMock()
         )
         errors, _ = v.validate()
 

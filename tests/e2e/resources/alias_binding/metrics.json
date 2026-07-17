@@ -1,0 +1,23 @@
+{
+  "elements": [
+    {
+      "id": "rigor:unified_0",
+      "label": "The model reports its metrics",
+      "type": "evidence",
+      "aliases": ["rigor:r17:e_metric", "rigor:r18:e"]
+    },
+    {
+      "id": "C1",
+      "label": "Model is rigorous",
+      "type": "conclusion"
+    }
+  ],
+  "name": "alias_binding",
+  "relations": [
+    {
+      "source": "rigor:unified_0",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}
