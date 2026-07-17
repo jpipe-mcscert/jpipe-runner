@@ -356,6 +356,220 @@ class TestAliasResolution(unittest.TestCase):
             self.assertEqual(engine.graph.number_of_nodes(), 0)
 
 
+class TestSuffixResolution(unittest.TestCase):
+    def _make_engine_from(self, tmp_path, data):
+        path = os.path.join(tmp_path, "j.json")
+        with open(path, "w") as f:
+            json.dump(data, f)
+
+        with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
+            return PipelineEngine(None, path)
+
+    def _make_engine(self, tmp_path):
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {
+                    "id": "rigor:r17:e_metric",
+                    "type": "evidence",
+                    "label": "The model reports its metrics",
+                },
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [{"source": "rigor:r17:e_metric", "target": "C1"}],
+        }
+        return self._make_engine_from(tmp_path, data)
+
+    def test_single_segment_suffix_resolves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine(tmp)
+            self.assertEqual(engine._resolve_node_id("e_metric"), "rigor:r17:e_metric")
+
+    def test_multi_segment_suffix_resolves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine(tmp)
+            self.assertEqual(
+                engine._resolve_node_id("r17:e_metric"), "rigor:r17:e_metric"
+            )
+
+    def test_non_suffix_segment_does_not_resolve(self):
+        # "r17" is a middle segment, not a trailing suffix — must not bind.
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine(tmp)
+            self.assertIsNone(engine._resolve_node_id("r17"))
+
+    def test_partial_segment_does_not_resolve(self):
+        # Matching happens on segment boundaries: "metric" != "e_metric".
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine(tmp)
+            self.assertIsNone(engine._resolve_node_id("metric"))
+
+    def test_suffix_resolves_through_alias_to_canonical(self):
+        # The suffix matches an alias; resolution returns the canonical node id.
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {
+                    "id": "rigor:unified_0",
+                    "type": "evidence",
+                    "label": "Metrics",
+                    "aliases": ["rigor:r17:e_metric"],
+                },
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [{"source": "rigor:unified_0", "target": "C1"}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine_from(tmp, data)
+            self.assertEqual(engine._resolve_node_id("e_metric"), "rigor:unified_0")
+
+    def test_exact_match_wins_over_suffix(self):
+        # "e_metric" is BOTH the exact id of one node and a suffix of another —
+        # the exact match must take precedence and never raise ambiguity.
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {"id": "e_metric", "type": "evidence", "label": "Short"},
+                {"id": "rigor:r17:e_metric", "type": "evidence", "label": "Long"},
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [
+                {"source": "e_metric", "target": "C1"},
+                {"source": "rigor:r17:e_metric", "target": "C1"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine_from(tmp, data)
+            self.assertEqual(engine._resolve_node_id("e_metric"), "e_metric")
+
+    def test_ambiguous_suffix_raises(self):
+        # "e" is a trailing suffix of two distinct nodes — must raise, not pick one.
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {"id": "rigor:r17:e", "type": "evidence", "label": "One"},
+                {"id": "perf:r5:e", "type": "evidence", "label": "Two"},
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [
+                {"source": "rigor:r17:e", "target": "C1"},
+                {"source": "perf:r5:e", "target": "C1"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine_from(tmp, data)
+            with self.assertRaises(RuntimeException):
+                engine._resolve_node_id("e")
+
+    def test_ambiguous_suffix_across_aliases_raises(self):
+        # The collision is between two *aliases* of two distinct canonical nodes,
+        # neither canonical id containing the suffix — so ambiguity must be detected
+        # through the alias index, not just via canonical ids.
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {
+                    "id": "rigor:unified_0",
+                    "type": "evidence",
+                    "label": "One",
+                    "aliases": ["rigor:r17:e_metric"],
+                },
+                {
+                    "id": "perf:unified_1",
+                    "type": "evidence",
+                    "label": "Two",
+                    "aliases": ["perf:r5:e_metric"],
+                },
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [
+                {"source": "rigor:unified_0", "target": "C1"},
+                {"source": "perf:unified_1", "target": "C1"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine_from(tmp, data)
+            with self.assertRaises(RuntimeException):
+                engine._resolve_node_id("e_metric")
+
+    def test_apply_registry_binds_via_suffix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine(tmp)
+            engine._apply_link_registry({"e_metric": "report_metrics"})
+            self.assertEqual(
+                engine.graph.nodes["rigor:r17:e_metric"]["function_name"],
+                "report_metrics",
+            )
+
+    def test_bound_node_ids_includes_suffix_binding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            engine = self._make_engine(tmp)
+            engine._apply_link_registry({"e_metric": "report_metrics"})
+            self.assertIn("rigor:r17:e_metric", engine._bound_node_ids())
+
+
+class TestSuffixAmbiguityValidation(unittest.TestCase):
+    def test_ambiguous_suffix_reported_as_error_not_raised(self):
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {"id": "rigor:r17:e", "type": "evidence", "label": "One"},
+                {"id": "perf:r5:e", "type": "evidence", "label": "Two"},
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [
+                {"source": "rigor:r17:e", "target": "C1"},
+                {"source": "perf:r5:e", "target": "C1"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "j.json")
+            with open(path, "w") as f:
+                json.dump(data, f)
+
+            with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
+                engine = PipelineEngine(None, path)
+            engine._link_registry = {"e": "some_func"}
+
+            validator = UnboundElementValidator(engine, global_ctx)
+            errors, _ = validator.validate()
+            self.assertEqual(len(errors), 1)
+            self.assertIn("ambiguous", errors[0].lower())
+
+    def test_apply_registry_tolerates_ambiguous_suffix(self):
+        # The pre-validation binding pass must not raise on an ambiguous suffix.
+        data = {
+            "name": "rigor",
+            "type": "justification",
+            "elements": [
+                {"id": "rigor:r17:e", "type": "evidence", "label": "One"},
+                {"id": "perf:r5:e", "type": "evidence", "label": "Two"},
+                {"id": "C1", "type": "conclusion", "label": "Done"},
+            ],
+            "relations": [
+                {"source": "rigor:r17:e", "target": "C1"},
+                {"source": "perf:r5:e", "target": "C1"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "j.json")
+            with open(path, "w") as f:
+                json.dump(data, f)
+            with patch("jpipe_runner.framework.engine.PipelineEngine.load_config"):
+                engine = PipelineEngine(None, path)
+            # Must not raise; ambiguous suffix is skipped, leaving fallback names.
+            engine._apply_link_registry({"e": "some_func"})
+            self.assertEqual(
+                engine.graph.nodes["rigor:r17:e"]["function_name"], "one"
+            )
+
+
 class TestUnboundValidatorConflict(unittest.TestCase):
     def test_conflicting_binding_reported_as_error_not_raised(self):
         data = {

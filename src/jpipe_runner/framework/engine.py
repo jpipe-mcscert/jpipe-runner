@@ -410,19 +410,34 @@ class PipelineEngine:
         Called before validation so that all downstream lookups (skip checks, contribution
         lookups, function dispatch) use the correct function name instead of the sanitized label.
 
-        Supports three id formats (see :meth:`_resolve_node_id`):
+        Supports four id formats (see :meth:`_resolve_node_id`):
         - Plain element id:                     ``"e1"``
         - Node alias (incl. colon-bearing):     ``"rigor:r17:e_metric"``
         - Qualified id with justification name: ``"performant:e1"``
+        - Segment-suffix of an id / alias:      ``"e_metric"``, ``"r17:e_metric"``
+
+        Each successful binding is logged at INFO so the ``node ← function`` mapping is
+        a visible audit trail rather than a silent, debug-only resolution.
+
+        An ambiguous suffix (matching more than one node) makes :meth:`_resolve_node_id`
+        raise. Because this pass runs *before* validation, the raise is caught here and
+        the binding skipped — the clean, user-facing error is produced during validation
+        by :meth:`_bound_node_ids` / the UnboundElementValidator.
 
         :param registry: Mapping of link_id → attr_name produced by runtime.build_link_registry().
         :type registry: dict[str, str]
         """
         self._link_registry = registry
         for link_id, attr_name in registry.items():
-            node_id = self._resolve_node_id(link_id)
+            try:
+                node_id = self._resolve_node_id(link_id)
+            except RuntimeException as e:
+                GLOBAL_LOGGER.warning(
+                    "Skipping @jpipe_link '%s' → '%s': %s", link_id, attr_name, e
+                )
+                continue
             if node_id is not None:
-                GLOBAL_LOGGER.debug(
+                GLOBAL_LOGGER.info(
                     "Linking node '%s' to function '%s' via @jpipe_link.", node_id, attr_name
                 )
                 self.graph.nodes[node_id]["function_name"] = attr_name
@@ -435,18 +450,25 @@ class PipelineEngine:
         """
         Resolve a @jpipe_link id to a graph node id.
 
-        Resolution order:
+        Resolution order (exact tiers first, so an exact binding always wins over a
+        suffix one):
         1. Exact match against the alias index — covers both canonical node ids and
            aliases, including colon-bearing aliases (``"rigor:r17:e_metric"``). This
            is tried first so aliases never fall through to the qualified-id splitter.
         2. Plain id present as a graph node (``"e1"``).
         3. Qualified id (``"justification_name:e1"``) whose prefix matches this
            pipeline's name.
+        4. Segment-suffix match: the id's colon-separated segments form a trailing
+           suffix of a node id / alias. ``"e_metric"`` and ``"r17:e_metric"`` both
+           match ``"rigor:r17:e_metric"``; ``"r17"`` alone does not (see
+           :meth:`_suffix_match`).
 
         :param link_id: The id value passed to @jpipe_link.
         :type link_id: str
         :return: The matching graph node id, or None if not found.
         :rtype: str | None
+        :raises RuntimeException: If the id is a suffix of more than one distinct node
+            (ambiguous). Ambiguity is a user error and must never resolve silently.
         """
         if link_id in self._alias_index:
             return self._alias_index[link_id]
@@ -456,7 +478,46 @@ class PipelineEngine:
             qualifier, element_id = link_id.rsplit(":", 1)
             if qualifier == self.justification_name and element_id in self.graph.nodes:
                 return element_id
-        return None
+
+        matches = self._suffix_match(link_id)
+        if not matches:
+            return None
+        if len(matches) > 1:
+            raise RuntimeException(
+                f"Ambiguous @jpipe_link suffix '{link_id}': matches nodes "
+                f"{sorted(matches)}. Use a longer, more qualified id."
+            )
+        (node_id,) = matches
+        GLOBAL_LOGGER.debug(
+            "Resolved @jpipe_link '%s' to node '%s' via segment-suffix match.",
+            link_id,
+            node_id,
+        )
+        return node_id
+
+    def _suffix_match(self, link_id: str) -> set[str]:
+        """
+        Return the canonical node ids whose id or alias has ``link_id`` as a trailing
+        segment-suffix.
+
+        A candidate identifier matches when its colon-separated segments end with the
+        exact sequence of ``link_id``'s segments — matching happens on segment
+        boundaries, so ``"metric"`` does not match ``"e_metric"``. Equal-length
+        (i.e. exact) candidates are excluded here because the caller has already tried
+        the exact tiers.
+
+        :param link_id: The id value passed to @jpipe_link.
+        :type link_id: str
+        :return: Set of distinct canonical node ids matched by suffix.
+        :rtype: set[str]
+        """
+        ann = link_id.split(":")
+        matches: set[str] = set()
+        for key, canonical_id in self._alias_index.items():
+            segments = key.split(":")
+            if len(ann) < len(segments) and segments[-len(ann):] == ann:
+                matches.add(canonical_id)
+        return matches
 
     def _bound_node_ids(self) -> set[str]:
         """
@@ -468,7 +529,9 @@ class PipelineEngine:
 
         :raises RuntimeException: If two different registry keys (e.g. two aliases of
             the same unified node) resolve to the same node but were bound to
-            different functions — a conflicting binding.
+            different functions — a conflicting binding; or if a registry key is a
+            suffix matching more than one distinct node — an ambiguous binding
+            (propagated from :meth:`_resolve_node_id`).
         :return: Set of canonical node ids that are explicitly bound.
         :rtype: set[str]
         """

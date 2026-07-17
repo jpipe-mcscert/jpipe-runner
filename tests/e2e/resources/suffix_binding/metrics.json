@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "rigor:r17:e_metric",
+      "label": "The model reports its metrics",
+      "type": "evidence"
+    },
+    {
+      "id": "C1",
+      "label": "Model is rigorous",
+      "type": "conclusion"
+    }
+  ],
+  "name": "suffix_binding",
+  "relations": [
+    {
+      "source": "rigor:r17:e_metric",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}

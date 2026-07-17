@@ -26,14 +26,16 @@ class UnboundElementValidator(BaseValidator):
         try:
             bound = self.pipeline._bound_node_ids()
         except RuntimeException as e:
-            # A conflicting @jpipe_link binding (e.g. two aliases of one node bound
-            # to different functions) is a user error — report it as a validation
-            # failure so the runner exits cleanly instead of raising a traceback.
+            # An invalid @jpipe_link binding — either conflicting (two aliases of one
+            # node bound to different functions) or ambiguous (a suffix id matching
+            # more than one node) — is a user error. Report it as a validation failure
+            # so the runner exits cleanly instead of raising a traceback.
             self.errors.append(
                 "[UnboundElementValidator]\n"
-                "Pipeline validation error: conflicting @jpipe_link binding.\n"
+                "Pipeline validation error: invalid @jpipe_link binding.\n"
                 f"  • Problem: {e}\n"
-                "  • Fix: Ensure all aliases of a node are bound to the same function.\n"
+                "  • Fix: Ensure all aliases of a node bind to the same function, and\n"
+                "    use a longer, more qualified id for any ambiguous suffix.\n"
             )
             GLOBAL_LOGGER.info("UnboundElementValidator completed with 1 error(s).")
             return self.errors, self.warnings
