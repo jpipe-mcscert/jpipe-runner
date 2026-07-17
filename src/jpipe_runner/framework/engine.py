@@ -410,11 +410,11 @@ class PipelineEngine:
         Called before validation so that all downstream lookups (skip checks, contribution
         lookups, function dispatch) use the correct function name instead of the sanitized label.
 
-        Supports four id formats (see :meth:`_resolve_node_id`):
-        - Plain element id:                     ``"e1"``
-        - Node alias (incl. colon-bearing):     ``"rigor:r17:e_metric"``
-        - Qualified id with justification name: ``"performant:e1"``
-        - Segment-suffix of an id / alias:      ``"e_metric"``, ``"r17:e_metric"``
+        Ids are resolved by a single segment-suffix rule (see :meth:`_resolve_node_id`):
+        an id binds a node when its colon-separated segments are a trailing suffix of
+        the node's id or an alias — of which an exact id (``"e1"``), an alias
+        (``"rigor:r17:e_metric"``), the pipeline-qualified form (``"performant:e1"``),
+        and a shorter suffix (``"e_metric"``) are all special cases.
 
         Each successful binding is logged at INFO so the ``node ← function`` mapping is
         a visible audit trail rather than a silent, debug-only resolution.
@@ -450,18 +450,29 @@ class PipelineEngine:
         """
         Resolve a @jpipe_link id to a graph node id.
 
-        Resolution order (exact tiers first, so an exact binding always wins over a
-        suffix one):
-        1. Exact match against the alias index — covers both canonical node ids and
-           aliases, including colon-bearing aliases (``"rigor:r17:e_metric"``). This
-           is tried first so aliases never fall through to the qualified-id splitter.
-        2. Plain id present as a graph node (``"e1"``).
-        3. Qualified id (``"justification_name:e1"``) whose prefix matches this
-           pipeline's name.
-        4. Segment-suffix match: the id's colon-separated segments form a trailing
-           suffix of a node id / alias. ``"e_metric"`` and ``"r17:e_metric"`` both
-           match ``"rigor:r17:e_metric"``; ``"r17"`` alone does not (see
-           :meth:`_suffix_match`).
+        There is really only **one** matching rule — *segment-suffix matching*: an id
+        binds a node when its colon-separated segments are a trailing suffix of one of
+        the node's identifiers (its canonical id or an alias). Matching is on segment
+        boundaries, so ``"e_metric"`` and ``"r17:e_metric"`` both match
+        ``"rigor:r17:e_metric"`` while ``"metric"`` and ``"r17"`` do not. Every id
+        "format" is a case of this single rule:
+
+        - an exact id or alias is the full-length suffix;
+        - a bare or partially-qualified id (``"e_metric"``, ``"r17:e_metric"``) is a
+          shorter suffix;
+        - the pipeline-qualified ``"justification_name:e1"`` form is the exact case
+          with this pipeline's name prepended.
+
+        Two properties keep the rule well-defined:
+
+        - **Precedence** — an exact identifier match wins over a shorter suffix match,
+          so an exactly-named node is never shadowed by an unrelated suffix collision.
+        - **Ambiguity** — a suffix matching two *different* nodes is a user error and
+          raises rather than resolving silently.
+
+        The checks below are ordered to realise those two properties: the exact
+        identities first (alias index, graph node, pipeline-qualified id), then the
+        strict-suffix fallback via :meth:`_suffix_match`.
 
         :param link_id: The id value passed to @jpipe_link.
         :type link_id: str
@@ -470,6 +481,7 @@ class PipelineEngine:
         :raises RuntimeException: If the id is a suffix of more than one distinct node
             (ambiguous). Ambiguity is a user error and must never resolve silently.
         """
+        # --- Exact identifier match (full-length suffix); wins on precedence ---
         if link_id in self._alias_index:
             return self._alias_index[link_id]
         if link_id in self.graph.nodes:
@@ -479,6 +491,7 @@ class PipelineEngine:
             if qualifier == self.justification_name and element_id in self.graph.nodes:
                 return element_id
 
+        # --- Strict-suffix fallback ---
         matches = self._suffix_match(link_id)
         if not matches:
             return None
@@ -503,8 +516,8 @@ class PipelineEngine:
         A candidate identifier matches when its colon-separated segments end with the
         exact sequence of ``link_id``'s segments — matching happens on segment
         boundaries, so ``"metric"`` does not match ``"e_metric"``. Equal-length
-        (i.e. exact) candidates are excluded here because the caller has already tried
-        the exact tiers.
+        (i.e. exact) candidates are excluded here because the caller resolves exact
+        identities first, so this method only handles the strictly-shorter suffixes.
 
         :param link_id: The id value passed to @jpipe_link.
         :type link_id: str
