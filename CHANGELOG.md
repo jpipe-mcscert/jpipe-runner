@@ -32,9 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Local imports failing inside files loaded via the library loader (#76).
 - Removed an unsupported deprecated parameter from `AppendElseDefaultAction` (#85, #86).
-- Build the action's `jpipe_runner` command as an argument array instead of
-  running a string through `eval`, preventing quoting/command-injection issues
-  with input values (PR #97 review).
+
+### Security
+- Fixed a command-injection / quoting flaw in the GitHub Action runner script
+  (`script/action/run_jpipe.sh`): the `jpipe_runner` command is now built as an
+  argument array and executed directly instead of assembling a string and running
+  it through `eval`. Action input values (variables, libraries, python paths) are
+  passed as literal arguments and can no longer break quoting or execute shell
+  code. Added a regression test in `tests/action/test_run_jpipe_script.py`
+  (PR #97 review).
 
 _Contributors: Corentin Veillard (@corentinVei), Sébastien Mosser._
 
