@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.5.0] - 2026-07-18
 
+### ⚠️ Breaking
+- **GitHub Action input `python_path` changed meaning.** It now specifies one or
+  more extra folders to add to Python's module search path (passed as
+  `--python-path`), instead of selecting the Python interpreter. Interpreter
+  selection has moved to the new `python_exec_path` input. Workflows that set
+  `python_path` to a Python executable must rename that input to
+  `python_exec_path` (#83, #95).
+
 ### Added
+- New GitHub Action input `python_exec_path` to select the Python interpreter
+  used to run jpipe-runner (#83).
 - Suffix matching for `@jpipe_link` resolution, allowing functions to be bound by
   the tail of a qualified name (#96).
 - Alias binding and suffix binding for `@jpipe_link`, with end-to-end coverage (#95).
@@ -22,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Local imports failing inside files loaded via the library loader (#76).
 - Removed an unsupported deprecated parameter from `AppendElseDefaultAction` (#85, #86).
+- Build the action's `jpipe_runner` command as an argument array instead of
+  running a string through `eval`, preventing quoting/command-injection issues
+  with input values (PR #97 review).
 
 _Contributors: Corentin Veillard (@corentinVei), Sébastien Mosser._
 
