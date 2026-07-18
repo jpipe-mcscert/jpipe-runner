@@ -100,9 +100,11 @@ upload no longer blocks PyPI/Homebrew/docs). Job graph:
 - `github-release` → GitHub Release with wheel + sdist (binary `.deb`s are built
   by Launchpad, not attached here).
 - `publish-pypi` → PyPI via trusted publisher (runs for pre-releases too).
-- `publish-ppa` → **`strategy.matrix` over `[jammy, noble, questing, resolute]`**;
+- `publish-ppa` → **`strategy.matrix` over `[noble, questing, resolute]`**;
   each series builds a signed source package from the committed `debian/` dir and
-  `dput`s it to Launchpad. Skipped for pre-releases.
+  `dput`s it to Launchpad. Skipped for pre-releases. (jammy/22.04 is excluded: it
+  ships Python 3.10, but the project requires `>=3.11` — `networkx 3.5` won't even
+  install on 3.10. `debian/control` enforces this via `X-Python3-Version: >= 3.11`.)
 - `build-homebrew-formula` + `publish-homebrew` → update the `homebrew-mcscert`
   tap. Skipped for pre-releases.
 - `deploy-docs` → GitHub Pages.

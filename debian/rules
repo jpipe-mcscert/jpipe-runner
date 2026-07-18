@@ -2,9 +2,11 @@
 # Build the Debian package from setup.py via pybuild.
 #
 # The project ships both a pyproject.toml (poetry-core backend) and a setup.py
-# setuptools shim. Force pybuild to use the setuptools/setup.py backend so the
-# build is deterministic across Ubuntu series and does not depend on the
-# poetry-core version available on the builder.
+# setuptools shim. `distutils` is pybuild's name for the setup.py-driven build
+# (it invokes `setup.py`, which imports setuptools — not the removed stdlib
+# distutils, so it works on Python 3.12+). Pinning it stops pybuild from
+# auto-selecting the pyproject/poetry-core backend, whose availability varies by
+# Ubuntu series.
 export PYBUILD_SYSTEM=distutils
 
 %:

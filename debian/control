@@ -10,6 +10,9 @@ Build-Depends: debhelper-compat (= 13),
 Standards-Version: 4.6.2
 Homepage: https://github.com/jpipe-mcscert/jpipe-runner
 Rules-Requires-Root: no
+# Match pyproject.toml (python = ">=3.11"). This makes dh_python3 emit
+# `python3 (>= 3.11)` in the binary Depends instead of a floorless `python3:any`.
+X-Python3-Version: >= 3.11
 
 Package: jpipe-runner
 Architecture: all

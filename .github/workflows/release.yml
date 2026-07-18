@@ -149,12 +149,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        distro: [ jammy, noble, questing, resolute ]
+        # jammy (22.04, Python 3.10) is intentionally excluded: the project
+        # requires Python >= 3.11 (networkx 3.5 alone refuses to install on 3.10).
+        distro: [ noble, questing, resolute ]
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Debian packaging tools
-        run: sudo apt-get update && sudo apt-get install -y devscripts debhelper dh-python dput gnupg
+        # Install the declared Build-Depends explicitly (not just the base
+        # tooling) so `dpkg-buildpackage -S` — which runs the pybuild clean via
+        # setup.py — is deterministic regardless of what ubuntu-latest preinstalls.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            devscripts debhelper dh-python dput gnupg \
+            python3-all python3-setuptools python3-tomli
 
       - name: Import GPG key
         env:

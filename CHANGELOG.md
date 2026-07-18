@@ -14,9 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `debian/` directory (`control`, `rules`, `changelog`, `copyright`,
   `source/format`). `dpkg-buildpackage` now builds the source package directly;
   `script/build-deb.sh` and `stdeb.cfg` are removed.
-- Moved the Ubuntu series list (`jammy`, `noble`, `questing`, `resolute`) out of
-  the shell script and into a `strategy.matrix` in `release.yml`, so each series
-  builds and uploads in its own isolated, parallel job.
+- Moved the Ubuntu series list out of the shell script and into a
+  `strategy.matrix` in `release.yml`, so each series builds and uploads in its own
+  isolated, parallel job.
+- **Dropped the `jammy` (22.04) PPA target.** It ships Python 3.10, but the project
+  requires `>=3.11` (the pinned `networkx 3.5` will not install on 3.10), so the
+  old jammy `.deb` was building against an incompatible networkx. The PPA now
+  targets `noble`, `questing`, `resolute`, and `debian/control` enforces the floor
+  via `X-Python3-Version: >= 3.11` (Depends now carries `python3 (>= 3.11~)`
+  instead of a floorless `python3:any`).
+- Added `python3-jsonschema` to the Debian runtime `Depends` (it was missing from
+  the old `stdeb.cfg`) and shipped the JSON schema via `package_data`.
 - Fixed the PPA upload that could **block indefinitely**: dropped the anonymous
   FTP `dput` configuration in favour of plain `dput ppa:` (default transport) per
   distro. `script/publish-ppa.sh` is removed.
