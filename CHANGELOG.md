@@ -5,6 +5,21 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **PPA changelog no longer ships the packaging placeholder.** The release
+  workflow now regenerates `debian/changelog` from scratch per Ubuntu series
+  (`dch --create`) instead of prepending to the committed `0.0.0` base entry,
+  which previously leaked into the source package and onto Launchpad.
+
+### CI
+- Bumped all GitHub Actions to their current Node 24 majors
+  (`checkout@v5`, `setup-python@v6`, `upload-artifact@v7`, `download-artifact@v8`,
+  `cache@v6`, `configure-pages@v6`, `upload-pages-artifact@v5`, `deploy-pages@v5`,
+  `github-script@v9`, `softprops/action-gh-release@v3`) to clear the Node 20
+  deprecation warnings.
+
 ## [3.5.2] - 2026-07-18
 
 ### Packaging / CI

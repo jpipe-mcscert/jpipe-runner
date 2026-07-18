@@ -40,7 +40,7 @@ runs:
     # We use that ID to fetch the exact comment.
     - name: Fetch PR comment by ID
       id: fetch_comment
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       env:
         COMMENT_ID: ${{ inputs.comment_id }}
       with:

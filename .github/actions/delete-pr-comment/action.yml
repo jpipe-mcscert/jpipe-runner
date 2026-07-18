@@ -31,7 +31,7 @@ runs:
     # Delete the PR comment that was posted by the runner
     # ---------------------------------------------------------------
     - name: Delete PR comment by ID
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       env:
         COMMENT_ID: ${{ inputs.comment_id }}
       with:

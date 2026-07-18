@@ -1,10 +1,9 @@
 jpipe-runner (0.0.0) UNRELEASED; urgency=medium
 
-  * Placeholder base entry. The release workflow regenerates the top entry per
-    Ubuntu series via `dch --newversion "<version>~<distro>1"` before building the
-    source package, so this version is never published as-is. It is intentionally
-    0.0.0 so that any real release version sorts above it (note the `~` in
-    `<version>~<distro>1` sorts *below* `<version>`, which is the desired PPA
-    ordering but requires this base to be lower still).
+  * Placeholder for local development only. The release workflow deletes this
+    file and regenerates a single-entry changelog per Ubuntu series with
+    `dch --create --newversion "<version>~<distro>1"`, so this placeholder is
+    never shipped. It exists only so `dpkg-buildpackage` can be run locally
+    without first creating a changelog.
 
  -- jPipe Team <mossers@mcmaster.ca>  Sat, 18 Jul 2026 00:00:00 +0000

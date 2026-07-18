@@ -17,7 +17,7 @@ jobs:
       version: ${{ steps.extract.outputs.version }}
       prerelease: ${{ steps.extract.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Extract and validate tag
         id: extract
@@ -54,7 +54,7 @@ jobs:
     needs: validate-version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -66,14 +66,14 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Build distribution
         run: poetry build
       - name: Upload distribution artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-package-distributions
           path: dist/
@@ -83,7 +83,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -94,7 +94,7 @@ jobs:
           poetry run sphinx-apidoc -o source ../../src/jpipe_runner
           poetry run sphinx-build -b html source build/html
       - name: Upload documentation artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: documentation
           path: docs/python_docs/build/html/
@@ -106,14 +106,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Download Python distributions
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: python-package-distributions
           path: dist/
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.validate-version.outputs.tag }}
           prerelease: ${{ needs.validate-version.outputs.prerelease }}
@@ -134,7 +134,7 @@ jobs:
       id-token: write
     steps:
       - name: Download distribution artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: python-package-distributions
           path: dist/
@@ -153,7 +153,7 @@ jobs:
         # requires Python >= 3.11 (networkx 3.5 alone refuses to install on 3.10).
         distro: [ noble, questing, resolute ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Debian packaging tools
         # Install the declared Build-Depends explicitly (not just the base
@@ -185,7 +185,13 @@ jobs:
           DEBEMAIL: ${{ secrets.DEBEMAIL }}
         run: |
           VERSION="${{ needs.validate-version.outputs.version }}"
-          dch --newversion "${VERSION}~${{ matrix.distro }}1" \
+          # Regenerate the changelog from scratch so the shipped source package
+          # contains only this release entry. `dch --newversion` would instead
+          # prepend to the committed placeholder base entry, which then leaks into
+          # the package and onto Launchpad.
+          rm -f debian/changelog
+          dch --create --package jpipe-runner \
+              --newversion "${VERSION}~${{ matrix.distro }}1" \
               --distribution "${{ matrix.distro }}" \
               --force-distribution \
               "Release v${VERSION}."
@@ -205,12 +211,12 @@ jobs:
     if: needs.validate-version.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Download Python distributions
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: python-package-distributions
           path: dist/
@@ -238,7 +244,7 @@ jobs:
           export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
           envsubst < Formula/homebrew_formula_template.rb > "tap/Formula/jpipe-runner@${VERSION}.rb"
       - name: Upload tap artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: updated-homebrew-tap
           path: tap
@@ -250,7 +256,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download formula artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: updated-homebrew-tap
           path: tap
@@ -281,19 +287,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download documentation artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: documentation
           path: docs-build/
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
         with:
           enablement: true
           token: ${{ github.token }}
       - name: Upload to GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs-build/
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
