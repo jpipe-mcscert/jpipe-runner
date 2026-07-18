@@ -1,7 +1,7 @@
 """
 Pipeline for the python_path_test integration test.
 
-This pipeline verifies that the `python_path` action parameter correctly
+This pipeline verifies that the `python_exec_path` action parameter correctly
 overrides the Python interpreter used to run jpipe-runner.
 """
 

@@ -36,8 +36,11 @@ OUTPUT_DIR="/home/runner/work/"
 
 echo "Using Python interpreter at: $PYTHON_EXEC_PATH"
 
-# Base command to run
-CMD="$PYTHON_EXEC_PATH -m jpipe_runner '${JD_FILE}'"
+# Base command to run, built as an array so that arbitrary input values
+# (quotes, spaces, newlines) are passed as literal argv entries and never
+# re-parsed by the shell. This avoids the command injection / quoting issues
+# that come with building a string and running it through `eval`.
+CMD=("$PYTHON_EXEC_PATH" -m jpipe_runner "${JD_FILE}")
 
 # -----------------------------------------------------------------------------
 # STEP 2: Helper functions for appending flags
@@ -46,7 +49,7 @@ append_flag() {
   # Appends a flag with its value if the value is non-empty
   local val="$1"
   local flag="$2"
-  [[ -n "$val" ]] && CMD+=" $flag '$val'"
+  [[ -n "$val" ]] && CMD+=("$flag" "$val")
 }
 
 handle_multiline_input() {
@@ -54,7 +57,7 @@ handle_multiline_input() {
   local input="$1"
   local flag="$2"
   while IFS= read -r line; do
-    [[ -n "$line" ]] && CMD+=" $flag '$line'"
+    [[ -n "$line" ]] && CMD+=("$flag" "$line")
   done <<< "$input"
 }
 
@@ -68,16 +71,16 @@ handle_multiline_input "${PYTHON_PATH:-}" "--python-path"
 append_flag "${CONFIG_FILE:-}" "--config-file"
 append_flag "${DIAGRAM:-}" "--diagram"
 
-[[ "${DRY_RUN:-false}" == "true" ]] && CMD+=" --dry-run"
+[[ "${DRY_RUN:-false}" == "true" ]] && CMD+=("--dry-run")
 
-CMD+=" --output-path $OUTPUT_DIR"
-CMD+=" --format '${FORMAT:-svg}'"
+CMD+=("--output-path" "$OUTPUT_DIR")
+CMD+=("--format" "${FORMAT:-svg}")
 
 # -----------------------------------------------------------------------------
 # STEP 4: Run the command and capture output
 # -----------------------------------------------------------------------------
-echo "Running: $CMD"
-OUTPUT=$(eval $CMD 2>&1)  # Capture both stdout and stderr
+echo "Running: ${CMD[*]}"
+OUTPUT=$("${CMD[@]}" 2>&1)  # Capture both stdout and stderr
 RESULT=$?
 
 echo "Command exited with code $RESULT"
