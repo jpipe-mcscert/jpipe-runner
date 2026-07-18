@@ -5,6 +5,28 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Packaging / CI
+- **Overhauled the release pipeline** to mirror the sibling `jpipe-compiler`,
+  cutting `release.yml` roughly in half and removing two failure modes.
+- Replaced the stdeb-generated Debian source tree with a committed static
+  `debian/` directory (`control`, `rules`, `changelog`, `copyright`,
+  `source/format`). `dpkg-buildpackage` now builds the source package directly;
+  `script/build-deb.sh` and `stdeb.cfg` are removed.
+- Moved the Ubuntu series list (`jammy`, `noble`, `questing`, `resolute`) out of
+  the shell script and into a `strategy.matrix` in `release.yml`, so each series
+  builds and uploads in its own isolated, parallel job.
+- Fixed the PPA upload that could **block indefinitely**: dropped the anonymous
+  FTP `dput` configuration in favour of plain `dput ppa:` (default transport) per
+  distro. `script/publish-ppa.sh` is removed.
+- Decoupled the publish jobs (PyPI, PPA, Homebrew, docs) so a single flaky PPA
+  upload no longer blocks unrelated publishes; PPA and Homebrew are gated to skip
+  pre-release tags.
+- Extracted the repeated Python/Poetry/graphviz setup into a
+  `.github/actions/setup-python-env` composite action, reused by `ci.yml` and the
+  release build jobs; removed the dangling `script/apt-packages.txt` cache key.
+
 ## [3.5.1] - 2026-07-18
 
 ### Packaging

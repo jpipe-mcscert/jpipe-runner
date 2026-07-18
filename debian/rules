@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+# Build the Debian package from setup.py via pybuild.
+#
+# The project ships both a pyproject.toml (poetry-core backend) and a setup.py
+# setuptools shim. Force pybuild to use the setuptools/setup.py backend so the
+# build is deterministic across Ubuntu series and does not depend on the
+# poetry-core version available on the builder.
+export PYBUILD_SYSTEM=distutils
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+# The upstream test suite needs dev-only dependencies (pytest, poetry) that are
+# not available on the Launchpad builders; tests run in CI instead.
+override_dh_auto_test:

@@ -90,18 +90,26 @@ Coverage metrics are configured via `pytest-cov` (see `pyproject.toml` and `pyte
 4. Tag the merged `main` commit `vX.Y.Z` (must match `pyproject.toml`) and push it.
 
 Pushing the tag triggers `.github/workflows/release.yml` — the tag's version must
-match `pyproject.toml`. The pipeline:
+match `pyproject.toml`. The pipeline is modelled on the sibling `jpipe-compiler`:
+a small set of build jobs feed several **decoupled** publish jobs (a flaky PPA
+upload no longer blocks PyPI/Homebrew/docs). Job graph:
 
-1. Validates tag format + version sync
-2. Runs full test suite
-3. Builds Sphinx HTML docs
-4. Builds Python wheel + sdist
-5. Builds the `.deb` package — GPG-signed
-6. Creates GitHub Release with all artifacts
-7. Publishes to PyPI (trusted publishers)
-8. Uploads to Ubuntu PPA (Launchpad)
-9. Updates Homebrew formula in `homebrew-mcscert` tap
-10. Deploys docs to GitHub Pages
+- `validate-version` → checks tag format + `pyproject.toml` sync; outputs
+  `version`/`tag`/`prerelease` (anything not a bare `X.Y.Z` is a pre-release).
+- `test` → `build-python-package` (wheel + sdist) and `build-docs` (Sphinx).
+- `github-release` → GitHub Release with wheel + sdist (binary `.deb`s are built
+  by Launchpad, not attached here).
+- `publish-pypi` → PyPI via trusted publisher (runs for pre-releases too).
+- `publish-ppa` → **`strategy.matrix` over `[jammy, noble, questing, resolute]`**;
+  each series builds a signed source package from the committed `debian/` dir and
+  `dput`s it to Launchpad. Skipped for pre-releases.
+- `build-homebrew-formula` + `publish-homebrew` → update the `homebrew-mcscert`
+  tap. Skipped for pre-releases.
+- `deploy-docs` → GitHub Pages.
+
+The Ubuntu series list lives **only** in the `publish-ppa` matrix. Shared
+Python/Poetry/graphviz setup is a composite action at
+`.github/actions/setup-python-env` (reused by `ci.yml`).
 
 ## Known Bugs
 
@@ -127,5 +135,11 @@ match `pyproject.toml`. The pipeline:
 
 - **Graphviz system dependency**: the `graphviz` Python package calls the `dot` binary at runtime — only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
 
-- The `setup.py` is only needed for Debian packaging (stdeb); Poetry handles everything else.
+- **Debian packaging** lives in the committed `debian/` directory (`3.0 (native)`
+  source format, pybuild via `debian/rules`). `setup.py` is the setuptools shim
+  pybuild builds from — `debian/rules` pins `PYBUILD_SYSTEM=distutils` so the build
+  ignores the poetry-core backend in `pyproject.toml`. There is no longer any
+  stdeb/`build-deb.sh`/`stdeb.cfg`; runtime Debian deps are declared in
+  `debian/control`. To test locally: `dch --newversion X.Y.Z~jammy1 --distribution
+  jammy` then `dpkg-buildpackage -S -us -uc` (source) or `-b` (binary).
 - Python version is pinned to `>=3.11` in `pyproject.toml` but CI only tests 3.11 — consider matrix testing.

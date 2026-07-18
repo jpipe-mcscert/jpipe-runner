@@ -63,6 +63,10 @@ config = {
     "long_description_content_type": "text/markdown",
     "packages": find_packages(where=_packages_from) if _packages_from else find_packages(),
     "package_dir": {"": _packages_from} if _packages_from else {},
+    # Ship non-Python package data (e.g. the JSON schema). Poetry globs these
+    # automatically, but the setuptools/pybuild build used for the Debian package
+    # needs them declared explicitly.
+    "package_data": {"jpipe_runner": ["schema/*.json"]},
     "entry_points": {
         "console_scripts": [
             f"{name} = {script}" for name, script in _poetry.get("scripts", {}).items()

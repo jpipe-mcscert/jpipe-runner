@@ -1,0 +1,26 @@
+Source: jpipe-runner
+Section: python
+Priority: optional
+Maintainer: jPipe Team <mossers@mcmaster.ca>
+Build-Depends: debhelper-compat (= 13),
+               dh-python,
+               python3-all,
+               python3-setuptools,
+               python3-tomli
+Standards-Version: 4.6.2
+Homepage: https://github.com/jpipe-mcscert/jpipe-runner
+Rules-Requires-Root: no
+
+Package: jpipe-runner
+Architecture: all
+Depends: ${python3:Depends},
+         ${misc:Depends},
+         python3-networkx,
+         python3-graphviz,
+         python3-yaml,
+         python3-jsonschema
+Description: Justification pipeline runner for jPipe
+ jpipe-runner orchestrates justification pipelines: research workflows where
+ Python functions explicitly declare the variables they produce and consume.
+ It validates the resulting dependency graph, executes the functions in
+ topological order, and can visualise the results with Graphviz.
