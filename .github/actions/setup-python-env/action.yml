@@ -1,0 +1,53 @@
+name: Set up Python env
+description: >-
+  Set up Python + Poetry with the graphviz system dependency and install the
+  project. Callers must run actions/checkout first.
+
+inputs:
+  python-version:
+    description: Python version to install.
+    required: false
+    default: '3.11'
+  extras:
+    description: Optional Poetry extras to install (e.g. "docs"). Empty for none.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Cache Poetry
+      id: cache-poetry
+      uses: actions/cache@v5
+      with:
+        path: ~/.local
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: ${{ runner.os }}-poetry-
+
+    - name: Install Poetry
+      if: steps.cache-poetry.outputs.cache-hit != 'true'
+      shell: bash
+      run: curl -sSL https://install.python-poetry.org | python3 -
+
+    - name: Add Poetry to PATH
+      shell: bash
+      run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Install system dependencies
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y graphviz
+
+    - name: Install project
+      shell: bash
+      run: |
+        poetry lock
+        if [ -n "${{ inputs.extras }}" ]; then
+          poetry install --extras "${{ inputs.extras }}"
+        else
+          poetry install
+        fi

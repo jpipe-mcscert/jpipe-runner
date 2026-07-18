@@ -1,4 +1,4 @@
-name: CI & Release Pipeline
+name: Release
 
 env:
   PYTHON_VERSION: '3.11'
@@ -10,473 +10,122 @@ on:
 
 jobs:
   validate-version:
+    name: Validate version
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.extract_tag.outputs.tag }}
-      version: ${{ steps.extract_tag.outputs.version }}
+      tag: ${{ steps.extract.outputs.tag }}
+      version: ${{ steps.extract.outputs.version }}
+      prerelease: ${{ steps.extract.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Extract tag name
-        id: extract_tag
+      - name: Extract and validate tag
+        id: extract
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          VERSION=${TAG#v}
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Validate tag format
-        run: |
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?([a-zA-Z0-9]+)?$ ]]; then
             echo "Invalid tag format: $TAG"
             exit 1
           fi
 
-      - name: Check version in pyproject.toml
+          # Anything that is not a bare X.Y.Z(.W) release is treated as a
+          # pre-release: PyPI still publishes it, but PPA/Homebrew are skipped.
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check version matches pyproject.toml
         run: |
           FILE_VERSION=$(grep '^version *= *' pyproject.toml | sed -E "s/^version *= *[\"']([^\"']+)[\"']/\1/")
-          echo "Version from pyproject.toml: $FILE_VERSION"
-          if [[ "$FILE_VERSION" != "$VERSION" ]]; then
-            echo "pyproject.toml version $FILE_VERSION does not match tag version $VERSION"
+          echo "pyproject.toml version: $FILE_VERSION"
+          if [[ "$FILE_VERSION" != "${{ steps.extract.outputs.version }}" ]]; then
+            echo "pyproject.toml version $FILE_VERSION does not match tag version ${{ steps.extract.outputs.version }}"
             exit 1
           fi
 
   test:
+    name: Test
     needs: validate-version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Cache Poetry
-        id: cache-poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        if: steps.cache-poetry.outputs.cache-hit != 'true'
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Add Poetry to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Cache apt packages
-        id: cache-apt
-        uses: actions/cache@v3
-        with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/script/apt-packages.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Install system dependencies
-        if: steps.cache-apt.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz
-
-      - name: Install dependencies
-        run: |
-          poetry lock
-          poetry install
-
       - name: Run tests
         run: poetry run pytest
 
-  build-docs:
-    needs: [ test ]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Cache Poetry
-        id: cache-poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        if: steps.cache-poetry.outputs.cache-hit != 'true'
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Add Poetry to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Cache apt packages
-        id: cache-apt
-        uses: actions/cache@v3
-        with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/script/apt-packages.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Install system dependencies
-        if: steps.cache-apt.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz
-
-      - name: Install dependencies
-        run: |
-          poetry lock
-          poetry install --extras docs
-
-      - name: Build Sphinx documentation
-        run: |
-          cd docs/python_docs/
-          poetry run sphinx-apidoc -o source ../../src/jpipe_runner
-          poetry run sphinx-build -b html source build/html
-
-      - name: Upload documentation artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: documentation
-          path: docs/python_docs/build/html/
-
   build-python-package:
-    needs: [ test ]
+    name: Build Python package
+    needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Cache Poetry
-        id: cache-poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        if: steps.cache-poetry.outputs.cache-hit != 'true'
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Add Poetry to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Cache apt packages
-        id: cache-apt
-        uses: actions/cache@v3
-        with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/script/apt-packages.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Install system dependencies
-        if: steps.cache-apt.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz
-
-      - name: Install dependencies
-        run: |
-          poetry lock
-          poetry install
-
       - name: Build distribution
         run: poetry build
-
       - name: Upload distribution artifact
         uses: actions/upload-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
 
-  build-ppa:
+  build-docs:
+    name: Build docs
+    needs: test
     runs-on: ubuntu-latest
-    needs: [ test ]
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Cache Poetry
-        id: cache-poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        if: steps.cache-poetry.outputs.cache-hit != 'true'
+          extras: docs
+      - name: Build Sphinx documentation
         run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Add Poetry to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Cache apt packages
-        id: cache-apt
-        uses: actions/cache@v3
-        with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/script/apt-packages.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
-
-      - name: Install system dependencies
-        if: steps.cache-apt.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz
-
-      - name: Install dependencies
-        run: |
-          poetry lock
-          poetry install
-
-      - name: Export requirements.txt from Poetry
-        run: |
-          poetry export -f requirements.txt --without-hashes -o requirements.txt
-
-      - name: Install Python packaging tools
-        run: |
-          python -m pip install --upgrade pip setuptools wheel stdeb
-
-      - name: Set up GPG for signing
-        run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          echo "use-agent" >> ~/.gnupg/gpg.conf
-          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
-          echo RELOADAGENT | gpg-connect-agent
-
-      - name: Build Debian package
-        run: |
-          chmod +x script/build-deb.sh
-          script/build-deb.sh ${{ secrets.DEBFULLNAME }} ${{ secrets.DEBEMAIL }} ${{ secrets.GPG_ID }}
-
-      - name: Upload Debian artifacts
+          cd docs/python_docs/
+          poetry run sphinx-apidoc -o source ../../src/jpipe_runner
+          poetry run sphinx-build -b html source build/html
+      - name: Upload documentation artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-packages
-          path: deb_dist/
+          name: documentation
+          path: docs/python_docs/build/html/
 
-  release:
+  github-release:
+    name: Publish GitHub Release
+    needs: [ validate-version, build-python-package, build-docs ]
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: [ validate-version, build-python-package, build-ppa, build-docs ]
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set tag and version from previous job
-        run: |
-          echo "TAG=${{ needs.validate-version.outputs.tag }}" >> $GITHUB_ENV
-          echo "VERSION=${{ needs.validate-version.outputs.version }}" >> $GITHUB_ENV
-
-      # Download Python package artifacts (wheel + tar.gz)
-      - name: Download Python package distributions
+      - uses: actions/checkout@v4
+      - name: Download Python distributions
         uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
-
-      # Download Debian source package artifacts
-      - name: Download Debian source package artifacts
-        uses: actions/download-artifact@v4
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          name: deb-packages
-          path: deb_dist/
-
-      # Install Debian build tools
-      - name: Install Debian build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential devscripts debhelper dh-python python3-all python3-setuptools python3-pip python3-tomli
-
-      # Build binary .deb packages for all distros
-      - name: Build binary .deb packages for all distros
-        run: |
-          for PKG_DIR in deb_dist/jpipe-runner-*; do
-            if [ -d "$PKG_DIR" ]; then
-              echo "Building .deb package in $PKG_DIR"
-              cd "$PKG_DIR"
-              debuild -b -us -uc
-              cd - > /dev/null
-            fi
-          done
-
-      # Create GitHub release and upload all artifacts
-      - name: Create GitHub release and upload assets
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.TAG }}
+          tag_name: ${{ needs.validate-version.outputs.tag }}
+          prerelease: ${{ needs.validate-version.outputs.prerelease }}
           files: |
             dist/*.whl
             dist/*.tar.gz
-            deb_dist/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  build-homebrew-formula:
-    needs: [ validate-version, release ]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Download package artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: python-package-distributions
-          path: dist/
-
-      - name: Cache Poetry
-        id: cache-poetry
-        uses: actions/cache@v3
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-
-
-      - name: Install Poetry
-        if: steps.cache-poetry.outputs.cache-hit != 'true'
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-
-      - name: Add Poetry to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install system dependencies
-        if: steps.cache-apt.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz
-
-      - name: Install dependencies
-        run: |
-          poetry lock
-          poetry install
-
-      - name: Set tag and version from previous job
-        id: set-version
-        run: |
-          echo "TAG=${{ needs.validate-version.outputs.tag }}" >> $GITHUB_ENV
-          echo "VERSION=${{ needs.validate-version.outputs.version }}" >> $GITHUB_ENV
-
-      - name: Compute SHA256 of source tarball
-        id: sha
-        run: |
-          FILE=$(ls dist/*.tar.gz)
-          SHA=$(shasum -a 256 "$FILE" | cut -d " " -f 1)
-          echo "SHA256=$SHA" >> $GITHUB_ENV
-          echo "SOURCE_FILE=$FILE" >> $GITHUB_ENV
-
-      - name: Generate formula file
-        run: |
-          export CLASS_NAME="JpipeRunner"
-          export HOMEPAGE_URL="https://github.com/jpipe-mcscert/jpipe-runner"
-          export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/${TAG}/$(basename ${SOURCE_FILE})"
-          export SOURCE_SHA256="${SHA256}"
-          export PYTHON_VERSION="${{ env.PYTHON_VERSION }}"
-          mkdir -p tap/Formula
-          
-          ###############
-          # Without GUI #
-          ###############
-          
-          # Generate Homebrew resource blocks using external script
-          export RESOURCES="$(bash script/generate_formula_resources.sh)"
-          
-          # Generate main formula file
-          envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
-          
-          # Generate versioned formula file
-          export FORMATTED_VERSION=$(echo "$VERSION" | sed 's/\.//g')
-          
-          # Generate versioned formula (without GUI)
-          export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
-          
-          # Generate versioned formula file
-          envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner@$VERSION.rb
-          
-      - name: Upload updated tap directory
-        uses: actions/upload-artifact@v4
-        with:
-          name: updated-homebrew-tap
-          path: tap
-
-  publish-ppa:
-    needs: [ build-homebrew-formula ]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: deb-packages
-          path: deb_dist/
-
-      - name: Set up GPG and dput config
-        run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          mkdir -p ~/.dput.cf.d/
-          touch ~/.dput.cf
-          echo "[ppa]" >> ~/.dput.cf
-          echo "fqdn = ppa.launchpad.net" >> ~/.dput.cf
-          echo "method = ftp" >> ~/.dput.cf
-          echo "incoming = ~${{ secrets.LAUNCHPAD_USERNAME }}/ppa/ubuntu/" >> ~/.dput.cf
-          echo "login = anonymous" >> ~/.dput.cf
-
-      - name: Install upload tools
-        run: sudo apt update && sudo apt install -y dput devscripts
-
-      - name: Publish to PPA
-        run: |
-          chmod +x script/publish-ppa.sh
-          script/publish-ppa.sh "${{ secrets.LAUNCHPAD_USERNAME }}/ppa" deb_dist/*.changes
-
   publish-pypi:
-    needs: [ build-homebrew-formula ]
+    name: Publish to PyPI
+    needs: build-python-package
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -484,40 +133,144 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v3
-
       - name: Download distribution artifact
         uses: actions/download-artifact@v4
         with:
           name: python-package-distributions
           path: dist/
-
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  #  publish-testpypi:
-  #    needs: [ build-homebrew-formula ]
-  #    runs-on: ubuntu-latest
-  #    environment: test-pypi
-  #    permissions:
-  #      id-token: write
-  #    steps:
-  #      - uses: actions/checkout@v3
-  #
-  #      - name: Download distribution artifact
-  #        uses: actions/download-artifact@v4
-  #        with:
-  #          name: python-package-distributions
-  #          path: dist/
-  #
-  #      - name: Publish distribution to Test PyPI
-  #        uses: pypa/gh-action-pypi-publish@release/v1
-  #        with:
-  #          verbose: 'false'
-  #          repository-url: https://test.pypi.org/legacy/
+  publish-ppa:
+    name: Publish to PPA (${{ matrix.distro }})
+    needs: [ validate-version, test ]
+    if: needs.validate-version.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # jammy (22.04, Python 3.10) is intentionally excluded: the project
+        # requires Python >= 3.11 (networkx 3.5 alone refuses to install on 3.10).
+        distro: [ noble, questing, resolute ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Debian packaging tools
+        # Install the declared Build-Depends explicitly (not just the base
+        # tooling) so `dpkg-buildpackage -S` — which runs the pybuild clean via
+        # setup.py — is deterministic regardless of what ubuntu-latest preinstalls.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            devscripts debhelper dh-python dput gnupg \
+            python3-all python3-setuptools python3-tomli
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_ID: ${{ secrets.GPG_ID }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          FINGERPRINT=$(gpg --with-colons --fingerprint "$GPG_ID" | awk -F: '/^fpr:/{print $10; exit}')
+          echo "${FINGERPRINT}:6:" | gpg --import-ownertrust
+          echo "GPG_FINGERPRINT=${FINGERPRINT}" >> "$GITHUB_ENV"
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          echo "allow-loopback-pinentry" >> ~/.gnupg/gpg-agent.conf
+          echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
+          gpg-connect-agent reloadagent /bye
+
+      - name: Generate changelog entry for ${{ matrix.distro }}
+        env:
+          DEBFULLNAME: ${{ secrets.DEBFULLNAME }}
+          DEBEMAIL: ${{ secrets.DEBEMAIL }}
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          dch --newversion "${VERSION}~${{ matrix.distro }}1" \
+              --distribution "${{ matrix.distro }}" \
+              --force-distribution \
+              "Release v${VERSION}."
+
+      - name: Build signed Debian source package
+        run: dpkg-buildpackage -S -d --sign-key="$GPG_FINGERPRINT"
+
+      - name: Upload to Launchpad PPA
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          dput "ppa:${{ secrets.LAUNCHPAD_USERNAME }}/ppa" \
+            "../jpipe-runner_${VERSION}~${{ matrix.distro }}1_source.changes"
+
+  build-homebrew-formula:
+    name: Build Homebrew formula
+    needs: [ validate-version, github-release ]
+    if: needs.validate-version.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Download Python distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Compute SHA256 of source tarball
+        id: sha
+        run: |
+          FILE=$(ls dist/*.tar.gz)
+          echo "SHA256=$(shasum -a 256 "$FILE" | cut -d ' ' -f 1)" >> "$GITHUB_ENV"
+          echo "SOURCE_FILE=$FILE" >> "$GITHUB_ENV"
+      - name: Generate formula files
+        run: |
+          TAG="${{ needs.validate-version.outputs.tag }}"
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          SOURCE_BASENAME=$(basename "${SOURCE_FILE}")
+          export CLASS_NAME="JpipeRunner"
+          export HOMEPAGE_URL="https://github.com/jpipe-mcscert/jpipe-runner"
+          export SOURCE_URL="https://github.com/jpipe-mcscert/jpipe-runner/releases/download/${TAG}/${SOURCE_BASENAME}"
+          export SOURCE_SHA256="${SHA256}"
+          export PYTHON_VERSION="${{ env.PYTHON_VERSION }}"
+          mkdir -p tap/Formula
+          RESOURCES="$(bash script/generate_formula_resources.sh)"
+          export RESOURCES
+          envsubst < Formula/homebrew_formula_template.rb > tap/Formula/jpipe-runner.rb
+          FORMATTED_VERSION="${VERSION//./}"
+          export CLASS_NAME="${CLASS_NAME}AT${FORMATTED_VERSION}"
+          envsubst < Formula/homebrew_formula_template.rb > "tap/Formula/jpipe-runner@${VERSION}.rb"
+      - name: Upload tap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-homebrew-tap
+          path: tap
+
+  publish-homebrew:
+    name: Publish Homebrew formula
+    needs: [ validate-version, build-homebrew-formula ]
+    if: needs.validate-version.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download formula artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: updated-homebrew-tap
+          path: tap
+      - name: Clone Homebrew tap repository
+        run: git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_PAT }}@github.com/jpipe-mcscert/homebrew-mcscert.git tap-repo
+      - name: Commit and push formula
+        run: |
+          VERSION="${{ needs.validate-version.outputs.version }}"
+          cp tap/Formula/jpipe-runner.rb tap-repo/
+          cp "tap/Formula/jpipe-runner@${VERSION}.rb" tap-repo/
+          cd tap-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "jpipe-runner.rb" "jpipe-runner@${VERSION}.rb"
+          git commit -m "Update jpipe-runner formula to version ${VERSION}"
+          git push origin main
 
   deploy-docs:
-    needs: [ build-homebrew-formula ]
+    name: Deploy docs
+    needs: build-docs
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -532,57 +285,15 @@ jobs:
         with:
           name: documentation
           path: docs-build/
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-          token: '${{ github.token }}'
-
+          token: ${{ github.token }}
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs-build/
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-  publish-homebrew-formula:
-    permissions:
-      contents: write
-    # [!] Add or Remove the publish-pypi or publish-testpypi job as needed [!]
-    needs: [ validate-version, publish-ppa, publish-pypi, build-homebrew-formula, deploy-docs ]
-    #   needs: [ publish-ppa, publish-testpypi, build-homebrew-formula, deploy-docs ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout current repo
-        uses: actions/checkout@v3
-
-      - name: Download formula artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: updated-homebrew-tap
-          path: tap
-
-      - name: Clone Homebrew tap repository
-        run: |
-          git clone https://x-access-token:${{ secrets.HOMEBREW_TAP_PAT }}@github.com/jpipe-mcscert/homebrew-mcscert.git tap-repo
-          ls tap-repo
-
-      - name: Copy new formula into tap repo
-        run: |
-          VERSION=${{ needs.validate-version.outputs.version }}
-          echo "VERSION: $VERSION"
-          cp tap/Formula/jpipe-runner.rb tap-repo/
-          cp tap/Formula/jpipe-runner@${VERSION}.rb tap-repo/
-
-      - name: Commit and push formula
-        run: |
-          cd tap-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          git add jpipe-runner.rb jpipe-runner@${{ needs.validate-version.outputs.version }}.rb
-          git commit -m "Update jpipe-runner formula to version ${{ needs.validate-version.outputs.version }}"
-          git push origin main

@@ -5,6 +5,36 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.2] - 2026-07-18
+
+### Packaging / CI
+- **Overhauled the release pipeline** to mirror the sibling `jpipe-compiler`,
+  cutting `release.yml` roughly in half and removing two failure modes.
+- Replaced the stdeb-generated Debian source tree with a committed static
+  `debian/` directory (`control`, `rules`, `changelog`, `copyright`,
+  `source/format`). `dpkg-buildpackage` now builds the source package directly;
+  `script/build-deb.sh` and `stdeb.cfg` are removed.
+- Moved the Ubuntu series list out of the shell script and into a
+  `strategy.matrix` in `release.yml`, so each series builds and uploads in its own
+  isolated, parallel job.
+- **Dropped the `jammy` (22.04) PPA target.** It ships Python 3.10, but the project
+  requires `>=3.11` (the pinned `networkx 3.5` will not install on 3.10), so the
+  old jammy `.deb` was building against an incompatible networkx. The PPA now
+  targets `noble`, `questing`, `resolute`, and `debian/control` enforces the floor
+  via `X-Python3-Version: >= 3.11` (Depends now carries `python3 (>= 3.11~)`
+  instead of a floorless `python3:any`).
+- Added `python3-jsonschema` to the Debian runtime `Depends` (it was missing from
+  the old `stdeb.cfg`) and shipped the JSON schema via `package_data`.
+- Fixed the PPA upload that could **block indefinitely**: dropped the anonymous
+  FTP `dput` configuration in favour of plain `dput ppa:` (default transport) per
+  distro. `script/publish-ppa.sh` is removed.
+- Decoupled the publish jobs (PyPI, PPA, Homebrew, docs) so a single flaky PPA
+  upload no longer blocks unrelated publishes; PPA and Homebrew are gated to skip
+  pre-release tags.
+- Extracted the repeated Python/Poetry/graphviz setup into a
+  `.github/actions/setup-python-env` composite action, reused by `ci.yml` and the
+  release build jobs; removed the dangling `script/apt-packages.txt` cache key.
+
 ## [3.5.1] - 2026-07-18
 
 ### Packaging
@@ -169,6 +199,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
+[3.5.2]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.1...v3.5.2
+[3.5.1]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.0...v3.5.1
 [3.5.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.4.1...v3.5.0
 [3.4.1]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.3.0...v3.4.0
