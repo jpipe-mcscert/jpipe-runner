@@ -19,6 +19,17 @@ sudo apt install -y dput devscripts
 MAX_RETRIES="${MAX_RETRIES:-3}"
 RETRY_DELAY="${RETRY_DELAY:-10}"
 
+# Validate the tunables up front so a bad override fails loudly instead of
+# producing confusing `seq`/`sleep` errors mid-upload.
+if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -lt 1 ]; then
+  echo "Error: MAX_RETRIES must be a positive integer (got '$MAX_RETRIES')"
+  exit 1
+fi
+if ! [[ "$RETRY_DELAY" =~ ^[0-9]+$ ]]; then
+  echo "Error: RETRY_DELAY must be a non-negative integer (got '$RETRY_DELAY')"
+  exit 1
+fi
+
 # Upload each .changes file to the PPA. A single failing distro must not abort
 # the whole batch (that would leave the remaining distros — and the downstream
 # Homebrew publish — unprocessed), so we retry transient errors, treat an
@@ -41,8 +52,13 @@ for changes in "${CHANGES_FILES[@]}"; do
       uploaded=true
       break
     fi
-    echo "Upload attempt $attempt/$MAX_RETRIES for $changes failed; retrying in ${RETRY_DELAY}s..."
-    sleep "$RETRY_DELAY"
+    # Only wait if another attempt will actually follow.
+    if [ "$attempt" -lt "$MAX_RETRIES" ]; then
+      echo "Upload attempt $attempt/$MAX_RETRIES for $changes failed; retrying in ${RETRY_DELAY}s..."
+      sleep "$RETRY_DELAY"
+    else
+      echo "Upload attempt $attempt/$MAX_RETRIES for $changes failed."
+    fi
   done
 
   if ! $uploaded; then
