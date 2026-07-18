@@ -65,9 +65,37 @@ poetry run pytest
 poetry build
 ```
 
+## 🏷️ Releasing
+
+Releases are cut from `dev` and published automatically when a version tag is
+pushed. See [`CHANGELOG.md`](CHANGELOG.md) for the release history.
+
+1. **Bump the version** in `pyproject.toml` (single source of truth — `setup.py`
+   and the docs derive from it). Follow [SemVer](https://semver.org): patch for
+   fixes, minor for backward-compatible features, major for breaking changes.
+2. **Update `CHANGELOG.md`** — move the relevant notes under a new
+   `## [x.y.z] - YYYY-MM-DD` heading.
+3. **Open a PR `dev → main`** and merge once CI is green.
+4. **Tag the merged commit** on `main` and push it:
+   ```bash
+   git checkout main && git pull
+   git tag vX.Y.Z          # must equal the pyproject.toml version
+   git push origin vX.Y.Z
+   ```
+
+Pushing the `vX.Y.Z` tag triggers the release pipeline
+([`.github/workflows/release.yml`](.github/workflows/release.yml)), which
+validates the tag/version match, runs the tests, builds the docs, wheel, sdist
+and signed `.deb`, then publishes to **GitHub Releases**, **PyPI**, the **Ubuntu
+PPA**, and the **Homebrew** tap, and deploys the docs to GitHub Pages.
+
+> The tag version **must** match `pyproject.toml` exactly, or the pipeline fails
+> at the `validate-version` step.
+
 ## 📚 Learn More
 
 * [Usage Guide](docs/USAGE.md)
+* [Releasing](#-releasing) · [Changelog](CHANGELOG.md)
 * [Packaging & CI/CD](docs/PACKAGING_RELEASE.md)
 * [Troubleshooting](docs/TROUBLESHOOTING.md)
 * [Developer Docs (Sphinx)](docs/BUILD_DOCS.md)
