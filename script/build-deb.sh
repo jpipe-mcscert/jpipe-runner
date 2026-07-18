@@ -6,7 +6,7 @@ DEBFULLNAME="$1"; shift
 DEBEMAIL="$1"; shift
 GPG_ID="$1"; shift
 
-DISTROS=("jammy" "noble")
+DISTROS=("jammy" "noble" "questing" "resolute")
 
 echo "=== START build-deb.sh ==="
 
