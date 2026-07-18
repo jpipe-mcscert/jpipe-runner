@@ -5,6 +5,19 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.1] - 2026-07-18
+
+### Packaging
+- Add the `questing` and `resolute` Ubuntu series to the PPA build matrix
+  (`script/build-deb.sh`).
+- Make the PPA upload (`script/publish-ppa.sh`) resilient: retry transient
+  Launchpad upload errors, tolerate already-uploaded distros, and continue past a
+  single failure so the Homebrew publish is not skipped.
+- Re-release to complete the PPA and Homebrew publish that failed during 3.5.0
+  (transient Launchpad `550` upload error). No functional code changes since 3.5.0.
+
+_Contributors: Sébastien Mosser._
+
 ## [3.5.0] - 2026-07-18
 
 ### ⚠️ Breaking
