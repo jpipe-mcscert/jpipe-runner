@@ -110,12 +110,13 @@ MIT License — see [LICENSE](LICENSE).
 * [Jason Lyu](https://github.com/xjasonlyu)
 * [Baptiste Lacroix](https://github.com/BaptisteLacroix)
 * [Sébastien Mosser](https://github.com/mosser)
+* [Corentin Veillard](https://github.com/corentinVei)
 
 ## How to cite?
 
 ```bibtex
 @software{mcscert:jpipe-runner,
-  author = {Mosser, Sébastien and Lyu, Jason and Lacroix, Baptiste},
+  author = {Mosser, Sébastien and Lyu, Jason and Lacroix, Baptiste, and Corentin Veillard},
   license = {MIT},
   title = {{jPipe Runner}},
   url = {https://github.com/ace-design/jpipe-runner}
