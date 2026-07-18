@@ -19,8 +19,15 @@ def jpipe_link(element_id: str) -> Callable[[F], F]:
     Compatible with @jpipe, @skip, and @contribution in any stacking order, because
     all three use @wraps which propagates __dict__ attributes to their wrappers.
 
-    :param element_id: The id (or alias) of the JSON element this function implements
-        (e.g. "E1" or "rigor:r17:e_metric").
+    The id need not be the full node id or alias: a trailing colon-separated
+    *suffix* also binds, so identical logic can be reused across contexts without
+    re-annotating every fully-qualified id. ``@jpipe_link("e_metric")`` and
+    ``@jpipe_link("r17:e_metric")`` both bind ``rigor:r17:e_metric``; ``"r17"`` alone
+    does not (it is not a trailing suffix). A suffix that matches more than one node
+    is ambiguous and reported as a pipeline validation error.
+
+    :param element_id: The id, alias, or trailing segment-suffix of the JSON element
+        this function implements (e.g. "E1", "rigor:r17:e_metric", or "e_metric").
     :type element_id: str
 
     Example::
