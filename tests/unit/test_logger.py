@@ -36,3 +36,22 @@ class TestInMemoryLogHandler(unittest.TestCase):
         handler.setLevel(logging.DEBUG)
         self._emit(handler, logging.INFO, "all good")
         self.assertFalse(handler.has_errors())
+
+    def test_formatted_logs_is_idempotent(self):
+        # A mock formatter that mutates the record's message to test idempotency
+        class MutatingFormatter(logging.Formatter):
+            def format(self, record):
+                record.msg = f"[{record.msg}]"
+                return super().format(record)
+
+        handler = self._make_handler()
+        handler.setFormatter(MutatingFormatter("%(message)s"))
+        handler.setLevel(logging.INFO)
+
+        self._emit(handler, logging.INFO, "test")
+
+        first_access = handler.formatted_logs
+        second_access = handler.formatted_logs
+
+        self.assertEqual(first_access, ["[test]"])
+        self.assertEqual(second_access, ["[test]"])

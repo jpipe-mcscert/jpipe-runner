@@ -1,0 +1,73 @@
+name: "Fetch PR Comment by ID"
+description: "Fetch a PR comment by its ID using the GitHub API"
+
+# ---------------------------------------------------------------------------
+# Fetch PR Comment by ID
+#
+# What it does:
+#   Uses the GitHub API to retrieve the full content of a pull request comment
+#   given its comment ID. Validates the ID before calling the API and
+#   exposes the comment body as an output for downstream steps.
+#
+# Why this exists:
+#   Test flows and verification steps need to examine the exact comment posted
+#   by the jPipe Runner. Fetching the comment by its recorded ID guarantees we
+#   inspect the intended comment.
+#
+# ---------------------------------------------------------------------------
+
+inputs:
+  comment_id:
+    description: "ID of the PR comment to fetch"
+    required: true
+    type: string
+  github-token:
+    description: "GitHub token for API authentication"
+    required: true
+
+outputs:
+  pr_comment:
+    description: "Content of the PR comment"
+    value: ${{ steps.fetch_comment.outputs.content }}
+
+runs:
+  using: "composite"
+  steps:
+    # ---------------------------------------------------------------
+    # Fetch the PR comment that was posted by the runner
+    # ---------------------------------------------------------------
+    # The main action.yml captures the comment ID when it posts the comment.
+    # We use that ID to fetch the exact comment.
+    - name: Fetch PR comment by ID
+      id: fetch_comment
+      uses: actions/github-script@v7
+      env:
+        COMMENT_ID: ${{ inputs.comment_id }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const commentIdRaw = process.env.COMMENT_ID;
+          // Validate the comment ID
+          if (!commentIdRaw) {
+            core.setFailed("No comment ID provided by the runner action");
+            return;
+          }
+
+          const commentId = Number(commentIdRaw);
+          // Check if the comment ID is a valid positive number
+          if (Number.isNaN(commentId) || commentId <= 0) {
+            core.setFailed(`The provided comment ID "${commentIdRaw}" is not a valid positive number.`);
+            return;
+          }
+          // Fetch the comment details using the GitHub API
+          try {
+            const response = await github.rest.issues.getComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: Number(commentId)
+            });
+          // Set the comment content as an output
+            core.setOutput("content", response.data.body);
+          } catch (error) {
+            core.setFailed(`PR comment with ID ${commentId} not found: ${error.message}`);
+          }

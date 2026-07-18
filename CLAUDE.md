@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` is a **Python CLI tool and GitHub Action** (v3.1.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualise results.
+`jpipe-runner` is a **Python CLI tool and GitHub Action** (v3.5.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualise results.
 
 - **Language**: Python ≥ 3.11
 - **Build tool**: Poetry
@@ -70,7 +70,27 @@ Coverage metrics are configured via `pytest-cov` (see `pyproject.toml` and `pyte
 
 ## Release Process
 
-Triggered by pushing a `v*.*.*` tag whose version matches `pyproject.toml`. The pipeline:
+### Release policy (for automated assistants)
+
+- **Never push a git tag automatically.** Tag creation/push is performed by a
+  human maintainer only — it triggers the immutable PyPI/PPA/Homebrew publish.
+- **Never open or merge a PR automatically.** The `dev → main` release PR is
+  opened and merged by a human.
+- **Always maintain `CHANGELOG.md`.** Every release (and notable change) gets an
+  entry under a `## [x.y.z] - YYYY-MM-DD` heading, following Keep a Changelog.
+- An assistant's scope for a release ends at committing/pushing the prep work to
+  `dev` (version bump + `CHANGELOG.md` + docs); the PR, merge, and tag are manual.
+
+**Cutting a release (manual steps):**
+
+1. Bump `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
+   derive from it). Use SemVer.
+2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
+3. Open a PR `dev → main`; merge once CI passes.
+4. Tag the merged `main` commit `vX.Y.Z` (must match `pyproject.toml`) and push it.
+
+Pushing the tag triggers `.github/workflows/release.yml` — the tag's version must
+match `pyproject.toml`. The pipeline:
 
 1. Validates tag format + version sync
 2. Runs full test suite

@@ -36,7 +36,8 @@ and artifact management.
 | `diagram`              | Specify diagram pattern or wildcard                            | `*`                                       |
 | `format`               | Output format for the diagram (`dot`, `gif`, `jpeg`, etc.)     | `svg`                                     |
 | `dry_run`              | Perform a dry run without executing justifications             | `false`                                   |
-| `python_path`          | Path to Python interpreter                                     | (defaults to system Python)               |
+| `python_exec_path`     | Path to Python interpreter                                     | (defaults to system Python)               |
+| `python_path`          | Extra folders to search for modules separated by newlines      | `.`                                       |
 | `working_directory`    | Working directory to run jPipe Runner                          | `.`                                       |
 | `version`              | jPipe Runner version to use (e.g., `0.0.1`)                    | `main`                                    |
 | `image_branch`         | Branch name to commit the diagram                              | `jpipe-runner-diagrams`                   |
@@ -108,7 +109,7 @@ The Action needs the following **permissions** to execute properly:
 * **Image Commit Branch**: If you want diagrams committed to a specific branch, set the `image_branch` input. Make sure
   the branch exists in your repository.
 * **Custom Repository**: To push diagrams to a different repository, set `image_repo` input with `owner/repo`.
-* **Python Environment**: The Action defaults to Python 3.11. Use `python_path` if you need a custom Python interpreter.
+* **Python Environment**: The Action defaults to Python 3.11. Use `python_exec_path` if you need a custom Python interpreter.
 
 ### 4. Secrets and Tokens
 

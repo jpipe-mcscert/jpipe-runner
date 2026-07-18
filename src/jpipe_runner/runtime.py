@@ -11,7 +11,8 @@ from ast import literal_eval
 from typing import Any, Iterable, Optional, Tuple
 
 from jpipe_runner.exceptions import RuntimeException
-from jpipe_runner.utils import group_github_logs
+from jpipe_runner.utils.group_loggers import get_group_logger
+from jpipe_runner.utils.syspath import path_context
 
 
 class PythonRuntime:
@@ -28,6 +29,7 @@ class PythonRuntime:
         self,
         libraries: Optional[Iterable[str]] = None,
         variables: Optional[Iterable[Tuple[str, str]]] = None,
+        additional_paths: Optional[Iterable[str]] = None,
     ):
         """
         Initialize the runtime with optional libraries and variables.
@@ -36,8 +38,11 @@ class PythonRuntime:
         :type libraries: Optional[Iterable[str]]
         :param variables: Iterable of (name, value) string pairs to set as variables.
         :type variables: Optional[Iterable[Tuple[str, str]]]
+        :param additional_paths: Additional paths to add to sys.path for imports and function calls.
+        :type additional_paths: Optional[Iterable[str]]
         """
         self._modules = []
+        self._additional_paths = additional_paths or []
         self.load_files(libraries or [])
 
         for k, v in variables or []:
@@ -58,6 +63,8 @@ class PythonRuntime:
         """
         Dynamically import a single Python file as a module.
 
+        Adds additional paths to sys.path during execution.
+
         :param file_path: Path to the Python file.
         :type file_path: str
         :raises FileNotFoundError: If the file does not exist.
@@ -68,12 +75,12 @@ class PythonRuntime:
         module_name, _ = os.path.splitext(os.path.basename(file_path))
         spec = importlib.util.spec_from_file_location(module_name, file_path)
         module = importlib.util.module_from_spec(spec)
-        try:
-            spec.loader.exec_module(module)
-        except ValueError as e:
-            raise RuntimeException(
-                f"Error loading '{file_path}':\n{e}"
-            ) from None
+
+        with path_context(self._additional_paths):
+            try:
+                spec.loader.exec_module(module)
+            except ValueError as e:
+                raise RuntimeException(f"Error loading '{file_path}':\n{e}") from None
 
         self._modules.append(module)
 
@@ -108,7 +115,9 @@ class PythonRuntime:
         """
         Call a function by name with the given arguments.
 
-        Execution is wrapped in a context manager for GitHub Actions grouping.
+        Execution is wrapped in an environment-aware context manager for log grouping.
+
+        Adds additional paths to sys.path during execution.
 
         :param name: Name of the function to call.
         :type name: str
@@ -117,22 +126,29 @@ class PythonRuntime:
         :return: Result of the function call.
         :rtype: Any
         """
-        with group_github_logs():
-            return self.__getattr__(name)(*args, **kwargs)
+        with get_group_logger():
+            with path_context(self._additional_paths):
+                return self.__getattr__(name)(*args, **kwargs)
 
     def build_link_registry(self) -> dict[str, str]:
         """
-        Scan all loaded modules and return a mapping of element id to attribute name
-        for every callable decorated with @jpipe_link.
+        Scan all loaded modules and return a mapping of element id (or alias) to
+        attribute name for every callable decorated with @jpipe_link.
 
-        :return: Dict mapping element_id → attr_name in the loaded modules.
+        A function may carry several @jpipe_link decorators (all aliases of the same
+        node); every accumulated id/alias is registered as a key pointing to the
+        same attribute name.
+
+        :return: Dict mapping element_id/alias → attr_name in the loaded modules.
         :rtype: dict[str, str]
         """
         registry = {}
         for module in self._modules:
             for attr_name in dir(module):
                 obj = getattr(module, attr_name, None)
-                if callable(obj) and (eid := getattr(obj, "__jpipe_link_id__", None)):
+                if not callable(obj):
+                    continue
+                for eid in getattr(obj, "__jpipe_link_ids__", None) or []:
                     if eid in registry and registry[eid] != attr_name:
                         raise RuntimeException(
                             f"Duplicate @jpipe_link id '{eid}': bound to both "

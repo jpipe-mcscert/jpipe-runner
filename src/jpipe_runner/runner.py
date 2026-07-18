@@ -15,11 +15,23 @@ import sys
 from typing import Iterable
 
 from jpipe_runner.enums import StatusType
-from jpipe_runner.exceptions import RuntimeException
+from jpipe_runner.exceptions import (
+    STDERR_OUTPUT_BEGIN,
+    DryRunError,
+    InvalidJustificationFileError,
+    LibraryNotFoundError,
+    NoJustificationFileError,
+    RuntimeException,
+    RuntimeInitializationError,
+    StreamOutputNotSupportedError,
+    UnsupportedOutputFormatError,
+    WorkflowError,
+)
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
 from jpipe_runner.runtime import PythonRuntime
-from jpipe_runner.utils import colored
+from jpipe_runner.utils.append_else_default_action import AppendElseDefaultAction
+from jpipe_runner.utils.terminal import colored
 
 # Generate:
 # - https://patorjk.com/software/taag/#p=display&f=Ivrit&t=jPipe%20%20Runner%0A
@@ -30,18 +42,6 @@ JPIPE_RUNNER_ASCII = r"""
    | |  __/| | |_) |  __/  |  _ <| |_| | | | | | | |  __/ |   
   _/ |_|   |_| .__/ \___|  |_| \_\\__,_|_| |_|_| |_|\___|_|   
  |__/        |_|                                                                                     
-"""
-
-# https://patorjk.com/software/taag/#p=display&f=Ivrit&t=STDERR%20OUTPUT%20BEGIN
-STDERR_OUTPUT_BEGIN = r"""
-
-  _____ ____  ____   ___  ____    _     ___   ____ 
- | ____|  _ \|  _ \ / _ \|  _ \  | |   / _ \ / ___|
- |  _| | |_) | |_) | | | | |_) | | |  | | | | |  _ 
- | |___|  _ <|  _ <| |_| |  _ <  | |__| |_| | |_| |
- |_____|_| \_\_| \_\\___/|_| \_\ |_____\___/ \____|
-                                                   
-
 """
 
 IMAGE_EXPORT_FORMAT = ["dot", "gif", "jpeg", "jpg", "pdf", "png", "svg"]
@@ -60,7 +60,10 @@ def parse_args(argv: list[str] | None = None):
         --dry-run: Simulate execution without performing actual justifications.\n
         --verbose, -V: Enable verbose logging.\n
         --config-file: Path to a YAML configuration file.\n
-        jd_file: Path to the justification (.jd) file.\n
+        --python-path, -p: Extra folders to search for Python files/modules.
+                If not specified, defaults to the current directory (".").
+                If at least one path is provided, only those paths are used.\n
+        jd_file: Path to the justification (.json) file.\n
 
     :param argv: Optional list of command-line arguments (defaults to `sys.argv[1:]`).
     :type argv: list[str] or None
@@ -80,6 +83,13 @@ def parse_args(argv: list[str] | None = None):
         ),
         formatter_class=argparse.RawTextHelpFormatter,
     )
+
+    # Register a custom AppendElseDefaultAction,
+    # This is not yet a built‑in argparse action; if the upstream PR
+    # (proposing `append_else_default`) is accepted and released,
+    # this registration line can be removed.
+    parser.register("action", "append_else_default", AppendElseDefaultAction)
+
     parser.add_argument(
         "--variable",
         "-v",
@@ -118,10 +128,20 @@ def parse_args(argv: list[str] | None = None):
         action="store_true",
         help="Perform a dry run without actually executing justifications",
     )
-    parser.add_argument(
-        "--verbose", "-V", action="store_true", help="Enable verbose (info) output"
-    )
+    parser.add_argument("--verbose", "-V", action="store_true", help="Enable verbose (info) output")
     parser.add_argument("--config-file", help="Path to the config .yaml file")
+    parser.add_argument(
+        "--python-path",
+        "-p",
+        action="append_else_default",
+        default=["."],
+        help=(
+            "Extra folders to search for your Python files/modules. \n"
+            'If not specified, defaults to the current directory ("."). \n'
+            "If at least one path is provided, only those paths are used."
+        ),
+    )
+
     parser.add_argument("jd_file", help="Path to the justification .json file")
 
     return parser.parse_args(argv)
@@ -226,12 +246,10 @@ def run_workflow_logic():
         GLOBAL_LOGGER.setLevel(logging.INFO)
 
     if not args.jd_file:
-        print("No justification json file provided. Please specify a .json file.", file=sys.stderr)
-        sys.exit(1)
+        raise NoJustificationFileError()
 
     if not args.jd_file.endswith(".json"):
-        print("The provided justification file is not a .json file.", file=sys.stderr)
-        sys.exit(1)
+        raise InvalidJustificationFileError()
 
     # Check that each library path exists
     not_matched_files = []
@@ -241,15 +259,15 @@ def run_workflow_logic():
             not_matched_files.append(lib_pattern)
 
     if not_matched_files:
-        print(f"No library found for path(s): {', '.join(not_matched_files)}", file=sys.stderr)
-        print("Please check the provided library paths.", file=sys.stderr)
-        sys.exit(1)
+        raise LibraryNotFoundError(not_matched_files)
 
     try:
-        runtime = PythonRuntime(libraries=[i for lib in args.library for i in glob.glob(lib)])
+        runtime = PythonRuntime(
+            libraries=[i for lib in args.library for i in glob.glob(lib)],
+            additional_paths=args.python_path,
+        )
     except RuntimeException as e:
-        print(str(e), file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeInitializationError(str(e)) from e
 
     jpipe = PipelineEngine(
         config_path=args.config_file,
@@ -257,29 +275,20 @@ def run_workflow_logic():
         variables=args.variable,
     )
 
-    diagrams = [(jpipe.justification_name, jpipe.graph)]
-
-    if not diagrams:
-        print(f"No justification diagram found: {args.diagram}", file=sys.stderr)
-        sys.exit(1)
-
     # Run justification logic and gather results
     justification_result = list(jpipe.justify(dry_run=args.dry_run, runtime=runtime))
 
     if args.dry_run or not justification_result:
         if log_buffer.has_errors():
-            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
-            log_buffer.dump_to_stderr()
-            exit(1)
-        exit(0)
+            raise DryRunError()
+        sys.exit(0)
 
     print(JPIPE_RUNNER_ASCII)
     _, _, total_fail, _ = pretty_display([(jpipe.justification_name, justification_result)])
 
     if args.format:
         if args.output_path.lower() in {"stdout", "stderr"}:
-            print("Streamed diagram output is not supported yet.", file=sys.stderr)
-            sys.exit(1)
+            raise StreamOutputNotSupportedError()
 
         status_dict = {item["name"]: item["status"].value for item in justification_result}
 
@@ -299,13 +308,7 @@ def run_workflow_logic():
 
             print(f"{jpipe.justification_name} diagram saved to: {output_location}")
         else:
-            print(
-                f"Unsupported output format: {args.format}. Supported formats are: {', '.join(IMAGE_EXPORT_FORMAT)}",
-                file=sys.stderr,
-            )
-            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
-            log_buffer.dump_to_stderr()
-            sys.exit(1)
+            raise UnsupportedOutputFormatError(args.format, IMAGE_EXPORT_FORMAT)
 
     # if errors on buffer show them
     if log_buffer.has_errors():
@@ -316,7 +319,11 @@ def run_workflow_logic():
 
 
 def main():
-    run_workflow_logic()
+    try:
+        run_workflow_logic()
+    except WorkflowError as e:
+        e.handle()
+        sys.exit(e.exit_code)
 
 
 if __name__ == "__main__":

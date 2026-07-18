@@ -1,60 +1,13 @@
 """
-jpipe_runner.utils
-~~~~~~~~~~~~~~~~~~
+jpipe_runner.utils.parsing
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This module contains the utilities of jPipe Runner.
+Parse raw strings into native Python types (bool, int, float, None, list, dict).
 """
 
 import ast
 import json
-import os
 import re
-from contextlib import contextmanager
-
-# ANSI color codes
-COLOR_CODES = {
-    "red": "\033[91m",
-    "green": "\033[92m",
-    "yellow": "\033[93m",
-    "reset": "\033[0m",
-}
-
-
-def colored(text, color=None, attrs=None):
-    """
-    A simplified version of termcolor.colored using ANSI escape codes.
-    - color: string, like 'red', 'green', etc.
-    - attrs: ignored for now or can add bold support
-    """
-    if color:
-        return f"{COLOR_CODES.get(color, '')}{text}{COLOR_CODES['reset']}"
-    return text  # no color applied
-
-
-@contextmanager
-def group_github_logs():
-    """Wrap logs around github action logging group tags if running in github action.
-
-    See https://github.com/actions/toolkit/blob/main/docs/commands.md#group-and-ungroup-log-lines
-    for further details about github action logs grouping and related syntax.
-    """
-    should_group_logs = os.getenv("JPIPE_RUNNER_GROUP_LOGS") == "1"
-    if should_group_logs:
-        print("##[group]Execution logs:")
-    try:
-        yield
-    finally:
-        if should_group_logs:
-            print("##[endgroup]")
-
-
-def sanitize_string(s: str) -> str:
-    # Convert to snake case
-    # Ref: https://stackoverflow.com/a/1176023/9243111
-    s = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", "_", s).lower()
-    # Use re to keep only allowed characters.
-    sanitized = re.sub(r"[^a-z0-9_]", "", re.sub(r"\s+", "_", re.sub(r"[/|\\]", " ", s).strip()))
-    return sanitized
 
 
 def parse_value(raw):
@@ -107,7 +60,7 @@ def parse_value(raw):
         # --- Try JSON parsing ---
         try:
             return json.loads(stripped)
-        except Exception:
+        except json.JSONDecodeError:
             pass
 
         # Try hybrid: replace JSON bool/null with Python equivalents
@@ -116,7 +69,7 @@ def parse_value(raw):
         hybrid = re.sub(r"\bnull\b", "None", hybrid, flags=re.IGNORECASE)
         try:
             return ast.literal_eval(hybrid)
-        except Exception:
+        except (ValueError, TypeError, SyntaxError):
             pass
 
         # --- Fallback: keep as string ---

@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Simple evidence",
+      "type": "evidence"
+    },
+    {
+      "id": "C1",
+      "label": "Everything is ok",
+      "type": "conclusion"
+    }
+  ],
+  "name": "embed_image_test",
+  "relations": [
+    {
+      "source": "E1",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}

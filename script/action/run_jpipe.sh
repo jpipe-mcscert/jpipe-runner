@@ -16,7 +16,8 @@ set +e
 #   5. Output results to GitHub Actions environment variables.
 #
 # Required Environment Variables:
-#   PYTHON_PATH   : Path to Python interpreter (default: "python" if unset)
+#   PYTHON_EXEC_PATH   : Path to Python interpreter (default: "python" if unset)
+#   PYTHON_PATH   : Extra folders to search for Python files/modules (--python-path)
 #   JD_FILE       : Path to JD (Justification Json Document) file for jPipe
 #   VARIABLE      : Multi-line variable definitions for jPipe (--variable)
 #   LIBRARY       : Multi-line library imports for jPipe (--library)
@@ -30,13 +31,18 @@ set +e
 # -----------------------------------------------------------------------------
 # STEP 1: Initialize variables
 # -----------------------------------------------------------------------------
-PYTHON_PATH="${PYTHON_PATH:-python}"
-OUTPUT_DIR="/home/runner/work/"
+PYTHON_EXEC_PATH="${PYTHON_EXEC_PATH:-python}"
+# OUTPUT_DIR defaults to the GitHub-hosted runner workspace but can be overridden
+# via the environment (e.g. for local testing).
+OUTPUT_DIR="${OUTPUT_DIR:-/home/runner/work/}"
 
-echo "Using Python interpreter at: $PYTHON_PATH"
+echo "Using Python interpreter at: $PYTHON_EXEC_PATH"
 
-# Base command to run
-CMD="$PYTHON_PATH -m jpipe_runner '${JD_FILE}'"
+# Base command to run, built as an array so that arbitrary input values
+# (quotes, spaces, newlines) are passed as literal argv entries and never
+# re-parsed by the shell. This avoids the command injection / quoting issues
+# that come with building a string and running it through `eval`.
+CMD=("$PYTHON_EXEC_PATH" -m jpipe_runner "${JD_FILE}")
 
 # -----------------------------------------------------------------------------
 # STEP 2: Helper functions for appending flags
@@ -45,7 +51,7 @@ append_flag() {
   # Appends a flag with its value if the value is non-empty
   local val="$1"
   local flag="$2"
-  [[ -n "$val" ]] && CMD+=" $flag '$val'"
+  [[ -n "$val" ]] && CMD+=("$flag" "$val")
 }
 
 handle_multiline_input() {
@@ -53,7 +59,7 @@ handle_multiline_input() {
   local input="$1"
   local flag="$2"
   while IFS= read -r line; do
-    [[ -n "$line" ]] && CMD+=" $flag '$line'"
+    [[ -n "$line" ]] && CMD+=("$flag" "$line")
   done <<< "$input"
 }
 
@@ -62,20 +68,21 @@ handle_multiline_input() {
 # -----------------------------------------------------------------------------
 handle_multiline_input "${VARIABLE:-}" "--variable"
 handle_multiline_input "${LIBRARY:-}" "--library"
+handle_multiline_input "${PYTHON_PATH:-}" "--python-path"
 
 append_flag "${CONFIG_FILE:-}" "--config-file"
 append_flag "${DIAGRAM:-}" "--diagram"
 
-[[ "${DRY_RUN:-false}" == "true" ]] && CMD+=" --dry-run"
+[[ "${DRY_RUN:-false}" == "true" ]] && CMD+=("--dry-run")
 
-CMD+=" --output-path $OUTPUT_DIR"
-CMD+=" --format '${FORMAT:-svg}'"
+CMD+=("--output-path" "$OUTPUT_DIR")
+CMD+=("--format" "${FORMAT:-svg}")
 
 # -----------------------------------------------------------------------------
 # STEP 4: Run the command and capture output
 # -----------------------------------------------------------------------------
-echo "Running: $CMD"
-OUTPUT=$(eval $CMD 2>&1)  # Capture both stdout and stderr
+echo "Running: ${CMD[*]}"
+OUTPUT=$("${CMD[@]}" 2>&1)  # Capture both stdout and stderr
 RESULT=$?
 
 echo "Command exited with code $RESULT"

@@ -1,0 +1,64 @@
+name: "Delete PR Comment by ID"
+description: "Delete a PR comment by its ID using the GitHub API"
+
+# ---------------------------------------------------------------------------
+# Delete PR Comment by ID
+#
+# What it does:
+#   Uses the GitHub API to delete a pull request comment given its comment ID.
+#   Validates the ID before calling the API.
+#
+# Why this exists:
+#   Test flows need to clean up PR comments posted by the jPipe Runner to
+#   avoid cluttering the PR with test artifacts. Deleting the comment by its
+#   recorded ID guarantees we remove the intended comment.
+#
+# ---------------------------------------------------------------------------
+
+inputs:
+  comment_id:
+    description: "ID of the PR comment to delete"
+    required: true
+    type: string
+  github-token:
+    description: "GitHub token for API authentication"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    # ---------------------------------------------------------------
+    # Delete the PR comment that was posted by the runner
+    # ---------------------------------------------------------------
+    - name: Delete PR comment by ID
+      uses: actions/github-script@v7
+      env:
+        COMMENT_ID: ${{ inputs.comment_id }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const commentIdRaw = process.env.COMMENT_ID;
+          // Validate the comment ID
+          if (!commentIdRaw) {
+            // if the comment ID is not provided, log a warning and exit without failing the action to avoid masking the original test failure
+            core.warning("No comment ID provided by the runner action");
+            return;
+          }
+
+          const commentId = Number(commentIdRaw);
+          // Check if the comment ID is a valid positive number
+          if (Number.isNaN(commentId) || commentId <= 0) {
+            core.setFailed(`The provided comment ID "${commentIdRaw}" is not a valid positive number.`);
+            return;
+          }
+          // Delete the comment using the GitHub API
+          try {
+            await github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId
+            });
+            core.info(`PR comment with ID ${commentId} deleted successfully.`);
+          } catch (error) {
+            core.setFailed(`Failed to delete PR comment with ID ${commentId}: ${error.message}`);
+          }

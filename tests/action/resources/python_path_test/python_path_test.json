@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Check Python version",
+      "type": "evidence"
+    },
+    {
+      "id": "S1",
+      "label": "Python version is correct",
+      "type": "strategy"
+    }
+  ],
+  "name": "python_path_test",
+  "relations": [
+    {
+      "source": "E1",
+      "target": "S1"
+    }
+  ],
+  "type": "justification"
+}
