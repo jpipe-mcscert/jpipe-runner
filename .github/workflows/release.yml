@@ -149,9 +149,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # jammy (22.04, Python 3.10) is intentionally excluded: the project
-        # requires Python >= 3.11 (networkx 3.5 alone refuses to install on 3.10).
-        distro: [ noble, questing, resolute ]
+        # Target the two most recent Ubuntu LTS series plus the current
+        # development release. jammy (22.04 LTS) stays excluded even though it is
+        # an LTS: the project requires Python >= 3.11 and jammy ships 3.10
+        # (networkx 3.5 alone refuses to install on 3.10).
+        distro: [ noble, resolute, stonking ]
     steps:
       - uses: actions/checkout@v5
 
