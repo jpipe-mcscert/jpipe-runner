@@ -32,7 +32,9 @@ set +e
 # STEP 1: Initialize variables
 # -----------------------------------------------------------------------------
 PYTHON_EXEC_PATH="${PYTHON_EXEC_PATH:-python}"
-OUTPUT_DIR="/home/runner/work/"
+# OUTPUT_DIR defaults to the GitHub-hosted runner workspace but can be overridden
+# via the environment (e.g. for local testing).
+OUTPUT_DIR="${OUTPUT_DIR:-/home/runner/work/}"
 
 echo "Using Python interpreter at: $PYTHON_EXEC_PATH"
 
