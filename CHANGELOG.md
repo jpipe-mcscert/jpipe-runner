@@ -5,7 +5,7 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.5.2] - 2026-07-18
 
 ### Packaging / CI
 - **Overhauled the release pipeline** to mirror the sibling `jpipe-compiler`,
@@ -191,6 +191,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
+[3.5.2]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.1...v3.5.2
+[3.5.1]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.0...v3.5.1
 [3.5.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.4.1...v3.5.0
 [3.4.1]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.4.0...v3.4.1
 [3.4.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.3.0...v3.4.0
