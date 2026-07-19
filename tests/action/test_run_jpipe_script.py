@@ -66,7 +66,7 @@ class TestRunJpipeScript(unittest.TestCase):
         self.stub.write_text(STUB)
         self.stub.chmod(self.stub.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
-    def _run(self, *, variable):
+    def _run(self, *, variable="", diagram=None):
         env = {
             **os.environ,
             "PYTHON_EXEC_PATH": str(self.stub),
@@ -78,6 +78,8 @@ class TestRunJpipeScript(unittest.TestCase):
             "COMMIT_SHA": "testsha",
             "ARGV_CAPTURE": str(self.argv_capture),
         }
+        if diagram is not None:
+            env["DIAGRAM"] = diagram
         proc = subprocess.run(
             ["bash", str(SCRIPT)],
             env=env,
@@ -120,6 +122,32 @@ class TestRunJpipeScript(unittest.TestCase):
         # ...and nothing executed the embedded `touch INJECTED`.
         self.assertFalse((self.tmp / "INJECTED").exists(), "command injection occurred")
         self.assertFalse((REPO_ROOT / "INJECTED").exists(), "command injection occurred")
+
+    def test_glob_diagram_is_not_expanded_by_the_shell(self):
+        """`--diagram *` must reach jpipe-runner as a literal asterisk.
+
+        The pattern is matched against diagram names *inside the .jd.json file*, so
+        letting the shell expand it against the working directory would silently pass
+        filenames instead. `*` is the default value of the Action's `diagram` input,
+        so this is the common path, not an edge case.
+        """
+        # The script runs with cwd=self.tmp, which already holds several entries a
+        # glob would expand to. Assert that precondition so the test cannot silently
+        # become vacuous.
+        cwd_entries = sorted(p.name for p in self.tmp.iterdir())
+        self.assertTrue(
+            cwd_entries, "cwd must contain files for the glob check to be meaningful"
+        )
+
+        proc, argv = self._run(diagram="*")
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("--diagram", argv)
+        # The value following --diagram is the literal asterisk...
+        self.assertEqual(argv[argv.index("--diagram") + 1], "*")
+        # ...and no working-directory entry leaked in via expansion.
+        for name in cwd_entries:
+            self.assertNotIn(name, argv, f"glob expanded to {name!r}")
 
 
 if __name__ == "__main__":
