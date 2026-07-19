@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   solely from `github.event.pull_request.head.sha`, which is empty for `workflow_dispatch`,
   `push` and `schedule`, leaving a dangling underscore. It now falls back to `github.sha`,
   and the suffix is omitted entirely when no SHA is available.
+- **The runner's exit code is no longer masked when it produces no diagram.** That branch
+  hard-coded `result=1`, so a runner failing with e.g. exit `2` was reported as `1` and the
+  Action failed with the wrong code. The captured runner output is now reported on this
+  path too — previously the PR comment showed an empty log for exactly the failure you most
+  needed to diagnose.
 - Diagram collection is limited to the top level of the output directory. It defaults to
   the runner workspace, which also holds the checked-out repository, so the previous
   recursive search could pick up unrelated `.svg` files from the project.

@@ -215,6 +215,41 @@ class TestRunJpipeScript(unittest.TestCase):
         self.assertNotIn("unrelated.svg", kept)
         self.assertTrue((nested / "unrelated.svg").exists(), "unrelated file was moved")
 
+    def test_runner_exit_code_survives_when_no_diagram_is_produced(self):
+        """A failing runner keeps its own exit code even if no diagram appears.
+
+        The no-diagram branch used to hard-code `result=1`, masking the real
+        failure (e.g. exit 2) and making the final "Fail if jPipe Runner failed"
+        step exit with the wrong code. The captured output must also be reported,
+        since this is precisely when the user needs the diagnostic.
+        """
+        # Stub that fails with a distinctive code and writes no diagram at all.
+        failing = self.tmp / "failingpython"
+        failing.write_text(
+            '#!/usr/bin/env bash\n: > "$ARGV_CAPTURE"\n'
+            'echo "boom: something went wrong"\nexit 2\n'
+        )
+        failing.chmod(failing.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+        env = {
+            **os.environ,
+            "PYTHON_EXEC_PATH": str(failing),
+            "JD_FILE": "my file.json",
+            "VARIABLE": "",
+            "FORMAT": "svg",
+            "OUTPUT_DIR": str(self.out_dir) + "/",
+            "GITHUB_OUTPUT": str(self.github_output),
+            "COMMIT_SHA": "testsha",
+            "ARGV_CAPTURE": str(self.argv_capture),
+        }
+        subprocess.run(
+            ["bash", str(SCRIPT)], env=env, cwd=self.tmp, capture_output=True, text=True
+        )
+
+        out = self._outputs()
+        self.assertEqual(out["result"], "2", "runner exit code was masked")
+        self.assertIn("boom: something went wrong", self.github_output.read_text())
+
 
 if __name__ == "__main__":
     unittest.main()

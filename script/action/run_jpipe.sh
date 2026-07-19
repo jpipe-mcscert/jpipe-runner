@@ -118,7 +118,24 @@ done < <(find "$OUTPUT_DIR" -maxdepth 1 -name "*.${FORMAT:-svg}" -type f | sort)
 
 if [[ ${#GENERATED[@]} -eq 0 ]]; then
   echo "No diagram file found in $OUTPUT_DIR"
-  echo "result=1" >> "$GITHUB_OUTPUT"
+  # Preserve the runner's own exit code. Hard-coding result=1 here masked the real
+  # failure reason (e.g. an exit code of 2) and made the final "Fail if jPipe
+  # Runner failed" step exit with the wrong code. Only synthesise a failure when
+  # the runner itself reported success but produced nothing.
+  if [[ "$RESULT" -eq 0 ]]; then
+    echo "::warning::jPipe Runner exited 0 but produced no ${FORMAT:-svg} diagram in $OUTPUT_DIR"
+    RESULT=1
+  fi
+  # Emit the captured output too: this is exactly the path where the user most
+  # needs the diagnostic, and without it the PR comment showed an empty log.
+  {
+    echo "result=$RESULT"
+    echo "runner_output<<EOF"
+    echo "$OUTPUT"
+    echo "EOF"
+  } >> "$GITHUB_OUTPUT"
+  echo "Runner output:"
+  echo "$OUTPUT"
   exit 0
 fi
 
@@ -155,7 +172,9 @@ RENAMED=()
 for original in "${GENERATED[@]}"; do
   base=$(basename "$original" ."${FORMAT:-svg}")
   target="${DIAGRAM_DIR}/${base}${SUFFIX}.${FORMAT:-svg}"
-  mv "$original" "$target"
+  # `--` so a diagram whose name begins with "-" is never parsed as an
+  # option. Quoting alone does not prevent that.
+  mv -- "$original" "$target"
   RENAMED+=("$target")
 done
 
@@ -193,7 +212,7 @@ echo "EOF" >> "$GITHUB_OUTPUT"
 # STEP 8: Logging for debugging
 # -----------------------------------------------------------------------------
 echo "Diagram(s) saved to: $DIAGRAM_DIR"
-ls -l "${RENAMED[@]}"
+ls -l -- "${RENAMED[@]}"
 echo "diagram_count: $DIAGRAM_COUNT"
 echo "diagram_path: $PRIMARY_FILE"
 echo "diagram_name: $(basename "$PRIMARY_FILE")"
