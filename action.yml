@@ -89,8 +89,24 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install -y graphviz
+        echo "::group::Install system dependencies"
+        # Only the `dot` binary is needed; most GitHub-hosted runner images already
+        # ship it, so skip apt entirely when it is present.
+        #
+        # When apt IS needed, keep it quiet: -qq silences `apt-get update`, but it does
+        # NOT silence dpkg's unpack/"Setting up" chatter during install (~287 lines for
+        # graphviz), so stdout is redirected too. stderr is deliberately left alone, so
+        # a genuine failure still prints (e.g. "E: Unable to locate package") and the
+        # non-zero exit still fails the step.
+        if command -v dot >/dev/null 2>&1; then
+          echo "graphviz already available ($(dot -V 2>&1)); skipping apt."
+        else
+          export DEBIAN_FRONTEND=noninteractive
+          sudo -E apt-get update -qq
+          sudo -E apt-get install -y -qq graphviz >/dev/null
+          echo "graphviz installed."
+        fi
+        echo "::endgroup::"
 
     - name: Set up Python
       if: ${{ !inputs.python_exec_path }}
