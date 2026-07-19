@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   downloading it gives the image itself instead of a `.zip`.
   **Requires an Actions runner ≥ 2.327.1 (Node 24)** — GitHub-hosted runners are fine;
   self-hosted runners must be updated.
+  Note: `gh run download` assumes artifacts are zips and fails on unzipped artifacts
+  (`zip: not a valid zip file`); use the REST artifact endpoint instead. Browser downloads
+  are unaffected. See the FAQ in `docs/ACTION.md`.
 - The artifact upload is skipped when no diagram was produced, instead of failing the step.
 - Rewrote `docs/ACTION.md` around usage rather than an option dump: summary, quick start,
   recipes, FAQ, with a complete input/output reference at the end. The Action's outputs

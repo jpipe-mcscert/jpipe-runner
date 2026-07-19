@@ -187,11 +187,23 @@ link and a warning instead of embedding a broken image.
 ### What is the artifact, and what format is it in?
 
 One file — the rendered diagram, named `<diagram>_<commit-sha>.<format>` so runs don't
-overwrite each other. It is uploaded **unzipped**, so downloading it gives you the image
-directly rather than a `.zip` to extract.
+overwrite each other. It is uploaded **unzipped**, so downloading it from the workflow run
+gives you the image directly rather than a `.zip` to extract.
 
 > Requires an Actions runner ≥ 2.327.1 (Node 24). GitHub-hosted runners are fine; update
 > self-hosted runners if you use them.
+
+**Caveat if you script the download:** `gh run download` assumes every artifact is a zip and
+fails on unzipped artifacts with `zip: not a valid zip file`. Fetch it through the REST API
+instead:
+
+```bash
+ID=$(gh api repos/OWNER/REPO/actions/runs/RUN_ID/artifacts \
+       --jq '.artifacts[] | select(.name|endswith(".svg")) | .id')
+gh api "repos/OWNER/REPO/actions/artifacts/$ID/zip" > diagram.svg
+```
+
+Downloading from the run page in the browser works normally.
 
 ### The justification failed — where do I look?
 
