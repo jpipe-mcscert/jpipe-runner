@@ -42,7 +42,7 @@ inputs:
     required: false
     default: "."
   version:
-    description: "jPipe Runner version to use, e.g. '0.0.1'. The main branch version is used by default"
+    description: "jPipe Runner git ref to install: a tag (e.g. 'v3.5.3'), a branch, or a commit SHA. Installed from git, so this is NOT a PyPI version. Defaults to the main branch"
     required: false
     default: "main"
   embed_image:
@@ -94,7 +94,7 @@ runs:
 
     - name: Set up Python
       if: ${{ !inputs.python_exec_path }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "3.11"
 
@@ -105,7 +105,6 @@ runs:
         VERSION: ${{ inputs.version }}
       run: |
         echo "::group::Install jPipe Runner"
-        chmod +x ${{ github.action_path }}/script/action/install_jpipe_runner.sh
         ${{ github.action_path }}/script/action/install_jpipe_runner.sh
         echo "::endgroup::"
 
@@ -126,18 +125,22 @@ runs:
         COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         echo "::group::Run jPipe Runner"
-        chmod +x ${{ github.action_path }}/script/action/run_jpipe.sh
         ${{ github.action_path }}/script/action/run_jpipe.sh
         echo "::endgroup::"
 
     - name: Upload diagram as artifact
       id: upload_diagram
-      if: always()
-      uses: actions/upload-artifact@v4
+      # Skip when the runner produced no diagram: run_jpipe.sh exits early without
+      # setting diagram_path, and archive:false fails hard unless the path resolves
+      # to exactly one file.
+      if: always() && steps.run_jpipe.outputs.diagram_path != ''
+      uses: actions/upload-artifact@v7
       with:
-        name: ${{ steps.run_jpipe.outputs.diagram_name }}
         path: ${{ steps.run_jpipe.outputs.diagram_path }}
-
+        # Upload the diagram unzipped so the download is the image itself.
+        # `name:` is intentionally omitted — it is ignored when archive is false;
+        # the artifact takes the file's own name, which already equals diagram_name.
+        archive: false
 
     - name: Commit diagram to branch
       if: ${{ inputs.embed_image == 'true' }}
@@ -153,7 +156,6 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         echo "::group::Commit diagram to branch"
-        chmod +x ${{ github.action_path }}/script/action/commit_diagram.sh
         ${{ github.action_path }}/script/action/commit_diagram.sh
         echo "::endgroup::"
 
@@ -175,15 +177,13 @@ runs:
         GITHUB_READONLY_TOKEN: ${{ inputs.github-readonly-token }}
       run: |
         echo "::group::Build comment message"
-        chmod +x ${{ github.action_path }}/script/action/build_comment.sh
         ${{ github.action_path }}/script/action/build_comment.sh
         echo "::endgroup::"
-
 
     - name: Post PR comment
       if: always()
       id: post_pr_comment
-      uses: actions/github-script@v7
+      uses: actions/github-script@v9
       env:
         PR_COMMENT_MESSAGE: ${{ steps.comment_content.outputs.msg }}
       with:

@@ -1,135 +1,270 @@
-# Action: jPipe Runner GitHub Action
+# jPipe Runner — GitHub Action
 
-### Overview
+Run your jPipe justification diagrams in CI. On every pull request the Action executes the
+justification, posts the result as a PR comment, and uploads the generated diagram as a
+build artifact.
 
-This GitHub Action executes jPipe Runner to generate justification diagrams from `.jd.json` files.
-It supports variable injection, configuration files, library imports, multiple output formats, and optional embedding
-of diagrams in PR comments or uploading them as artifacts.
+**What you get on each run**
 
-**When embedding images in PR comments, the generated diagrams must be stored in a Git repository in a specified branch.
-**
+- A **PR comment** saying whether the justification passed or failed (with the runner's
+  error output, cleaned up, when it fails).
+- The generated **diagram as an artifact**, downloadable from the workflow run.
+- Optionally, the diagram **rendered inline** in the PR comment (see
+  [How do I show the diagram inline?](#how-do-i-show-the-diagram-inline-in-the-pr-comment)).
+- An **exit code** you can branch on — the step fails if the justification fails.
 
-The action is implemented as a composite GitHub Action with multiple Bash scripts handling installation, execution,
-and artifact management.
+---
 
-### Required Inputs
+## Quick start
 
-| Input     | Description                                                         | Required | Default |
-|-----------|---------------------------------------------------------------------|----------|---------|
-| `jd_file` | Path to the justification `.jd.json` file                           | Yes      | --      |
-| `library` | Specify one or more Python libraries to load, separated by newlines | Yes      | --      |
-
-#### Conditional Required Inputs
-
-| Input                   | Description                                                                                      | Required If                                                                                                                    | Default |
-|-------------------------|--------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|---------|
-| `embed_image`           | Embed diagram in PR comment (`true`) or upload only                                              | No                                                                                                                             | `false` |
-| `github-token`          | GitHub token to authenticate (Read & Write access to actions, code, pull requests, and metadata) | Required if `embed_image` is `true`                                                                                            | --      |
-| `github-readonly-token` | GitHub token for read-only access (Read access to actions, code, and metadata)                   | Required if `embed_image` is `true` and if you **DON'T WANT** to use the default github token for generating the raw image URL | --      |
-
-### Optional Inputs
-
-| Input                  | Description                                                    | Default                                   |
-|------------------------|----------------------------------------------------------------|-------------------------------------------|
-| `variable`             | Define variables in `NAME:VALUE` format, separated by newlines | --                                        |
-| `config-file`          | Path to jPipe Runner configuration file (YAML)                 | --                                        |
-| `diagram`              | Specify diagram pattern or wildcard                            | `*`                                       |
-| `format`               | Output format for the diagram (`dot`, `gif`, `jpeg`, etc.)     | `svg`                                     |
-| `dry_run`              | Perform a dry run without executing justifications             | `false`                                   |
-| `python_exec_path`     | Path to Python interpreter                                     | (defaults to system Python)               |
-| `python_path`          | Extra folders to search for modules separated by newlines      | `.`                                       |
-| `working_directory`    | Working directory to run jPipe Runner                          | `.`                                       |
-| `version`              | jPipe Runner version to use (e.g., `0.0.1`)                    | `main`                                    |
-| `image_branch`         | Branch name to commit the diagram                              | `jpipe-runner-diagrams`                   |
-| `image_repo`           | Target repo for diagram commit (`owner/repo`)                  | Defaults to current repo                  |
-| `image_path`           | Path to store the image in branch                              | `diagrams/`                               |
-| `image_commit_message` | Commit message for generated diagram                           | `Add generated diagram from jPipe Runner` |
-
-**Notes:**
-
-- If `embed_image` is set to `true`, `github-token` must be provided.
-
-## Configuration & Permissions
-
-To ensure the **jPipe Runner** GitHub Action works correctly, you need to configure the repository and workflow
-permissions appropriately.
-
-### 1. Workflow File Setup
-
-In your repository, create or update a workflow file (e.g., `.github/workflows/jpipe.yml`) to include the **jPipe Runner
-** Action. Here’s a minimal example:
+Add `.github/workflows/jpipe.yml`:
 
 ```yaml
 name: Run jPipe Justification
 
 on:
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
 
 permissions:
-  contents: write        # Required to push diagram images to repository
-  pull-requests: write   # Required to post comments on PRs
+  pull-requests: write   # to post the result comment
 
 jobs:
-  run-jpipe:
+  justify:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run jPipe Runner
-        uses: jpipe-mcscert/jpipe-runner-action@main
+        uses: jpipe-mcscert/jpipe-runner@v3.5.3
         with:
           jd_file: "path/to/justification.jd.json"
-          library: |
-            mylib1
-            mylib2
-          embed_image: true
-          image_branch: "my_diagram_branch"
+          library: "my_library.py"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-### 2. Required Repository Permissions
+That's the whole minimum: a justification file, the Python library implementing it, and a
+token so the Action can comment on the PR.
 
-The Action needs the following **permissions** to execute properly:
+---
 
-| Permission             | Level   | Reason                                                                   |
-|------------------------|---------|--------------------------------------------------------------------------|
-| `contents`             | `write` | To commit diagram images to a branch and upload artifacts                |
-| `pull-requests`        | `write` | To post comments with diagram results in Pull Requests                   |
-| `secrets.GITHUB_TOKEN` | access  | Required for authentication when committing files or posting PR comments |
+## Common recipes
 
-> **Note:** These permissions are configured in the workflow file under `permissions`. Using
-`${{ secrets.GITHUB_TOKEN }}` ensures secure access.
+### Inject variables and load several libraries
 
-### 3. Optional Configuration
+Both inputs are newline-separated lists.
 
-* **Image Commit Branch**: If you want diagrams committed to a specific branch, set the `image_branch` input. Make sure
-  the branch exists in your repository.
-* **Custom Repository**: To push diagrams to a different repository, set `image_repo` input with `owner/repo`.
-* **Python Environment**: The Action defaults to Python 3.11. Use `python_exec_path` if you need a custom Python interpreter.
+```yaml
+with:
+  jd_file: "justification.jd.json"
+  library: |
+    analysis.py
+    metrics.py
+  variable: |
+    user_name:Alice
+    threshold:42
+```
 
-### 4. Secrets and Tokens
+### Show the diagram inline in the PR comment
 
-* **GITHUB\_TOKEN**: Automatically provided by GitHub for each workflow run; used for authentication.
-* **Additional Secrets**: If you need access to private repositories or external resources, create corresponding secrets
-  in your repository settings.
+This commits the rendered image to a branch so GitHub can display it — see the
+[FAQ](#why-does-inline-embedding-need-a-branch) for why. It needs `contents: write`.
 
-## Scripts
+```yaml
+permissions:
+  contents: write        # only needed for embed_image
+  pull-requests: write
 
-### Details: Output Log Cleaning in `build_comment.sh`
+# ...
+with:
+  jd_file: "justification.jd.json"
+  library: "my_library.py"
+  embed_image: true
+  image_branch: "jpipe-runner-diagrams"   # created automatically if absent
+  github-token: ${{ secrets.GITHUB_TOKEN }}
+```
 
-To generate a clean output log for the PR comment, the script performs two key cleaning steps:
+### Pin the runner version
 
-1. **Removes the first 9 lines** of the runner output, which correspond to the initial ASCII warning banner and header.
-2. **Removes the jPipeRunner resume section** (from the jPipeRunner ASCII logo to the end of the output).
+`version` selects which jPipe Runner is installed. It is a **git ref** — a tag, branch, or
+commit SHA. Pin both it and the Action itself for reproducible builds:
 
-> **Important:**  
-> If the ASCII banner or the jPipeRunner logo changes (e.g., number of lines, formatting), you must update the script
-> accordingly:
-> - Adjust the `tail -n +10` command to match the new banner length.
-> - Update the `sed` pattern that detects the start of the jPipeRunner ASCII logo.
+```yaml
+uses: jpipe-mcscert/jpipe-runner@v3.5.3   # pins the Action
+with:
+  version: "v3.5.3"                       # pins the runner it installs
+```
 
-This ensures the PR comment only displays relevant error information and not extraneous banners or summaries.
+### Choose a different Python
+
+The Action installs Python 3.11 by default. To run against your own interpreter:
+
+```yaml
+- uses: actions/setup-python@v6
+  id: setup-python
+  with:
+    python-version: "3.12"
+
+- uses: jpipe-mcscert/jpipe-runner@v3.5.3
+  with:
+    jd_file: "justification.jd.json"
+    library: "my_library.py"
+    python_exec_path: ${{ steps.setup-python.outputs.python-path }}
+    python_path: |
+      src
+      lib
+```
+
+### Run in a subdirectory, or render a different format
+
+```yaml
+with:
+  working_directory: "analysis/"     # all paths below are relative to this
+  jd_file: "justification.jd.json"
+  library: "my_library.py"
+  format: "png"                      # dot, gif, jpeg, jpg, pdf, png, svg
+  diagram: "MyDiagram*"              # which diagram(s) to render; default "*"
+```
+
+### Use the outputs
+
+```yaml
+- uses: jpipe-mcscert/jpipe-runner@v3.5.3
+  id: jpipe
+  continue-on-error: true
+  with:
+    jd_file: "justification.jd.json"
+    library: "my_library.py"
+
+- name: React to the result
+  run: echo "Runner exited with ${{ steps.jpipe.outputs.result }}"
+```
+
+---
+
+## FAQ
+
+### What permissions do I actually need?
+
+Only what you use:
+
+| Permission | When | Why |
+|---|---|---|
+| `pull-requests: write` | To post the PR comment | The Action comments on the PR |
+| `contents: write` | **Only** if `embed_image: true` | It commits the image to a branch |
+
+Uploading the diagram artifact needs **no** special permission. If you are not embedding
+images, `contents: write` is unnecessary — leave it out.
+
+### Why does inline embedding need a branch?
+
+Because GitHub renders markdown images through its **camo** proxy, which fetches the image
+URL **anonymously**. The image therefore has to live somewhere reachable without a login.
+Committing it to a branch produces a `raw.githubusercontent.com` URL that satisfies this.
+
+This is also why the artifact **cannot** be embedded: artifact URLs require the viewer to be
+signed in, so `![](artifact-url)` would render as a broken image. The artifact is always
+offered as a download link instead. Inline `<svg>` and `data:` URIs don't work either —
+GitHub sanitises both out of comments.
+
+### How do I show the diagram inline in the PR comment?
+
+Set `embed_image: true`, grant `contents: write`, and pass `github-token`. The image is
+committed to `image_branch` (default `jpipe-runner-diagrams`, created automatically) under a
+folder named `<your-repo>_<image_path>`. Point `image_repo` elsewhere if you'd rather not
+store images in the same repository.
+
+### Does inline embedding work in private repositories?
+
+It's **best-effort**. A private repo has no anonymously-reachable URL, so the Action falls
+back to a signed contents-API URL that carries a **time-limited token**. It renders because
+camo fetches and caches the image when the comment is first displayed — but if camo ever
+re-fetches after that token expires, the inline image can break. The artifact download link
+in the comment always keeps working.
+
+If the signed URL cannot be resolved at all, the Action posts the comment with the download
+link and a warning instead of embedding a broken image.
+
+### What is the artifact, and what format is it in?
+
+One file — the rendered diagram, named `<diagram>_<commit-sha>.<format>` so runs don't
+overwrite each other. It is uploaded **unzipped**, so downloading it from the workflow run
+gives you the image directly rather than a `.zip` to extract.
+
+> Requires an Actions runner ≥ 2.327.1 (Node 24). GitHub-hosted runners are fine; update
+> self-hosted runners if you use them.
+
+**Caveat if you script the download:** `gh run download` assumes every artifact is a zip and
+fails on unzipped artifacts with `zip: not a valid zip file`. Fetch it through the REST API
+instead:
+
+```bash
+ID=$(gh api repos/OWNER/REPO/actions/runs/RUN_ID/artifacts \
+       --jq '.artifacts[] | select(.name|endswith(".svg")) | .id')
+gh api "repos/OWNER/REPO/actions/artifacts/$ID/zip" > diagram.svg
+```
+
+Downloading from the run page in the browser works normally.
+
+### The justification failed — where do I look?
+
+The PR comment includes the runner's output in a collapsible *Runner Output* section, with
+the ASCII banner and summary table stripped so only the error text remains. Full, unedited
+output is always in the workflow logs under the *Run jPipe Runner* group.
+
+The step also fails the job on a non-zero exit. Use `continue-on-error: true` plus the
+`result` output if you'd rather handle it yourself.
+
+### Which Python is used?
+
+Python 3.11, installed by the Action. Override it with `python_exec_path` (see the recipe
+above). Use `python_path` to add folders to the module search path — it does **not** select
+an interpreter.
+
+### Can I use it outside a pull request?
+
+Yes. The justification runs and the artifact uploads normally on any trigger; the comment
+step simply skips itself when there's no PR context.
+
+---
+
+## Reference
+
+### Inputs
+
+| Input | Description | Required | Default |
+|---|---|---|---|
+| `jd_file` | Path to the justification `.jd.json` file | **Yes** | — |
+| `library` | Python libraries to load, one per line | **Yes** | — |
+| `variable` | Variables as `NAME:VALUE`, one per line | No | — |
+| `config-file` | Path to a jPipe Runner config file (YAML) | No | — |
+| `diagram` | Diagram name pattern or wildcard | No | `*` |
+| `format` | `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png`, `svg` | No | `svg` |
+| `dry_run` | Validate without executing the justification | No | `false` |
+| `python_exec_path` | Python interpreter to use | No | *(built-in 3.11)* |
+| `python_path` | Extra module search folders, one per line | No | — |
+| `working_directory` | Directory to run in | No | `.` |
+| `version` | jPipe Runner git ref to install (tag, branch, or SHA) | No | `main` |
+| `embed_image` | Render the diagram inline in the PR comment | No | `false` |
+| `image_branch` | Branch the image is committed to | No | `jpipe-runner-diagrams` |
+| `image_repo` | Target repo `owner/repo` for the image | No | *(current repo)* |
+| `image_path` | Folder for the image inside the branch | No | `diagrams/` |
+| `image_commit_message` | Commit message for the image | No | `Add generated diagram from jPipe Runner` |
+| `github-token` | Token used to comment and commit | No¹ | — |
+| `github-readonly-token` | Read-only token used only to build the image URL | No | — |
+
+¹ Required in practice to post the PR comment, and required when `embed_image: true`.
+`${{ secrets.GITHUB_TOKEN }}` is normally the right value.
+
+### Outputs
+
+| Output | Description |
+|---|---|
+| `result` | Exit code of the jPipe Runner execution (`0` = success) |
+| `diagram_path` | Path to the generated diagram file |
+| `pr_comment_id` | ID of the posted PR comment (empty outside a PR) |
+
+### Version pinning
+
+`uses:` pins the **Action**; the `version` input pins the **runner** it installs. Pinning
+both is recommended — leaving `version` at its `main` default means you pick up runner
+changes as they land.

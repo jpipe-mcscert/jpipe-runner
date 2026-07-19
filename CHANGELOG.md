@@ -5,6 +5,42 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **`docs/ACTION.md` pointed at a repository that does not exist.** The usage example used
+  `jpipe-mcscert/jpipe-runner-action@main`, which 404s; the Action lives at the root of
+  `jpipe-mcscert/jpipe-runner`. Anyone copy-pasting the old example got "repository not
+  found".
+- **`version` input was mis-documented** as a PyPI version (e.g. `0.0.1`). It is resolved as
+  a **git ref** (tag such as `v3.5.3`, branch, or SHA).
+- The PR comment no longer embeds a broken `![](null)` image when the image URL cannot be
+  resolved: `build_comment.sh` now checks its API calls, retries the contents lookup to
+  absorb the push/propagation race, assumes *private* when repository visibility is
+  unknown (the public URL is guaranteed to 404 for a private repo), and degrades to a
+  download link with a warning.
+
+### Changed
+- The diagram artifact is now uploaded **unzipped** (`upload-artifact` direct upload), so
+  downloading it gives the image itself instead of a `.zip`.
+  **Requires an Actions runner ≥ 2.327.1 (Node 24)** — GitHub-hosted runners are fine;
+  self-hosted runners must be updated.
+  Note: `gh run download` assumes artifacts are zips and fails on unzipped artifacts
+  (`zip: not a valid zip file`); use the REST artifact endpoint instead. Browser downloads
+  are unaffected. See the FAQ in `docs/ACTION.md`.
+- The artifact upload is skipped when no diagram was produced, instead of failing the step.
+- Rewrote `docs/ACTION.md` around usage rather than an option dump: summary, quick start,
+  recipes, FAQ, with a complete input/output reference at the end. The Action's outputs
+  (`result`, `diagram_path`, `pr_comment_id`) are now documented, and the permissions
+  guidance is corrected — `contents: write` is needed **only** for `embed_image: true`.
+
+### CI
+- Bumped the last Node 20-era pins, in the root `action.yml` (missed by the 3.5.3 sweep,
+  which only covered `.github/`): `setup-python@v6`, `upload-artifact@v7`,
+  `github-script@v9`.
+- Marked `script/action/*.sh` executable in git and dropped the four redundant `chmod +x`
+  lines from `action.yml`.
+
 ## [3.5.3] - 2026-07-18
 
 ### Fixed
