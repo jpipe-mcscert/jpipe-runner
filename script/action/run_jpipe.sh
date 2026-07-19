@@ -81,7 +81,13 @@ CMD+=("--format" "${FORMAT:-svg}")
 # -----------------------------------------------------------------------------
 # STEP 4: Run the command and capture output
 # -----------------------------------------------------------------------------
-echo "Running: ${CMD[*]}"
+# Print a shell-quoted rendering of the command. "${CMD[*]}" would join the
+# elements bare, displaying e.g. `--diagram *`, which looks like an unprotected
+# glob even though the array is executed safely below. %q escapes each element so
+# the log is unambiguous (and copy-pasteable).
+printf 'Running:'
+printf ' %q' "${CMD[@]}"
+printf '\n'
 OUTPUT=$("${CMD[@]}" 2>&1)  # Capture both stdout and stderr
 RESULT=$?
 
@@ -114,7 +120,7 @@ fi
 # Example:
 #   mydiagram.svg -> mydiagram_<COMMIT_SHA>.svg
 # -----------------------------------------------------------------------------
-BASENAME=$(basename "$ORIGINAL_FILE" .${FORMAT:-svg})
+BASENAME=$(basename "$ORIGINAL_FILE" ."${FORMAT:-svg}")
 RENAMED_FILE="${OUTPUT_DIR}${BASENAME}_${COMMIT_SHA}.${FORMAT:-svg}"
 
 mv "$ORIGINAL_FILE" "$RENAMED_FILE"
