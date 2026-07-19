@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Diagrams were silently dropped when the pattern matched more than one.** The Action
+  kept only the first file `find` happened to return, so a run using the default
+  `diagram: '*'` uploaded one arbitrary diagram (directory-order dependent) and discarded
+  the rest. All generated diagrams are now kept: a single diagram is still uploaded
+  unzipped, and multiple diagrams are uploaded together as one `jpipe-diagrams` artifact.
+  New `diagram_count` and `diagram_dir` outputs expose the full set; `diagram_path` remains
+  the primary diagram and is now chosen deterministically (first alphabetically).
+- **Artifacts were named `<diagram>_.svg` on non-pull-request runs.** `COMMIT_SHA` came
+  solely from `github.event.pull_request.head.sha`, which is empty for `workflow_dispatch`,
+  `push` and `schedule`, leaving a dangling underscore. It now falls back to `github.sha`,
+  and the suffix is omitted entirely when no SHA is available.
+- Diagram collection is limited to the top level of the output directory. It defaults to
+  the runner workspace, which also holds the checked-out repository, so the previous
+  recursive search could pick up unrelated `.svg` files from the project.
 - **`docs/ACTION.md` pointed at a repository that does not exist.** The usage example used
   `jpipe-mcscert/jpipe-runner-action@main`, which 404s; the Action lives at the root of
   `jpipe-mcscert/jpipe-runner`. Anyone copy-pasting the old example got "repository not

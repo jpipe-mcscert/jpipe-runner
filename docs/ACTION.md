@@ -186,9 +186,21 @@ link and a warning instead of embedding a broken image.
 
 ### What is the artifact, and what format is it in?
 
-One file — the rendered diagram, named `<diagram>_<commit-sha>.<format>` so runs don't
-overwrite each other. It is uploaded **unzipped**, so downloading it from the workflow run
-gives you the image directly rather than a `.zip` to extract.
+It depends on how many diagrams your `diagram` pattern matches — and the default is `*`,
+which matches them all:
+
+- **One diagram** → uploaded **unzipped**, named `<diagram>_<commit-sha>.<format>`, so
+  downloading it gives you the image directly rather than a `.zip`.
+- **Several diagrams** → all of them are uploaded together in a single `jpipe-diagrams`
+  archive. (Unzipped upload only supports one file, and an Action can't loop a step, so a
+  multi-diagram run necessarily produces one archive.)
+
+Either way **nothing is dropped**. Use the `diagram_count` and `diagram_dir` outputs if you
+need to handle the set yourself; `diagram_path` points at the primary (first alphabetically)
+diagram, which is also the one embedded in the PR comment.
+
+Names carry the commit SHA so runs don't overwrite each other. On events without a pull
+request (e.g. `workflow_dispatch`), the suffix is simply omitted.
 
 > Requires an Actions runner ≥ 2.327.1 (Node 24). GitHub-hosted runners are fine; update
 > self-hosted runners if you use them.
@@ -260,7 +272,9 @@ step simply skips itself when there's no PR context.
 | Output | Description |
 |---|---|
 | `result` | Exit code of the jPipe Runner execution (`0` = success) |
-| `diagram_path` | Path to the generated diagram file |
+| `diagram_path` | Path to the **primary** diagram (first alphabetically) |
+| `diagram_count` | How many diagrams were generated |
+| `diagram_dir` | Directory containing **every** generated diagram |
 | `pr_comment_id` | ID of the posted PR comment (empty outside a PR) |
 
 ### Version pinning
