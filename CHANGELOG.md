@@ -33,6 +33,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recipes, FAQ, with a complete input/output reference at the end. The Action's outputs
   (`result`, `diagram_path`, `pr_comment_id`) are now documented, and the permissions
   guidance is corrected — `contents: write` is needed **only** for `embed_image: true`.
+- **Much quieter Action logs.** The dependency install no longer floods the workflow log:
+  the step is wrapped in a collapsible group, `graphviz` is skipped entirely when `dot` is
+  already on the runner, and apt/pip run quietly (~300 lines of `apt`/`dpkg` output and the
+  pip progress chatter are gone). Errors and non-zero exits are still reported, so failures
+  remain diagnosable.
 
 ### CI
 - Bumped the last Node 20-era pins, in the root `action.yml` (missed by the 3.5.3 sweep,
