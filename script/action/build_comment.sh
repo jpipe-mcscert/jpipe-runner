@@ -68,6 +68,16 @@ echo "Building header. RESULT=${RESULT}"
 TARGET_REPO="${IMAGE_REPO:-$GITHUB_REPOSITORY}"
 echo "Target repo: ${TARGET_REPO}"
 
+# The artifact upload step is skipped when the runner produced no diagram, in which
+# case ARTIFACT_URL is empty. Build the download link conditionally so we never emit
+# an empty markdown link like "[Download Diagram Artifact]()".
+if [[ -n "${ARTIFACT_URL:-}" ]]; then
+  DOWNLOAD_LINK="[Download Diagram Artifact](${ARTIFACT_URL})"
+else
+  DOWNLOAD_LINK="_No diagram artifact was produced for this run._"
+  echo "::warning::No diagram artifact URL available; omitting the download link."
+fi
+
 if [[ "${EMBED_IMAGE}" == "true" ]]; then
   CLEANED_PATH="${IMAGE_PATH#/}"   # Remove leading slash
   CLEANED_PATH="${CLEANED_PATH%/}" # Remove trailing slash
@@ -145,17 +155,17 @@ if [[ "${EMBED_IMAGE}" == "true" ]]; then
   # Fail safe: never interpolate an empty URL into the comment — that would render
   # as a broken image. Degrade to the artifact download link instead.
   if [[ -z "$RAW_URL" ]]; then
-    MSG_BODY="[Download Diagram Artifact](${ARTIFACT_URL})"
+    MSG_BODY="${DOWNLOAD_LINK}"
     echo "Embedding unavailable: using download link only."
   elif [[ "${RESULT}" == "0" ]]; then
-    MSG_BODY="<details><summary>View Generated Diagram</summary>\n\n![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})\n</details>"
+    MSG_BODY="<details><summary>View Generated Diagram</summary>\n\n![Generated Diagram](${RAW_URL})\n\n${DOWNLOAD_LINK}\n</details>"
     echo "Success: Diagram embedded in collapsible section."
   else
-    MSG_BODY="![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})"
+    MSG_BODY="![Generated Diagram](${RAW_URL})\n\n${DOWNLOAD_LINK}"
     echo "Failure: Diagram shown without collapse."
   fi
 else
-  MSG_BODY="[Download Diagram Artifact](${ARTIFACT_URL})"
+  MSG_BODY="${DOWNLOAD_LINK}"
   echo "No image embedding requested. Using download link only."
 fi
 

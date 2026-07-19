@@ -42,7 +42,7 @@ inputs:
     required: false
     default: "."
   version:
-    description: "jPipe Runner version to use, e.g. '0.0.1'. The main branch version is used by default"
+    description: "jPipe Runner git ref to install: a tag (e.g. 'v3.5.3'), a branch, or a commit SHA. Installed from git, so this is NOT a PyPI version. Defaults to the main branch"
     required: false
     default: "main"
   embed_image:
