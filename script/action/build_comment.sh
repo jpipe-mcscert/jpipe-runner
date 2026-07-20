@@ -192,6 +192,8 @@ else
   #
   # If the banner changes length, update the number in "tail -n +10".
   ###########################################################################
+  echo "Before cleaning runner output:"
+  echo "$RUNNER_OUTPUT"
   CLEANED_OUTPUT=$(echo "$RUNNER_OUTPUT" | tail -n +10)
   echo "Cleaning runner output: removed first 9 lines."
 
@@ -211,6 +213,8 @@ else
   #
   # If the logo changes (spacing, underscores, etc.), update this pattern.
   ###########################################################################
+  echo "Before cleaning runner output:"
+  echo "$CLEANED_OUTPUT"
   CLEANED_OUTPUT=$(echo "$CLEANED_OUTPUT" | sed '/^    _ ____  _/,$d')
   echo "Cleaning runner output: removed jPipeRunner ASCII logo and trailing text."
 
