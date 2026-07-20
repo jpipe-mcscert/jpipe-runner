@@ -322,7 +322,8 @@ def run_workflow_logic():
 
     # if errors on buffer show them
     if log_buffer.has_errors():
-        print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+        if not args.quiet:
+            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
         log_buffer.dump_to_stderr()
 
     sys.exit(0 if total_fail == 0 else 1)  # Exit with 0 if all passed, otherwise 1
