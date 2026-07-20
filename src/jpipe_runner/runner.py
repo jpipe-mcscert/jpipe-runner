@@ -26,6 +26,7 @@ from jpipe_runner.exceptions import (
     StreamOutputNotSupportedError,
     UnsupportedOutputFormatError,
     WorkflowError,
+    set_quiet_mode,
 )
 from jpipe_runner.framework.engine import PipelineEngine
 from jpipe_runner.framework.logger import GLOBAL_LOGGER, log_buffer
@@ -127,6 +128,12 @@ def parse_args(argv: list[str] | None = None):
         "--dry-run",
         action="store_true",
         help="Perform a dry run without actually executing justifications",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="Suppress startup and exception ASCII banners",
     )
     parser.add_argument("--verbose", "-V", action="store_true", help="Enable verbose (info) output")
     parser.add_argument("--config-file", help="Path to the config .yaml file")
@@ -242,6 +249,8 @@ def pretty_display(diagrams: Iterable[tuple[str, Iterable[dict]]]) -> tuple[int,
 def run_workflow_logic():
     args = parse_args(sys.argv[1:])
 
+    set_quiet_mode(args.quiet)
+
     if args.verbose:
         GLOBAL_LOGGER.setLevel(logging.INFO)
 
@@ -283,7 +292,8 @@ def run_workflow_logic():
             raise DryRunError()
         sys.exit(0)
 
-    print(JPIPE_RUNNER_ASCII)
+    if not args.quiet:
+        print(JPIPE_RUNNER_ASCII)
     _, _, total_fail, _ = pretty_display([(jpipe.justification_name, justification_result)])
 
     if args.format:

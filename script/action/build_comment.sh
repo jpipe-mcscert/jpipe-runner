@@ -10,16 +10,7 @@ set -euo pipefail
 #   2. Includes an image (collapsed on success, visible on failure).
 #   3. Cleans the runner output:
 #       - On SUCCESS: hides the runner output entirely.
-#       - On FAILURE:
-#           a) Removes the first 9 lines (ASCII warning banner).
-#           b) Removes everything from the jPipeRunner ASCII logo to the end.
-#           c) Removes ANSI color codes.
-#
-# IMPORTANT:
-#   If the runner's ASCII banner or jPipeRunner output format changes, you MUST
-#   update:
-#       - The "tail -n +10" line count (to match the new banner length).
-#       - The sed pattern used to detect the start of the jPipeRunner ASCII.
+#       - On FAILURE: removes ANSI color codes so the PR comment stays readable.
 #
 # ENVIRONMENT VARIABLES REQUIRED:
 #   RESULT          : "0" for success, "1" for failure
@@ -178,45 +169,6 @@ if [[ "${RESULT}" == "0" ]]; then
   MSG_DETAILS=""
   echo "Success: No runner output to show."
 else
-  ###########################################################################
-  # CLEAN STEP 1: Remove the first 9 lines
-  #
-  # Why:
-  #   The runner always prints an initial ASCII warning banner + header
-  #   before the actual failure log text starts.
-  #
-  # Example (to be removed):
-  #   _____ ____ ____ ___ ____ _ ___ ____
-  #   | ____| _ \| _ \ / _ \| _ \ | | / _ \ / ___|
-  #   ... (total of 9 lines)
-  #
-  # If the banner changes length, update the number in "tail -n +10".
-  ###########################################################################
-  echo "Before cleaning runner output:"
-  echo "$RUNNER_OUTPUT"
-  CLEANED_OUTPUT=$(echo "$RUNNER_OUTPUT" | tail -n +10)
-  echo "Cleaning runner output: removed first 9 lines."
-
-  ###########################################################################
-  # CLEAN STEP 2: Remove from jPipeRunner ASCII logo to end of output
-  #
-  # Why:
-  #   After the error message, the runner prints a jPipeRunner ASCII logo and
-  #   a table of checks (PASS/FAIL/SKIP) plus a diagram path. These are noise
-  #   for the PR comment.
-  #
-  # Example start of section to remove:
-  #       _ ____  _               ____
-  #      (_)  _ \(_)_ __   ___   |  _ \ _   _ _ __ ...
-  #
-  # Regex to detect the logo's first line is: /^    _ ____  _/
-  #
-  # If the logo changes (spacing, underscores, etc.), update this pattern.
-  ###########################################################################
-  echo "Before cleaning runner output:"
-  echo "$CLEANED_OUTPUT"
-  CLEANED_OUTPUT=$(echo "$CLEANED_OUTPUT" | sed '/^    _ ____  _/,$d')
-  echo "Cleaning runner output: removed jPipeRunner ASCII logo and trailing text."
 
   ###########################################################################
   # CLEAN STEP 3: Strip ANSI color codes
@@ -229,7 +181,7 @@ else
   #
   # Regex matches ESC[...m or ESC[...K sequences.
   ###########################################################################
-  CLEANED_OUTPUT=$(echo "$CLEANED_OUTPUT" | sed 's/\x1B\[[0-9;]*[mK]//g')
+  CLEANED_OUTPUT=$(echo "$RUNNER_OUTPUT" | sed 's/\x1B\[[0-9;]*[mK]//g')
   echo "Cleaning runner output: removed ANSI color codes."
 
   ###########################################################################
