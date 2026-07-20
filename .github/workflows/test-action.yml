@@ -299,7 +299,7 @@ jobs:
           fi
 
       - name: Cleanup — delete PR comment
-        if: always()
+        if: always() && false  #debugging
         uses: ./.github/actions/delete-pr-comment
         with:
           comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
