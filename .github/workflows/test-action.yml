@@ -60,6 +60,7 @@ jobs:
           config-file: 'config.yaml'
           variable: 'user_name:Alice'
           github-token: ${{ github.token }}
+          version: ${{ github.head_ref }}
 
       - name: Check expected result
         uses: ./.github/actions/check-expected-result
@@ -104,6 +105,7 @@ jobs:
           library: 'basic.py'
           embed_image: 'true'
           github-token: ${{ github.token }}
+          version: ${{ github.head_ref }}
 
       - name: Check expected result
         uses: ./.github/actions/check-expected-result
@@ -197,7 +199,7 @@ jobs:
           jd_file: 'raise_exception.json'
           library: 'raise_exception.py'
           github-token: ${{ github.token }}
-
+          version: ${{ github.head_ref }}
       - name: Check expected result
         uses: ./.github/actions/check-expected-result
         with:
@@ -344,6 +346,7 @@ jobs:
           library: 'python_path_test.py'
           python_exec_path: ${{ steps.setup-python.outputs.python-path }}
           github-token: ${{ github.token }}
+          version: ${{ github.head_ref }}
 
       - name: Check expected result
         uses: ./.github/actions/check-expected-result
