@@ -1,0 +1,22 @@
+{
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Test evidence",
+      "type": "evidence"
+    },
+    {
+      "id": "S1",
+      "label": "Raise import exception",
+      "type": "strategy"
+    }
+  ],
+  "name": "raise_import_exception",
+  "relations": [
+    {
+      "source": "E1",
+      "target": "S1"
+    }
+  ],
+  "type": "justification"
+}

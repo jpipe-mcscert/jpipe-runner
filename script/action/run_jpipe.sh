@@ -74,6 +74,10 @@ append_flag "${CONFIG_FILE:-}" "--config-file"
 append_flag "${DIAGRAM:-}" "--diagram"
 
 [[ "${DRY_RUN:-false}" == "true" ]] && CMD+=("--dry-run")
+# For runner output, we want to capture it in the GitHub Actions log 
+# but not have it clutter the PR comment.
+# So we run the command quietly to remove banner.
+CMD+=("--quiet")
 
 CMD+=("--output-path" "$OUTPUT_DIR")
 CMD+=("--format" "${FORMAT:-svg}")

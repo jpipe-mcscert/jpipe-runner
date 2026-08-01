@@ -25,6 +25,7 @@ executing `jpipe-runner`.**
 | `--format`      | `-f`  | Format of the output diagram image.                                                                             |
 | `--output-path` | `-o`  | Output file path to save the generated diagram image.                                                           |
 | `--dry-run`     |       | Simulate the execution without performing any justifications or outputs (checks justification validity).        |
+| `--quiet`       | `-q`  | Suppress startup and exception ASCII banners.                                                                   |
 | `--verbose`     | `-V`  | Enable verbose/debug logging to help diagnose issues.                                                           |
 | `--config-file` |       | Path to a YAML configuration file that can specify variables, libraries, diagrams, and other settings.          |
 
@@ -112,6 +113,14 @@ jpipe-runner -l './libraries/notebook.py' -v notebook:notebook.ipynb --verbose .
 ```
 
 Prints detailed debug information during execution to help troubleshoot.
+
+### Suppress ASCII Banners
+
+```bash
+jpipe-runner -q -l './libraries/notebook.py' ./models/02_quality_full.jd.json
+```
+
+Suppresses the startup banner and the ASCII banner printed for workflow exceptions.
 
 ### Dry Run (Validate Without Execution)
 
