@@ -54,11 +54,17 @@ and from the `v3.6.0` tag, but receives no further fixes. Development continues 
   download link with a warning.
 
 ### Changed
+- **The Action's `version` input now defaults to `v3.6.0` instead of `main`.** The Action
+  used to install whatever runner was on `main` unless told otherwise. `main` will
+  eventually hold v4, which this v3 Action cannot drive, so a workflow pinned only with
+  `uses: jpipe-mcscert/jpipe-runner@v3.6.0` would have broken with no change on its side.
+  It now installs the matching 3.6.0 runner. Workflows that relied on the default to pick
+  up new runner changes no longer do; set `version` explicitly to track another ref.
 - **The Action now needs a runner that understands `--quiet`, i.e. 3.6.0 or later.** It
   passes the flag on every run, so pinning the Action to `v3.6.0` while pinning its
   `version` input to an older runner (e.g. `v3.5.3`) fails with
-  `unrecognized arguments: --quiet`. Pin both to the same tag, or leave `version` at its
-  `main` default.
+  `unrecognized arguments: --quiet`. Leave `version` at its default, or pin both to the
+  same tag.
 - The diagram artifact is now uploaded **unzipped** (`upload-artifact` direct upload), so
   downloading it gives the image itself instead of a `.zip`.
   **Requires an Actions runner ≥ 2.327.1 (Node 24)** — GitHub-hosted runners are fine;

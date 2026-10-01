@@ -86,7 +86,8 @@ with:
 ### Pin the runner version
 
 `version` selects which jPipe Runner is installed. It is a **git ref** — a tag, branch, or
-commit SHA. Pin both it and the Action itself for reproducible builds:
+commit SHA — and defaults to `v3.6.0`, the runner release this Action was written for. Set
+it explicitly to make the pairing visible in your workflow:
 
 ```yaml
 uses: jpipe-mcscert/jpipe-runner@v3.6.0   # pins the Action
@@ -256,7 +257,7 @@ step simply skips itself when there's no PR context.
 | `python_exec_path` | Python interpreter to use | No | *(built-in 3.11)* |
 | `python_path` | Extra module search folders, one per line | No | — |
 | `working_directory` | Directory to run in | No | `.` |
-| `version` | jPipe Runner git ref to install (tag, branch, or SHA) | No | `main` |
+| `version` | jPipe Runner git ref to install (tag, branch, or SHA) | No | `v3.6.0` |
 | `embed_image` | Render the diagram inline in the PR comment | No | `false` |
 | `image_branch` | Branch the image is committed to | No | `jpipe-runner-diagrams` |
 | `image_repo` | Target repo `owner/repo` for the image | No | *(current repo)* |
@@ -280,10 +281,13 @@ step simply skips itself when there's no PR context.
 
 ### Version pinning
 
-`uses:` pins the **Action**; the `version` input pins the **runner** it installs. Pinning
-both is recommended — leaving `version` at its `main` default means you pick up runner
-changes as they land.
+`uses:` pins the **Action**; the `version` input pins the **runner** it installs. `version`
+defaults to `v3.6.0`, so `uses: jpipe-mcscert/jpipe-runner@v3.6.0` on its own already gives
+a matching, reproducible pair.
 
-Pin both to the **same** tag. The Action passes `--quiet` to the runner, which exists from
-3.6.0 onwards, so an Action at `v3.6.0` with `version` set to an older runner fails with
-`unrecognized arguments: --quiet`.
+If you set `version` yourself, keep it compatible with the Action:
+
+- **Not older than 3.6.0.** The Action passes `--quiet` to the runner, which exists from
+  3.6.0 onwards; an older runner fails with `unrecognized arguments: --quiet`.
+- **Not `main`.** It is a moving branch that will eventually hold v4, whose command line
+  this v3 Action cannot drive.
