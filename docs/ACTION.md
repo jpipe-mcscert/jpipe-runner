@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Run jPipe Runner
-        uses: jpipe-mcscert/jpipe-runner@v3.5.3
+        uses: jpipe-mcscert/jpipe-runner@v3.6.0
         with:
           jd_file: "path/to/justification.jd.json"
           library: "my_library.py"
@@ -86,12 +86,13 @@ with:
 ### Pin the runner version
 
 `version` selects which jPipe Runner is installed. It is a **git ref** — a tag, branch, or
-commit SHA. Pin both it and the Action itself for reproducible builds:
+commit SHA — and defaults to `v3.6.0`, the runner release this Action was written for. Set
+it explicitly to make the pairing visible in your workflow:
 
 ```yaml
-uses: jpipe-mcscert/jpipe-runner@v3.5.3   # pins the Action
+uses: jpipe-mcscert/jpipe-runner@v3.6.0   # pins the Action
 with:
-  version: "v3.5.3"                       # pins the runner it installs
+  version: "v3.6.0"                       # pins the runner it installs
 ```
 
 ### Choose a different Python
@@ -104,7 +105,7 @@ The Action installs Python 3.11 by default. To run against your own interpreter:
   with:
     python-version: "3.12"
 
-- uses: jpipe-mcscert/jpipe-runner@v3.5.3
+- uses: jpipe-mcscert/jpipe-runner@v3.6.0
   with:
     jd_file: "justification.jd.json"
     library: "my_library.py"
@@ -128,7 +129,7 @@ with:
 ### Use the outputs
 
 ```yaml
-- uses: jpipe-mcscert/jpipe-runner@v3.5.3
+- uses: jpipe-mcscert/jpipe-runner@v3.6.0
   id: jpipe
   continue-on-error: true
   with:
@@ -219,9 +220,10 @@ Downloading from the run page in the browser works normally.
 
 ### The justification failed — where do I look?
 
-The PR comment includes the runner's output in a collapsible *Runner Output* section, with
-the ASCII banner and summary table stripped so only the error text remains. Full, unedited
-output is always in the workflow logs under the *Run jPipe Runner* group.
+The PR comment includes the runner's output in a collapsible *Runner Output* section. The
+Action runs the runner with `--quiet`, so the ASCII banners are left out, and colour codes
+are removed; everything else — the error messages and the results table — is kept. The
+same output is in the workflow logs under the *Run jPipe Runner* group.
 
 The step also fails the job on a non-zero exit. Use `continue-on-error: true` plus the
 `result` output if you'd rather handle it yourself.
@@ -255,7 +257,7 @@ step simply skips itself when there's no PR context.
 | `python_exec_path` | Python interpreter to use | No | *(built-in 3.11)* |
 | `python_path` | Extra module search folders, one per line | No | — |
 | `working_directory` | Directory to run in | No | `.` |
-| `version` | jPipe Runner git ref to install (tag, branch, or SHA) | No | `main` |
+| `version` | jPipe Runner git ref to install (tag, branch, or SHA) | No | `v3.6.0` |
 | `embed_image` | Render the diagram inline in the PR comment | No | `false` |
 | `image_branch` | Branch the image is committed to | No | `jpipe-runner-diagrams` |
 | `image_repo` | Target repo `owner/repo` for the image | No | *(current repo)* |
@@ -279,6 +281,13 @@ step simply skips itself when there's no PR context.
 
 ### Version pinning
 
-`uses:` pins the **Action**; the `version` input pins the **runner** it installs. Pinning
-both is recommended — leaving `version` at its `main` default means you pick up runner
-changes as they land.
+`uses:` pins the **Action**; the `version` input pins the **runner** it installs. `version`
+defaults to `v3.6.0`, so `uses: jpipe-mcscert/jpipe-runner@v3.6.0` on its own already gives
+a matching, reproducible pair.
+
+If you set `version` yourself, keep it compatible with the Action:
+
+- **Not older than 3.6.0.** The Action passes `--quiet` to the runner, which exists from
+  3.6.0 onwards; an older runner fails with `unrecognized arguments: --quiet`.
+- **Not `main`.** It is a moving branch that will eventually hold v4, whose command line
+  this v3 Action cannot drive.
