@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Run jPipe Runner
-        uses: jpipe-mcscert/jpipe-runner@v3.5.3
+        uses: jpipe-mcscert/jpipe-runner@v3.6.0
         with:
           jd_file: "path/to/justification.jd.json"
           library: "my_library.py"
@@ -89,9 +89,9 @@ with:
 commit SHA. Pin both it and the Action itself for reproducible builds:
 
 ```yaml
-uses: jpipe-mcscert/jpipe-runner@v3.5.3   # pins the Action
+uses: jpipe-mcscert/jpipe-runner@v3.6.0   # pins the Action
 with:
-  version: "v3.5.3"                       # pins the runner it installs
+  version: "v3.6.0"                       # pins the runner it installs
 ```
 
 ### Choose a different Python
@@ -104,7 +104,7 @@ The Action installs Python 3.11 by default. To run against your own interpreter:
   with:
     python-version: "3.12"
 
-- uses: jpipe-mcscert/jpipe-runner@v3.5.3
+- uses: jpipe-mcscert/jpipe-runner@v3.6.0
   with:
     jd_file: "justification.jd.json"
     library: "my_library.py"
@@ -128,7 +128,7 @@ with:
 ### Use the outputs
 
 ```yaml
-- uses: jpipe-mcscert/jpipe-runner@v3.5.3
+- uses: jpipe-mcscert/jpipe-runner@v3.6.0
   id: jpipe
   continue-on-error: true
   with:
@@ -219,9 +219,10 @@ Downloading from the run page in the browser works normally.
 
 ### The justification failed — where do I look?
 
-The PR comment includes the runner's output in a collapsible *Runner Output* section, with
-the ASCII banner and summary table stripped so only the error text remains. Full, unedited
-output is always in the workflow logs under the *Run jPipe Runner* group.
+The PR comment includes the runner's output in a collapsible *Runner Output* section. The
+Action runs the runner with `--quiet`, so the ASCII banners are left out, and colour codes
+are removed; everything else — the error messages and the results table — is kept. The
+same output is in the workflow logs under the *Run jPipe Runner* group.
 
 The step also fails the job on a non-zero exit. Use `continue-on-error: true` plus the
 `result` output if you'd rather handle it yourself.
@@ -282,3 +283,7 @@ step simply skips itself when there's no PR context.
 `uses:` pins the **Action**; the `version` input pins the **runner** it installs. Pinning
 both is recommended — leaving `version` at its `main` default means you pick up runner
 changes as they land.
+
+Pin both to the **same** tag. The Action passes `--quiet` to the runner, which exists from
+3.6.0 onwards, so an Action at `v3.6.0` with `version` set to an older runner fails with
+`unrecognized arguments: --quiet`.

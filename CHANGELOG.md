@@ -5,9 +5,23 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.6.0] - 2026-10-01
+
+_This is the final release of the v3 line. v3 is now frozen: it stays installable from PyPI
+and from the `v3.6.0` tag, but receives no further fixes. Development continues with v4._
+
+### Added
+- **`--quiet` / `-q` CLI flag.** Suppresses the startup ASCII banner and the banner printed
+  ahead of the error log, leaving only the results and the messages themselves. Meant for
+  output that is captured and re-published, such as the Action's PR comment.
 
 ### Fixed
+- **Errors could be cut out of the PR comment.** To hide the banners, the Action dropped
+  the first nine lines of the runner's output and everything from the logo onwards,
+  whatever those lines actually contained. Output that did not have that exact shape —
+  an exception raised while importing the step library, for example — lost the error
+  message. The Action now runs the runner with `--quiet` and publishes its whole output,
+  with only the colour codes removed, so the comment also includes the results table.
 - **Diagrams were silently dropped when the pattern matched more than one.** The Action
   kept only the first file `find` happened to return, so a run using the default
   `diagram: '*'` uploaded one arbitrary diagram (directory-order dependent) and discarded
@@ -40,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   download link with a warning.
 
 ### Changed
+- **The Action now needs a runner that understands `--quiet`, i.e. 3.6.0 or later.** It
+  passes the flag on every run, so pinning the Action to `v3.6.0` while pinning its
+  `version` input to an older runner (e.g. `v3.5.3`) fails with
+  `unrecognized arguments: --quiet`. Pin both to the same tag, or leave `version` at its
+  `main` default.
 - The diagram artifact is now uploaded **unzipped** (`upload-artifact` direct upload), so
   downloading it gives the image itself instead of a `.zip`.
   **Requires an Actions runner ≥ 2.327.1 (Node 24)** — GitHub-hosted runners are fine;
@@ -64,6 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `github-script@v9`.
 - Marked `script/action/*.sh` executable in git and dropped the four redundant `chmod +x`
   lines from `action.yml`.
+
+_Contributors: Corentin Veillard (@corentinVei), Sébastien Mosser._
 
 ## [3.5.3] - 2026-07-18
 
@@ -274,6 +295,7 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
+[3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
 [3.5.3]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.2...v3.5.3
 [3.5.2]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.1...v3.5.2
 [3.5.1]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.0...v3.5.1
