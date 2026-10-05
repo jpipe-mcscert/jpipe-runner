@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
 
+### Changed
+- **The Homebrew formula no longer depends on `libjpeg-turbo` and `freetype`.** They were
+  needed by `matplotlib`, which only the GUI removed in 3.4.0 used, and no current
+  dependency needs them.
+
 ### Removed
 - **The generated API documentation and the `docs` and `full` extras.**
   `pip install "jpipe-runner[docs]"` no longer installs Sphinx, and the API reference at
