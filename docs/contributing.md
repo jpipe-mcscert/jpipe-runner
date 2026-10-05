@@ -39,10 +39,29 @@ always go through one. These pull requests are squash-merged.
 
 ### Releases
 
-A release is a tag on `main`; it never needs a pull request of its own. The version bump
-and the `CHANGELOG.md` entry go in as the last commit of the milestone being released (or
-as a maintainer commit on `main`), then the maintainer tags. See the Releasing section of
-the [README](../README.md).
+A release is a tag on `main`; it never needs a pull request of its own. Only a maintainer
+pushes a release tag.
+
+1. **Bump the version** in `pyproject.toml`, the only place it is defined (`setup.py`
+   reads it from there). Follow [SemVer](https://semver.org): patch for fixes, minor for
+   backward-compatible features, major for breaking changes.
+2. **Update `CHANGELOG.md`**: move the `[Unreleased]` notes under a new
+   `## [x.y.z] - YYYY-MM-DD` heading.
+3. **Land both on `main`**, as the last commit of the milestone being released or as a
+   maintainer commit on `main`, and wait for CI to pass.
+4. **Tag that commit** and push the tag:
+   ```bash
+   git checkout main && git pull
+   git tag vX.Y.Z          # must equal the pyproject.toml version
+   git push origin vX.Y.Z
+   ```
+
+The tag triggers [`release.yml`](../.github/workflows/release.yml). It checks that the
+tag matches `pyproject.toml` (and fails at `validate-version` if not), runs the tests,
+builds the wheel, sdist and signed Debian source package, and publishes them to GitHub
+Releases, PyPI, the Ubuntu PPA (`ppa:mcscert/ppa`) and the Homebrew tap
+(`jpipe-mcscert/mcscert`). A tag that is not a bare `X.Y.Z` is a pre-release: it goes to
+PyPI and GitHub Releases only.
 
 ## v3 is frozen at 3.6.0
 

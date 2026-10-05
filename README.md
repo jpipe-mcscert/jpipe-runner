@@ -1,129 +1,171 @@
 # jPipe Runner
 
+The jPipe Runner makes a [jPipe](https://www.jpipe.org) justification executable. You
+bind each element of the argument to a Python function. The runner checks that the
+argument and the code agree, runs the checks in dependency order, and reports which
+claims hold.
+
+> [!IMPORTANT]
+> **v4 is being rewritten from scratch on `main`, and nothing on `main` runs yet.**
+> The current release is **3.6.0**, the last of v3, and the commands under
+> [Install](#install) give you that. Why v4 is a rewrite, not a refactor:
+> [ADR-0002](docs/adr/0002-rewrite-from-scratch.md). Progress: [Status](#status).
+
+## How it works
+
 ```text
-     _ ____  _              ____                              
-   (_)  _ \(_)_ __   ___   |  _ \ _   _ _ __  _ __   ___ _ __ 
-   | | |_) | | '_ \ / _ \  | |_) | | | | '_ \| '_ \ / _ \ '__|
-   | |  __/| | |_) |  __/  |  _ <| |_| | | | | | | |  __/ |   
-  _/ |_|   |_| .__/ \___|  |_| \_\\__,_|_| |_|_| |_|\___|_|   
- |__/        |_|                                              
+release.jd ── jpipe process -f JSON ──▶ release.json ──┐
+                                                       ├──▶ jpipe-runner ──▶ report + diagram
+steps.py  (one Python function per element) ───────────┘
 ```
 
-A Justification Runner designed for jPipe.
+1. The [jPipe compiler](https://github.com/jpipe-mcscert/jpipe-compiler) compiles a
+   `.jd` model to JSON. The runner never parses `.jd` itself
+   ([ADR-0001](docs/adr/0001-consume-compiler-json.md)).
+2. A *step library* implements the argument: each evidence and strategy is a decorated
+   Python function that declares the values it consumes and produces.
+3. The runner validates the pair, executes the steps in topological order, and reports
+   a status for every element, in text or JSON, with a Graphviz diagram.
 
-## 🚀 Usage
+## Install
 
-### CLI
+These commands install **3.6.0**. You need Python 3.11 or later and, for diagrams, the
+[Graphviz](https://graphviz.org/download/) `dot` binary. The package managers install
+both for you.
 
-```bash
-poetry run jpipe-runner [-h] [--variable NAME:VALUE] [--library LIB] \
-                         [--diagram PATTERN] [--output FILE] [--dry-run] \
-                         [--quiet] [--verbose] [--config-file PATH] jd_file
+| Platform | Command |
+|----------|---------|
+| macOS (Homebrew) | `brew tap jpipe-mcscert/mcscert && brew install jpipe-runner` |
+| Ubuntu (APT) | `sudo add-apt-repository ppa:mcscert/ppa && sudo apt install jpipe-runner` |
+| Anywhere (pip) | `pip install jpipe-runner` |
+
+Once 4.0.0 is released, these commands install v4. To keep v3, pin it:
+`pip install jpipe-runner==3.6.0` or `brew install jpipe-runner@3.6.0`.
+
+**Using v3:** follow the [jPipe tutorials](https://www.jpipe.org/tutorials/runner/). The v3
+reference documentation is kept at the
+[`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0/docs).
+
+## What v4 will look like
+
+The design is settled in the v4 issues, but none of it is implemented yet. It may still
+change before 4.0.0.
+
+**Authoring.** There is one decorator per element kind. The binding ids are positional,
+and a step returns its outcome instead of calling a `produce` callback
+([#113](https://github.com/jpipe-mcscert/jpipe-runner/issues/113),
+[#114](https://github.com/jpipe-mcscert/jpipe-runner/issues/114)):
+
+```python
+from pathlib import Path
+
+from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
+
+
+@evidence("release:e1", produces=["tests_pass"])
+def the_test_suite_passes() -> Outcome:
+    if Path("mock/tests.ok").is_file():
+        return Pass(tests_pass=True)
+    return Fail("mock/tests.ok not found")
+
+
+@strategy("release:s", consumes=["tests_pass", "changelog_ok"])
+def all_release_gates_pass(tests_pass: bool, changelog_ok: bool) -> Outcome:
+    return Pass() if tests_pass and changelog_ok else Fail("a release gate did not pass")
 ```
 
-**Key options:**
-
-* `--variable`, `-v`: Define `NAME:VALUE` pairs for template variables.
-* `--library`, `-l`: Load additional Python modules (steps).
-* `--diagram`, `-d`: Select diagrams by wildcard pattern.
-* `--output`, `-o`: Specify output image file (format inferred by extension).
-* `--dry-run`: Validate workflow without executing.
-* `--quiet`, `-q`: Suppress startup and exception ASCII banners.
-* `--verbose`, `-V`: Enable debug logging.
-* `--config-file`: Load workflow config from a YAML file.
-Example:
+**Running** ([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124)):
 
 ```bash
-poetry run jpipe-runner --variable X:10 --diagram "flow*" \
-                         --output diagram.png workflow.jd
+jpipe process -i release.jd -m release -f JSON -o release.json
+jpipe-runner --library steps.py --report json release.json
 ```
 
-## ⚙️Installation
+The exit code tells a CI script what happened: `0` the justification holds, `1` it does
+not, `2` usage error, `3` validation failed, `4` I/O error.
 
-### Prerequisites
+**Breaking changes from v3:**
 
-* Python 3.10+
-* [Poetry](https://python-poetry.org)
-* [Graphviz](https://graphviz.org/) (`libgraphviz-dev`, `pkg-config`)
+| v3 | v4 |
+|----|----|
+| `@jpipe(consume=…, produce=…)` with `@jpipe_link` | `@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`, each taking its ids |
+| a `produce(name, value)` parameter; return `True`/`False` | return `Pass(...)`, `Fail(reason)` or `Skip(reason)` |
+| `@skip` (decided at import time) | `return Skip(reason)` (decided at run time) |
+| `--variable`, `--config-file` | removed: a step reads its inputs from the world |
+| `--diagram` (parsed, never used) | removed |
+| any warning fails the run | warnings are reported and the run continues; `--strict` makes them errors |
+| a decorator id matching no element is ignored silently | an error (JP015) |
+| text output only | a versioned JSON report, the contract for CI and the GitHub Action |
 
-### From Source
+The jPipe compiler's `-f PYTHON` export still generates v3 step libraries. It will be
+updated for 4.0.0.
+
+## Status
+
+The rewrite is tracked as GitHub
+[milestones](https://github.com/jpipe-mcscert/jpipe-runner/milestones). Each one is
+developed on its own branch, with a single pull request
+([ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md)).
+
+| Milestone | Scope |
+|-----------|-------|
+| **M0 Foundation** | tooling, quality gate, ADRs, test architecture (in review: [#138](https://github.com/jpipe-mcscert/jpipe-runner/pull/138)) |
+| M1 Model | the justification model and its JSON loader |
+| M2 Authoring API | decorators, outcomes, binding resolution |
+| M3 Validation | the rule framework and its 16 rules |
+| M4 Execution | the engine and the step-library loader |
+| M5 Reporting | the run report, the JSON contract, diagrams |
+| M6 CLI | the command line, exit codes, logging |
+| M7 Docs | tutorial, authoring guide, CLI and report reference |
+| MB0, MB1 | moving the GitHub Action to `jpipe-runner-action` and rewriting it on the JSON report |
+
+## Development
+
+You need Python 3.11 or later, [Poetry](https://python-poetry.org) (install it with
+`pipx install poetry`), and the Graphviz `dot` binary.
 
 ```bash
-# Lock and install dependencies
-poetry lock
 poetry install
+poetry run pytest                  # all tests, with coverage
+poetry run pytest -m unit          # tests/unit/ only
+poetry run pytest -m e2e           # tests/e2e/ only
+poetry run ruff check . && poetry run ruff format --check .
+poetry run mypy                    # --strict, over src/
+pre-commit install                 # run ruff and mypy before each commit
 ```
 
-### Build Package
+- [`tests/README.md`](tests/README.md) describes the test architecture: rule tests,
+  golden reports, property tests.
+- Every pull request goes through the SonarCloud quality gate
+  ([ADR-0004](docs/adr/0004-sonarcloud-quality-gate.md)).
+- [`docs/contributing.md`](docs/contributing.md) covers branches, pull requests and
+  releases.
+- [`docs/adr/`](docs/adr/README.md) records the design decisions and why they were made.
+- [`CHANGELOG.md`](CHANGELOG.md) lists what changed in each release.
 
-```bash
-# Run tests
-poetry run pytest
+## License
 
-# Build distributable
-poetry build
-```
+MIT. See [LICENSE](LICENSE).
 
-## 🏷️ Releasing
-
-Releases are tags on `main`, published automatically when the tag is pushed. A
-release needs no pull request of its own (see
-[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md)). See
-[`CHANGELOG.md`](CHANGELOG.md) for the release history.
-
-1. **Bump the version** in `pyproject.toml` (single source of truth — `setup.py`
-   and the docs derive from it). Follow [SemVer](https://semver.org): patch for
-   fixes, minor for backward-compatible features, major for breaking changes.
-2. **Update `CHANGELOG.md`** — move the relevant notes under a new
-   `## [x.y.z] - YYYY-MM-DD` heading.
-3. **Land both on `main`**, either as the last commit of the milestone being
-   released or as a commit directly on `main`, and wait for CI to go green.
-4. **Tag that commit** on `main` and push the tag:
-   ```bash
-   git checkout main && git pull
-   git tag vX.Y.Z          # must equal the pyproject.toml version
-   git push origin vX.Y.Z
-   ```
-
-Pushing the `vX.Y.Z` tag triggers the release pipeline
-([`.github/workflows/release.yml`](.github/workflows/release.yml)), which
-validates the tag/version match, runs the tests, builds the wheel, sdist and
-signed Debian source package, then publishes to **GitHub Releases**, **PyPI**, the
-**Ubuntu PPA**, and the **Homebrew** tap.
-
-> The tag version **must** match `pyproject.toml` exactly, or the pipeline fails
-> at the `validate-version` step.
-
-## 📚 Learn More
-
-* [Releasing](#-releasing) · [Changelog](CHANGELOG.md)
-* [Contributing](docs/contributing.md)
-* [Architecture decisions](docs/adr/README.md)
-
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE).
-
-## 👤 Authors
+## Authors
 
 * [Jason Lyu](https://github.com/xjasonlyu)
 * [Baptiste Lacroix](https://github.com/BaptisteLacroix)
 * [Sébastien Mosser](https://github.com/mosser)
 * [Corentin Veillard](https://github.com/corentinVei)
 
-## How to cite?
+## How to cite
 
 ```bibtex
 @software{mcscert:jpipe-runner,
-  author = {Mosser, Sébastien and Lyu, Jason and Lacroix, Baptiste, and Corentin Veillard},
+  author = {Mosser, Sébastien and Lyu, Jason and Lacroix, Baptiste and Veillard, Corentin},
   license = {MIT},
   title = {{jPipe Runner}},
-  url = {https://github.com/ace-design/jpipe-runner}
+  url = {https://github.com/jpipe-mcscert/jpipe-runner}
 }
 ```
 
-## Contact Us
+## Contact
 
-If you're interested in contributing to the research effort related to jPipe projects, feel free to contact the PI:
-
-- [Dr. Sébastien Mosser](mailto:mossers@mcmaster.ca)
+If you are interested in the research behind jPipe, contact the principal investigator,
+[Dr. Sébastien Mosser](mailto:mossers@mcmaster.ca).
