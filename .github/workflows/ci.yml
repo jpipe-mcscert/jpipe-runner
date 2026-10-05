@@ -4,10 +4,14 @@ env:
   PYTHON_VERSION: '3.11'
 
 on:
+  # Every branch: milestone branches get CI before their pull request is opened (ADR-0014).
   push:
+    branches-ignore:
+      - jpipe-runner-diagrams   # the Action's image output branch, not code
+  # Pull requests from forks, which do not trigger `push` here.
+  pull_request:
     branches:
       - main
-      - dev
 
 jobs:
   test:

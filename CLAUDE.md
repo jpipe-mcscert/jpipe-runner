@@ -50,7 +50,7 @@ Key design choices:
 | `src/jpipe_runner/framework/decorators/jpipe_decorator.py` | `@jpipe` decorator + AST checks |
 | `src/jpipe_runner/runtime.py` | Dynamic Python module loader |
 | `pyproject.toml` | Dependencies, entry points, optional extras (`docs`, `full`) |
-| `.github/workflows/ci.yml` | CI — pytest on push to `main` |
+| `.github/workflows/ci.yml` | CI — pytest on push to every branch, and on PRs to `main` |
 | `.github/workflows/release.yml` | Multi-stage release pipeline (see Release section) |
 
 ## Testing
@@ -68,26 +68,43 @@ Test layout:
 
 Coverage metrics are configured via `pytest-cov` (see `pyproject.toml` and `pytest.ini`).
 
+## Branching
+
+One long-lived branch, `main` (the default branch), plus one branch per v4 milestone
+(`m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`) cut from `main`.
+MB1 (#132) is done in the `jpipe-runner-action` repository and has no branch here. Rationale:
+[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md); workflow:
+[`docs/contributing.md`](docs/contributing.md). There is no `dev` branch any more; v3 is
+the `v3.6.0` tag.
+
+- Ticket work goes on its milestone's branch, as one or more commits; the commit that
+  completes a ticket ends with `Closes #N`.
+- An assistant pushes the milestone branch and stops. The maintainer opens **one** PR
+  per milestone into `main` and merges it.
+- Never commit or push to `main` directly.
+
 ## Release Process
 
 ### Release policy (for automated assistants)
 
 - **Never push a git tag automatically.** Tag creation/push is performed by a
   human maintainer only — it triggers the immutable PyPI/PPA/Homebrew publish.
-- **Never open or merge a PR automatically.** The `dev → main` release PR is
-  opened and merged by a human.
+- **Never open or merge a PR automatically.** Milestone PRs are opened and merged
+  by a human. A release has no PR of its own.
 - **Always maintain `CHANGELOG.md`.** Every release (and notable change) gets an
   entry under a `## [x.y.z] - YYYY-MM-DD` heading, following Keep a Changelog.
-- An assistant's scope for a release ends at committing/pushing the prep work to
-  `dev` (version bump + `CHANGELOG.md` + docs); the PR, merge, and tag are manual.
+- An assistant's scope for a release ends at committing/pushing the prep work
+  (version bump + `CHANGELOG.md` + docs) as the last commit of the milestone branch
+  being released; the PR, merge, and tag are manual.
 
 **Cutting a release (manual steps):**
 
 1. Bump `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
    derive from it). Use SemVer.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
-3. Open a PR `dev → main`; merge once CI passes.
-4. Tag the merged `main` commit `vX.Y.Z` (must match `pyproject.toml`) and push it.
+3. Land both on `main` (last commit of the released milestone, or a maintainer
+   commit on `main`); wait for CI.
+4. Tag that `main` commit `vX.Y.Z` (must match `pyproject.toml`) and push it.
 
 Pushing the tag triggers `.github/workflows/release.yml` — the tag's version must
 match `pyproject.toml`. The pipeline is modelled on the sibling `jpipe-compiler`:

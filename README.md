@@ -68,16 +68,19 @@ poetry build
 
 ## 🏷️ Releasing
 
-Releases are cut from `dev` and published automatically when a version tag is
-pushed. See [`CHANGELOG.md`](CHANGELOG.md) for the release history.
+Releases are tags on `main`, published automatically when the tag is pushed. A
+release needs no pull request of its own (see
+[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md)). See
+[`CHANGELOG.md`](CHANGELOG.md) for the release history.
 
 1. **Bump the version** in `pyproject.toml` (single source of truth — `setup.py`
    and the docs derive from it). Follow [SemVer](https://semver.org): patch for
    fixes, minor for backward-compatible features, major for breaking changes.
 2. **Update `CHANGELOG.md`** — move the relevant notes under a new
    `## [x.y.z] - YYYY-MM-DD` heading.
-3. **Open a PR `dev → main`** and merge once CI is green.
-4. **Tag the merged commit** on `main` and push it:
+3. **Land both on `main`**, either as the last commit of the milestone being
+   released or as a commit directly on `main`, and wait for CI to go green.
+4. **Tag that commit** on `main` and push the tag:
    ```bash
    git checkout main && git pull
    git tag vX.Y.Z          # must equal the pyproject.toml version

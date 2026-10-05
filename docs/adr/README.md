@@ -1,0 +1,26 @@
+# Architecture Decision Records
+
+Decisions about jpipe-runner's design and the way it is built, in
+[MADR](https://adr.github.io/madr/) format. Records are numbered and immutable once
+accepted. Reversing a decision means writing a new ADR that supersedes the old one.
+
+The v4 issues reserved ADR-0001 to ADR-0013 in advance. Each one is written when its
+issue lands. A new decision takes the next number after the highest one in this table,
+reserved or not.
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| 0001 | Consume compiler-produced JSON rather than parse `.jd` | reserved ([#111](https://github.com/jpipe-mcscert/jpipe-runner/issues/111)) |
+| 0002 | Rewrite from scratch on a branch rather than port v3 | reserved ([#111](https://github.com/jpipe-mcscert/jpipe-runner/issues/111)) |
+| 0003 | Drop Sphinx; docs are task-oriented Markdown | reserved ([#110](https://github.com/jpipe-mcscert/jpipe-runner/issues/110)) |
+| 0004 | SonarCloud as the quality gate | reserved ([#109](https://github.com/jpipe-mcscert/jpipe-runner/issues/109)) |
+| 0005 | Outcomes as return values instead of a `produce` callable | reserved ([#113](https://github.com/jpipe-mcscert/jpipe-runner/issues/113)) |
+| 0006 | One decorator per kind | reserved ([#114](https://github.com/jpipe-mcscert/jpipe-runner/issues/114)) |
+| 0007 | Binding resolution, and why elements carry several ids | reserved ([#115](https://github.com/jpipe-mcscert/jpipe-runner/issues/115)) |
+| 0008 | Drop external variable injection | reserved ([#114](https://github.com/jpipe-mcscert/jpipe-runner/issues/114)) |
+| 0009 | Separate the declaration registry from the per-run value store | reserved ([#117](https://github.com/jpipe-mcscert/jpipe-runner/issues/117)) |
+| 0010 | Diagnostics as data, rules as objects, real severity levels | reserved ([#118](https://github.com/jpipe-mcscert/jpipe-runner/issues/118)) |
+| 0011 | The JSON report is the machine-readable contract | reserved ([#122](https://github.com/jpipe-mcscert/jpipe-runner/issues/122)) |
+| 0012 | Extract the GitHub Action to its own repository | reserved ([#130](https://github.com/jpipe-mcscert/jpipe-runner/issues/130)) |
+| 0013 | Kind divergence under composition is a warning, not an error | reserved ([#119](https://github.com/jpipe-mcscert/jpipe-runner/issues/119)) |
+| [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted |
