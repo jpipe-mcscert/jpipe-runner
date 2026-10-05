@@ -21,6 +21,14 @@ STDERR_OUTPUT_BEGIN = r"""
 
 """
 
+QUIET_MODE = False
+
+
+def set_quiet_mode(enabled: bool):
+    """Enable or disable quiet mode for exception output."""
+    global QUIET_MODE
+    QUIET_MODE = enabled
+
 
 class RunnerException(Exception):
     """There was an ambiguous exception that occurred while running the runner."""
@@ -70,7 +78,8 @@ class WorkflowErrorWithLogDump(WorkflowError):
         """Print the error message (if any), then dump the log buffer."""
         super().handle()
 
-        print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
+        if not QUIET_MODE:
+            print(STDERR_OUTPUT_BEGIN, file=sys.stderr)
         log_buffer.dump_to_stderr()
 
 

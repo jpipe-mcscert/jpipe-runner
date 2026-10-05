@@ -10,19 +10,11 @@ set -euo pipefail
 #   2. Includes an image (collapsed on success, visible on failure).
 #   3. Cleans the runner output:
 #       - On SUCCESS: hides the runner output entirely.
-#       - On FAILURE:
-#           a) Removes the first 9 lines (ASCII warning banner).
-#           b) Removes everything from the jPipeRunner ASCII logo to the end.
-#           c) Removes ANSI color codes.
-#
-# IMPORTANT:
-#   If the runner's ASCII banner or jPipeRunner output format changes, you MUST
-#   update:
-#       - The "tail -n +10" line count (to match the new banner length).
-#       - The sed pattern used to detect the start of the jPipeRunner ASCII.
+#       - On FAILURE: removes ANSI color codes so the PR comment stays readable.
 #
 # ENVIRONMENT VARIABLES REQUIRED:
 #   RESULT          : "0" for success, "1" for failure
+#   DRY_RUN         : "true" if the runner only validated the justification
 #   EMBED_IMAGE     : "true" to include diagram image
 #   ARTIFACT_URL    : URL to download diagram
 #   IMAGE_REPO      : Repository for image hosting (defaults to GITHUB_REPOSITORY)
@@ -40,7 +32,13 @@ echo "Starting PR comment build..."
 # -----------------------------------------------------------------------------
 # STEP 1: Build the header
 # -----------------------------------------------------------------------------
-MSG_HEADER="Justification process"
+# A dry run validates the justification without executing it, so it never produces
+# a diagram. Say so, rather than announcing a completed run with nothing to show.
+if [[ "${DRY_RUN:-false}" == "true" ]]; then
+  MSG_HEADER="Justification dry run"
+else
+  MSG_HEADER="Justification process"
+fi
 if [[ "${RESULT}" == "0" ]]; then
   MSG_HEADER+=" completed!\n\n"
 else
@@ -50,11 +48,41 @@ echo "Building header. RESULT=${RESULT}"
 
 # -----------------------------------------------------------------------------
 # STEP 2: Build the image section (with signed token URL for private repos)
+#
+# WHY THE DIAGRAM IS COMMITTED TO A BRANCH:
+#   GitHub renders markdown images through its "camo" proxy, which fetches the
+#   URL ANONYMOUSLY. Committing the diagram to a branch yields a
+#   raw.githubusercontent.com URL that camo can reach. Artifact URLs require the
+#   viewer to be logged in, so they can never be embedded — the artifact link is
+#   only ever a download link.
+#
+# PRIVATE REPOS ARE BEST-EFFORT:
+#   No anonymously-reachable URL can exist for a private repo, so we fall back to
+#   the contents API `download_url`, which carries a TIME-LIMITED token. It works
+#   because camo fetches and caches the image the first time the comment renders,
+#   but if camo ever re-fetches after that token expires the image will break.
+#   The artifact download link is always included as a durable fallback.
 # -----------------------------------------------------------------------------
 TARGET_REPO="${IMAGE_REPO:-$GITHUB_REPOSITORY}"
 echo "Target repo: ${TARGET_REPO}"
 
-if [[ "${EMBED_IMAGE}" == "true" ]]; then
+# The artifact upload step is skipped when the runner produced no diagram, in which
+# case ARTIFACT_URL is empty. Build the download link conditionally so we never emit
+# an empty markdown link like "[Download Diagram Artifact]()".
+if [[ -n "${ARTIFACT_URL:-}" ]]; then
+  DOWNLOAD_LINK="[Download Diagram Artifact](${ARTIFACT_URL})"
+elif [[ "${DRY_RUN:-false}" == "true" && "${RESULT}" == "0" ]]; then
+  # Expected: nothing went wrong, so no warning.
+  DOWNLOAD_LINK="_The justification was validated but not executed, so no diagram was produced._"
+else
+  DOWNLOAD_LINK="_No diagram artifact was produced for this run._"
+  echo "::warning::No diagram artifact URL available; omitting the download link."
+fi
+
+# Only embed when there is a diagram to point at. Without one (a dry run, or a run
+# that failed before exporting) the image path would end at the folder, and for a
+# public repo that would be embedded as a broken image.
+if [[ "${EMBED_IMAGE}" == "true" && -n "${DIAGRAM_NAME:-}" ]]; then
   CLEANED_PATH="${IMAGE_PATH#/}"   # Remove leading slash
   CLEANED_PATH="${CLEANED_PATH%/}" # Remove trailing slash
   REPO_NAME=$(basename "$GITHUB_REPOSITORY")
@@ -74,33 +102,75 @@ if [[ "${EMBED_IMAGE}" == "true" ]]; then
   fi
 
 
-  # Detect if repo is private
-  IS_PRIVATE=$(curl -s -H "Authorization: token $API_TOKEN" "https://api.github.com/repos/${TARGET_REPO}" | jq -r .private)
+  API="https://api.github.com"
+  AUTH_HEADER="Authorization: token ${API_TOKEN}"
+  RAW_URL=""
+
+  # Detect if repo is private.
+  #
+  # On ANY failure we deliberately assume "private". The public raw URL is
+  # guaranteed to 404 for a private repo, so guessing "public" would embed a
+  # broken image; assuming private merely routes us through the signed-URL path,
+  # which fails safe to a link-only comment below if it cannot be resolved.
+  IS_PRIVATE="true"
+  if REPO_JSON=$(curl -fsS -H "$AUTH_HEADER" "${API}/repos/${TARGET_REPO}"); then
+    PRIVATE_FIELD=$(jq -r '.private // empty' <<<"$REPO_JSON")
+    if [[ "$PRIVATE_FIELD" == "false" ]]; then
+      IS_PRIVATE="false"
+    elif [[ "$PRIVATE_FIELD" != "true" ]]; then
+      echo "::warning::Could not read repository visibility for ${TARGET_REPO}; assuming private."
+    fi
+  else
+    echo "::warning::Visibility lookup failed for ${TARGET_REPO}; assuming private."
+  fi
   echo "Repo private: ${IS_PRIVATE}"
 
-  if [[ "$IS_PRIVATE" == "true" ]]; then
-    echo "Fetching signed download URL for private repo..."
-    # Get signed temporary download URL using selected token
-    RAW_URL=$(curl -s -H "Authorization: token $API_TOKEN" \
-      "https://api.github.com/repos/${TARGET_REPO}/contents/${IMAGE_FILE_PATH}?ref=${IMAGE_BRANCH}" \
-      | jq -r .download_url)
-    echo "RAW_URL (private): ${RAW_URL}"
-  else
-    # Public repo: direct raw.githubusercontent.com URL
+  if [[ "$IS_PRIVATE" == "false" ]]; then
+    # Public repo: direct raw.githubusercontent.com URL (stable, anonymous).
     RAW_URL="https://raw.githubusercontent.com/${TARGET_REPO}/${IMAGE_BRANCH}/${IMAGE_FILE_PATH}"
     echo "RAW_URL (public): ${RAW_URL}"
+  else
+    # Private repo: ask the contents API for a signed download_url. Retry briefly
+    # to absorb the propagation delay between commit_diagram.sh pushing the image
+    # and the API serving it on that branch.
+    echo "Fetching signed download URL for private repo..."
+    for attempt in 1 2 3; do
+      if CONTENTS_JSON=$(curl -fsS -H "$AUTH_HEADER" \
+          "${API}/repos/${TARGET_REPO}/contents/${IMAGE_FILE_PATH}?ref=${IMAGE_BRANCH}"); then
+        CANDIDATE=$(jq -r '.download_url // empty' <<<"$CONTENTS_JSON")
+        if [[ -n "$CANDIDATE" ]]; then
+          RAW_URL="$CANDIDATE"
+          break
+        fi
+      fi
+      if (( attempt < 3 )); then
+        echo "Signed URL not available yet (attempt ${attempt}/3); retrying in 3s..."
+        sleep 3
+      fi
+    done
+
+    if [[ -n "$RAW_URL" ]]; then
+      echo "RAW_URL (private): signed URL resolved"
+    else
+      echo "::warning::Could not resolve a signed download URL for ${IMAGE_FILE_PATH} on branch ${IMAGE_BRANCH}. Posting the artifact link without an inline preview."
+    fi
   fi
 
-  if [[ "${RESULT}" == "0" ]]; then
-    MSG_BODY="<details><summary>View Generated Diagram</summary>\n\n![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})\n</details>"
+  # Fail safe: never interpolate an empty URL into the comment — that would render
+  # as a broken image. Degrade to the artifact download link instead.
+  if [[ -z "$RAW_URL" ]]; then
+    MSG_BODY="${DOWNLOAD_LINK}"
+    echo "Embedding unavailable: using download link only."
+  elif [[ "${RESULT}" == "0" ]]; then
+    MSG_BODY="<details><summary>View Generated Diagram</summary>\n\n![Generated Diagram](${RAW_URL})\n\n${DOWNLOAD_LINK}\n</details>"
     echo "Success: Diagram embedded in collapsible section."
   else
-    MSG_BODY="![Generated Diagram](${RAW_URL})\n\n[Download Diagram Artifact](${ARTIFACT_URL})"
+    MSG_BODY="![Generated Diagram](${RAW_URL})\n\n${DOWNLOAD_LINK}"
     echo "Failure: Diagram shown without collapse."
   fi
 else
-  MSG_BODY="[Download Diagram Artifact](${ARTIFACT_URL})"
-  echo "No image embedding requested. Using download link only."
+  MSG_BODY="${DOWNLOAD_LINK}"
+  echo "No image to embed (not requested, or no diagram was produced). Using download link only."
 fi
 
 
@@ -112,41 +182,6 @@ if [[ "${RESULT}" == "0" ]]; then
   MSG_DETAILS=""
   echo "Success: No runner output to show."
 else
-  ###########################################################################
-  # CLEAN STEP 1: Remove the first 9 lines
-  #
-  # Why:
-  #   The runner always prints an initial ASCII warning banner + header
-  #   before the actual failure log text starts.
-  #
-  # Example (to be removed):
-  #   _____ ____ ____ ___ ____ _ ___ ____
-  #   | ____| _ \| _ \ / _ \| _ \ | | / _ \ / ___|
-  #   ... (total of 9 lines)
-  #
-  # If the banner changes length, update the number in "tail -n +10".
-  ###########################################################################
-  CLEANED_OUTPUT=$(echo "$RUNNER_OUTPUT" | tail -n +10)
-  echo "Cleaning runner output: removed first 9 lines."
-
-  ###########################################################################
-  # CLEAN STEP 2: Remove from jPipeRunner ASCII logo to end of output
-  #
-  # Why:
-  #   After the error message, the runner prints a jPipeRunner ASCII logo and
-  #   a table of checks (PASS/FAIL/SKIP) plus a diagram path. These are noise
-  #   for the PR comment.
-  #
-  # Example start of section to remove:
-  #       _ ____  _               ____
-  #      (_)  _ \(_)_ __   ___   |  _ \ _   _ _ __ ...
-  #
-  # Regex to detect the logo's first line is: /^    _ ____  _/
-  #
-  # If the logo changes (spacing, underscores, etc.), update this pattern.
-  ###########################################################################
-  CLEANED_OUTPUT=$(echo "$CLEANED_OUTPUT" | sed '/^    _ ____  _/,$d')
-  echo "Cleaning runner output: removed jPipeRunner ASCII logo and trailing text."
 
   ###########################################################################
   # CLEAN STEP 3: Strip ANSI color codes
@@ -159,7 +194,7 @@ else
   #
   # Regex matches ESC[...m or ESC[...K sequences.
   ###########################################################################
-  CLEANED_OUTPUT=$(echo "$CLEANED_OUTPUT" | sed 's/\x1B\[[0-9;]*[mK]//g')
+  CLEANED_OUTPUT=$(echo "$RUNNER_OUTPUT" | sed 's/\x1B\[[0-9;]*[mK]//g')
   echo "Cleaning runner output: removed ANSI color codes."
 
   ###########################################################################

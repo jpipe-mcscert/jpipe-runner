@@ -5,6 +5,98 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-10-01
+
+_This is the final release of the v3 line. v3 is now frozen: it stays installable from PyPI
+and from the `v3.6.0` tag, but receives no further fixes. Development continues with v4._
+
+### Added
+- **`--quiet` / `-q` CLI flag.** Suppresses the startup ASCII banner and the banner printed
+  ahead of the error log, leaving only the results and the messages themselves. Meant for
+  output that is captured and re-published, such as the Action's PR comment.
+
+### Fixed
+- **Errors could be cut out of the PR comment.** To hide the banners, the Action dropped
+  the first nine lines of the runner's output and everything from the logo onwards,
+  whatever those lines actually contained. Output that did not have that exact shape —
+  an exception raised while importing the step library, for example — lost the error
+  message. The Action now runs the runner with `--quiet` and publishes its whole output,
+  with only the colour codes removed, so the comment also includes the results table.
+- **`dry_run: true` failed the Action on every run.** A dry run validates the justification
+  and exits successfully without exporting a diagram, and the Action treated "no diagram"
+  as a failure. A successful dry run is now reported as `result: 0`, and its PR comment
+  says that the justification was validated but not executed. With `embed_image: true`,
+  nothing is committed or embedded when there is no diagram.
+- **Diagrams were silently dropped when the pattern matched more than one.** The Action
+  kept only the first file `find` happened to return, so a run using the default
+  `diagram: '*'` uploaded one arbitrary diagram (directory-order dependent) and discarded
+  the rest. All generated diagrams are now kept: a single diagram is still uploaded
+  unzipped, and multiple diagrams are uploaded together as one `jpipe-diagrams` artifact.
+  New `diagram_count` and `diagram_dir` outputs expose the full set; `diagram_path` remains
+  the primary diagram and is now chosen deterministically (first alphabetically).
+- **Artifacts were named `<diagram>_.svg` on non-pull-request runs.** `COMMIT_SHA` came
+  solely from `github.event.pull_request.head.sha`, which is empty for `workflow_dispatch`,
+  `push` and `schedule`, leaving a dangling underscore. It now falls back to `github.sha`,
+  and the suffix is omitted entirely when no SHA is available.
+- **The runner's exit code is no longer masked when it produces no diagram.** That branch
+  hard-coded `result=1`, so a runner failing with e.g. exit `2` was reported as `1` and the
+  Action failed with the wrong code. The captured runner output is now reported on this
+  path too — previously the PR comment showed an empty log for exactly the failure you most
+  needed to diagnose.
+- Diagram collection is limited to the top level of the output directory. It defaults to
+  the runner workspace, which also holds the checked-out repository, so the previous
+  recursive search could pick up unrelated `.svg` files from the project.
+- **`docs/ACTION.md` pointed at a repository that does not exist.** The usage example used
+  `jpipe-mcscert/jpipe-runner-action@main`, which 404s; the Action lives at the root of
+  `jpipe-mcscert/jpipe-runner`. Anyone copy-pasting the old example got "repository not
+  found".
+- **`version` input was mis-documented** as a PyPI version (e.g. `0.0.1`). It is resolved as
+  a **git ref** (tag such as `v3.5.3`, branch, or SHA).
+- The PR comment no longer embeds a broken `![](null)` image when the image URL cannot be
+  resolved: `build_comment.sh` now checks its API calls, retries the contents lookup to
+  absorb the push/propagation race, assumes *private* when repository visibility is
+  unknown (the public URL is guaranteed to 404 for a private repo), and degrades to a
+  download link with a warning.
+
+### Changed
+- **The Action's `version` input now defaults to `v3.6.0` instead of `main`.** The Action
+  used to install whatever runner was on `main` unless told otherwise. `main` will
+  eventually hold v4, which this v3 Action cannot drive, so a workflow pinned only with
+  `uses: jpipe-mcscert/jpipe-runner@v3.6.0` would have broken with no change on its side.
+  It now installs the matching 3.6.0 runner. Workflows that relied on the default to pick
+  up new runner changes no longer do; set `version` explicitly to track another ref.
+- **The Action now needs a runner that understands `--quiet`, i.e. 3.6.0 or later.** It
+  passes the flag on every run, so pinning the Action to `v3.6.0` while pinning its
+  `version` input to an older runner (e.g. `v3.5.3`) fails with
+  `unrecognized arguments: --quiet`. Leave `version` at its default, or pin both to the
+  same tag.
+- The diagram artifact is now uploaded **unzipped** (`upload-artifact` direct upload), so
+  downloading it gives the image itself instead of a `.zip`.
+  **Requires an Actions runner ≥ 2.327.1 (Node 24)** — GitHub-hosted runners are fine;
+  self-hosted runners must be updated.
+  Note: `gh run download` assumes artifacts are zips and fails on unzipped artifacts
+  (`zip: not a valid zip file`); use the REST artifact endpoint instead. Browser downloads
+  are unaffected. See the FAQ in `docs/ACTION.md`.
+- The artifact upload is skipped when no diagram was produced, instead of failing the step.
+- Rewrote `docs/ACTION.md` around usage rather than an option dump: summary, quick start,
+  recipes, FAQ, with a complete input/output reference at the end. The Action's outputs
+  (`result`, `diagram_path`, `pr_comment_id`) are now documented, and the permissions
+  guidance is corrected — `contents: write` is needed **only** for `embed_image: true`.
+- **Much quieter Action logs.** The dependency install no longer floods the workflow log:
+  the step is wrapped in a collapsible group, `graphviz` is skipped entirely when `dot` is
+  already on the runner, and apt/pip run quietly (~300 lines of `apt`/`dpkg` output and the
+  pip progress chatter are gone). Errors and non-zero exits are still reported, so failures
+  remain diagnosable.
+
+### CI
+- Bumped the last Node 20-era pins, in the root `action.yml` (missed by the 3.5.3 sweep,
+  which only covered `.github/`): `setup-python@v6`, `upload-artifact@v7`,
+  `github-script@v9`.
+- Marked `script/action/*.sh` executable in git and dropped the four redundant `chmod +x`
+  lines from `action.yml`.
+
+_Contributors: Corentin Veillard (@corentinVei), Sébastien Mosser._
+
 ## [3.5.3] - 2026-07-18
 
 ### Fixed
@@ -214,6 +306,7 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
+[3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
 [3.5.3]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.2...v3.5.3
 [3.5.2]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.1...v3.5.2
 [3.5.1]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.0...v3.5.1

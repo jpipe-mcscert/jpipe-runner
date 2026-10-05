@@ -18,7 +18,7 @@ A Justification Runner designed for jPipe.
 ```bash
 poetry run jpipe-runner [-h] [--variable NAME:VALUE] [--library LIB] \
                          [--diagram PATTERN] [--output FILE] [--dry-run] \
-                         [--verbose] [--config-file PATH] jd_file
+                         [--quiet] [--verbose] [--config-file PATH] jd_file
 ```
 
 **Key options:**
@@ -28,6 +28,7 @@ poetry run jpipe-runner [-h] [--variable NAME:VALUE] [--library LIB] \
 * `--diagram`, `-d`: Select diagrams by wildcard pattern.
 * `--output`, `-o`: Specify output image file (format inferred by extension).
 * `--dry-run`: Validate workflow without executing.
+* `--quiet`, `-q`: Suppress startup and exception ASCII banners.
 * `--verbose`, `-V`: Enable debug logging.
 * `--config-file`: Load workflow config from a YAML file.
 Example:
