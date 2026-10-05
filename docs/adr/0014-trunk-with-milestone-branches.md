@@ -4,7 +4,7 @@ date: 2026-10-05
 decision-makers: Sébastien Mosser
 ---
 
-# A single `main` trunk, one pull request per milestone
+# ADR-0014: A single `main` trunk, one pull request per milestone
 
 ## Context and Problem Statement
 
@@ -68,7 +68,9 @@ each milestone, the unit the v4 plan is already organised around.
   deleted. `v4` becomes `main` by fast-forward (`main` was already an ancestor of `v4`), so
   no history is rewritten. v3 stays reachable as the `v3.6.0` tag.
 - **One branch per milestone**, cut from `main`: `m0-foundation`, `m1-model`, …,
-  `m7-docs`, `mb-action`.
+  `m7-docs` and `mb0-action-extraction`. That makes nine branches. The tenth milestone,
+  MB1 (#132), is done in the `jpipe-runner-action` repository, so it has no branch or pull
+  request here.
   - Each ticket is one or more commits whose message ends in `Closes #N`.
   - The branch is pushed often, and CI runs on every push.
   - When the milestone is complete, the maintainer opens one pull request into `main` and
@@ -82,7 +84,7 @@ each milestone, the unit the v4 plan is already organised around.
 
 ### Consequences
 
-- Good, because the v4 rewrite needs about 10 pull requests instead of about 30, and each
+- Good, because the v4 rewrite needs nine pull requests in this repository instead of about 30, and each
   one is a coherent piece of work.
 - Good, because a released change is reviewed once, not once per branch it passes through.
 - Good, because CI covers v4 from its first commit.

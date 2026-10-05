@@ -70,7 +70,7 @@ poetry build
 
 Releases are tags on `main`, published automatically when the tag is pushed. A
 release needs no pull request of its own (see
-[ADR-0003](docs/adr/0003-trunk-with-milestone-branches.md)). See
+[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md)). See
 [`CHANGELOG.md`](CHANGELOG.md) for the release history.
 
 1. **Bump the version** in `pyproject.toml` (single source of truth — `setup.py`

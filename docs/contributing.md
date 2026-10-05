@@ -6,12 +6,12 @@ If you are interested in contributing to this project, please contact the Jpipe-
 
 There is one long-lived branch, `main`, which holds the v4 rewrite that becomes 4.0.0.
 The reasons are recorded in
-[ADR-0003](adr/0003-trunk-with-milestone-branches.md).
+[ADR-0014](adr/0014-trunk-with-milestone-branches.md).
 
 | Branch | Role |
 |--------|------|
 | `main` | The trunk and the default branch. Releases are tags on it (`vX.Y.Z`). |
-| `m<N>-<topic>` | One per v4 milestone, cut from `main`: `m0-foundation`, `m1-model`, …, `m7-docs`, `mb-action`. |
+| `m<N>-<topic>` | One per v4 milestone, cut from `main`: `m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`. MB1 (#132) is done in `jpipe-runner-action`, so it has no branch here. |
 | `jpipe-runner-diagrams` | Written by the GitHub Action (generated diagram images). Not a development branch. |
 
 ### Working on a milestone

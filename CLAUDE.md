@@ -71,8 +71,9 @@ Coverage metrics are configured via `pytest-cov` (see `pyproject.toml` and `pyte
 ## Branching
 
 One long-lived branch, `main` (the default branch), plus one branch per v4 milestone
-(`m0-foundation`, `m1-model`, …, `m7-docs`, `mb-action`) cut from `main`. Rationale:
-[ADR-0003](docs/adr/0003-trunk-with-milestone-branches.md); workflow:
+(`m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`) cut from `main`.
+MB1 (#132) is done in the `jpipe-runner-action` repository and has no branch here. Rationale:
+[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md); workflow:
 [`docs/contributing.md`](docs/contributing.md). There is no `dev` branch any more; v3 is
 the `v3.6.0` tag.
 
