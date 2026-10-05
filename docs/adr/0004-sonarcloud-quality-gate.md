@@ -76,8 +76,8 @@ Chosen option: **2, SonarCloud with CI-based analysis.**
 - Bad, because the gate depends on an external service and a secret. An outage or an
   expired token fails the `SonarQube` check, though not `ci.yml`.
 - Bad, because the tests run twice per push, once in `ci.yml` and once in `sonar.yml`.
-- Bad, because a milestone branch sees its gate only once its pull request is opened,
-  not on every push as with `ci.yml`.
+- Neutral, because a milestone branch is analysed through its pull request, which is
+  therefore opened as a draft when the milestone starts (ADR-0015).
 - Bad, because some of the setup lives outside the repository. It is done once, by a
   maintainer:
   - turn off *Automatic Analysis* for the project (CI-based analysis is refused while it

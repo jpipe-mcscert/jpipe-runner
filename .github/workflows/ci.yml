@@ -9,13 +9,16 @@ on:
   push:
     branches-ignore:
       - jpipe-runner-diagrams   # the Action's image output branch, not code
-  # Pull requests from forks, which do not trigger `push` here.
+  # Pull requests from forks, which do not trigger `push` here. A same-repository pull
+  # request (every milestone has one, as a draft, ADR-0015) is already covered by `push`,
+  # so the jobs skip it rather than run twice per commit.
   pull_request:
     branches:
       - main
 
 jobs:
   lint:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +33,7 @@ jobs:
         run: poetry run mypy
 
   test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5

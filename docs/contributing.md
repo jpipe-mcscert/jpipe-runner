@@ -16,11 +16,15 @@ The reasons are recorded in
 
 ### Working on a milestone
 
-1. Work on the milestone's branch. Cut it from `main` if it does not exist yet.
+1. Work on the milestone's branch. Cut it from `main` if it does not exist yet. When it is
+   first pushed, open its pull request into `main` **as a draft**, on the milestone's GitHub
+   milestone, so that SonarCloud analyses every push
+   ([ADR-0015](adr/0015-draft-pull-request-per-milestone.md)).
 2. Commit each ticket as one or more commits. End the message of the commit that completes
    the ticket with `Closes #N`.
-3. Push often. CI runs on every push to every branch.
-4. When the milestone is complete, open **one** pull request into `main`. The maintainer
+3. Push often. CI runs on every push to every branch, and the quality gate on every push to
+   a branch with an open pull request.
+4. When the milestone is complete, mark its pull request **ready for review**. The maintainer
    merges it with a merge commit, which keeps the per-ticket commits and closes their issues.
 
 Work on one milestone at a time. If the next one has to start before the previous pull

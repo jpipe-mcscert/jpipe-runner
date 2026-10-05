@@ -26,4 +26,5 @@ and add a row to this table.
 | 0011 | The JSON report is the machine-readable contract | reserved ([#122](https://github.com/jpipe-mcscert/jpipe-runner/issues/122)) |
 | 0012 | Extract the GitHub Action to its own repository | reserved ([#130](https://github.com/jpipe-mcscert/jpipe-runner/issues/130)) |
 | 0013 | Kind divergence under composition is a warning, not an error | reserved ([#119](https://github.com/jpipe-mcscert/jpipe-runner/issues/119)) |
-| [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted |
+| [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted, amended by [0015](0015-draft-pull-request-per-milestone.md) |
+| [0015](0015-draft-pull-request-per-milestone.md) | Open each milestone's pull request as a draft when the milestone starts | accepted |

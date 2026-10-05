@@ -84,14 +84,17 @@ poetry run mypy              # --strict, over src/
 One long-lived branch, `main` (the default branch), plus one branch per v4 milestone
 (`m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`) cut from `main`.
 MB1 (#132) is done in the `jpipe-runner-action` repository and has no branch here. Rationale:
-[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md); workflow:
+[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md) and
+[ADR-0015](docs/adr/0015-draft-pull-request-per-milestone.md); workflow:
 [`docs/contributing.md`](docs/contributing.md). There is no `dev` branch any more; v3 is
 the `v3.6.0` tag.
 
 - Ticket work goes on its milestone's branch, as one or more commits; the commit that
   completes a ticket ends with `Closes #N`.
-- An assistant pushes the milestone branch and stops. The maintainer opens **one** PR
-  per milestone into `main` and merges it.
+- Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
+  pushed (SonarCloud only analyses `main` and PRs on this plan). An assistant opens it only
+  when the maintainer asks; otherwise it pushes the branch and stops.
+- The maintainer marks the PR ready for review when the milestone is complete, and merges it.
 - Never commit or push to `main` directly.
 
 ## Release Process
@@ -100,8 +103,9 @@ the `v3.6.0` tag.
 
 - **Never push a git tag automatically.** Tag creation/push is performed by a
   human maintainer only — it triggers the immutable PyPI/PPA/Homebrew publish.
-- **Never open or merge a PR automatically.** Milestone PRs are opened and merged
-  by a human. A release has no PR of its own.
+- **Never open a PR unless the maintainer asks, and never merge one.** Milestone PRs are
+  drafts from the start of the milestone (ADR-0015) and are merged by a human. A release
+  has no PR of its own.
 - **Always maintain `CHANGELOG.md`.** Every release (and notable change) gets an
   entry under a `## [x.y.z] - YYYY-MM-DD` heading, following Keep a Changelog.
 - An assistant's scope for a release ends at committing/pushing the prep work
