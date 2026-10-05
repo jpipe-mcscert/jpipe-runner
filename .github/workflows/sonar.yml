@@ -8,15 +8,17 @@
 name: SonarQube
 
 on:
-  # Every branch, like ci.yml: a milestone branch sees its gate before its pull request is
-  # opened (ADR-0014). The pull request run is what decorates the pull request.
+  # `main` and pull requests only, unlike ci.yml. The organisation's SonarQube Cloud plan
+  # analyses the main branch and pull requests but refuses other branches ("Organization is
+  # not allowed to access data from non main branches"), so a milestone branch gets its
+  # gate when its pull request is opened (ADR-0004).
   push:
-    branches-ignore:
-      - jpipe-runner-diagrams   # the Action's image output branch, not code
+    branches:
+      - main
   pull_request:
     branches:
       - main
-  workflow_dispatch:
+  workflow_dispatch:   # run it from `main`: on any other branch the plan refuses it too
 
 env:
   PYTHON_VERSION: '3.11'

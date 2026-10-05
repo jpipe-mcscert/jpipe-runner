@@ -54,8 +54,12 @@ Chosen option: **2, SonarCloud with CI-based analysis.**
   repository-relative paths (`relative_files = true`), so the scanner can map it to files.
 - `.github/workflows/sonar.yml` runs the tests and the scan
   (`SonarSource/sonarqube-scan-action`) with `sonar.qualitygate.wait=true`, so a failing
-  gate fails the check. It runs on every branch push (ADR-0014) and on pull requests into
-  `main`. Pull requests from forks are skipped, because they get no `SONAR_TOKEN`. It is a
+  gate fails the check. It runs on pushes to `main` and on pull requests into `main`.
+  Pull requests from forks are skipped, because they get no `SONAR_TOKEN`.
+  It does **not** run on milestone branches, unlike `ci.yml` (ADR-0014): the
+  organisation's SonarQube Cloud plan analyses the main branch and pull requests, and
+  refuses any other branch ("Organization is not allowed to access data from non main
+  branches"). This was found on the first run, from `m0-foundation`. It is a
   workflow of its own, so `ci.yml` keeps no secret in its environment and a SonarCloud
   outage cannot hide the test results.
 - The global `fail_under` floor is removed. The gate's coverage-on-new-code condition
@@ -72,6 +76,8 @@ Chosen option: **2, SonarCloud with CI-based analysis.**
 - Bad, because the gate depends on an external service and a secret. An outage or an
   expired token fails the `SonarQube` check, though not `ci.yml`.
 - Bad, because the tests run twice per push, once in `ci.yml` and once in `sonar.yml`.
+- Bad, because a milestone branch sees its gate only once its pull request is opened,
+  not on every push as with `ci.yml`.
 - Bad, because some of the setup lives outside the repository. It is done once, by a
   maintainer:
   - turn off *Automatic Analysis* for the project (CI-based analysis is refused while it
