@@ -130,4 +130,4 @@ each milestone, the unit the v4 plan is already organised around.
 
 - [`docs/contributing.md`](../contributing.md) describes the day-to-day workflow.
 - GitHub Action users are unaffected. The Action is pinned by tag (`@v3.6.0`), and
-  [`docs/ACTION.md`](../ACTION.md) already advised against `@main`.
+  [`docs/ACTION.md`](https://github.com/jpipe-mcscert/jpipe-runner/blob/v3.6.0/docs/ACTION.md) already advised against `@main`.

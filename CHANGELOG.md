@@ -16,6 +16,10 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   <http://www.jpipe.org/jpipe-runner/> is no longer updated by releases. The v4
   documentation is task-oriented Markdown under `docs/`, read on GitHub
   ([ADR-0003](docs/adr/0003-drop-sphinx-markdown-docs.md)).
+- **The v3 guides** `docs/USAGE.md`, `docs/ACTION.md`, `docs/TROUBLESHOOTING.md` and
+  `docs/PACKAGING_RELEASE.md`. They described v3's CLI, Action and packaging, and are
+  replaced by the v4 documentation. The v3 versions stay readable at the
+  [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0/docs).
 
 ## [3.6.0] - 2026-10-01
 

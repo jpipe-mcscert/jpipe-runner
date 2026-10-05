@@ -38,8 +38,6 @@ poetry run jpipe-runner --variable X:10 --diagram "flow*" \
                          --output diagram.png workflow.jd
 ```
 
-For detailed instructions on how to execute the project, including descriptions of all CLI parameters and usage examples, see the [Usage Guide](docs/USAGE.md).
-
 ## ⚙️Installation
 
 ### Prerequisites
@@ -98,11 +96,9 @@ signed Debian source package, then publishes to **GitHub Releases**, **PyPI**, t
 
 ## 📚 Learn More
 
-* [Usage Guide](docs/USAGE.md)
 * [Releasing](#-releasing) · [Changelog](CHANGELOG.md)
-* [Packaging & CI/CD](docs/PACKAGING_RELEASE.md)
-* [Troubleshooting](docs/TROUBLESHOOTING.md)
 * [Contributing](docs/contributing.md)
+* [Architecture decisions](docs/adr/README.md)
 
 ## 📄 License
 
