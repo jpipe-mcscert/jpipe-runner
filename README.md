@@ -100,7 +100,7 @@ PPA**, and the **Homebrew** tap, and deploys the docs to GitHub Pages.
 * [Packaging & CI/CD](docs/PACKAGING_RELEASE.md)
 * [Troubleshooting](docs/TROUBLESHOOTING.md)
 * [Developer Docs (Sphinx)](docs/BUILD_DOCS.md)
-* [Contributing](docs/CONTRIBUTING.md)
+* [Contributing](docs/contributing.md)
 
 ## 📄 License
 
