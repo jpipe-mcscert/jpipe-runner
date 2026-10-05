@@ -20,6 +20,7 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
+  HYPOTHESIS_PROFILE: ci   # derandomized: every run explores the same cases (tests/README.md)
 
 # Analysis reads the tree and reports through SONAR_TOKEN. It writes nothing to the repository.
 permissions:

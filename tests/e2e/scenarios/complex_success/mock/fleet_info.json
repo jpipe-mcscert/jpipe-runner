@@ -1,0 +1,13 @@
+{
+  "fleet_id": "fleet123",
+  "fleet_name": "Mobile Health Services",
+  "fleet_description": "A fleet dedicated to providing healthcare services in underserved regions.",
+  "fleet_size": 3,
+  "fleet_type": "mobile",
+  "fleet_status": "active",
+  "fleet_location": {
+    "latitude": 34.0522,
+    "longitude": -118.2437,
+    "address": "123 Health St, Los Angeles, CA"
+  }
+}

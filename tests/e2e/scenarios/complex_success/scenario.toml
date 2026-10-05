@@ -1,0 +1,22 @@
+# v3 injected eleven file paths and a settings block through config.yaml; v4 reads fixed
+# paths under mock/ and the thresholds are constants in steps.py.
+# v3 evidence produced booleans that each strategy merely and-ed; in v4 evidence reports
+# what it observed (sizes, counts, the report's format) and the strategies judge it.
+# The six sub-conclusions had no function in v3 either. The conclusion only restated
+# multi_pronged's boolean, so it is left unbound; multi_pronged in turn has nothing to
+# consume, since status propagation already carries the six lines of action.
+# Dropped v3 variants: "every value via --variable" (same inputs, another injection
+# channel), malformed settings via --variable and "no config file" (injection errors,
+# which v4 cannot express), and the dry-run, diagram-export, invalid-JSON and
+# missing-library runs, which test CLI options rather than a justification.
+description = "A realistic, many-layered justification (11 evidence, 7 strategies, 6 sub-conclusions) passes end to end."
+origin = "v3.6.0:tests/e2e/resources/complex_success"
+libraries = ["steps.py"]
+exit_code = 0
+exercises = [
+    "exact binding of named ids",
+    "evidence reads files under mock/",
+    "data flow from evidence to strategies",
+    "unbound sub-conclusions and conclusion derive their status",
+    "topological ordering of a wide graph",
+]

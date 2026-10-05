@@ -1,0 +1,40 @@
+{
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Generate number a",
+      "type": "evidence"
+    },
+    {
+      "id": "E2",
+      "label": "Generate number b",
+      "type": "evidence"
+    },
+    {
+      "id": "S1",
+      "label": "Add numbers",
+      "type": "strategy"
+    },
+    {
+      "id": "C1",
+      "label": "Math operation completed",
+      "type": "conclusion"
+    }
+  ],
+  "name": "math_operations",
+  "relations": [
+    {
+      "source": "E1",
+      "target": "S1"
+    },
+    {
+      "source": "E2",
+      "target": "S1"
+    },
+    {
+      "source": "S1",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}

@@ -1,0 +1,12 @@
+# justification.json is `jpipe process -i release.jd -m release -f JSON` (jPipe 2.5.0),
+# identical to jpipe-examples/release-example/run/release.jd.json at 39291d5.
+description = "The jPipe tutorials' release example, ported to the v4 API: two evidence checks feed one strategy, and the conclusion is left unbound, so its status derives from the strategy."
+origin = "new in v4: a port of jpipe-examples/release-example (run/release_lib.py)"
+libraries = ["steps.py"]
+exit_code = 0
+exercises = [
+    "qualified ids as the compiler emits them (release:e1)",
+    "Pass carrying produced values, consumed by a strategy",
+    "an unbound conclusion deriving its status",
+    "the `escaped` field, accepted and ignored",
+]

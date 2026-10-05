@@ -1,4 +1,4 @@
-"""Test-suite wiring shared by every layer.
+"""Test-suite wiring shared by every layer (see tests/README.md).
 
 Markers are derived from the directory a test lives in, so they cannot be forgotten:
 everything under ``tests/unit/`` is ``unit`` and everything under ``tests/e2e/`` is
@@ -6,9 +6,15 @@ everything under ``tests/unit/`` is ``unit`` and everything under ``tests/e2e/``
 selection would ever run.
 """
 
+import os
 from pathlib import Path
 
 import pytest
+from hypothesis import settings
+
+settings.register_profile("dev", max_examples=100)
+settings.register_profile("ci", max_examples=500, derandomize=True, deadline=None)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "dev"))
 
 TESTS_ROOT = Path(__file__).parent
 REPO_ROOT = TESTS_ROOT.parent
@@ -24,3 +30,16 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
                 f"{', '.join(f'tests/{name}/' for name in LAYERS)}"
             )
         item.add_marker(getattr(pytest.mark, layer))
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--update-goldens",
+        action="store_true",
+        help="rewrite the golden reports of the e2e scenarios instead of comparing them",
+    )
+
+
+@pytest.fixture
+def update_goldens(request: pytest.FixtureRequest) -> bool:
+    return bool(request.config.getoption("--update-goldens"))

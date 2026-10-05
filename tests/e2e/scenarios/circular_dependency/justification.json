@@ -1,0 +1,39 @@
+{
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Function a",
+      "type": "strategy"
+    },
+    {
+      "id": "S2",
+      "label": "Function b",
+      "type": "strategy"
+    },
+    {
+      "id": "C1",
+      "label": "Final check",
+      "type": "conclusion"
+    }
+  ],
+  "name": "circular",
+  "relations": [
+    {
+      "source": "S1",
+      "target": "S2"
+    },
+    {
+      "source": "S2",
+      "target": "S1"
+    },
+    {
+      "source": "S1",
+      "target": "C1"
+    },
+    {
+      "source": "S2",
+      "target": "C1"
+    }
+  ],
+  "type": "justification"
+}
