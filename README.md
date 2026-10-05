@@ -2,7 +2,20 @@
 
 jPipe Runner executes [jPipe](https://www.jpipe.org) justifications: it binds each element
 of a justification to a Python function, runs the checks, and reports which claims hold.
-Version 4 is under development; documentation will live in [`docs/`](docs/).
+
+> [!WARNING]
+> **Work in progress.** This branch holds version 4, a rewrite from scratch that cannot
+> run a justification yet. For a working runner, use the
+> [latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest)
+> (3.6.0), whose documentation is at the
+> [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0).
+
+## Authors
+
+* [Jason Lyu](https://github.com/xjasonlyu)
+* [Baptiste Lacroix](https://github.com/BaptisteLacroix)
+* [Sébastien Mosser](https://github.com/mosser)
+* [Corentin Veillard](https://github.com/corentinVei)
 
 ## Install
 
@@ -12,7 +25,7 @@ Version 4 is under development; documentation will live in [`docs/`](docs/).
 | Ubuntu (APT) | `sudo add-apt-repository ppa:mcscert/ppa && sudo apt install jpipe-runner` |
 | Anywhere (pip) | `pip install jpipe-runner` |
 
-These install the latest published release, which is 3.6.0 until version 4 is released.
+These install the latest stable release.
 
 To build from source, you need Python 3.11 or later and [Poetry](https://python-poetry.org):
 
@@ -29,13 +42,6 @@ See [`docs/contributing.md`](docs/contributing.md).
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-## Authors
-
-* [Jason Lyu](https://github.com/xjasonlyu)
-* [Baptiste Lacroix](https://github.com/BaptisteLacroix)
-* [Sébastien Mosser](https://github.com/mosser)
-* [Corentin Veillard](https://github.com/corentinVei)
 
 ## How to cite
 
