@@ -1,0 +1,65 @@
+# Static analysis and the quality gate (ADR-0004).
+#
+# Separate from ci.yml, so that ci.yml stays a build with no secret in its environment, and a
+# SonarQube Cloud outage or an expired token shows up as its own failing check rather than
+# hiding the test results. It reruns the tests because the scanner reads coverage.xml from the
+# working tree, so the tests must have run in this job.
+
+name: SonarQube
+
+on:
+  # Every branch, like ci.yml: a milestone branch sees its gate before its pull request is
+  # opened (ADR-0014). The pull request run is what decorates the pull request.
+  push:
+    branches-ignore:
+      - jpipe-runner-diagrams   # the Action's image output branch, not code
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+
+# Analysis reads the tree and reports through SONAR_TOKEN. It writes nothing to the repository.
+permissions:
+  contents: read
+
+# Sonar reports against the head commit, so a superseded run's verdict is stale before it lands.
+concurrency:
+  group: sonar-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Test and analyze
+    # Pull requests from forks get no secrets, so they cannot authenticate to SonarQube Cloud.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history: Sonar computes "new code" from the merge base and blames every line
+          # it reports. A shallow clone gives it neither.
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Run tests with coverage
+        run: poetry run pytest
+      - name: Cache SonarQube scanner
+        uses: actions/cache@v6
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: SonarQube scan
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          # Without this the scanner uploads and exits 0 whatever the gate decides, so the
+          # check would go green on a failing gate.
+          args: >
+            -Dsonar.qualitygate.wait=true

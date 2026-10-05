@@ -55,6 +55,7 @@ Key design choices:
 | `src/jpipe_runner/runtime.py` | Dynamic Python module loader |
 | `pyproject.toml` | Dependencies, entry points, tool configuration |
 | `.github/workflows/ci.yml` | CI — lint (ruff, mypy) and pytest on push to every branch, and on PRs to `main` |
+| `.github/workflows/sonar.yml` | SonarCloud scan and quality gate (ADR-0004) |
 | `.github/workflows/release.yml` | Multi-stage release pipeline (see Release section) |
 
 ## Testing
@@ -72,6 +73,8 @@ poetry run mypy              # --strict, over src/
 - The `unit` / `e2e` markers are applied by `tests/conftest.py` from the test's directory.
   A test file outside `tests/unit/` or `tests/e2e/` is a collection error.
 - `pre-commit install` runs ruff and mypy before each commit; CI's `lint` job runs the same.
+- The quality gate is SonarCloud (`sonar-project.properties`, `.github/workflows/sonar.yml`,
+  [ADR-0004](docs/adr/0004-sonarcloud-quality-gate.md)); it reads the `coverage.xml` pytest writes.
 
 ## Branching
 
