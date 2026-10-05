@@ -289,5 +289,5 @@ If you set `version` yourself, keep it compatible with the Action:
 
 - **Not older than 3.6.0.** The Action passes `--quiet` to the runner, which exists from
   3.6.0 onwards; an older runner fails with `unrecognized arguments: --quiet`.
-- **Not `main`.** It is a moving branch that will eventually hold v4, whose command line
+- **Not `main`.** It is a moving branch that now holds the v4 rewrite, whose command line
   this v3 Action cannot drive.
