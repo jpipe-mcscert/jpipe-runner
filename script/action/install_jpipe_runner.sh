@@ -3,10 +3,12 @@ set -euo pipefail
 
 # Required env vars:
 #   PYTHON_EXEC_PATH     # Path to Python interpreter
-#   VERSION              # Version of jpipe-runner to install (default: main)
+#   VERSION              # Git ref of jpipe-runner to install (default: v3.6.0)
 
 PYTHON_EXEC_PATH="${PYTHON_EXEC_PATH:-python}"
-VERSION="${VERSION:-main}"
+# Default to the runner release this Action was written for, never a moving branch:
+# `main` will eventually hold v4, which this v3 Action cannot drive.
+VERSION="${VERSION:-v3.6.0}"
 
 # Install quietly: -q/-qq suppress the routine progress chatter (Collecting…,
 # Downloading…, Building wheel…) that otherwise floods the Actions log on every run.
