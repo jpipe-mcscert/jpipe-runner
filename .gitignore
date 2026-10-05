@@ -28,9 +28,6 @@ htmlcov/
 .poetry/
 .code-review-graph/
 
-# Sphinx
-docs/_build/
-
 # Environments
 .env
 .venv

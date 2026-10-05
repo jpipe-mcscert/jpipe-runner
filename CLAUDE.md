@@ -49,7 +49,7 @@ Key design choices:
 | `src/jpipe_runner/framework/logger.py` | Logging — **contains a known bug** (see below) |
 | `src/jpipe_runner/framework/decorators/jpipe_decorator.py` | `@jpipe` decorator + AST checks |
 | `src/jpipe_runner/runtime.py` | Dynamic Python module loader |
-| `pyproject.toml` | Dependencies, entry points, optional extras (`docs`, `full`) |
+| `pyproject.toml` | Dependencies, entry points, tool configuration |
 | `.github/workflows/ci.yml` | CI — pytest on push to every branch, and on PRs to `main` |
 | `.github/workflows/release.yml` | Multi-stage release pipeline (see Release section) |
 
@@ -109,11 +109,11 @@ the `v3.6.0` tag.
 Pushing the tag triggers `.github/workflows/release.yml` — the tag's version must
 match `pyproject.toml`. The pipeline is modelled on the sibling `jpipe-compiler`:
 a small set of build jobs feed several **decoupled** publish jobs (a flaky PPA
-upload no longer blocks PyPI/Homebrew/docs). Job graph:
+upload no longer blocks PyPI/Homebrew). Job graph:
 
 - `validate-version` → checks tag format + `pyproject.toml` sync; outputs
   `version`/`tag`/`prerelease` (anything not a bare `X.Y.Z` is a pre-release).
-- `test` → `build-python-package` (wheel + sdist) and `build-docs` (Sphinx).
+- `test` → `build-python-package` (wheel + sdist).
 - `github-release` → GitHub Release with wheel + sdist (binary `.deb`s are built
   by Launchpad, not attached here).
 - `publish-pypi` → PyPI via trusted publisher (runs for pre-releases too).
@@ -125,7 +125,6 @@ upload no longer blocks PyPI/Homebrew/docs). Job graph:
   install on 3.10. `debian/control` enforces this via `X-Python3-Version: >= 3.11`.)
 - `build-homebrew-formula` + `publish-homebrew` → update the `homebrew-mcscert`
   tap. Skipped for pre-releases.
-- `deploy-docs` → GitHub Pages.
 
 The Ubuntu series list lives **only** in the `publish-ppa` matrix. Shared
 Python/Poetry/graphviz setup is a composite action at

@@ -89,9 +89,9 @@ release needs no pull request of its own (see
 
 Pushing the `vX.Y.Z` tag triggers the release pipeline
 ([`.github/workflows/release.yml`](.github/workflows/release.yml)), which
-validates the tag/version match, runs the tests, builds the docs, wheel, sdist
-and signed `.deb`, then publishes to **GitHub Releases**, **PyPI**, the **Ubuntu
-PPA**, and the **Homebrew** tap, and deploys the docs to GitHub Pages.
+validates the tag/version match, runs the tests, builds the wheel, sdist and
+signed Debian source package, then publishes to **GitHub Releases**, **PyPI**, the
+**Ubuntu PPA**, and the **Homebrew** tap.
 
 > The tag version **must** match `pyproject.toml` exactly, or the pipeline fails
 > at the `validate-version` step.
@@ -102,7 +102,6 @@ PPA**, and the **Homebrew** tap, and deploys the docs to GitHub Pages.
 * [Releasing](#-releasing) · [Changelog](CHANGELOG.md)
 * [Packaging & CI/CD](docs/PACKAGING_RELEASE.md)
 * [Troubleshooting](docs/TROUBLESHOOTING.md)
-* [Developer Docs (Sphinx)](docs/BUILD_DOCS.md)
 * [Contributing](docs/contributing.md)
 
 ## 📄 License
