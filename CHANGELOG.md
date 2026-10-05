@@ -26,6 +26,14 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   replaced by the v4 documentation. The v3 versions stay readable at the
   [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0/docs).
 
+### Fixed
+- **A malformed justification file no longer runs as an empty justification.** v3 logged
+  the problem, carried on with no elements, executed nothing and reported success. A file
+  that is not UTF-8 JSON, does not have the compiler's format, has no elements, declares an
+  element id twice or relates an element that does not exist now fails, and every problem
+  in it is reported, each with its code (`JP001` to `JP003`). A template compiled to JSON
+  is refused with a message saying that templates cannot be run.
+
 ## [3.6.0] - 2026-10-01
 
 _This is the final release of the v3 line. v3 is now frozen: it stays installable from PyPI
