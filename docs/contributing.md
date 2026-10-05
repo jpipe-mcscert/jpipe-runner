@@ -2,6 +2,25 @@
 
 If you are interested in contributing to this project, please contact the Jpipe-runner team at [Dr. Sébastien Mosser](mailto:mossers@mcmaster.ca).
 
+## Development setup
+
+You need Python 3.11 or later, [Poetry](https://python-poetry.org) (install it with
+`pipx install poetry`), and the [Graphviz](https://graphviz.org/download/) `dot` binary.
+
+```bash
+poetry install                     # set up the environment
+poetry run pytest                  # all tests, with coverage (writes coverage.xml)
+poetry run pytest -m unit          # unit tests only
+poetry run pytest -m e2e           # end-to-end tests only
+poetry run ruff check .            # lint
+poetry run ruff format --check .   # formatting
+poetry run mypy                    # type-check src/ in strict mode
+pre-commit install                 # run ruff and mypy before each commit
+```
+
+[`tests/README.md`](../tests/README.md) describes the test architecture. Pull requests go
+through a SonarCloud quality gate ([ADR-0004](adr/0004-sonarcloud-quality-gate.md)).
+
 ## Branches
 
 There is one long-lived branch, `main`, which holds the v4 rewrite that becomes 4.0.0.
