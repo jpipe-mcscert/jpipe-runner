@@ -250,6 +250,53 @@ class TestRunJpipeScript(unittest.TestCase):
         self.assertEqual(out["result"], "2", "runner exit code was masked")
         self.assertIn("boom: something went wrong", self.github_output.read_text())
 
+    def _run_without_diagram(self, *, dry_run):
+        """Run the script against a stub that exits 0 and writes no diagram."""
+        silent = self.tmp / "silentpython"
+        silent.write_text(
+            '#!/usr/bin/env bash\nprintf \'%s\\n\' "$@" > "$ARGV_CAPTURE"\nexit 0\n'
+        )
+        silent.chmod(silent.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+        env = {
+            **os.environ,
+            "PYTHON_EXEC_PATH": str(silent),
+            "JD_FILE": "my file.json",
+            "VARIABLE": "",
+            "DRY_RUN": "true" if dry_run else "false",
+            "FORMAT": "svg",
+            "OUTPUT_DIR": str(self.out_dir) + "/",
+            "GITHUB_OUTPUT": str(self.github_output),
+            "COMMIT_SHA": "testsha",
+            "ARGV_CAPTURE": str(self.argv_capture),
+        }
+        return subprocess.run(
+            ["bash", str(SCRIPT)], env=env, cwd=self.tmp, capture_output=True, text=True
+        )
+
+    def test_dry_run_without_diagram_is_a_success(self):
+        """`dry_run: true` must not be reported as a failure.
+
+        A dry run validates the justification and exits 0 before exporting
+        anything, so it never produces a diagram. The no-diagram branch used to
+        turn that into `result=1`, which made the Action's dry-run mode fail on
+        every run.
+        """
+        proc = self._run_without_diagram(dry_run=True)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("--dry-run", self.argv_capture.read_text().splitlines())
+        self.assertEqual(self._outputs()["result"], "0")
+        self.assertNotIn("::warning::", proc.stdout)
+
+    def test_missing_diagram_is_still_a_failure_outside_a_dry_run(self):
+        """A normal run that exits 0 but exports nothing is still reported as 1."""
+        proc = self._run_without_diagram(dry_run=False)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(self._outputs()["result"], "1")
+        self.assertIn("::warning::", proc.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -253,7 +253,7 @@ step simply skips itself when there's no PR context.
 | `config-file` | Path to a jPipe Runner config file (YAML) | No | — |
 | `diagram` | Diagram name pattern or wildcard | No | `*` |
 | `format` | `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png`, `svg` | No | `svg` |
-| `dry_run` | Validate without executing the justification | No | `false` |
+| `dry_run` | Validate without executing the justification; no diagram is produced | No | `false` |
 | `python_exec_path` | Python interpreter to use | No | *(built-in 3.11)* |
 | `python_path` | Extra module search folders, one per line | No | — |
 | `working_directory` | Directory to run in | No | `.` |

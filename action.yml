@@ -185,7 +185,9 @@ runs:
         path: ${{ steps.run_jpipe.outputs.diagram_dir }}
 
     - name: Commit diagram to branch
-      if: ${{ inputs.embed_image == 'true' }}
+      # Nothing to commit when no diagram was produced (a dry run, or a run that
+      # failed before exporting); the script would fail copying a missing file.
+      if: ${{ inputs.embed_image == 'true' && steps.run_jpipe.outputs.diagram_path != '' }}
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
@@ -207,6 +209,7 @@ runs:
       shell: bash
       env:
         RESULT: ${{ steps.run_jpipe.outputs.result }}
+        DRY_RUN: ${{ inputs.dry_run }}
         EMBED_IMAGE: ${{ inputs.embed_image }}
         # Exactly one of the two upload steps runs; take whichever produced a URL.
         ARTIFACT_URL: ${{ steps.upload_diagram.outputs.artifact-url || steps.upload_diagrams.outputs.artifact-url }}

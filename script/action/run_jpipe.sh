@@ -110,7 +110,8 @@ echo "Command exited with code $RESULT"
 #     workspace, which also contains the checked-out repository; a recursive
 #     search would happily pick up unrelated *.svg files from the project.
 #   - Sort the matches so the "primary" diagram is deterministic.
-#   - If none found, set result=1 and exit gracefully.
+#   - If none found, exit gracefully: keep the runner's exit code, or report 1 if
+#     it claimed success. A dry run is the exception -- it never exports a diagram.
 #
 # (`while read` rather than `mapfile`: macOS ships bash 3.2, where mapfile does
 # not exist, and this script is exercised by the local test-suite.)
@@ -127,8 +128,15 @@ if [[ ${#GENERATED[@]} -eq 0 ]]; then
   # Runner failed" step exit with the wrong code. Only synthesise a failure when
   # the runner itself reported success but produced nothing.
   if [[ "$RESULT" -eq 0 ]]; then
-    echo "::warning::jPipe Runner exited 0 but produced no ${FORMAT:-svg} diagram in $OUTPUT_DIR"
-    RESULT=1
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+      # A dry run validates the justification and exits before exporting anything,
+      # so "exit 0, no diagram" is its normal successful outcome. Treating it as a
+      # failure made `dry_run: true` fail on every run.
+      echo "Dry run: the justification was validated, no diagram is expected."
+    else
+      echo "::warning::jPipe Runner exited 0 but produced no ${FORMAT:-svg} diagram in $OUTPUT_DIR"
+      RESULT=1
+    fi
   fi
   # Emit the captured output too: this is exactly the path where the user most
   # needs the diagnostic, and without it the PR comment showed an empty log.

@@ -361,3 +361,98 @@ jobs:
         with:
           comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
           github-token: ${{ github.token }}
+
+  # -----------------------------------------------------------------------
+  # Dry-run scenario — the justification is validated, not executed.
+  #
+  # What this tests:
+  #     dry_run    : the runner exits 0 without exporting any diagram.
+  #     embed_image: requested on purpose. With no diagram there is nothing to
+  #                  commit or embed, and the action must cope with that.
+  #
+  # Verification:
+  #     1. Pipeline exit code is 0 (a dry run is not a failure).
+  #     2. The action step itself succeeded. continue-on-error would otherwise
+  #        hide a failure in the commit / comment steps.
+  #     3. The PR comment announces a dry run and embeds no image.
+  # -----------------------------------------------------------------------
+  test-dry-run:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.fork == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Run jpipe-runner action in dry-run mode
+        id: run_jpipe
+        uses: ./
+        continue-on-error: true
+        with:
+          working_directory: 'tests/action/resources/simple_success'
+          jd_file: 'validation_test.json'
+          library: 'validation_test.py'
+          config-file: 'config.yaml'
+          variable: 'user_name:Alice'
+          dry_run: 'true'
+          embed_image: 'true'
+          github-token: ${{ github.token }}
+          version: ${{ github.head_ref }}
+
+      - name: Check expected result
+        uses: ./.github/actions/check-expected-result
+        with:
+          result: ${{ steps.run_jpipe.outputs.result }}
+          expected_result: '0'
+
+      - name: Check the action step succeeded
+        shell: bash
+        env:
+          OUTCOME: ${{ steps.run_jpipe.outcome }}
+        run: |
+          if [[ "$OUTCOME" == "success" ]]; then
+            echo "SUCCESS: the action step succeeded"
+          else
+            echo "ERROR: the action step ended with outcome '$OUTCOME' during a dry run"
+            exit 1
+          fi
+
+      - name: Fetch PR comment by ID
+        id: fetch_comment
+        uses: ./.github/actions/fetch-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}
+
+      - name: Verify PR comment content
+        shell: bash
+        env:
+          PR_COMMENT: ${{ steps.fetch_comment.outputs.pr_comment }}
+        run: |
+          expected_msg="Justification dry run completed!"
+
+          if ! echo "$PR_COMMENT" | grep -qF "$expected_msg"; then
+            echo "ERROR: PR comment does not announce a completed dry run"
+            echo "Expected message:"
+            echo "$expected_msg"
+            echo "--- PR comment content ---"
+            echo "$PR_COMMENT"
+            echo "--------------------------"
+            exit 1
+          fi
+          echo "SUCCESS: PR comment announces a completed dry run"
+
+          if echo "$PR_COMMENT" | grep -qF "![Generated Diagram]"; then
+            echo "ERROR: PR comment embeds an image although a dry run produces no diagram"
+            echo "--- PR comment content ---"
+            echo "$PR_COMMENT"
+            echo "--------------------------"
+            exit 1
+          fi
+          echo "SUCCESS: PR comment embeds no image"
+
+      - name: Cleanup — delete PR comment
+        if: always()
+        uses: ./.github/actions/delete-pr-comment
+        with:
+          comment_id: ${{ steps.run_jpipe.outputs.pr_comment_id }}
+          github-token: ${{ github.token }}

@@ -14,6 +14,7 @@ set -euo pipefail
 #
 # ENVIRONMENT VARIABLES REQUIRED:
 #   RESULT          : "0" for success, "1" for failure
+#   DRY_RUN         : "true" if the runner only validated the justification
 #   EMBED_IMAGE     : "true" to include diagram image
 #   ARTIFACT_URL    : URL to download diagram
 #   IMAGE_REPO      : Repository for image hosting (defaults to GITHUB_REPOSITORY)
@@ -31,7 +32,13 @@ echo "Starting PR comment build..."
 # -----------------------------------------------------------------------------
 # STEP 1: Build the header
 # -----------------------------------------------------------------------------
-MSG_HEADER="Justification process"
+# A dry run validates the justification without executing it, so it never produces
+# a diagram. Say so, rather than announcing a completed run with nothing to show.
+if [[ "${DRY_RUN:-false}" == "true" ]]; then
+  MSG_HEADER="Justification dry run"
+else
+  MSG_HEADER="Justification process"
+fi
 if [[ "${RESULT}" == "0" ]]; then
   MSG_HEADER+=" completed!\n\n"
 else
@@ -64,12 +71,18 @@ echo "Target repo: ${TARGET_REPO}"
 # an empty markdown link like "[Download Diagram Artifact]()".
 if [[ -n "${ARTIFACT_URL:-}" ]]; then
   DOWNLOAD_LINK="[Download Diagram Artifact](${ARTIFACT_URL})"
+elif [[ "${DRY_RUN:-false}" == "true" && "${RESULT}" == "0" ]]; then
+  # Expected: nothing went wrong, so no warning.
+  DOWNLOAD_LINK="_The justification was validated but not executed, so no diagram was produced._"
 else
   DOWNLOAD_LINK="_No diagram artifact was produced for this run._"
   echo "::warning::No diagram artifact URL available; omitting the download link."
 fi
 
-if [[ "${EMBED_IMAGE}" == "true" ]]; then
+# Only embed when there is a diagram to point at. Without one (a dry run, or a run
+# that failed before exporting) the image path would end at the folder, and for a
+# public repo that would be embedded as a broken image.
+if [[ "${EMBED_IMAGE}" == "true" && -n "${DIAGRAM_NAME:-}" ]]; then
   CLEANED_PATH="${IMAGE_PATH#/}"   # Remove leading slash
   CLEANED_PATH="${CLEANED_PATH%/}" # Remove trailing slash
   REPO_NAME=$(basename "$GITHUB_REPOSITORY")
@@ -157,7 +170,7 @@ if [[ "${EMBED_IMAGE}" == "true" ]]; then
   fi
 else
   MSG_BODY="${DOWNLOAD_LINK}"
-  echo "No image embedding requested. Using download link only."
+  echo "No image to embed (not requested, or no diagram was produced). Using download link only."
 fi
 
 

@@ -22,6 +22,11 @@ and from the `v3.6.0` tag, but receives no further fixes. Development continues 
   an exception raised while importing the step library, for example — lost the error
   message. The Action now runs the runner with `--quiet` and publishes its whole output,
   with only the colour codes removed, so the comment also includes the results table.
+- **`dry_run: true` failed the Action on every run.** A dry run validates the justification
+  and exits successfully without exporting a diagram, and the Action treated "no diagram"
+  as a failure. A successful dry run is now reported as `result: 0`, and its PR comment
+  says that the justification was validated but not executed. With `embed_image: true`,
+  nothing is committed or embedded when there is no diagram.
 - **Diagrams were silently dropped when the pattern matched more than one.** The Action
   kept only the first file `find` happened to return, so a run using the default
   `diagram: '*'` uploaded one arbitrary diagram (directory-order dependent) and discarded
