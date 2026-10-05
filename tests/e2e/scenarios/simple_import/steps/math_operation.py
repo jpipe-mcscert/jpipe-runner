@@ -1,7 +1,9 @@
 """Step library for simple_import.
 
 Each evidence obtains its number through a different import: a root module or a module
-of the `steps` package, at load time or at run time.
+of the `steps` package, at load time or at run time. The run-time imports name modules
+that nothing imports at load time, so they are not already in `sys.modules`: they succeed
+only if the --python-path entry is still on `sys.path` while the steps run.
 """
 
 from root_utils import get_root_number_a
@@ -27,7 +29,7 @@ def generate_number_b() -> Outcome:
 @evidence("E3", produces=["number_c"])
 def generate_number_c() -> Outcome:
     """Number c comes from a root module imported at run time."""
-    from root_utils import get_root_number_c
+    from root_runtime_utils import get_root_number_c
 
     return Pass(number_c=get_root_number_c())
 
@@ -35,7 +37,7 @@ def generate_number_c() -> Outcome:
 @evidence("E4", produces=["number_d"])
 def generate_number_d() -> Outcome:
     """Number d comes from a package module imported at run time."""
-    from steps.step_utils import get_step_number_d
+    from steps.step_runtime_utils import get_step_number_d
 
     return Pass(number_d=get_step_number_d())
 
