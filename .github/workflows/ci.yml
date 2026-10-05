@@ -14,6 +14,20 @@ on:
       - main
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Lint (ruff)
+        run: poetry run ruff check --output-format=github .
+      - name: Check formatting (ruff)
+        run: poetry run ruff format --check .
+      - name: Type-check (mypy --strict)
+        run: poetry run mypy
+
   test:
     runs-on: ubuntu-latest
     steps:

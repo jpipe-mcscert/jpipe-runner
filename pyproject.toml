@@ -17,7 +17,6 @@ classifiers = [
 ]
 packages = [
     { include = "jpipe_runner", from = "src" },
-    { include = "jpipe_runner/schema", from = "src" }
 ]
 
 [tool.poetry.dependencies]
@@ -31,31 +30,67 @@ jsonschema = ">=4.0"
 jpipe-runner = "jpipe_runner.runner:main"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.4.1"
-pytest-mock = "^3.14.1"
-pytest-cov = "^6.1"
-ruff = "^0.11"
+pytest = "^9.1"
+pytest-cov = "^7.1"
+hypothesis = "^6.168"
+ruff = "^0.16"
+mypy = "^2.4"
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+src = ["src", "tests"]
+# The setuptools shim the Debian build uses; carried over from v3 as is (#107).
+extend-exclude = ["setup.py"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # isort
+    "B",       # flake8-bugbear
+    "UP",      # pyupgrade
+    "SIM",     # flake8-simplify
+    "PT",      # flake8-pytest-style
+    "RUF",     # ruff-specific
+]
 ignore = [
-    "E501",   # line length enforced by ruff format, not lint
-    "F821",   # forward-reference string annotations (e.g. "PipelineEngine")
+    "E501",    # line length is enforced by ruff format, not lint
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"src/jpipe_runner/runner.py" = ["W291", "W293"]  # intentional trailing spaces in ASCII art
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src"]
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+# `unit` and `e2e` are applied by tests/conftest.py from the test's directory;
+# a test file outside tests/unit/ or tests/e2e/ is a collection error.
+markers = [
+    "unit: fast, in-process tests (tests/unit/)",
+    "e2e: end-to-end tests that run whole scenarios (tests/e2e/)",
+]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    "--cov",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+xfail_strict = true
 
 [tool.coverage.run]
-source = ["src/jpipe_runner"]
+source = ["jpipe_runner"]
+branch = true
+# coverage.xml is consumed by SonarCloud, which needs paths relative to the repository.
+relative_files = true
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 60
+skip_covered = true
 
 [tool.poetry.requires-plugins]
 poetry-plugin-export = ">=1.8"

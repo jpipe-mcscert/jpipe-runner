@@ -12,6 +12,10 @@
 
 ## Architecture
 
+> **v3, for reference only.** `src/` and `tests/` were deleted for the v4 rewrite (#107);
+> this section and *Critical Files* describe v3 as it is at the `v3.6.0` tag
+> (`git show v3.6.0:<path>`). They are rewritten for v4 in #129.
+
 ```
 CLI (runner.py:main)
   └─► PipelineEngine          (framework/engine.py — 773 LOC)
@@ -50,23 +54,24 @@ Key design choices:
 | `src/jpipe_runner/framework/decorators/jpipe_decorator.py` | `@jpipe` decorator + AST checks |
 | `src/jpipe_runner/runtime.py` | Dynamic Python module loader |
 | `pyproject.toml` | Dependencies, entry points, tool configuration |
-| `.github/workflows/ci.yml` | CI — pytest on push to every branch, and on PRs to `main` |
+| `.github/workflows/ci.yml` | CI — lint (ruff, mypy) and pytest on push to every branch, and on PRs to `main` |
 | `.github/workflows/release.yml` | Multi-stage release pipeline (see Release section) |
 
 ## Testing
 
 ```bash
 poetry install
-poetry run pytest -m unit    # unit tests only
-poetry run pytest -m e2e     # end-to-end (subprocess CLI invocations)
-poetry run pytest            # all tests
+poetry run pytest            # all tests, with coverage (writes coverage.xml)
+poetry run pytest -m unit    # tests/unit/ only
+poetry run pytest -m e2e     # tests/e2e/ only
+poetry run ruff check . && poetry run ruff format --check .
+poetry run mypy              # --strict, over src/
 ```
 
-Test layout:
-- `tests/unit/` — engine, context, decorators, validators, structure normalisation
-- `tests/e2e/` — full CLI invocations covering success, exceptions, circular deps, missing producers/consumers, self-deps, skip scenarios
-
-Coverage metrics are configured via `pytest-cov` (see `pyproject.toml` and `pytest.ini`).
+- All tool configuration (pytest, coverage, ruff, mypy) lives in `pyproject.toml`.
+- The `unit` / `e2e` markers are applied by `tests/conftest.py` from the test's directory.
+  A test file outside `tests/unit/` or `tests/e2e/` is a collection error.
+- `pre-commit install` runs ruff and mypy before each commit; CI's `lint` job runs the same.
 
 ## Branching
 
@@ -130,18 +135,10 @@ The Ubuntu series list lives **only** in the `publish-ppa` matrix. Shared
 Python/Poetry/graphviz setup is a composite action at
 `.github/actions/setup-python-env` (reused by `ci.yml`).
 
-## Known Bugs
+## Backlog
 
-~~`framework/logger.py:35` — `has_errors()` always returns `True`~~ **Fixed in `refactor` branch** (commit `b0500d8`). Operator precedence bug: `"ERROR" or "WARNING"` short-circuited to a truthy string. Fix: `any("ERROR" in log or "WARNING" in log for log in self.logs)`. Tests added in `tests/unit/test_logger.py`.
-
-## Tech Debt Backlog (prioritised)
-
-1. **Add linting/formatting** — configure `ruff` (or black + flake8) via pre-commit hooks
-2. **Add coverage.py** — configure in `pyproject.toml` and add CI coverage gate
-3. **Simplify `setup.py`** — replace the 500+ LOC custom TOML parser with `tomllib` (stdlib ≥ 3.11)
-4. **Refactor `engine.py`** — break `justify()` and `export_to_format()` (>200 LOC each) into smaller methods
-5. **Add type hints** — particularly in validators and decorators (`Any` overused)
-6. **Thread-safety documentation** — document global `ctx` singleton limitations in context.py docstring
+The v4 plan lives in the GitHub issues #107–#133 (milestones M0–M7, MB0, MB1). The v3
+known-bugs and tech-debt lists were dropped with the v3 code.
 
 ## Notes for Maintainers
 

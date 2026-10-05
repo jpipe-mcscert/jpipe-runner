@@ -115,7 +115,7 @@ This guide helps you resolve common errors and issues encountered when setting u
     poetry run pytest
     ```
 
-  * Check for missing test dependencies or update `pytest.ini`.
+  * Check for missing test dependencies or update the `[tool.pytest.ini_options]` section of `pyproject.toml`.
 
 ## 6. Platform-Specific Notes
 
