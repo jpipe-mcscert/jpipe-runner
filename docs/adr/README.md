@@ -8,10 +8,13 @@ The v4 issues reserved ADR-0001 to ADR-0013 in advance. Each one is written when
 issue lands. A new decision takes the next number after the highest one in this table,
 reserved or not.
 
+To write one, copy [`template.md`](template.md) to `NNNN-short-title.md`, fill it in,
+and add a row to this table.
+
 | ADR | Title | Status |
 |-----|-------|--------|
-| 0001 | Consume compiler-produced JSON rather than parse `.jd` | reserved ([#111](https://github.com/jpipe-mcscert/jpipe-runner/issues/111)) |
-| 0002 | Rewrite from scratch on a branch rather than port v3 | reserved ([#111](https://github.com/jpipe-mcscert/jpipe-runner/issues/111)) |
+| [0001](0001-consume-compiler-json.md) | Consume compiler-produced JSON rather than parse `.jd` | accepted |
+| [0002](0002-rewrite-from-scratch.md) | Rewrite from scratch on a branch rather than port v3 | accepted |
 | 0003 | Drop Sphinx; docs are task-oriented Markdown | reserved ([#110](https://github.com/jpipe-mcscert/jpipe-runner/issues/110)) |
 | 0004 | SonarCloud as the quality gate | reserved ([#109](https://github.com/jpipe-mcscert/jpipe-runner/issues/109)) |
 | 0005 | Outcomes as return values instead of a `produce` callable | reserved ([#113](https://github.com/jpipe-mcscert/jpipe-runner/issues/113)) |
