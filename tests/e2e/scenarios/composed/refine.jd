@@ -1,0 +1,29 @@
+justification draft {
+  conclusion ready is "Version 2.0 is ready to ship"
+  strategy gates is "All release gates pass"
+  gates supports ready
+
+  evidence tests is "The test suite passes"
+  tests supports gates
+
+  sub-conclusion documented is "The documentation is updated"
+  strategy docs is "The changelog and API docs are current"
+  docs supports documented
+  evidence changelog is "The changelog is up to date"
+  changelog supports docs
+  documented supports gates
+}
+
+justification tested {
+  conclusion tested is "The code is tested"
+  strategy testing is "The test suite passes with high coverage"
+  testing supports tested
+  evidence suite is "The test suite passes"
+  suite supports testing
+  evidence coverage is "Coverage is above 80%"
+  coverage supports testing
+}
+
+justification readiness is refine(draft, tested) {
+  hook: "tests"
+}

@@ -1,0 +1,20 @@
+# The run-time imports (E3, E4) name modules that nothing imports at load time, so they
+# fail if the runner takes the --python-path entry off sys.path before the steps run.
+# (In v3 they re-imported modules already in sys.modules, which could not catch that.)
+# C1 had no function in v3 either; it stays unbound and derives its status from S1.
+# Dropped v3 variants: running with cwd = the scenario directory and no --python-path
+# (that relied on cwd being importable, an implicit path this scenario makes explicit),
+# and running with neither (a ModuleNotFoundError at load time: a library-loading error,
+# not a justification outcome).
+description = "A step library in a package imports helper modules, at load time and at run time, through --python-path."
+origin = "v3.6.0:tests/e2e/resources/simple_import"
+libraries = ["steps/math_operation.py"]
+python_path = ["."]
+exit_code = 0
+exercises = [
+    "--python-path",
+    "library inside a namespace package",
+    "load-time imports, and run-time imports of modules not loaded before",
+    "--python-path stays on sys.path while steps run",
+    "unbound conclusion derives its status",
+]

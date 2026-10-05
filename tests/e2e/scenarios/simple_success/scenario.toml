@@ -1,0 +1,15 @@
+# v3 injected the file path through config.yaml; v4 reads the fixed path mock/test_file.txt.
+# Dropped v3 variants: "--variable <bare path>" (vacuous: v3 discarded a variable without
+# ':'), "no config file" (a missing injected variable, which v4 cannot express), and the
+# dry-run, diagram-export, invalid-JSON and missing-library runs, which test CLI options
+# rather than a justification.
+description = "The smallest passing justification: an evidence observes a file and the conclusion accepts it."
+origin = "v3.6.0:tests/e2e/resources/simple_success"
+libraries = ["steps.py"]
+exit_code = 0
+exercises = [
+    "exact binding",
+    "evidence produces a value",
+    "bound conclusion consumes it",
+    "Pass outcome",
+]

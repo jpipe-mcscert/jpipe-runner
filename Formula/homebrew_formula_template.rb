@@ -9,8 +9,6 @@ class $CLASS_NAME < Formula
 
     depends_on "python@$PYTHON_VERSION"
     depends_on "rust" => :build
-    depends_on "libjpeg-turbo"
-    depends_on "freetype"
     depends_on "graphviz"
 
     $RESOURCES

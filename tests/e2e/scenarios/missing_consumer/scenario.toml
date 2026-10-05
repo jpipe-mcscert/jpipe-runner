@@ -1,0 +1,14 @@
+# Behaviour change: v3 rejected "produced but never consumed" outright; v4 reports it as
+# a warning and runs (an error only under --strict).
+# The v3 fixture also had S1 consume `missing_var`, which nothing produced: a second,
+# unrelated defect (a missing producer, covered by missing_producer) that was what
+# actually made v3 exit 1. It is removed here so the scenario shows its own point.
+description = "A strategy produces a variable that nothing consumes. Fatal in v3; in v4 a JP011 warning, and the run succeeds."
+origin = "v3.6.0:tests/e2e/resources/missing_consumer"
+libraries = ["steps.py"]
+exit_code = 0
+exercises = [
+    "JP011 UnconsumedOutput is a warning",
+    "a warning does not block execution",
+    "unbound conclusion derives its status",
+]

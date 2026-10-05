@@ -28,21 +28,12 @@ htmlcov/
 .poetry/
 .code-review-graph/
 
-# Sphinx
-docs/_build/
-
 # Environments
 .env
 .venv
 
-# Debian packaging (generated)
-deb_dist/
-deb_dist_gui/
-*.tar.gz
-
 # Generated requirements files
 requirements.txt
-requirements-gui.txt
 
 # Virtual env leftovers
 bin/*

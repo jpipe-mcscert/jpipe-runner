@@ -1,0 +1,14 @@
+# The relations are acyclic (S1 -> S2, S1 -> C1, S2 -> C1); the defect is S1 both
+# consuming and producing var_a, as in v3. v3 also injected var_a and var_b through
+# config.yaml or --variable; v4 has no injection, so S1 is var_a's only producer and the
+# value can never exist before S1 runs. Which rule reports it (JP014, or JP004 if the
+# variable self-loop counts as a cycle) is pinned by the golden report, not here.
+description = "A strategy consumes the variable it produces; validation rejects the step library before execution."
+origin = "v3.6.0:tests/e2e/resources/self_dependency"
+libraries = ["steps.py"]
+exit_code = 3
+exercises = [
+    "self-dependency in the data flow",
+    "JP014 ConsumedBeforeProduced",
+    "validation failure blocks execution",
+]

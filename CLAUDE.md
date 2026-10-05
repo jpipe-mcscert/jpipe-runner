@@ -12,6 +12,10 @@
 
 ## Architecture
 
+> **v3, for reference only.** `src/` and `tests/` were deleted for the v4 rewrite (#107);
+> this section and *Critical Files* describe v3 as it is at the `v3.6.0` tag
+> (`git show v3.6.0:<path>`). They are rewritten for v4 in #129.
+
 ```
 CLI (runner.py:main)
   └─► PipelineEngine          (framework/engine.py — 773 LOC)
@@ -49,38 +53,48 @@ Key design choices:
 | `src/jpipe_runner/framework/logger.py` | Logging — **contains a known bug** (see below) |
 | `src/jpipe_runner/framework/decorators/jpipe_decorator.py` | `@jpipe` decorator + AST checks |
 | `src/jpipe_runner/runtime.py` | Dynamic Python module loader |
-| `pyproject.toml` | Dependencies, entry points, optional extras (`docs`, `full`) |
-| `.github/workflows/ci.yml` | CI — pytest on push to every branch, and on PRs to `main` |
+| `pyproject.toml` | Dependencies, entry points, tool configuration |
+| `.github/workflows/ci.yml` | CI — lint (ruff, mypy) and pytest on push to every branch, and on PRs to `main` |
+| `.github/workflows/sonar.yml` | SonarCloud scan and quality gate (ADR-0004) |
 | `.github/workflows/release.yml` | Multi-stage release pipeline (see Release section) |
 
 ## Testing
 
 ```bash
 poetry install
-poetry run pytest -m unit    # unit tests only
-poetry run pytest -m e2e     # end-to-end (subprocess CLI invocations)
-poetry run pytest            # all tests
+poetry run pytest            # all tests, with coverage (writes coverage.xml)
+poetry run pytest -m unit    # tests/unit/ only
+poetry run pytest -m e2e     # tests/e2e/ only
+poetry run ruff check . && poetry run ruff format --check .
+poetry run mypy              # --strict, over src/
 ```
 
-Test layout:
-- `tests/unit/` — engine, context, decorators, validators, structure normalisation
-- `tests/e2e/` — full CLI invocations covering success, exceptions, circular deps, missing producers/consumers, self-deps, skip scenarios
-
-Coverage metrics are configured via `pytest-cov` (see `pyproject.toml` and `pytest.ini`).
+- All tool configuration (pytest, coverage, ruff, mypy) lives in `pyproject.toml`.
+- The test architecture (rule tests, golden reports, property tests, the scenario format)
+  is described in [`tests/README.md`](tests/README.md). `--update-goldens` regenerates the
+  golden reports of the e2e scenarios.
+- The `unit` / `e2e` markers are applied by `tests/conftest.py` from the test's directory.
+  A test file outside `tests/unit/` or `tests/e2e/` is a collection error.
+- `pre-commit install` runs ruff and mypy before each commit; CI's `lint` job runs the same.
+- The quality gate is SonarCloud (`sonar-project.properties`, `.github/workflows/sonar.yml`,
+  [ADR-0004](docs/adr/0004-sonarcloud-quality-gate.md)); it reads the `coverage.xml` pytest writes.
 
 ## Branching
 
 One long-lived branch, `main` (the default branch), plus one branch per v4 milestone
 (`m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`) cut from `main`.
 MB1 (#132) is done in the `jpipe-runner-action` repository and has no branch here. Rationale:
-[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md); workflow:
+[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md) and
+[ADR-0015](docs/adr/0015-draft-pull-request-per-milestone.md); workflow:
 [`docs/contributing.md`](docs/contributing.md). There is no `dev` branch any more; v3 is
 the `v3.6.0` tag.
 
 - Ticket work goes on its milestone's branch, as one or more commits; the commit that
   completes a ticket ends with `Closes #N`.
-- An assistant pushes the milestone branch and stops. The maintainer opens **one** PR
-  per milestone into `main` and merges it.
+- Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
+  pushed (SonarCloud only analyses `main` and PRs on this plan). An assistant opens it only
+  when the maintainer asks; otherwise it pushes the branch and stops.
+- The maintainer marks the PR ready for review when the milestone is complete, and merges it.
 - Never commit or push to `main` directly.
 
 ## Release Process
@@ -89,8 +103,9 @@ the `v3.6.0` tag.
 
 - **Never push a git tag automatically.** Tag creation/push is performed by a
   human maintainer only — it triggers the immutable PyPI/PPA/Homebrew publish.
-- **Never open or merge a PR automatically.** Milestone PRs are opened and merged
-  by a human. A release has no PR of its own.
+- **Never open a PR unless the maintainer asks, and never merge one.** Milestone PRs are
+  drafts from the start of the milestone (ADR-0015) and are merged by a human. A release
+  has no PR of its own.
 - **Always maintain `CHANGELOG.md`.** Every release (and notable change) gets an
   entry under a `## [x.y.z] - YYYY-MM-DD` heading, following Keep a Changelog.
 - An assistant's scope for a release ends at committing/pushing the prep work
@@ -109,11 +124,11 @@ the `v3.6.0` tag.
 Pushing the tag triggers `.github/workflows/release.yml` — the tag's version must
 match `pyproject.toml`. The pipeline is modelled on the sibling `jpipe-compiler`:
 a small set of build jobs feed several **decoupled** publish jobs (a flaky PPA
-upload no longer blocks PyPI/Homebrew/docs). Job graph:
+upload no longer blocks PyPI/Homebrew). Job graph:
 
 - `validate-version` → checks tag format + `pyproject.toml` sync; outputs
   `version`/`tag`/`prerelease` (anything not a bare `X.Y.Z` is a pre-release).
-- `test` → `build-python-package` (wheel + sdist) and `build-docs` (Sphinx).
+- `test` → `build-python-package` (wheel + sdist).
 - `github-release` → GitHub Release with wheel + sdist (binary `.deb`s are built
   by Launchpad, not attached here).
 - `publish-pypi` → PyPI via trusted publisher (runs for pre-releases too).
@@ -125,24 +140,15 @@ upload no longer blocks PyPI/Homebrew/docs). Job graph:
   install on 3.10. `debian/control` enforces this via `X-Python3-Version: >= 3.11`.)
 - `build-homebrew-formula` + `publish-homebrew` → update the `homebrew-mcscert`
   tap. Skipped for pre-releases.
-- `deploy-docs` → GitHub Pages.
 
 The Ubuntu series list lives **only** in the `publish-ppa` matrix. Shared
 Python/Poetry/graphviz setup is a composite action at
 `.github/actions/setup-python-env` (reused by `ci.yml`).
 
-## Known Bugs
+## Backlog
 
-~~`framework/logger.py:35` — `has_errors()` always returns `True`~~ **Fixed in `refactor` branch** (commit `b0500d8`). Operator precedence bug: `"ERROR" or "WARNING"` short-circuited to a truthy string. Fix: `any("ERROR" in log or "WARNING" in log for log in self.logs)`. Tests added in `tests/unit/test_logger.py`.
-
-## Tech Debt Backlog (prioritised)
-
-1. **Add linting/formatting** — configure `ruff` (or black + flake8) via pre-commit hooks
-2. **Add coverage.py** — configure in `pyproject.toml` and add CI coverage gate
-3. **Simplify `setup.py`** — replace the 500+ LOC custom TOML parser with `tomllib` (stdlib ≥ 3.11)
-4. **Refactor `engine.py`** — break `justify()` and `export_to_format()` (>200 LOC each) into smaller methods
-5. **Add type hints** — particularly in validators and decorators (`Any` overused)
-6. **Thread-safety documentation** — document global `ctx` singleton limitations in context.py docstring
+The v4 plan lives in the GitHub issues #107–#133 (milestones M0–M7, MB0, MB1). The v3
+known-bugs and tech-debt lists were dropped with the v3 code.
 
 ## Notes for Maintainers
 

@@ -1,0 +1,15 @@
+# Ported variant: denominator 0. Dropped v3 variants: a valid denominator (2 or 5; a plain
+# passing run, which the success scenarios already cover), a non-numeric denominator
+# ("abc", which only tested v3's string coercion of injected values), and no denominator
+# at all (a missing injected variable, which v4 cannot express; a missing producer is
+# covered by missing_producer). The dry-run, diagram-export, invalid-JSON and
+# missing-library runs test CLI options rather than a justification.
+description = "A step raises an exception; it is reported as a FAIL, its conclusion is skipped and the justification fails."
+origin = "v3.6.0:tests/e2e/resources/exception_handling"
+libraries = ["steps.py"]
+exit_code = 1
+exercises = [
+    "exception becomes FAIL",
+    "Fail propagates downstream as Skip",
+    "justification failure exit code",
+]

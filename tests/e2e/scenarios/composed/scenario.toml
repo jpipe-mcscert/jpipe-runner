@@ -1,0 +1,15 @@
+# justification.json is `jpipe process -i refine.jd -m readiness -f JSON` (jPipe 2.5.0).
+# Each step library was written against one standalone source model, as an author would
+# before anyone composed them; see the docstrings of draft_steps.py and tested_steps.py.
+description = "A refined model bound by step libraries written against its standalone sources: the draft's hook evidence is now a sub-conclusion argued by `tested`, and its check runs as a cross-check, with a JP008 warning, not an error."
+origin = "new in v4: refine.jd from jpipe-examples/release-example"
+libraries = ["draft_steps.py", "tested_steps.py"]
+exit_code = 0
+exercises = [
+    "alias binding: draft:tests reaches readiness:hook through readiness:draft:tests",
+    "segment-suffix binding of every other id (draft:changelog -> readiness:draft:changelog)",
+    "kind divergence under refine: @evidence on a sub-conclusion (JP008, warning)",
+    "cross-check execution: the hook's own function runs after its sub-argument passes",
+    "alias provenance in the report (aliases, bound_by, bound_to)",
+    "two libraries defining functions with the same name",
+]

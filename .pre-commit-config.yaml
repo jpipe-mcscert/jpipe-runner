@@ -1,7 +1,16 @@
+# Install once with `pre-commit install`. CI runs the same checks (ci.yml, job `lint`).
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+    rev: v0.16.10   # keep in step with the ruff version in poetry.lock
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy --strict
+        entry: poetry run mypy
+        language: system
+        types: [python]
+        pass_filenames: false   # checks the `files` set in pyproject.toml

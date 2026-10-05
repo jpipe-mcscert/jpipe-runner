@@ -1,0 +1,15 @@
+justification release {
+  // The claim we want to establish
+  conclusion c is "Version 2.0 is ready to ship"
+
+  // The reasoning that connects evidence to the conclusion
+  strategy s is "All release gates pass"
+  s supports c
+
+  // The supporting evidence (grounds)
+  evidence e1 is "The test suite passes"
+  e1 supports s
+
+  evidence e2 is "The changelog is up to date"
+  e2 supports s
+}

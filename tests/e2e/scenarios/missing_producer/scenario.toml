@@ -1,0 +1,10 @@
+# v3's input_string came from config.yaml; in v4 it is a constant in the step, otherwise
+# it would be a second missing producer and blur the scenario.
+description = "A conclusion consumes a variable that no step produces; validation rejects the step library."
+origin = "v3.6.0:tests/e2e/resources/missing_producer"
+libraries = ["steps.py"]
+exit_code = 3
+exercises = [
+    "JP009 MissingProducer",
+    "validation failure blocks execution",
+]

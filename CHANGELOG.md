@@ -5,6 +5,27 @@ All notable changes to **jpipe-runner** are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+_v4 is a from-scratch rewrite and a breaking release for every v3 user
+([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
+
+### Changed
+- **The Homebrew formula no longer depends on `libjpeg-turbo` and `freetype`.** They were
+  needed by `matplotlib`, which only the GUI removed in 3.4.0 used, and no current
+  dependency needs them.
+
+### Removed
+- **The generated API documentation and the `docs` and `full` extras.**
+  `pip install "jpipe-runner[docs]"` no longer installs Sphinx, and the API reference at
+  <http://www.jpipe.org/jpipe-runner/> is no longer updated by releases. The v4
+  documentation is task-oriented Markdown under `docs/`, read on GitHub
+  ([ADR-0003](docs/adr/0003-drop-sphinx-markdown-docs.md)).
+- **The v3 guides** `docs/USAGE.md`, `docs/ACTION.md`, `docs/TROUBLESHOOTING.md` and
+  `docs/PACKAGING_RELEASE.md`. They described v3's CLI, Action and packaging, and are
+  replaced by the v4 documentation. The v3 versions stay readable at the
+  [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0/docs).
+
 ## [3.6.0] - 2026-10-01
 
 _This is the final release of the v3 line. v3 is now frozen: it stays installable from PyPI
@@ -306,6 +327,7 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
+[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.6.0...HEAD
 [3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
 [3.5.3]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.2...v3.5.3
 [3.5.2]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.1...v3.5.2

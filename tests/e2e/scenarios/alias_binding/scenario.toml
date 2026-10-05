@@ -1,0 +1,11 @@
+# The conclusion only restated metrics_reported in v3, but it is kept: without a consumer
+# the evidence would raise JP011 (or JP012 if it produced nothing), noise unrelated to binding.
+description = "An evidence is bound through two of its aliases, never its canonical id, by one decorator."
+origin = "v3.6.0:tests/e2e/resources/alias_binding"
+libraries = ["steps.py"]
+exit_code = 0
+exercises = [
+    "alias binding",
+    "several ids on one decorator (was stacked @jpipe_link)",
+    "no JP015",
+]

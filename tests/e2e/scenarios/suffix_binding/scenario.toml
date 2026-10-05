@@ -1,0 +1,10 @@
+# The conclusion only restated metrics_reported in v3, but it is kept: without a consumer
+# the evidence would raise JP011 (or JP012 if it produced nothing), noise unrelated to binding.
+description = "An evidence with a qualified id is bound by its trailing segment alone."
+origin = "v3.6.0:tests/e2e/resources/suffix_binding"
+libraries = ["steps.py"]
+exit_code = 0
+exercises = [
+    "segment-suffix binding",
+    "no JP015",
+]
