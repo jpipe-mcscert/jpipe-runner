@@ -4,22 +4,18 @@ If you are interested in contributing to this project, please contact the Jpipe-
 
 ## Development setup
 
-You need Python 3.11 or later, [Poetry](https://python-poetry.org) (install it with
-`pipx install poetry`), and the [Graphviz](https://graphviz.org/download/) `dot` binary.
-
-```bash
-poetry install                     # set up the environment
-poetry run pytest                  # all tests, with coverage (writes coverage.xml)
-poetry run pytest -m unit          # unit tests only
-poetry run pytest -m e2e           # end-to-end tests only
-poetry run ruff check .            # lint
-poetry run ruff format --check .   # formatting
-poetry run mypy                    # type-check src/ in strict mode
-pre-commit install                 # run ruff and mypy before each commit
-```
+The prerequisites, the installation steps and the commands CI runs are in the
+[README](../README.md#development-setup).
 
 [`tests/README.md`](../tests/README.md) describes the test architecture. Pull requests go
 through a SonarCloud quality gate ([ADR-0004](adr/0004-sonarcloud-quality-gate.md)).
+
+## Design documentation
+
+[`design.md`](design.md) describes how the runner is built: a diagram of the modules, then
+a class diagram. Update it in the same commit as a change to the design. A unit test,
+`tests/unit/test_design_doc.py`, fails when the modules, the imports between them (the
+solid arrows) or the classes of each module disagree with the code.
 
 ## Branches
 
@@ -61,9 +57,12 @@ always go through one. These pull requests are squash-merged.
 A release is a tag on `main`; it never needs a pull request of its own. Only a maintainer
 pushes a release tag.
 
-1. **Bump the version** in `pyproject.toml`, the only place it is defined (`setup.py`
-   reads it from there). Follow [SemVer](https://semver.org): patch for fixes, minor for
-   backward-compatible features, major for breaking changes.
+1. **Set the version** in `pyproject.toml`, the only place it is defined (`setup.py`
+   reads it from there). Between releases the trunk carries a development version,
+   `X.Y.Z.devN` (now `4.0.0.dev0`), which the release workflow refuses to tag; replace it
+   with the release's version: `X.Y.Z`, or `X.Y.ZaN` / `X.Y.ZrcN` for a pre-release.
+   Follow [SemVer](https://semver.org): patch for fixes, minor for backward-compatible
+   features, major for breaking changes.
 2. **Update `CHANGELOG.md`**: move the `[Unreleased]` notes under a new
    `## [x.y.z] - YYYY-MM-DD` heading.
 3. **Land both on `main`**, as the last commit of the milestone being released or as a

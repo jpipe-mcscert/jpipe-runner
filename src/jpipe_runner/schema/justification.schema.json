@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "jPipe justification",
+  "description": "A justification model as the jPipe compiler emits it (ADR-0001). The runner only runs justifications, not templates. Properties not listed here are allowed and ignored: the compiler writes an `escaped` name for each element, which the runner does not use.",
+  "type": "object",
+  "required": ["name", "type", "elements", "relations"],
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "type": {"const": "justification"},
+    "elements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/element"}
+    },
+    "relations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/relation"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1},
+    "element": {
+      "type": "object",
+      "required": ["id", "label", "type"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "label": {"type": "string"},
+        "type": {"enum": ["evidence", "strategy", "sub-conclusion", "conclusion"]},
+        "aliases": {
+          "description": "The ids of the elements that composition merged into this one.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/id"},
+          "uniqueItems": true
+        }
+      }
+    },
+    "relation": {
+      "description": "From the supporting element to the element it supports.",
+      "type": "object",
+      "required": ["source", "target"],
+      "properties": {
+        "source": {"$ref": "#/$defs/id"},
+        "target": {"$ref": "#/$defs/id"}
+      }
+    }
+  }
+}

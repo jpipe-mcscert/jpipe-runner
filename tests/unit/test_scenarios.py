@@ -76,8 +76,9 @@ def test_command_passes_libraries_and_python_path_in_order(tmp_path: Path) -> No
     ],
 )
 def test_load_rejects_malformed_scenarios(tmp_path: Path, toml: str, error: str) -> None:
+    directory = make(tmp_path, toml)
     with pytest.raises(ScenarioError, match=error):
-        load(make(tmp_path, toml))
+        load(directory)
 
 
 def test_load_requires_the_justification(tmp_path: Path) -> None:

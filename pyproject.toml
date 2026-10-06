@@ -1,11 +1,12 @@
 [tool.poetry]
 name = "jpipe-runner"
-version = "3.6.0"
+version = "4.0.0.dev0"
 description = "A Justification Runner designed for jPipe."
 authors = [
     "Jason Lyu <xjasonlyu@gmail.com>",
     "Sébastien Mosser <mossers@mcmaster.ca>",
-    "Baptiste Lacroix <contact@baptiste-lacroix.fr>"
+    "Baptiste Lacroix <contact@baptiste-lacroix.fr>",
+    "Corentin Veillard <corentin.veillard@etu.univ-cotedazur.fr>",
 ]
 readme = "README.md"
 license = "MIT"
@@ -35,6 +36,8 @@ pytest-cov = "^7.1"
 hypothesis = "^6.168"
 ruff = "^0.16"
 mypy = "^2.4"
+types-networkx = "~3.5"
+types-jsonschema = "^4.26.0.20260518"
 
 [tool.ruff]
 target-version = "py311"

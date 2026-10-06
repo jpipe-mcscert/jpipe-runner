@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` is a **Python CLI tool and GitHub Action** (v3.5.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualise results.
+`jpipe-runner` is a **Python CLI tool and GitHub Action** (v4 in development, `4.0.0.dev0`; v3 frozen at 3.6.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualise results.
 
 - **Language**: Python ≥ 3.11
 - **Build tool**: Poetry
@@ -15,6 +15,13 @@
 > **v3, for reference only.** `src/` and `tests/` were deleted for the v4 rewrite (#107);
 > this section and *Critical Files* describe v3 as it is at the `v3.6.0` tag
 > (`git show v3.6.0:<path>`). They are rewritten for v4 in #129.
+>
+> **The v4 design is in [`docs/design.md`](docs/design.md)**: a Mermaid module diagram and
+> a high-level class diagram (no members). Keep it in step with the code, in the same
+> commit: `tests/unit/test_design_doc.py` fails when a module is missing from the module
+> diagram, when its solid arrows are not exactly the imports between modules, or when a
+> module's public classes differ from its `namespace` in the class diagram. The page itself
+> does not mention tests or ADRs.
 
 ```
 CLI (runner.py:main)
@@ -114,8 +121,11 @@ the `v3.6.0` tag.
 
 **Cutting a release (manual steps):**
 
-1. Bump `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
-   derive from it). Use SemVer.
+1. Set `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
+   derive from it). Use SemVer. Between releases it is a PEP 440 dev version
+   (`4.0.0.dev0` during the v4 rewrite) that `validate-version` refuses to tag; a release
+   replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
+   version tests compare the installed (normalised) version to the raw string.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
 3. Land both on `main` (last commit of the released milestone, or a maintainer
    commit on `main`); wait for CI.

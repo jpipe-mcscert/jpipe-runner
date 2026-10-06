@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from jpipe_runner import loader
 from tests.scenarios import Scenario, discover
 
 SCENARIOS = discover()
@@ -46,13 +47,12 @@ def test_every_planned_scenario_exists() -> None:
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
-def test_justification_has_the_compiler_shape(scenario: Scenario) -> None:
+def test_justification_loads(scenario: Scenario) -> None:
+    # Every scenario's model is valid, cycles included: they are a validation error (#119),
+    # not a load error.
+    justification = loader.load(scenario.justification)
     model = json.loads(scenario.justification.read_text(encoding="utf-8"))
-    assert {"name", "type", "elements", "relations"} <= model.keys()
-    for element in model["elements"]:
-        assert {"id", "label", "type"} <= element.keys()
-    for relation in model["relations"]:
-        assert relation.keys() == {"source", "target"}
+    assert len(justification) == len(model["elements"])
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
