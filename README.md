@@ -25,19 +25,53 @@ of a justification to a Python function, runs the checks, and reports which clai
 | Ubuntu (APT) | `sudo add-apt-repository ppa:mcscert/ppa && sudo apt install jpipe-runner` |
 | Anywhere (pip) | `pip install jpipe-runner` |
 
-These install the latest stable release.
+These install the latest stable release. To build from source, see
+[Development setup](#development-setup).
 
-To build from source, you need Python 3.11 or later and [Poetry](https://python-poetry.org):
+## Development setup
+
+You need:
+
+* **Python 3.11 or later.** CI tests on 3.11.
+* **[Poetry](https://python-poetry.org) 2.x**, installed with [pipx](https://pipx.pypa.io):
+  `pipx install poetry`. Avoid Homebrew's Poetry, which leaks system packages into its
+  resolver.
+* **[pre-commit](https://pre-commit.com)**, to run the linters before each commit:
+  `pipx install pre-commit`.
+* **The [Graphviz](https://graphviz.org/download/) `dot` binary**, to render diagrams
+  (`brew install graphviz` or `sudo apt-get install graphviz`). The tests do not need it yet.
+
+Clone the repository and set up the environment:
 
 ```bash
 git clone https://github.com/jpipe-mcscert/jpipe-runner.git
 cd jpipe-runner
-poetry install
+poetry env use python3.11   # only if `python3` on your PATH is older than 3.11
+poetry install              # virtual environment with the runner (editable) and the dev tools
+pre-commit install          # run ruff and mypy before each commit
 ```
+
+Check that everything works by running what CI runs:
+
+```bash
+poetry run pytest                  # all tests, with coverage (writes coverage.xml)
+poetry run pytest -m unit          # unit tests only
+poetry run pytest -m e2e           # end-to-end tests only
+poetry run ruff check .            # lint (add --fix to apply the safe fixes)
+poetry run ruff format --check .   # formatting (drop --check to reformat)
+poetry run mypy                    # type-check src/ in strict mode
+```
+
+Run the tools through `poetry run`, so that they use the project's environment and the
+editable install of `src/`, not another `jpipe-runner` installed elsewhere. Their
+configuration lives in [`pyproject.toml`](pyproject.toml).
 
 ## Contributing
 
-See [`docs/contributing.md`](docs/contributing.md).
+[`docs/contributing.md`](docs/contributing.md) explains how to contribute: branches, pull
+requests and releases. [`tests/README.md`](tests/README.md) describes the test architecture.
+Pull requests go through a SonarCloud quality gate
+([ADR-0004](docs/adr/0004-sonarcloud-quality-gate.md)).
 
 ## License
 

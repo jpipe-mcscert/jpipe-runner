@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` is a **Python CLI tool and GitHub Action** (v3.5.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualise results.
+`jpipe-runner` is a **Python CLI tool and GitHub Action** (v4 in development, `4.0.0.dev0`; v3 frozen at 3.6.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualise results.
 
 - **Language**: Python ≥ 3.11
 - **Build tool**: Poetry
@@ -114,8 +114,11 @@ the `v3.6.0` tag.
 
 **Cutting a release (manual steps):**
 
-1. Bump `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
-   derive from it). Use SemVer.
+1. Set `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
+   derive from it). Use SemVer. Between releases it is a PEP 440 dev version
+   (`4.0.0.dev0` during the v4 rewrite) that `validate-version` refuses to tag; a release
+   replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
+   version tests compare the installed (normalised) version to the raw string.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
 3. Land both on `main` (last commit of the released milestone, or a maintainer
    commit on `main`); wait for CI.
