@@ -6,7 +6,7 @@ authors = [
     "Jason Lyu <xjasonlyu@gmail.com>",
     "Sébastien Mosser <mossers@mcmaster.ca>",
     "Baptiste Lacroix <contact@baptiste-lacroix.fr>",
-    "Corentin Veillard <corentin.veillard@etu.univ-cotedazur.f>",
+    "Corentin Veillard <corentin.veillard@etu.univ-cotedazur.fr>",
 ]
 readme = "README.md"
 license = "MIT"

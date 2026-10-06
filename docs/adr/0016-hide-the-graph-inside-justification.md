@@ -51,15 +51,15 @@ couple to. Should the graph, and the library behind it, be part of the model's p
 Chosen option: **2, hide the graph**, because it is the only option that keeps the graph
 library replaceable without making the project maintain its own graph algorithms.
 
-`Justification` has no `graph` property. It answers, in model order (the order in which
-the model lists its elements):
+`Justification` has no `graph` property. It answers the queries below, each with an order
+defined by model order (the order in which the model lists its elements):
 
 | Query | Returns |
 |-------|---------|
-| `supporters(id)` | The elements that directly support `id`. |
-| `supported(id)` | The elements that `id` directly supports. |
+| `supporters(id)` | The elements that directly support `id`, in model order. |
+| `supported(id)` | The elements that `id` directly supports, in model order. |
 | `topological_order()` | Every element after all of its supporters, ties broken by model order. `ValueError` on a cycle. |
-| `cycle()` | The ids along one cycle, or `None`. |
+| `cycle()` | The ids along one cycle, each supporting the next, starting from the one first in model order; or `None`. |
 
 A new need for the graph is met by a new query on `Justification`, in the same terms, never
 by handing out the graph.
@@ -68,9 +68,10 @@ by handing out the graph.
 
 - Good, because NetworkX can be replaced, or the graph stored differently, by editing
   `model.py` alone.
-- Good, because the order of every result is defined by the model, so reports are
-  deterministic. The topological order breaks ties by model order
-  (`lexicographical_topological_sort`).
+- Good, because the order of every result is defined by the model, not by NetworkX, so
+  reports are deterministic. Neighbours are sorted by model order, the topological order
+  breaks ties by it (`lexicographical_topological_sort`), and a cycle starts from its
+  element first in it.
 - Good, because exceptions are the model's own: `KeyError` for an unknown id, `ValueError`
   for an order that does not exist. No caller catches a NetworkX exception.
 - Good, because immutability no longer relies on `nx.freeze`: `Justification` has no

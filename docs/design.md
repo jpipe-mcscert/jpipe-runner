@@ -77,8 +77,10 @@ elements that composition merged into it, which binding resolution uses.
 **The graph is hidden inside `Justification`.** It is a NetworkX `DiGraph`, but no
 NetworkX type appears in the public API, and only `model` imports NetworkX. Callers ask the
 model instead: `supporters(id)`, `supported(id)`, `topological_order()` and `cycle()`.
-Every sequence the model returns is in model order, the order in which the model lists its
-elements, so results are deterministic; the topological order breaks ties the same way.
+Their results are deterministic, ordered by model order, the order in which the model lists
+its elements: supporters and supported elements are sorted by it, the topological order
+breaks ties by it, and a cycle, listed from supporter to supported, starts from its element
+that comes first in it.
 
 **A model is immutable.** `Element`, `Relation` and `Diagnostic` are frozen dataclasses,
 and the graph is frozen once built.

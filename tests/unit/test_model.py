@@ -86,14 +86,23 @@ def test_an_acyclic_model_has_no_cycle() -> None:
     assert model().cycle() is None
 
 
-def test_a_cycle_is_reported_and_left_to_validation() -> None:
+@pytest.mark.parametrize(
+    ("elements", "cycle"),
+    [
+        pytest.param((CONCLUSION, STRATEGY, EVIDENCE), ("m:c", "m:e", "m:s"), id="from-c"),
+        pytest.param((EVIDENCE, STRATEGY, CONCLUSION), ("m:e", "m:s", "m:c"), id="from-e"),
+        pytest.param((STRATEGY, CONCLUSION, EVIDENCE), ("m:s", "m:c", "m:e"), id="from-s"),
+    ],
+)
+def test_a_cycle_goes_from_supporter_to_supported_from_the_first_in_model_order(
+    elements: tuple[Element, ...], cycle: tuple[str, ...]
+) -> None:
+    cyclic = model(elements=elements, relations=(*RELATIONS, Relation("m:c", "m:e")))
+    assert cyclic.cycle() == cycle
+
+
+def test_a_cycle_has_no_topological_order() -> None:
     cyclic = model(relations=(*RELATIONS, Relation("m:c", "m:e")))
-    cycle = cyclic.cycle()
-    assert cycle is not None
-    assert sorted(cycle) == ["m:c", "m:e", "m:s"]
-    assert {(a, b) for a, b in zip(cycle, (*cycle[1:], cycle[0]), strict=True)} <= {
-        (r.source, r.target) for r in cyclic.relations
-    }
     with pytest.raises(ValueError, match="cycle"):
         cyclic.topological_order()
 

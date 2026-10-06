@@ -64,9 +64,10 @@ class Justification:
     """A justification model: its elements, and the directed graph their relations form.
 
     The graph is hidden (ADR-0016): ask the model for an element's supporters, the elements
-    it supports, a topological order or a cycle. Whatever it returns is in model order, the
-    order in which the model lists its elements, so that results are deterministic. A model
-    does not change once loaded.
+    it supports, a topological order or a cycle. Results are deterministic, ordered by model
+    order (the order in which the model lists its elements): supporters and supported
+    elements are sorted by it, the topological order breaks ties by it, and a cycle starts
+    from its element that comes first in it. A model does not change once loaded.
 
     Raises ``InvalidJustificationError`` if an id is declared twice (JP002) or a relation
     names an element that does not exist (JP003). Neither can be represented by the graph:
@@ -132,13 +133,16 @@ class Justification:
     def cycle(self) -> tuple[str, ...] | None:
         """The ids of the elements along one cycle of the graph, or ``None`` if it has none.
 
-        Each element supports the next, and the last one supports the first.
+        Each element supports the next, and the last one supports the first. The cycle is
+        listed in that direction, starting from its element that comes first in model order.
         """
         try:
             edges = nx.find_cycle(self._graph)
         except nx.NetworkXNoCycle:
             return None
-        return tuple(edge[0] for edge in edges)
+        cycle = [edge[0] for edge in edges]
+        start = cycle.index(min(cycle, key=self._rank.__getitem__))
+        return (*cycle[start:], *cycle[:start])
 
     def _in_model_order(self, element_ids: Iterable[str]) -> tuple[Element, ...]:
         return tuple(self._by_id[i] for i in sorted(element_ids, key=self._rank.__getitem__))
