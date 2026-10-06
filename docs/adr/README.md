@@ -28,3 +28,4 @@ and add a row to this table.
 | 0013 | Kind divergence under composition is a warning, not an error | reserved ([#119](https://github.com/jpipe-mcscert/jpipe-runner/issues/119)) |
 | [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted, amended by [0015](0015-draft-pull-request-per-milestone.md) |
 | [0015](0015-draft-pull-request-per-milestone.md) | Open each milestone's pull request as a draft when the milestone starts | accepted |
+| [0016](0016-hide-the-graph-inside-justification.md) | Hide the graph inside `Justification`; no NetworkX type in the public API | accepted |

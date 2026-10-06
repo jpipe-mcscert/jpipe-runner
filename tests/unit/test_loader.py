@@ -78,10 +78,8 @@ def test_a_compiler_model_loads() -> None:
     ]
     assert justification.element("release:e").aliases == ("base:e", "other:e")
     assert justification.element("release:c").aliases == ()
-    assert set(justification.graph.edges) == {
-        ("release:e", "release:s"),
-        ("release:s", "release:c"),
-    }
+    assert justification.supporters("release:s") == (justification.element("release:e"),)
+    assert justification.supporters("release:c") == (justification.element("release:s"),)
 
 
 def test_properties_the_runner_does_not_use_are_ignored() -> None:
@@ -197,6 +195,18 @@ def test_every_well_formed_model_loads_as_written(document: dict[str, Any]) -> N
     assert [(r.source, r.target) for r in justification.relations] == [
         (r["source"], r["target"]) for r in document["relations"]
     ]
-    assert set(justification.graph.edges) == {
+    assert {(s.id, e.id) for e in justification for s in justification.supporters(e.id)} == {
         (r["source"], r["target"]) for r in document["relations"]
     }
+
+
+@given(justifications())
+def test_every_element_comes_after_its_supporters(document: dict[str, Any]) -> None:
+    justification = loader.loads(json.dumps(document))
+    order = justification.topological_order()
+    position = {element.id: index for index, element in enumerate(order)}
+    assert sorted(position) == sorted(element.id for element in justification)
+    assert justification.cycle() is None
+    for element in justification:
+        for supporter in justification.supporters(element.id):
+            assert position[supporter.id] < position[element.id]

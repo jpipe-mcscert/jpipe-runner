@@ -3,6 +3,9 @@
 A model comes from the jPipe compiler (ADR-0001) and is read by ``jpipe_runner.loader``.
 A relation goes from the supporting element to the element it supports, so evidence are
 sources and the conclusion is the sink.
+
+The graph is a NetworkX ``DiGraph`` private to ``Justification``, which answers questions
+about it in the model's terms (ADR-0016). No NetworkX type crosses the public API.
 """
 
 from collections import Counter
@@ -58,11 +61,12 @@ class InvalidJustificationError(Exception):
 
 
 class Justification:
-    """A justification model, wrapping the directed graph of its elements.
+    """A justification model: its elements, and the directed graph their relations form.
 
-    The graph's nodes are element ids, each carrying its ``Element`` under the ``element``
-    attribute, and its edges are the relations. The graph is frozen: a model does not
-    change once loaded.
+    The graph is hidden (ADR-0016): ask the model for an element's supporters, the elements
+    it supports, a topological order or a cycle. Whatever it returns is in model order, the
+    order in which the model lists its elements, so that results are deterministic. A model
+    does not change once loaded.
 
     Raises ``InvalidJustificationError`` if an id is declared twice (JP002) or a relation
     names an element that does not exist (JP003). Neither can be represented by the graph:
@@ -78,9 +82,10 @@ class Justification:
         if problems:
             raise InvalidJustificationError(problems)
 
-        graph: nx.DiGraph[str] = nx.DiGraph(name=name)
-        for element in self._elements:
-            graph.add_node(element.id, element=element)
+        self._by_id = {element.id: element for element in self._elements}
+        self._rank = {element.id: rank for rank, element in enumerate(self._elements)}
+        graph: nx.DiGraph[str] = nx.DiGraph()
+        graph.add_nodes_from(self._by_id)
         graph.add_edges_from((relation.source, relation.target) for relation in self._relations)
         self._graph: nx.DiGraph[str] = nx.freeze(graph)
 
@@ -98,21 +103,48 @@ class Justification:
         """The relations, in the order the model lists them."""
         return self._relations
 
-    @property
-    def graph(self) -> "nx.DiGraph[str]":
-        """The frozen graph: nodes are element ids, edges go from supporter to supported."""
-        return self._graph
-
     def element(self, element_id: str) -> Element:
         """The element whose own id is ``element_id``. Aliases are not looked up here."""
         try:
-            element: Element = self._graph.nodes[element_id]["element"]
+            return self._by_id[element_id]
         except KeyError:
             raise KeyError(f"no element with id {element_id!r} in {self._name!r}") from None
-        return element
+
+    def supporters(self, element_id: str) -> tuple[Element, ...]:
+        """The elements that directly support ``element_id``, in model order."""
+        return self._in_model_order(self._graph.predecessors(self.element(element_id).id))
+
+    def supported(self, element_id: str) -> tuple[Element, ...]:
+        """The elements that ``element_id`` directly supports, in model order."""
+        return self._in_model_order(self._graph.successors(self.element(element_id).id))
+
+    def topological_order(self) -> tuple[Element, ...]:
+        """Every element after all of its supporters, ties broken by model order.
+
+        Raises ``ValueError`` if the graph has a cycle, which has no such order.
+        """
+        try:
+            ordered = nx.lexicographical_topological_sort(self._graph, key=self._rank.__getitem__)
+            return tuple(self._by_id[element_id] for element_id in ordered)
+        except nx.NetworkXUnfeasible:
+            raise ValueError(f"{self._name!r} has a cycle: {self.cycle()}") from None
+
+    def cycle(self) -> tuple[str, ...] | None:
+        """The ids of the elements along one cycle of the graph, or ``None`` if it has none.
+
+        Each element supports the next, and the last one supports the first.
+        """
+        try:
+            edges = nx.find_cycle(self._graph)
+        except nx.NetworkXNoCycle:
+            return None
+        return tuple(edge[0] for edge in edges)
+
+    def _in_model_order(self, element_ids: Iterable[str]) -> tuple[Element, ...]:
+        return tuple(self._by_id[i] for i in sorted(element_ids, key=self._rank.__getitem__))
 
     def __contains__(self, element_id: object) -> bool:
-        return element_id in self._graph
+        return isinstance(element_id, str) and element_id in self._by_id
 
     def __len__(self) -> int:
         return len(self._elements)

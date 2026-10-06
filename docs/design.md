@@ -74,8 +74,11 @@ the sources of the graph and the conclusion is its sink.
 arrows above are these references. An element also answers to its aliases, the ids of the
 elements that composition merged into it, which binding resolution uses.
 
-**The graph is NetworkX.** `Justification.graph` is a `DiGraph` whose nodes are element
-ids, each carrying its `Element`, and whose edges are the relations.
+**The graph is hidden inside `Justification`.** It is a NetworkX `DiGraph`, but no
+NetworkX type appears in the public API, and only `model` imports NetworkX. Callers ask the
+model instead: `supporters(id)`, `supported(id)`, `topological_order()` and `cycle()`.
+Every sequence the model returns is in model order, the order in which the model lists its
+elements, so results are deterministic; the topological order breaks ties the same way.
 
 **A model is immutable.** `Element`, `Relation` and `Diagnostic` are frozen dataclasses,
 and the graph is frozen once built.

@@ -1,10 +1,10 @@
-import networkx as nx
 import pytest
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind, Relation
 
 EVIDENCE = Element("m:e", "The tests pass", Kind.EVIDENCE)
+OTHER_EVIDENCE = Element("m:o", "The linter passes", Kind.EVIDENCE)
 STRATEGY = Element("m:s", "Check the tests", Kind.STRATEGY, aliases=("a:s", "b:s"))
 CONCLUSION = Element("m:c", "The code is tested", Kind.CONCLUSION)
 RELATIONS = (Relation("m:e", "m:s"), Relation("m:s", "m:c"))
@@ -41,17 +41,35 @@ def test_elements_and_relations_keep_the_model_order() -> None:
     assert repr(justification) == "Justification('m', 3 elements, 2 relations)"
 
 
-def test_the_graph_goes_from_supporter_to_supported() -> None:
-    graph = model().graph
-    assert set(graph.edges) == {("m:e", "m:s"), ("m:s", "m:c")}
-    assert list(nx.topological_sort(graph)) == ["m:e", "m:s", "m:c"]
-    assert graph.nodes["m:s"]["element"] is STRATEGY
-    assert graph.graph["name"] == "m"
+def test_relations_go_from_supporter_to_supported() -> None:
+    justification = model()
+    assert justification.supporters("m:s") == (EVIDENCE,)
+    assert justification.supported("m:s") == (CONCLUSION,)
+    assert justification.supporters("m:e") == ()
+    assert justification.supported("m:c") == ()
 
 
-def test_the_graph_is_frozen() -> None:
-    with pytest.raises(nx.NetworkXError):
-        model().graph.add_node("m:x")
+def test_supporters_come_in_model_order_not_relation_order() -> None:
+    justification = model(
+        elements=(CONCLUSION, OTHER_EVIDENCE, STRATEGY, EVIDENCE),
+        relations=(*RELATIONS, Relation("m:o", "m:s")),
+    )
+    assert justification.supporters("m:s") == (OTHER_EVIDENCE, EVIDENCE)
+
+
+def test_the_topological_order_breaks_ties_by_model_order() -> None:
+    assert model().topological_order() == (EVIDENCE, STRATEGY, CONCLUSION)
+    justification = model(
+        elements=(CONCLUSION, OTHER_EVIDENCE, STRATEGY, EVIDENCE),
+        relations=(*RELATIONS, Relation("m:o", "m:s")),
+    )
+    assert justification.topological_order() == (OTHER_EVIDENCE, EVIDENCE, STRATEGY, CONCLUSION)
+
+
+@pytest.mark.parametrize("query", ["element", "supporters", "supported"])
+def test_an_unknown_id_is_a_key_error(query: str) -> None:
+    with pytest.raises(KeyError, match="m:x"):
+        getattr(model(), query)("m:x")
 
 
 def test_elements_are_looked_up_by_their_own_id() -> None:
@@ -59,13 +77,28 @@ def test_elements_are_looked_up_by_their_own_id() -> None:
     assert justification.element("m:s") is STRATEGY
     assert "m:s" in justification
     assert "a:s" not in justification  # aliases are resolved by binding (#115), not here
-    with pytest.raises(KeyError, match="m:x"):
-        justification.element("m:x")
+    assert 1 not in justification
+    assert ["m:s"] not in justification
 
 
-def test_a_cycle_is_left_to_validation() -> None:
+def test_an_acyclic_model_has_no_cycle() -> None:
+    assert model().cycle() is None
+
+
+def test_a_cycle_is_reported_and_left_to_validation() -> None:
     cyclic = model(relations=(*RELATIONS, Relation("m:c", "m:e")))
-    assert not nx.is_directed_acyclic_graph(cyclic.graph)
+    cycle = cyclic.cycle()
+    assert cycle is not None
+    assert sorted(cycle) == ["m:c", "m:e", "m:s"]
+    assert {(a, b) for a, b in zip(cycle, (*cycle[1:], cycle[0]), strict=True)} <= {
+        (r.source, r.target) for r in cyclic.relations
+    }
+    with pytest.raises(ValueError, match="cycle"):
+        cyclic.topological_order()
+
+
+def test_an_element_supporting_itself_is_a_cycle() -> None:
+    assert model(relations=(*RELATIONS, Relation("m:e", "m:e"))).cycle() == ("m:e",)
 
 
 def codes(error: pytest.ExceptionInfo[InvalidJustificationError]) -> list[tuple[str, str | None]]:
