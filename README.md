@@ -69,7 +69,8 @@ configuration lives in [`pyproject.toml`](pyproject.toml).
 ## Contributing
 
 [`docs/contributing.md`](docs/contributing.md) explains how to contribute: branches, pull
-requests and releases. [`tests/README.md`](tests/README.md) describes the test architecture.
+requests and releases. [`docs/design.md`](docs/design.md) describes how the runner is built,
+and [`tests/README.md`](tests/README.md) the test architecture.
 Pull requests go through a SonarCloud quality gate
 ([ADR-0004](docs/adr/0004-sonarcloud-quality-gate.md)).
 

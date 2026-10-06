@@ -10,6 +10,13 @@ The prerequisites, the installation steps and the commands CI runs are in the
 [`tests/README.md`](../tests/README.md) describes the test architecture. Pull requests go
 through a SonarCloud quality gate ([ADR-0004](adr/0004-sonarcloud-quality-gate.md)).
 
+## Design documentation
+
+[`design.md`](design.md) describes how the runner is built: a diagram of the modules, then
+a class diagram. Update it in the same commit as a change to the design. A unit test,
+`tests/unit/test_design_doc.py`, fails when the modules, the imports between them (the
+solid arrows) or the classes of each module disagree with the code.
+
 ## Branches
 
 There is one long-lived branch, `main`, which holds the v4 rewrite that becomes 4.0.0.

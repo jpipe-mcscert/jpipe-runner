@@ -15,6 +15,13 @@
 > **v3, for reference only.** `src/` and `tests/` were deleted for the v4 rewrite (#107);
 > this section and *Critical Files* describe v3 as it is at the `v3.6.0` tag
 > (`git show v3.6.0:<path>`). They are rewritten for v4 in #129.
+>
+> **The v4 design is in [`docs/design.md`](docs/design.md)**: a Mermaid module diagram and
+> a high-level class diagram (no members). Keep it in step with the code, in the same
+> commit: `tests/unit/test_design_doc.py` fails when a module is missing from the module
+> diagram, when its solid arrows are not exactly the imports between modules, or when a
+> module's public classes differ from its `namespace` in the class diagram. The page itself
+> does not mention tests or ADRs.
 
 ```
 CLI (runner.py:main)
