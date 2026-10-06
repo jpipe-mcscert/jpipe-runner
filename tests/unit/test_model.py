@@ -68,8 +68,9 @@ def test_the_topological_order_breaks_ties_by_model_order() -> None:
 
 @pytest.mark.parametrize("query", ["element", "supporters", "supported"])
 def test_an_unknown_id_is_a_key_error(query: str) -> None:
+    lookup = getattr(model(), query)
     with pytest.raises(KeyError, match="m:x"):
-        getattr(model(), query)("m:x")
+        lookup("m:x")
 
 
 def test_elements_are_looked_up_by_their_own_id() -> None:
@@ -128,11 +129,10 @@ def test_a_relation_to_an_unknown_element_is_reported(relation: Relation) -> Non
 
 
 def test_every_structural_problem_is_reported_together() -> None:
+    elements = (CONCLUSION, STRATEGY, EVIDENCE, EVIDENCE, STRATEGY)
+    relations = (Relation("m:x", "m:c"), Relation("m:e", "m:y"))
     with pytest.raises(InvalidJustificationError) as error:
-        model(
-            elements=(CONCLUSION, STRATEGY, EVIDENCE, EVIDENCE, STRATEGY),
-            relations=(Relation("m:x", "m:c"), Relation("m:e", "m:y")),
-        )
+        model(elements=elements, relations=relations)
     assert codes(error) == [("JP002", "m:s"), ("JP002", "m:e"), ("JP003", None), ("JP003", None)]
 
 
