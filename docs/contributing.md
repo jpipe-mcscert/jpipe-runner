@@ -17,6 +17,14 @@ a class diagram. Update it in the same commit as a change to the design. A unit 
 `tests/unit/test_design_doc.py`, fails when the modules, the imports between them (the
 solid arrows) or the classes of each module disagree with the code.
 
+## Spelling
+
+The project writes Canadian English: *colour*, *behaviour*, *centre*, *organize*, *analyze*,
+*modelled*, *defence*, *licence* (the noun), *artifact*. This covers the documentation, the
+CHANGELOG, docstrings, comments, messages and identifiers. Third-party text kept verbatim
+and the keys of external formats (`license` in `pyproject.toml`) are left as they are.
+[`tests/unit/test_spelling.py`](../tests/unit/test_spelling.py) checks it.
+
 ## Branches
 
 There is one long-lived branch, `main`, which holds the v4 rewrite that becomes 4.0.0.
@@ -33,7 +41,7 @@ The reasons are recorded in
 
 1. Work on the milestone's branch. Cut it from `main` if it does not exist yet. When it is
    first pushed, open its pull request into `main` **as a draft**, on the milestone's GitHub
-   milestone, so that SonarCloud analyses every push
+   milestone, so that SonarCloud analyzes every push
    ([ADR-0015](adr/0015-draft-pull-request-per-milestone.md)).
 2. Commit each ticket as one or more commits. End the message of the commit that completes
    the ticket with `Closes #N`.

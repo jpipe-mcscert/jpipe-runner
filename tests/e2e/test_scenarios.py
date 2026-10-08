@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.golden import assert_matches_golden, normalise
+from tests.golden import assert_matches_golden, normalize
 from tests.scenarios import EXIT_CODES, GOLDEN_FILE, Scenario, discover
 
 # The scenarios drive the CLI, which arrives with M6. Until then they are collected and
@@ -39,5 +39,5 @@ def test_scenario(scenario: Scenario, tmp_path: Path, update_goldens: bool) -> N
     )
     # tmp_path may sit behind a symlink (macOS: /var -> /private/var); hide both spellings.
     paths = {str(workdir): "<scenario>", str(workdir.resolve()): "<scenario>"}
-    report = normalise(json.loads(result.stdout), paths)
+    report = normalize(json.loads(result.stdout), paths)
     assert_matches_golden(report, scenario.golden, update=update_goldens)

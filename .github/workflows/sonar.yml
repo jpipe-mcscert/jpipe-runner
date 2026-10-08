@@ -8,8 +8,8 @@
 name: SonarQube
 
 on:
-  # `main` and pull requests only, unlike ci.yml. The organisation's SonarQube Cloud plan
-  # analyses the main branch and pull requests but refuses other branches ("Organization is
+  # `main` and pull requests only, unlike ci.yml. The organization's SonarQube Cloud plan
+  # analyzes the main branch and pull requests but refuses other branches ("Organization is
   # not allowed to access data from non main branches"), so a milestone branch gets its
   # gate when its pull request is opened (ADR-0004).
   push:

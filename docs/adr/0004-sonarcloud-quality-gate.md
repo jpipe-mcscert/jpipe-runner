@@ -16,7 +16,7 @@ parsed and never read), a function that always returned `True`, f-strings missin
 `f`.
 
 A SonarCloud project, `jpipe-mcscert_jpipe-runner`, already existed in the `jpipe-mcscert`
-organisation. It was on *Automatic Analysis*, which runs without the project's own build
+organization. It was on *Automatic Analysis*, which runs without the project's own build
 and so cannot import coverage. Its last analysis was on 2026-04-22, and nothing read it.
 The sibling repositories already gate on SonarCloud with CI-based analysis:
 `jpipe-compiler` through Maven, and `jpipe-vscode` through a dedicated `sonar.yml`
@@ -32,7 +32,7 @@ top of those, decides whether a change is good enough to merge?
   and says nothing about the change under review. For a rewrite, all code is new.
 - Free for a public repository, with nothing to host.
 - The same tool and conventions as the other jPipe repositories, so one dashboard covers
-  the organisation.
+  the organization.
 - Analysis must include coverage, so it has to run in CI, after the tests.
 
 ## Considered Options
@@ -57,7 +57,7 @@ Chosen option: **2, SonarCloud with CI-based analysis.**
   gate fails the check. It runs on pushes to `main` and on pull requests into `main`.
   Pull requests from forks are skipped, because they get no `SONAR_TOKEN`.
   It does **not** run on milestone branches, unlike `ci.yml` (ADR-0014): the
-  organisation's SonarQube Cloud plan analyses the main branch and pull requests, and
+  organization's SonarQube Cloud plan analyzes the main branch and pull requests, and
   refuses any other branch ("Organization is not allowed to access data from non main
   branches"). This was found on the first run, from `m0-foundation`. It is a
   workflow of its own, so `ci.yml` keeps no secret in its environment and a SonarCloud
@@ -76,7 +76,7 @@ Chosen option: **2, SonarCloud with CI-based analysis.**
 - Bad, because the gate depends on an external service and a secret. An outage or an
   expired token fails the `SonarQube` check, though not `ci.yml`.
 - Bad, because the tests run twice per push, once in `ci.yml` and once in `sonar.yml`.
-- Neutral, because a milestone branch is analysed through its pull request, which is
+- Neutral, because a milestone branch is analyzed through its pull request, which is
   therefore opened as a draft when the milestone starts (ADR-0015).
 - Bad, because some of the setup lives outside the repository. It is done once, by a
   maintainer:
@@ -112,7 +112,7 @@ Chosen option: **2, SonarCloud with CI-based analysis.**
 - Good, because both are free for public repositories, and CodeQL is native to GitHub.
 - Bad, because that makes two services to configure where one would do, and neither
   combines its results into a single gate.
-- Bad, because it would differ from the rest of the jPipe organisation.
+- Bad, because it would differ from the rest of the jPipe organization.
 
 ## More Information
 

@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-`jpipe-runner` is a **Python CLI tool and GitHub Action** (v4 in development, `4.0.0.dev0`; v3 frozen at 3.6.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualise results.
+`jpipe-runner` is a **Python CLI tool and GitHub Action** (v4 in development, `4.0.0.dev0`; v3 frozen at 3.6.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualize results.
 
 - **Language**: Python ≥ 3.11
 - **Build tool**: Poetry
-- **License**: MIT
+- **Licence**: MIT
 - **Distribution**: PyPI, Ubuntu PPA (Launchpad), Homebrew, GitHub Releases
 - **Upstream**: `jpipe-mcscert/jpipe-runner`
 
@@ -86,6 +86,19 @@ poetry run mypy              # --strict, over src/
 - The quality gate is SonarCloud (`sonar-project.properties`, `.github/workflows/sonar.yml`,
   [ADR-0004](docs/adr/0004-sonarcloud-quality-gate.md)); it reads the `coverage.xml` pytest writes.
 
+## Spelling
+
+**Canadian spelling, project-wide**: prose, docs, ADRs, CHANGELOG, docstrings, comments,
+messages and our own identifiers. That is `-our` (colour, behaviour), `-re` (centre),
+`-ize`/`-yze` (organize, analyze, normalize), a doubled `l` (modelled, labelled), `-ence`
+(defence), *licence* as a noun and *license* as a verb, and **artifact**. Not changed:
+third-party text kept verbatim (the Contributor Covenant, quoted messages), the keys and
+names of external formats (`license` in `pyproject.toml`, GitHub's branding key in
+`action.yml`, the `LICENSE` file), compiler output and mock data.
+`tests/unit/test_spelling.py` flags the British `-ise`/`-yse` and the American
+`-or`/`-er`/single-`l`/`-ense` forms; extend its exceptions rather than misspelling to
+please it. Issue and PR text follows the same rule.
+
 ## Branching
 
 One long-lived branch, `main` (the default branch), plus one branch per v4 milestone
@@ -99,7 +112,7 @@ the `v3.6.0` tag.
 - Ticket work goes on its milestone's branch, as one or more commits; the commit that
   completes a ticket ends with `Closes #N`.
 - Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
-  pushed (SonarCloud only analyses `main` and PRs on this plan). An assistant opens it only
+  pushed (SonarCloud only analyzes `main` and PRs on this plan). An assistant opens it only
   when the maintainer asks; otherwise it pushes the branch and stops.
 - **Before a milestone is complete, update [`docs/v4-progress.md`](docs/v4-progress.md)**
   on its branch: set the milestone's row to done (with its issues and ADRs), add a
@@ -141,7 +154,7 @@ the `v3.6.0` tag.
    derive from it). Use SemVer. Between releases it is a PEP 440 dev version
    (`4.0.0.dev0` during the v4 rewrite) that `validate-version` refuses to tag; a release
    replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
-   version tests compare the installed (normalised) version to the raw string.
+   version tests compare the installed (normalized) version to the raw string.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
 3. Land both on `main` (last commit of the released milestone, or a maintainer
    commit on `main`); wait for CI.

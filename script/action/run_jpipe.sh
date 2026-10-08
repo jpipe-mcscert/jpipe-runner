@@ -125,7 +125,7 @@ if [[ ${#GENERATED[@]} -eq 0 ]]; then
   echo "No diagram file found in $OUTPUT_DIR"
   # Preserve the runner's own exit code. Hard-coding result=1 here masked the real
   # failure reason (e.g. an exit code of 2) and made the final "Fail if jPipe
-  # Runner failed" step exit with the wrong code. Only synthesise a failure when
+  # Runner failed" step exit with the wrong code. Only synthesize a failure when
   # the runner itself reported success but produced nothing.
   if [[ "$RESULT" -eq 0 ]]; then
     if [[ "${DRY_RUN:-false}" == "true" ]]; then

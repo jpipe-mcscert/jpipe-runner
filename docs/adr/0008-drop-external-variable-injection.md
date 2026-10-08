@@ -69,7 +69,7 @@ value in a run is produced by a step bound to an element of the model.
 - Good, because a run is reproduced from the model, the library and the world the
   evidence observes, with no command line to recover.
 - Good, because one runtime dependency less, for PyPI, Debian and Homebrew users alike.
-- Bad, because a pipeline parameterised from the command line, such as a threshold changed
+- Bad, because a pipeline parameterized from the command line, such as a threshold changed
   per run, must now read it in a step, for example from an environment variable. The
   migration guide (#129) shows how.
 - Bad, because a CI workflow that passed `--config-file` or `--variable` breaks on v4.

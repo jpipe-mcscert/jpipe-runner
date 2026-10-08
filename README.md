@@ -75,7 +75,7 @@ and [`tests/README.md`](tests/README.md) the test architecture.
 Pull requests go through a SonarCloud quality gate
 ([ADR-0004](docs/adr/0004-sonarcloud-quality-gate.md)).
 
-## License
+## Licence
 
 MIT. See [LICENSE](LICENSE).
 
