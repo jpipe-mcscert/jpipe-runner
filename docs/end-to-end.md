@@ -5,7 +5,7 @@ written in jPipe becomes a model the runner reads, how a Python step library is 
 to it, and what the runner does with the two. The test suite runs the same example (and
 others) for coverage. This page is meant to be read.
 
-v4 is still being built ([status](../README.md#what-v4-can-do-so-far)). Steps 1 to 4 work
+v4 is still being built ([progress](v4-progress.md)). Steps 1 to 4 work
 today. Steps 5 to 7 describe what the next milestones build, and are marked as such. This
 page grows with each milestone.
 

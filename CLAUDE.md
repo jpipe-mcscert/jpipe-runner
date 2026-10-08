@@ -101,10 +101,12 @@ the `v3.6.0` tag.
 - Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
   pushed (SonarCloud only analyses `main` and PRs on this plan). An assistant opens it only
   when the maintainer asks; otherwise it pushes the branch and stops.
-- **Before a milestone is complete, update the README's *What v4 can do so far* section**
-  on its branch: set the milestone's row in the status table to done, and add a subsection
-  listing the user-visible features it added (what a user can now do, not the modules
-  built). This is part of the milestone's work, like the CHANGELOG, and lands in its PR.
+- **Before a milestone is complete, update [`docs/v4-progress.md`](docs/v4-progress.md)**
+  on its branch: set the milestone's row to done (with its issues and ADRs), add a
+  subsection under *What v4 can do so far* listing the user-visible features it added
+  (what a user can now do, not the modules built), and extend *Gone from v3* if it removed
+  anything. This is part of the milestone's work, like the CHANGELOG, and lands in its PR.
+  The README only points to that page.
 - **In the same way, bring [`docs/end-to-end.md`](docs/end-to-end.md) up to date.** It
   walks the release example from `.jd` to verdict for human readers (the e2e scenarios are
   for coverage). Turn each stage the milestone built from *planned* into what actually
