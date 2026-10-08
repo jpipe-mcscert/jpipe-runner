@@ -29,7 +29,7 @@ UNSET: Final = Unset.UNSET
 
 
 @dataclass(frozen=True)
-class Value:
+class ProducedValue:
     """A produced value, and the id of the element whose step produced it."""
 
     value: Any
@@ -45,7 +45,7 @@ class ValueStore:
     """
 
     def __init__(self) -> None:
-        self._values: dict[str, Value] = {}
+        self._values: dict[str, ProducedValue] = {}
 
     def put(self, name: str, value: Any, produced_by: str) -> None:
         """Record that the step bound to the element ``produced_by`` produced ``name``."""
@@ -54,7 +54,7 @@ class ValueStore:
                 f"{name!r} is produced by {produced_by!r}, "
                 f"but {existing.produced_by!r} already produced it"
             )
-        self._values[name] = Value(value, produced_by)
+        self._values[name] = ProducedValue(value, produced_by)
 
     def get(self, name: str) -> Any:
         """The value of ``name``, or ``UNSET`` if nothing has produced it."""
@@ -66,7 +66,7 @@ class ValueStore:
         entry = self._values.get(name)
         return None if entry is None else entry.produced_by
 
-    def entries(self) -> Iterator[tuple[str, Value]]:
+    def entries(self) -> Iterator[tuple[str, ProducedValue]]:
         """Every produced variable and its value, in the order they were produced."""
         return iter(self._values.items())
 

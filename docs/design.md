@@ -74,7 +74,7 @@ classDiagram
 
     namespace values {
         class ValueStore
-        class Value
+        class ProducedValue
         class Unset
     }
 
@@ -113,8 +113,8 @@ classDiagram
     Binding --> Step : step
     Resolver ..> AmbiguousIdError : raises
     LookupError <|-- AmbiguousIdError
-    ValueStore "1" *-- "*" Value : values
-    Value ..> Element : produced_by
+    ValueStore "1" *-- "*" ProducedValue : values
+    ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
     Outcome <|-- Fail
     Outcome <|-- Skip
@@ -178,7 +178,7 @@ declares is a `StepRegistry`; what a run produces is a `ValueStore`. Both are bu
 run and dropped with it, and no module holds one, so two runs in one process share
 nothing. `StepRegistry.from_modules` scans the namespaces of a library's modules for
 steps, each listed once, in order, so a module that Python has cached is collected again
-as it is. A `ValueStore` maps each variable to its `Value`: what was produced, and the id
+as it is. A `ValueStore` maps each variable to its `ProducedValue`: what was produced, and the id
 of the element whose step produced it. A variable is produced once, and one that nothing
 has produced reads as `UNSET`, which is not `None`: `None` is a value a step can produce.
 

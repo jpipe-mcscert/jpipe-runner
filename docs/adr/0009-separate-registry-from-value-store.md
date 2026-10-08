@@ -63,7 +63,7 @@ each has a single, typed job.
   when a run starts. A registry filled at import time could not be rebuilt for a second
   run, because Python caches imported modules and does not run their decorators again.
 - **`ValueStore`** (`jpipe_runner.values`) is created per run and owned by the engine
-  (#120). It maps each variable to a `Value(value, produced_by)`, where `produced_by` is the
+  (#120). It maps each variable to a `ProducedValue(value, produced_by)`, where `produced_by` is the
   id of the element whose step produced it. A variable is produced once; a second `put` is
   a `ValueError`, since validation rejects two producers before the run (JP010).
 - **`UNSET`** is what `get` returns for a variable nothing has produced. It is the single

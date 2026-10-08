@@ -84,7 +84,7 @@ def test_produced_values_cannot_be_changed() -> None:
 def test_outcomes_compare_by_kind_and_content() -> None:
     assert Pass(a=1) == Pass({"a": 1})
     assert Pass(a=1) != Pass(a=2)
-    assert Fail("x") == Fail("x")
+    assert Fail("x") == Fail(reason="x")
     assert Fail("x") != Skip("x")
 
 

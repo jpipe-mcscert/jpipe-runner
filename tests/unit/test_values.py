@@ -4,7 +4,7 @@ import ast
 
 import pytest
 
-from jpipe_runner.values import UNSET, Value, ValueStore
+from jpipe_runner.values import UNSET, ProducedValue, ValueStore
 from tests.conftest import REPO_ROOT
 
 PACKAGE = REPO_ROOT / "src" / "jpipe_runner"
@@ -52,7 +52,10 @@ def test_values_are_listed_in_the_order_produced() -> None:
     store.put("b", 2, produced_by="m:e2")
     store.put("a", 1, produced_by="m:e1")
     assert list(store) == ["b", "a"]
-    assert list(store.entries()) == [("b", Value(2, "m:e2")), ("a", Value(1, "m:e1"))]
+    assert list(store.entries()) == [
+        ("b", ProducedValue(2, "m:e2")),
+        ("a", ProducedValue(1, "m:e1")),
+    ]
     assert len(store) == 2
     assert repr(store) == "ValueStore(2 values)"
 
