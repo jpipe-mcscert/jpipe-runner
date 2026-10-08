@@ -5,9 +5,9 @@ written in jPipe becomes a model the runner reads, how a Python step library is 
 to it, and what the runner does with the two. The test suite runs the same example (and
 others) for coverage. This page is meant to be read.
 
-v4 is still being built ([progress](v4-progress.md)). Steps 1 to 5 work
-today. Steps 6 and 7 describe what the next milestones build, and are marked as such. This
-page grows with each milestone.
+v4 is still being built ([progress](v4-progress.md)). Steps 1 to 6 work
+today. Step 7 describes what the next milestones build, and is marked as such. This page
+grows with each milestone.
 
 The example is the release argument of the [jPipe tutorials](https://www.jpipe.org/tutorials/),
 whose source lives in
@@ -223,17 +223,80 @@ JP012 error [release:e1]: the evidence steps.the_test_suite_passes produces 'tes
 The second follows from the first: with the typo, nothing reads what `e1` observed, and
 an evidence whose findings nobody uses supports nothing.
 
-## 6. Running the steps (planned, M4)
+## 6. Running the steps
 
-The runner will call the functions supporters first, `e1` and `e2` then `s`, passing each
-the values its supporters produced, and record each outcome
-([#120](https://github.com/jpipe-mcscert/jpipe-runner/issues/120)). With both mock files in
-place, `e1` and `e2` pass, so `s` receives `tests_pass=True` and `changelog_ok=True` and
-passes, and the conclusion, which has no function of its own, holds: version 2.0 is ready
-to ship.
+Once the library passes validation, the runner calls the functions supporters first:
+`e1` and `e2`, then `s`. Before calling an evidence, it checks that each artifact it
+observes is there, and records it: its path, its SHA-256 and its size, as the function is
+about to read it ([ADR-0019](adr/0019-evidence-observes-files.md)). Then it passes each
+function what it observes and consumes, and records what it returns
+([ADR-0021](adr/0021-execution-semantics.md)).
 
-A failing or skipped step does not let what it supports run: those are skipped, and the
-report will say which step stopped them.
+There is no command line or report yet (step 7), so what follows lists, for each element
+in the order it was run, its status, the function bound to it, the files it observed, and
+why it did not pass, if it did not. With both mock files in place, everything passes:
+
+```
+pass  release:e1  steps.the_test_suite_passes
+      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
+pass  release:e2  steps.the_changelog_is_up_to_date
+      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
+pass  release:s   steps.all_release_gates_pass
+pass  release:c   (no function)
+verdict: pass
+```
+
+`s` received `tests_pass=True` and `changelog_ok=True`, and passed. The conclusion has no
+function: it passes because what supports it passes. Version 2.0 is ready to ship.
+
+**A check that does not hold.** Suppose the test report records two failures,
+`failures="2"` in `mock/junit.xml`. The first evidence fails, with the reason its
+function gave. Nothing above it can be judged: `s` would need `tests_pass`, which `e1`
+never produced. So `s` and the conclusion are skipped, not called, and each names the
+element that stopped it. `e2` does not depend on `e1`, and still runs.
+
+```
+fail  release:e1  steps.the_test_suite_passes
+      observed mock/junit.xml (sha256 f757d068913c…, 187 bytes)
+      mock/junit.xml: 2 tests failed
+pass  release:e2  steps.the_changelog_is_up_to_date
+      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
+skip  release:s   steps.all_release_gates_pass
+      not run: release:e1 did not pass
+skip  release:c   (no function)
+      not run: release:e1 did not pass
+verdict: fail
+```
+
+A step that returns `Skip(reason)` stops what it supports in the same way. A
+justification in which nothing failed, but something was skipped, is not established:
+its verdict is `skip`.
+
+**An artifact that is not there.** If the tests have not run yet, `mock/junit.xml` does
+not exist. The runner does not call `the_test_suite_passes` at all: the evidence fails,
+and the diagnostic says that the check could not look, rather than that it said no.
+
+```
+fail  release:e1  steps.the_test_suite_passes
+      observed mock/junit.xml (unreachable)
+      mock/junit.xml, observed as 'report', does not exist
+pass  release:e2  steps.the_changelog_is_up_to_date
+      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
+skip  release:s   steps.all_release_gates_pass
+      not run: release:e1 did not pass
+skip  release:c   (no function)
+      not run: release:e1 did not pass
+verdict: fail
+```
+
+```
+JP019 error [release:e1]: mock/junit.xml, observed as 'report', does not exist
+  fix: Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.
+```
+
+A function that raises an exception fails its element in the same way, with `JP022` and
+the traceback from its own code, and so does one that returns `True` (`JP017`). Each
+broken step fails its element, and the run goes on, so one run reports them all.
 
 ## 7. Reading the verdict (planned, M5 and M6)
 
@@ -242,7 +305,10 @@ will report each element's status and the run's verdict, as text
 ([#121](https://github.com/jpipe-mcscert/jpipe-runner/issues/121)) or as JSON
 ([#122](https://github.com/jpipe-mcscert/jpipe-runner/issues/122)), and can draw the
 argument as a diagram ([#123](https://github.com/jpipe-mcscert/jpipe-runner/issues/123)).
-Its exit code tells a CI pipeline whether the justification holds.
+The report will list the artifacts each evidence observed, so that a CI pipeline can
+archive them with the verdict ([#145](https://github.com/jpipe-mcscert/jpipe-runner/issues/145)).
+Its exit code tells a CI pipeline whether the justification holds: a skipped
+justification exits 0, unless the run is strict.
 
 ## When something is wrong
 
@@ -314,8 +380,8 @@ Two things happened:
 - **The hook changed kind but kept its id.** `refine` merged the draft's evidence `tests`
   and the conclusion of `tested` into one sub-conclusion, `readiness:hook`, which keeps
   both old ids as aliases. The draft's check for "the test suite passes" therefore still
-  binds, to a node that is now argued in full below it. When it runs, it will run as an
-  independent cross-check of that sub-argument.
+  binds, to a node that is now argued in full below it. It runs as an independent
+  cross-check of that sub-argument.
 
 Validation points the change of kind out, as a warning rather than an error
 ([ADR-0013](adr/0013-kind-divergence-under-composition.md)). It is the only thing it
@@ -324,4 +390,25 @@ reports on the refined model, so the run goes on:
 ```
 JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
   fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
+```
+
+The run calls `the_test_suite_passes` of the draft after the argument of `tested` below
+it, and only because that argument passed. Both libraries observe `mock/junit.xml`, and
+both record the same file:
+
+```
+pass  readiness:draft:changelog   draft_steps.the_changelog_is_up_to_date
+      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
+pass  readiness:draft:docs        draft_steps.the_changelog_and_api_docs_are_current
+pass  readiness:draft:documented  (no function)
+pass  readiness:tested:suite      tested_steps.the_test_suite_passes
+      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
+pass  readiness:tested:coverage   tested_steps.coverage_is_above_80
+      observed mock/coverage.txt (sha256 83a626104926…, 5 bytes)
+pass  readiness:tested:testing    tested_steps.the_test_suite_passes_with_high_coverage
+pass  readiness:hook              draft_steps.the_test_suite_passes
+      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
+pass  readiness:draft:gates       draft_steps.all_release_gates_pass
+pass  readiness:draft:ready       (no function)
+verdict: pass
 ```
