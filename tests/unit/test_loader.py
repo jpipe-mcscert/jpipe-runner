@@ -206,7 +206,6 @@ def test_every_element_comes_after_its_supporters(document: dict[str, Any]) -> N
     order = justification.topological_order()
     position = {element.id: index for index, element in enumerate(order)}
     assert sorted(position) == sorted(element.id for element in justification)
-    assert justification.cycle() is None
     for element in justification:
         for supporter in justification.supporters(element.id):
             assert position[supporter.id] < position[element.id]

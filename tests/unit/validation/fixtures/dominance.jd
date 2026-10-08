@@ -1,0 +1,28 @@
+// A claim argued in one source ("argued:tested", a sub-conclusion) is only asserted in the
+// other ("checked:tests", an evidence). Unification merges them by label, and the merged
+// element takes the dominant kind: a sub-conclusion subsumes an evidence.
+
+justification checked {
+  conclusion ready is "Version 2.0 is ready to ship"
+  strategy gates is "All release gates pass"
+  gates supports ready
+  evidence tests is "The code is tested"
+  tests supports gates
+}
+
+justification argued {
+  conclusion done is "The release is documented"
+  strategy docs is "The changelog and API docs are current"
+  docs supports done
+  sub-conclusion tested is "The code is tested"
+  tested supports docs
+  strategy testing is "The test suite passes with high coverage"
+  testing supports tested
+  evidence suite is "The test suite passes"
+  suite supports testing
+}
+
+justification release is assemble(checked, argued) {
+  conclusionLabel: "Version 2.0 can be released"
+  strategyLabel: "Both arguments hold"
+}

@@ -3,8 +3,8 @@
 ``@evidence``, ``@strategy``, ``@sub_conclusion`` and ``@conclusion`` declare a function as
 the step implementing the elements whose ids they are given, and the variables it consumes
 and produces. The kind is the decorator, so its signature allows only what that kind can
-do: evidence observes the world and consumes nothing, a conclusion is terminal and
-produces nothing.
+do: evidence observes artifacts of the world (``observes``) and consumes nothing, a
+conclusion is terminal and produces nothing.
 
 A decorator registers nothing. It attaches a ``Step`` to the function and returns the
 function unchanged, so a step stays a plain function that a test can call. A
@@ -12,15 +12,17 @@ function unchanged, so a step stays a plain function that a test can call. A
 is no process-wide state for two runs to share (ADR-0009).
 
 Mistakes visible in the declaration alone are a ``TypeError`` when the module is imported:
-no id, a variable name that is not a Python identifier, a parameter that is not consumed or
-a consumed variable that is not a parameter. Whether the ids designate elements, and the
+no id, a variable or parameter name that is not a Python identifier, an absolute path, a
+parameter that is neither consumed nor observed, or a consumed variable or observed
+artifact that is not a parameter. Whether the ids designate elements, and the
 variables flow, depends on the model, and is checked against it (#115, #119).
 """
 
 import inspect
 import keyword
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
+from pathlib import PurePosixPath, PureWindowsPath
 from types import ModuleType
 from typing import Any, TypeVar
 
@@ -33,6 +35,30 @@ _STEP = "__jpipe_step__"
 """The attribute under which a decorated function carries its ``Step``."""
 
 _KEYWORD_ARGUMENT = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+
+_WILDCARDS = frozenset("*?[")
+
+
+@dataclass(frozen=True)
+class Artifact:
+    """An artifact an evidence observes: a file, a directory or a glob of files (ADR-0018).
+
+    ``path`` is relative to the run's working directory. The runner passes the artifact to
+    the step's parameter ``name``: a ``Path``, or the sorted ``list[Path]`` a glob matches.
+    """
+
+    name: str
+    path: str
+
+    @property
+    def is_glob(self) -> bool:
+        """Whether ``path`` is a pattern, which may match several files."""
+        return not _WILDCARDS.isdisjoint(self.path)
+
+    @property
+    def is_directory(self) -> bool:
+        """Whether ``path`` names a directory, written with a trailing ``/``."""
+        return self.path.endswith("/")
 
 
 @dataclass(frozen=True)
@@ -47,6 +73,8 @@ class Step:
     """The variables it consumes, passed to the function as keyword arguments."""
     produces: tuple[str, ...] = ()
     """The variables it produces, returned in ``Pass``."""
+    observes: tuple[Artifact, ...] = ()
+    """The artifacts it observes, passed to the function by name. Only evidence observes."""
 
     @property
     def name(self) -> str:
@@ -54,10 +82,14 @@ class Step:
         return f"{self.function.__module__}.{self.function.__qualname__}"
 
 
-def evidence(*ids: str, produces: Iterable[str] = ()) -> Callable[[StepFunction], StepFunction]:
-    """Declare the step for the evidence ``ids``. Evidence observes the world: it consumes
-    nothing, and produces what it observed."""
-    return _declare(Kind.EVIDENCE, ids, consumes=(), produces=produces)
+def evidence(
+    *ids: str, observes: Mapping[str, str] | None = None, produces: Iterable[str] = ()
+) -> Callable[[StepFunction], StepFunction]:
+    """Declare the step for the evidence ``ids``. Evidence observes the world: ``observes``
+    maps each of the function's parameters to the artifact passed to it, a path relative to
+    the run's working directory. It consumes nothing, and produces what it observed."""
+    artifacts = _artifacts(Kind.EVIDENCE, {} if observes is None else observes)
+    return _declare(Kind.EVIDENCE, ids, consumes=(), produces=produces, observes=artifacts)
 
 
 def strategy(
@@ -128,9 +160,14 @@ class StepRegistry:
 
 
 def _declare(
-    kind: Kind, ids: tuple[str, ...], *, consumes: Iterable[str], produces: Iterable[str]
+    kind: Kind,
+    ids: tuple[str, ...],
+    *,
+    consumes: Iterable[str],
+    produces: Iterable[str],
+    observes: tuple[Artifact, ...] = (),
 ) -> Callable[[StepFunction], StepFunction]:
-    decorator = f"@{kind.value.replace('-', '_')}"
+    decorator = _decorator(kind)
     if len(ids) == 1 and callable(ids[0]):
         raise TypeError(
             f'{decorator} takes the ids of the elements it implements: {decorator}("id")'
@@ -154,11 +191,52 @@ def _declare(
                 f"{function.__qualname__} is already declared as {existing.kind} "
                 f"{existing.ids}: one function is one step"
             )
-        _check_signature(decorator, function, consumed)
-        setattr(function, _STEP, Step(kind, ids, function, consumed, produced))
+        _check_signature(decorator, function, consumed, observes)
+        setattr(function, _STEP, Step(kind, ids, function, consumed, produced, observes))
         return function
 
     return declare
+
+
+def _decorator(kind: Kind) -> str:
+    return f"@{kind.value.replace('-', '_')}"
+
+
+def _artifacts(kind: Kind, observes: Mapping[str, str]) -> tuple[Artifact, ...]:
+    decorator = _decorator(kind)
+    example = "observes={'changelog': 'CHANGELOG.md'}"
+    if not isinstance(observes, Mapping):
+        raise TypeError(
+            f"{decorator}(observes=...) maps each parameter to the path it receives: {example}"
+        )
+    artifacts = []
+    for name, path in observes.items():
+        if not _is_name(name):
+            raise TypeError(
+                f"{decorator}(observes=...) takes parameter names that are Python "
+                f"identifiers, not {name!r}"
+            )
+        if not isinstance(path, str) or not path.strip():
+            raise TypeError(
+                f"{decorator}(observes=...) takes paths as non-empty strings: {example}"
+            )
+        if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
+            raise TypeError(
+                f"{decorator}(observes=...) takes paths relative to the run's working "
+                f"directory, so that the library works on every machine, not {path!r}"
+            )
+        artifact = Artifact(name, path)
+        if artifact.is_glob and artifact.is_directory:
+            raise TypeError(
+                f"{decorator}(observes=...): the glob {path!r} ends with '/', but a glob "
+                f"matches files. Observe the directory without wildcards, or its files."
+            )
+        artifacts.append(artifact)
+    return tuple(artifacts)
+
+
+def _is_name(name: object) -> bool:
+    return isinstance(name, str) and name.isidentifier() and not keyword.iskeyword(name)
 
 
 def _variables(decorator: str, argument: str, names: Iterable[str]) -> tuple[str, ...]:
@@ -168,7 +246,7 @@ def _variables(decorator: str, argument: str, names: Iterable[str]) -> tuple[str
         )
     variables = tuple(names)
     for name in variables:
-        if not isinstance(name, str) or not name.isidentifier() or keyword.iskeyword(name):
+        if not _is_name(name):
             raise TypeError(
                 f"{decorator}({argument}=...) takes variable names that are Python "
                 f"identifiers, not {name!r}"
@@ -183,9 +261,13 @@ def _no_repeats(decorator: str, what: str, values: tuple[str, ...]) -> None:
 
 
 def _check_signature(
-    decorator: str, function: Callable[..., Any], consumed: tuple[str, ...]
+    decorator: str,
+    function: Callable[..., Any],
+    consumed: tuple[str, ...],
+    observed: tuple[Artifact, ...],
 ) -> None:
-    """The function takes each consumed variable as a keyword argument, and needs no other."""
+    """The function takes each consumed variable and observed artifact as a keyword
+    argument, and needs no other."""
     parameters = inspect.signature(function).parameters.values()
     by_keyword = {p.name for p in parameters if p.kind in _KEYWORD_ARGUMENT}
     takes_any_keyword = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters)
@@ -195,13 +277,19 @@ def _check_signature(
         if p.default is inspect.Parameter.empty
         and p.kind not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
     }
+    # Evidence consumes nothing and other kinds observe nothing: a step's parameters are
+    # one or the other.
+    if decorator == _decorator(Kind.EVIDENCE):
+        verb, passed, declaration = "observes", [a.name for a in observed], "observes={...}"
+    else:
+        verb, passed, declaration = "consumes", list(consumed), "consumes=[...]"
     problems = []
-    if missing := [name for name in consumed if name not in by_keyword and not takes_any_keyword]:
-        problems.append(f"it consumes {missing} but has no parameter for them")
-    if unfed := sorted(required - set(consumed)):
-        problems.append(f"its parameters {unfed} are not consumed, so nothing would pass them")
+    if missing := [name for name in passed if name not in by_keyword and not takes_any_keyword]:
+        problems.append(f"it {verb} {missing} but has no parameter for them")
+    if unfed := sorted(required - set(passed)):
+        problems.append(f"its parameters {unfed} are not {verb[:-1]}d, so nothing would pass them")
     if problems:
         raise TypeError(
             f"{decorator} {function.__qualname__}: {'; and '.join(problems)}. A step's "
-            f"parameters are the variables it consumes, as declared by consumes=[...]."
+            f"parameters are what it {verb}, as declared by {declaration}."
         )

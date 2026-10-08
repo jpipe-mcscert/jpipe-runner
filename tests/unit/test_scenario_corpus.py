@@ -7,8 +7,11 @@ from pathlib import Path
 import pytest
 
 from jpipe_runner import loader
+from jpipe_runner.model import InvalidJustificationError
+from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
-from tests.scenarios import Scenario, discover
+from jpipe_runner.validation import ValidationContext
+from tests.scenarios import REFUSED_MODELS, Scenario, discover
 
 SCENARIOS = discover()
 
@@ -45,14 +48,27 @@ EXPECTED_SCENARIOS = {
 }
 
 
+# What validation reports on each scenario, by code, until the golden reports pin it (#124).
+# A scenario not listed reports nothing.
+VALIDATION_CODES = {
+    "composed": ["JP008"],
+    "missing_consumer": ["JP011"],
+    "missing_producer": ["JP009"],
+    "self_dependency": ["JP014"],
+}
+
+
 def test_every_planned_scenario_exists() -> None:
     assert {scenario.name for scenario in SCENARIOS} == EXPECTED_SCENARIOS
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
 def test_justification_loads(scenario: Scenario) -> None:
-    # Every scenario's model is valid, cycles included: they are a validation error (#119),
-    # not a load error.
+    if scenario.name in REFUSED_MODELS:
+        with pytest.raises(InvalidJustificationError) as error:
+            loader.load(scenario.justification)
+        assert [d.code for d in error.value.diagnostics] == REFUSED_MODELS[scenario.name]
+        return
     justification = loader.load(scenario.justification)
     model = json.loads(scenario.justification.read_text(encoding="utf-8"))
     assert len(justification) == len(model["elements"])
@@ -93,3 +109,28 @@ def test_step_libraries_declare_every_decorated_function(scenario: Scenario) -> 
         name for library in scenario.library_files() for name in _decorated_functions(library)
     ]
     assert [step.function.__name__ for step in registry] == declared
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [scenario for scenario in SCENARIOS if scenario.name not in REFUSED_MODELS],
+    ids=lambda scenario: scenario.name,
+)
+def test_validation_reports_what_the_scenario_is_about(scenario: Scenario) -> None:
+    with scenario.imported_libraries() as modules:
+        registry = StepRegistry.from_modules(modules)
+    report = RULES.run(ValidationContext.of(loader.load(scenario.justification), registry))
+    assert [d.code for d in report.diagnostics] == VALIDATION_CODES.get(scenario.name, [])
+    assert report.passed is (scenario.exit_code != 3)
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
+def test_every_observed_artifact_is_in_the_scenario(scenario: Scenario) -> None:
+    # The runner fails an evidence whose artifact is unreachable (#144); in a scenario
+    # meant to pass, every one is there, relative to the scenario's directory.
+    with scenario.imported_libraries() as modules:
+        registry = StepRegistry.from_modules(modules)
+    for step in registry:
+        for artifact in step.observes:
+            found = list(scenario.directory.glob(artifact.path.rstrip("/")))
+            assert found, f"{scenario.name}: {step.name} observes {artifact.path}, not found"

@@ -82,33 +82,40 @@ def test_elements_are_looked_up_by_their_own_id() -> None:
     assert ["m:s"] not in justification
 
 
-def test_an_acyclic_model_has_no_cycle() -> None:
-    assert model().cycle() is None
+def test_upstream_elements_support_directly_or_not_in_model_order() -> None:
+    justification = model(
+        elements=(CONCLUSION, OTHER_EVIDENCE, STRATEGY, EVIDENCE),
+        relations=(*RELATIONS, Relation("m:o", "m:s")),
+    )
+    assert justification.upstream("m:c") == (OTHER_EVIDENCE, STRATEGY, EVIDENCE)
+    assert justification.upstream("m:s") == (OTHER_EVIDENCE, EVIDENCE)
+    assert justification.upstream("m:e") == ()
 
 
 @pytest.mark.parametrize(
     ("elements", "cycle"),
     [
-        pytest.param((CONCLUSION, STRATEGY, EVIDENCE), ("m:c", "m:e", "m:s"), id="from-c"),
-        pytest.param((EVIDENCE, STRATEGY, CONCLUSION), ("m:e", "m:s", "m:c"), id="from-e"),
-        pytest.param((STRATEGY, CONCLUSION, EVIDENCE), ("m:s", "m:c", "m:e"), id="from-s"),
+        pytest.param((CONCLUSION, STRATEGY, EVIDENCE), "'m:c' -> 'm:e' -> 'm:s' -> 'm:c'", id="c"),
+        pytest.param((EVIDENCE, STRATEGY, CONCLUSION), "'m:e' -> 'm:s' -> 'm:c' -> 'm:e'", id="e"),
+        pytest.param((STRATEGY, CONCLUSION, EVIDENCE), "'m:s' -> 'm:c' -> 'm:e' -> 'm:s'", id="s"),
     ],
 )
-def test_a_cycle_goes_from_supporter_to_supported_from_the_first_in_model_order(
-    elements: tuple[Element, ...], cycle: tuple[str, ...]
+def test_a_cycle_is_reported_from_supporter_to_supported_from_the_first_in_model_order(
+    elements: tuple[Element, ...], cycle: str
 ) -> None:
-    cyclic = model(elements=elements, relations=(*RELATIONS, Relation("m:c", "m:e")))
-    assert cyclic.cycle() == cycle
-
-
-def test_a_cycle_has_no_topological_order() -> None:
-    cyclic = model(relations=(*RELATIONS, Relation("m:c", "m:e")))
-    with pytest.raises(ValueError, match="cycle"):
-        cyclic.topological_order()
+    relations = (*RELATIONS, Relation("m:c", "m:e"))
+    with pytest.raises(InvalidJustificationError) as error:
+        model(elements=elements, relations=relations)
+    assert codes(error) == [("JP004", elements[0].id)]
+    assert cycle in error.value.diagnostics[0].message
+    assert error.value.diagnostics[0].fix
 
 
 def test_an_element_supporting_itself_is_a_cycle() -> None:
-    assert model(relations=(*RELATIONS, Relation("m:e", "m:e"))).cycle() == ("m:e",)
+    relations = (*RELATIONS, Relation("m:e", "m:e"))
+    with pytest.raises(InvalidJustificationError) as error:
+        model(relations=relations)
+    assert codes(error) == [("JP004", "m:e")]
 
 
 def codes(error: pytest.ExceptionInfo[InvalidJustificationError]) -> list[tuple[str, str | None]]:

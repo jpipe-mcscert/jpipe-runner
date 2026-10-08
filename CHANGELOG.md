@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
 
+### Added
+- **Evidence declares the artifacts it observes.** `@evidence` takes
+  `observes={"changelog": "CHANGELOG.md"}`, which maps a parameter of the function to the
+  artifact it is to receive: a file, a directory (`"src/"`) or a glob
+  (`"build/reports/*.xml"`), relative to the directory the runner runs in. Every observed
+  name must be a parameter of the function. An absolute path is refused when the library
+  is imported. **Every evidence
+  must observe something**: one that observes nothing checks nothing in the world, and is
+  an error (`JP018`). Existing evidence, and the skeletons jPipe 2.5.0 generates, must be
+  given their artifacts
+  ([ADR-0018](docs/adr/0018-evidence-declares-observed-artifacts.md)).
+- **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
+  validation rule checks, why, its severity and how to fix what it reports, and the codes
+  reported when a model is loaded or a step returns. It is generated from the rules
+  themselves, so it cannot drift from what the runner checks.
+
 ### Changed
 - **Steps are declared with one decorator per element kind.** `@evidence`, `@strategy`,
   `@sub_conclusion` and `@conclusion`, imported from `jpipe_runner`, replace `@jpipe` and
@@ -33,6 +49,29 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   returns `True`, `False` or nothing is reported with `JP017`, whose fix names the outcome
   to return instead
   ([ADR-0005](docs/adr/0005-outcomes-as-return-values.md)).
+- **Validation reports every problem at once, each with a code, and only errors stop a
+  run.** v3 validators printed pre-formatted messages and counted a warning as a failure,
+  so a clean library could fail on a warning. A problem is now a diagnostic with a stable
+  code (`JPnnn`) and a severity: an error stops the run before any step executes, and a
+  warning is reported while the run continues. No rule can be disabled
+  ([ADR-0010](docs/adr/0010-diagnostics-as-data-rules-as-objects.md)).
+- **Validation compares each step's kind with its element's.** Composition turns an
+  evidence or a conclusion into a sub-conclusion (`refine`, `assemble`, unification), so a
+  step written against a model before it was composed is declared with the old kind. That
+  is a warning (`JP008`): the step runs after the sub-argument below it, as a
+  cross-check. Any other mismatch, such as `@strategy` on an evidence, is an error
+  (`JP016`) ([ADR-0013](docs/adr/0013-kind-divergence-under-composition.md)).
+- **A consumed variable must be produced by a step that supports its consumer, directly
+  or not** (`JP014`). v3 only checked that the producer came earlier in its execution
+  order, so a consumer on another branch could run without its value when the producer
+  failed. A step that consumes what it produces is reported the same way.
+- **A strategy that ignores a value its supporters produce is a warning** (`JP013`), and
+  only when another step reads that value: v3 made it an error. An evidence must still
+  produce a value that another step consumes (`JP012`, an error), and a value that no step
+  consumes is a warning (`JP011`).
+- **A justification whose relations form a cycle is refused when it is loaded** (`JP004`),
+  with the cycle it found, before any step library is bound. The jPipe compiler never
+  emits a cycle, so such a file has been edited or corrupted.
 - **The Homebrew formula no longer depends on `libjpeg-turbo` and `freetype`.** They were
   needed by `matplotlib`, which only the GUI removed in 3.4.0 used, and no current
   dependency needs them.

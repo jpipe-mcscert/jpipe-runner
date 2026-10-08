@@ -5,8 +5,8 @@ written in jPipe becomes a model the runner reads, how a Python step library is 
 to it, and what the runner does with the two. The test suite runs the same example (and
 others) for coverage. This page is meant to be read.
 
-v4 is still being built ([progress](v4-progress.md)). Steps 1 to 4 work
-today. Steps 5 to 7 describe what the next milestones build, and are marked as such. This
+v4 is still being built ([progress](v4-progress.md)). Steps 1 to 5 work
+today. Steps 6 and 7 describe what the next milestones build, and are marked as such. This
 page grows with each milestone.
 
 The example is the release argument of the [jPipe tutorials](https://www.jpipe.org/tutorials/),
@@ -104,32 +104,35 @@ conclusion   release:c    Version 2.0 is ready to ship
 ## 4. Writing the step library
 
 Each piece of evidence, and the strategy, gets a Python function that checks it. The
-library, [`steps.py`](../tests/e2e/scenarios/release_example/steps.py), checks files under
-`mock/` instead of a real build: `mock/tests.ok` stands for a passing test suite, and
+library, [`steps.py`](../tests/e2e/scenarios/release_example/steps.py), observes files under
+`mock/` instead of a real build: `mock/junit.xml` stands for the test suite's report, and
 `mock/CHANGELOG.md` for the release's changelog.
 
 ```python
 from pathlib import Path
+from xml.etree import ElementTree
 
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 
 RELEASE = "2.0"
 
 
-@evidence("release:e1", produces=["tests_pass"])
-def the_test_suite_passes() -> Outcome:
+@evidence("release:e1", observes={"report": "mock/junit.xml"}, produces=["tests_pass"])
+def the_test_suite_passes(report: Path) -> Outcome:
     """[evidence] The test suite passes"""
-    if Path("mock/tests.ok").is_file():
+    suite = ElementTree.parse(report).getroot()
+    failed = int(suite.get("failures", "0")) + int(suite.get("errors", "0"))
+    if failed == 0:
         return Pass(tests_pass=True)
-    return Fail("mock/tests.ok not found: the test suite did not pass")
+    return Fail(f"{report}: {failed} tests failed")
 
 
-@evidence("release:e2", produces=["changelog_ok"])
-def the_changelog_is_up_to_date() -> Outcome:
+@evidence("release:e2", observes={"changelog": "mock/CHANGELOG.md"}, produces=["changelog_ok"])
+def the_changelog_is_up_to_date(changelog: Path) -> Outcome:
     """[evidence] The changelog is up to date"""
-    if RELEASE in Path("mock/CHANGELOG.md").read_text(encoding="utf-8"):
+    if RELEASE in changelog.read_text(encoding="utf-8"):
         return Pass(changelog_ok=True)
-    return Fail(f"mock/CHANGELOG.md does not name release {RELEASE}")
+    return Fail(f"{changelog} does not name release {RELEASE}")
 
 
 @strategy("release:s", consumes=["tests_pass", "changelog_ok"])
@@ -145,12 +148,17 @@ What each part says:
 - **The decorator is the element's kind.** `@evidence` for evidence, `@strategy` for a
   strategy; there are also `@sub_conclusion` and `@conclusion`. Its first arguments are the
   ids of the element the function implements, here as the compiler exported them.
+- **`observes` declares the artifacts an evidence reads.** It maps each of the function's
+  parameters to a path, relative to where the runner runs; the runner passes the
+  `Path`. An evidence must observe something: one that observes nothing checks nothing in
+  the world (`JP018`).
 - **`produces` and `consumes` declare the data that flows along the argument.** Each
-  piece of evidence produces one variable; the strategy consumes both. Evidence observes
-  the world, so `@evidence` has no `consumes`.
-- **A function's parameters are the variables it consumes.** The runner passes
-  `tests_pass` and `changelog_ok` by name. A function whose parameters do not match its
-  `consumes` is refused when the library is imported.
+  piece of evidence produces what it observed; the strategy consumes both. Evidence
+  observes the world, so `@evidence` has no `consumes`.
+- **A function's parameters are what it observes or consumes.** The runner passes
+  `report` and `changelog` to the evidence, and `tests_pass` and `changelog_ok` to the
+  strategy, by name. A function whose parameters do not match is refused when the library
+  is imported.
 - **A function returns an outcome.** `Pass(...)` says the check holds and carries the
   values it produces. `Fail(reason)` says it does not hold, and why. `Skip(reason)`, not
   used here, says the check cannot be judged.
@@ -161,7 +169,7 @@ What each part says:
 Because the functions are plain Python, they can be tried directly, without the runner:
 
 ```python
->>> the_test_suite_passes()
+>>> the_test_suite_passes(Path("mock/junit.xml"))
 Pass({'tests_pass': True})
 >>> all_release_gates_pass(tests_pass=True, changelog_ok=False)
 Fail(reason='a release gate did not pass')
@@ -184,13 +192,36 @@ one element. An id may also be shorter than the element's: `@evidence("e1")` bin
 `release:e1` too, as long as no other element's id also ends in `e1`. See
 [ADR-0007](adr/0007-binding-resolution.md) for the rule.
 
-## 5. Validating the library against the model (planned, M3)
+## 5. Validating the library against the model
 
-Before running anything, the runner will check that the library fits the model: every
-piece of evidence and every strategy has a function, the functions' kinds agree with the
-model, every consumed variable has a producer that runs before its consumer, and nothing
-forms a cycle ([#119](https://github.com/jpipe-mcscert/jpipe-runner/issues/119)). The
-release library passes all of these.
+Before running anything, the runner checks that the library fits the model:
+
+- every piece of evidence and every strategy has a function;
+- each function's kind agrees with its element's;
+- each piece of evidence observes an artifact, and produces a value that another step
+  consumes;
+- every consumed variable is produced by one step, which supports its consumer, so the
+  value exists by the time it is needed.
+
+[`rules.md`](rules.md) lists every check. All the problems are reported at once. An error
+stops the run before any step executes; a warning is reported, and the run continues.
+
+The release library passes every check: validation reports nothing.
+
+Suppose the strategy misspells a variable, `consumes=["tests_passed", "changelog_ok"]`,
+and its parameter with it. The library still imports, since its declaration is consistent
+on its face, but validation reports two errors, each with the element it is about and what
+to do:
+
+```
+JP009 error [release:s]: steps.all_release_gates_pass consumes 'tests_passed', which no step produces
+  fix: Produce 'tests_passed' in a step that supports this one.
+JP012 error [release:e1]: the evidence steps.the_test_suite_passes produces 'tests_pass', which no step consumes
+  fix: Produce what the evidence observed, and consume it in its strategy.
+```
+
+The second follows from the first: with the typo, nothing reads what `e1` observed, and
+an evidence whose findings nobody uses supports nothing.
 
 ## 6. Running the steps (planned, M4)
 
@@ -284,5 +315,13 @@ Two things happened:
   and the conclusion of `tested` into one sub-conclusion, `readiness:hook`, which keeps
   both old ids as aliases. The draft's check for "the test suite passes" therefore still
   binds, to a node that is now argued in full below it. When it runs, it will run as an
-  independent cross-check of that sub-argument, and validation (M3) will point the kind
-  change out as a warning rather than an error.
+  independent cross-check of that sub-argument.
+
+Validation points the change of kind out, as a warning rather than an error
+([ADR-0013](adr/0013-kind-divergence-under-composition.md)). It is the only thing it
+reports on the refined model, so the run goes on:
+
+```
+JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
+  fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
+```

@@ -4,13 +4,20 @@ The unified evidence `rigor:unified_0` is bound through two of its aliases, neit
 which is its canonical id: alias resolution, and several ids on one decorator.
 """
 
+from pathlib import Path
+
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence
 
 
-@evidence("rigor:r17:e_metric", "rigor:r18:e", produces=["metrics_reported"])
-def report_metrics() -> Outcome:
-    """The model reports its metrics."""
-    return Pass(metrics_reported=True)
+@evidence(
+    "rigor:r17:e_metric",
+    "rigor:r18:e",
+    observes={"metrics": "mock/metrics.csv"},
+    produces=["metrics_reported"],
+)
+def report_metrics(metrics: Path) -> Outcome:
+    """The model reports its metrics: the metrics file has at least one row."""
+    return Pass(metrics_reported=len(metrics.read_text(encoding="utf-8").splitlines()) > 1)
 
 
 @conclusion("C1", consumes=["metrics_reported"])

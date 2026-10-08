@@ -4,6 +4,7 @@ import inspect
 import sys
 import textwrap
 from collections.abc import Callable
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -12,7 +13,7 @@ import pytest
 import jpipe_runner
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence, strategy, sub_conclusion
 from jpipe_runner.model import Kind
-from jpipe_runner.steps import Step, StepRegistry, step_of
+from jpipe_runner.steps import Artifact, Step, StepRegistry, step_of
 
 
 def test_the_package_exports_the_authoring_api() -> None:
@@ -206,6 +207,91 @@ def test_a_parameter_with_a_default_or_keywords_need_not_match() -> None:
 
     assert step_of(takes_any) is not None
     assert step_of(keyword_only) is not None
+
+
+def test_evidence_observes_artifacts_passed_to_its_parameters_by_name() -> None:
+    @evidence(
+        "m:e",
+        observes={"changelog": "CHANGELOG.md", "reports": "build/*.xml", "sources": "src/"},
+        produces=["ok"],
+    )
+    def checked(changelog: Path, reports: list[Path], sources: Path) -> Outcome:
+        return Pass(ok=changelog.name == "CHANGELOG.md")
+
+    step = step_of(checked)
+    assert step is not None
+    assert step.observes == (
+        Artifact("changelog", "CHANGELOG.md"),
+        Artifact("reports", "build/*.xml"),
+        Artifact("sources", "src/"),
+    )
+    assert [(a.is_glob, a.is_directory) for a in step.observes] == [
+        (False, False),
+        (True, False),
+        (False, True),
+    ]
+    assert checked(Path("CHANGELOG.md"), [], Path("src")) == Pass(ok=True)
+
+
+def test_a_step_observes_nothing_unless_declared() -> None:
+    @evidence("m:e")
+    def unobserved() -> Outcome:
+        return Pass()
+
+    @strategy("m:s")
+    def judged() -> Outcome:
+        return Pass()
+
+    for function in (unobserved, judged):
+        step = step_of(function)
+        assert step is not None
+        assert step.observes == ()
+
+
+def test_only_evidence_observes() -> None:
+    with pytest.raises(TypeError):
+        strategy("m:s", observes={"a": "a.txt"})  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    ("observes", "problem"),
+    [
+        pytest.param("CHANGELOG.md", "maps each parameter", id="a string"),
+        pytest.param(["CHANGELOG.md"], "maps each parameter", id="a list"),
+        pytest.param({"a-b": "x"}, "identifiers", id="not an identifier"),
+        pytest.param({"class": "x"}, "identifiers", id="a keyword"),
+        pytest.param({1: "x"}, "identifiers", id="not a string name"),
+        pytest.param({"a": ""}, "non-empty", id="empty path"),
+        pytest.param({"a": 1}, "non-empty", id="not a string path"),
+        pytest.param({"a": "/etc/hosts"}, "relative", id="absolute"),
+        pytest.param({"a": "C:\\reports\\x.xml"}, "relative", id="absolute on Windows"),
+        pytest.param({"a": "\\\\server\\share\\x"}, "relative", id="a UNC path"),
+        pytest.param({"a": "build/*/"}, "glob", id="a glob of directories"),
+    ],
+)
+def test_a_malformed_observation_is_a_type_error(observes: Any, problem: str) -> None:
+    with pytest.raises(TypeError, match=problem):
+        evidence("m:e", observes=observes)
+
+
+def _observes_a(a: Path) -> Outcome:
+    return Pass()
+
+
+@pytest.mark.parametrize(
+    ("function", "observes"),
+    [
+        pytest.param(_observes_a, {}, id="a parameter that is not observed"),
+        pytest.param(_no_parameters, {"a": "a.txt"}, id="an artifact that is not a parameter"),
+        pytest.param(_observes_a, {"b": "b.txt"}, id="another name"),
+    ],
+)
+def test_the_parameters_of_evidence_are_its_observed_artifacts(
+    function: Callable[..., Outcome], observes: dict[str, str]
+) -> None:
+    declare = evidence("m:e", observes=observes)
+    with pytest.raises(TypeError, match="observe"):
+        declare(function)
 
 
 def test_a_wrapper_of_a_step_is_the_step() -> None:

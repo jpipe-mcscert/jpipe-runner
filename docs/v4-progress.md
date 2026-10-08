@@ -23,7 +23,7 @@ the library the command line will be built on. For a working runner, use the
 | M0 Foundation | done | #106–#111, #133 | [0001](adr/0001-consume-compiler-json.md), [0002](adr/0002-rewrite-from-scratch.md), [0003](adr/0003-drop-sphinx-markdown-docs.md), [0004](adr/0004-sonarcloud-quality-gate.md), [0014](adr/0014-trunk-with-milestone-branches.md), [0015](adr/0015-draft-pull-request-per-milestone.md) |
 | M1 Model | done | #112 | [0016](adr/0016-hide-the-graph-inside-justification.md) |
 | M2 Authoring API | done | #113–#117, #126 | [0005](adr/0005-outcomes-as-return-values.md), [0006](adr/0006-one-decorator-per-kind.md), [0007](adr/0007-binding-resolution.md), [0008](adr/0008-drop-external-variable-injection.md), [0009](adr/0009-separate-registry-from-value-store.md) |
-| M3 Validation | planned | #118, #119, #128 | 0010, 0013 (reserved) |
+| M3 Validation | done | #118, #119, #128, #143 | [0010](adr/0010-diagnostics-as-data-rules-as-objects.md), [0013](adr/0013-kind-divergence-under-composition.md), [0018](adr/0018-evidence-declares-observed-artifacts.md) |
 | M4 Execution | planned | #120 | |
 | M5 Reporting | planned | #121–#123 | 0011 (reserved) |
 | M6 CLI | planned | #124, #125, #127 | |
@@ -33,7 +33,6 @@ the library the command line will be built on. For a working runner, use the
 
 What each planned milestone will add:
 
-- **M3 Validation:** checking a step library against its model before running anything.
 - **M4 Execution:** running the steps, supporters first.
 - **M5 Reporting:** text and JSON reports, and diagrams.
 - **M6 CLI:** the `jpipe-runner` command and its exit codes.
@@ -69,11 +68,11 @@ from pathlib import Path
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 
 
-@evidence("release:e1", produces=["tests_pass"])
-def the_test_suite_passes() -> Outcome:
-    if Path("mock/tests.ok").is_file():
-        return Pass(tests_pass=True)
-    return Fail("mock/tests.ok not found")
+@evidence("release:e1", observes={"log": "build/tests.log"}, produces=["tests_pass"])
+def the_test_suite_passes(log: Path) -> Outcome:
+    if "FAILED" in log.read_text(encoding="utf-8"):
+        return Fail(f"{log} reports a failed test")
+    return Pass(tests_pass=True)
 
 
 @strategy("release:s", consumes=["tests_pass"])
@@ -101,6 +100,40 @@ def all_release_gates_pass(tests_pass: bool) -> Outcome:
   function claiming two elements (`JP007`), are reported together.
 - **Values are kept per run**, each with the element that produced it, and a step may
   produce `None`.
+
+### M3 Validation: checking a step library against its model
+
+Every check is described in [`rules.md`](rules.md); [`end-to-end.md`](end-to-end.md)
+shows what validation reports on the release example.
+
+- **Every problem is reported at once, each with a code and a fix.** A step library is
+  checked against its model before any step runs.
+  - An error stops the run.
+  - A warning is reported, and the run continues: a warning no longer fails a run, as it
+    did in v3.
+  - A strict run counts warnings as errors.
+  - No check can be disabled.
+- **What is checked:**
+  - Every evidence and strategy has a step (`JP005`).
+  - Ids bind one to one (`JP006`, `JP007`, `JP015`).
+  - Each step's kind agrees with its element's (`JP016`).
+  - Every consumed variable is produced by one step (`JP009`, `JP010`), which supports its
+    consumer, directly or not (`JP014`).
+  - Every evidence produces a value that another step consumes (`JP012`).
+  - Warnings: a strategy ignoring a value its supporters produce (`JP013`), and a value
+    nothing consumes (`JP011`).
+- **Composition is understood.** A step written against a model before it was refined,
+  assembled or unified keeps working where composition changed its element's kind: it is
+  a warning (`JP008`), and the step runs as a cross-check.
+- **Evidence declares the artifacts it observes**, with
+  `observes={"changelog": "CHANGELOG.md"}`: a file, a directory or a glob, relative to
+  where the runner runs. The step receives each one as a parameter, so a test passes its
+  own. An evidence that observes nothing is an error (`JP018`). Documented in
+  [`authoring.md`](authoring.md#observing-artifacts).
+- **A model whose relations form a cycle is refused when it is loaded** (`JP004`), like
+  the other malformed models.
+- **[`rules.md`](rules.md) is the reference of every diagnostic code.** It is generated
+  from the checks themselves.
 
 ## Gone from v3
 

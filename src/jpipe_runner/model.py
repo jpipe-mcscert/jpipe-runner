@@ -19,6 +19,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity
 
 DUPLICATE_ID = "JP002"
 DANGLING_RELATION = "JP003"
+CYCLE = "JP004"
 
 
 class Kind(StrEnum):
@@ -64,16 +65,18 @@ class Justification:
     """A justification model: its elements, and the directed graph their relations form.
 
     The graph is hidden (ADR-0016): ask the model for an element's supporters, the elements
-    it supports, a topological order or a cycle. Results are deterministic, ordered by model
-    order (the order in which the model lists its elements): supporters and supported
-    elements are sorted by it, the topological order breaks ties by it, and a cycle starts
-    from its element that comes first in it. A model does not change once loaded.
+    it supports, those upstream of it, or a topological order. Results are deterministic,
+    ordered by model order (the order in which the model lists its elements): supporters,
+    supported and upstream elements are sorted by it, and the topological order breaks ties
+    by it. A model does not change once loaded.
 
     Raises ``InvalidJustificationError`` if an id is declared twice or designates two
     elements, as an id or an alias (JP002), or if a relation names an element that does not
     exist (JP003). The graph can represent neither: it would merge the duplicates, and
     invent the missing element. Binding resolution needs an id or alias to designate one
-    element (#115).
+    element (#115). It also raises if the relations form a cycle (JP004), which the
+    compiler never emits: an argument cannot support itself, and its steps would have no
+    order to run in (ADR-0010).
     """
 
     def __init__(self, name: str, elements: Iterable[Element], relations: Iterable[Relation]):
@@ -95,6 +98,8 @@ class Justification:
         graph.add_nodes_from(self._by_id)
         graph.add_edges_from((relation.source, relation.target) for relation in self._relations)
         self._graph: nx.DiGraph[str] = nx.freeze(graph)
+        if (cycle := self._cycle()) is not None:
+            raise InvalidJustificationError([_cyclic(cycle)])
 
     @property
     def name(self) -> str:
@@ -125,18 +130,16 @@ class Justification:
         """The elements that ``element_id`` directly supports, in model order."""
         return self._in_model_order(self._graph.successors(self.element(element_id).id))
 
+    def upstream(self, element_id: str) -> tuple[Element, ...]:
+        """The elements that support ``element_id``, directly or not, in model order."""
+        return self._in_model_order(nx.ancestors(self._graph, self.element(element_id).id))
+
     def topological_order(self) -> tuple[Element, ...]:
-        """Every element after all of its supporters, ties broken by model order.
+        """Every element after all of its supporters, ties broken by model order."""
+        ordered = nx.lexicographical_topological_sort(self._graph, key=self._rank.__getitem__)
+        return tuple(self._by_id[element_id] for element_id in ordered)
 
-        Raises ``ValueError`` if the graph has a cycle, which has no such order.
-        """
-        try:
-            ordered = nx.lexicographical_topological_sort(self._graph, key=self._rank.__getitem__)
-            return tuple(self._by_id[element_id] for element_id in ordered)
-        except nx.NetworkXUnfeasible:
-            raise ValueError(f"{self._name!r} has a cycle: {self.cycle()}") from None
-
-    def cycle(self) -> tuple[str, ...] | None:
+    def _cycle(self) -> tuple[str, ...] | None:
         """The ids of the elements along one cycle of the graph, or ``None`` if it has none.
 
         Each element supports the next, and the last one supports the first. The cycle is
@@ -212,3 +215,14 @@ def _dangling(
                 f"relation {relation.source!r} -> {relation.target!r} names {names}, "
                 f"which {'is not an element' if len(missing) == 1 else 'are not elements'}",
             )
+
+
+def _cyclic(cycle: tuple[str, ...]) -> Diagnostic:
+    path = " -> ".join(map(repr, (*cycle, cycle[0])))
+    return Diagnostic(
+        CYCLE,
+        Severity.ERROR,
+        f"the relations form a cycle: {path}",
+        element=cycle[0],
+        fix="An element cannot support itself, even indirectly: remove one of these relations.",
+    )
