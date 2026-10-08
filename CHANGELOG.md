@@ -13,14 +13,15 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ### Added
 - **Evidence declares the artifacts it observes.** `@evidence` takes
   `observes={"changelog": "CHANGELOG.md"}`, which maps a parameter of the function to the
-  artifact it is to receive: a file, a directory (`"src/"`) or a glob
+  artifact it is to receive: a file, or the files a glob matches
   (`"build/reports/*.xml"`), relative to the directory the runner runs in. Every observed
-  name must be a parameter of the function. An absolute path is refused when the library
-  is imported. **Every evidence
-  must observe something**: one that observes nothing checks nothing in the world, and is
-  an error (`JP018`). Existing evidence, and the skeletons jPipe 2.5.0 generates, must be
-  given their artifacts
-  ([ADR-0018](docs/adr/0018-evidence-declares-observed-artifacts.md)).
+  name must be a parameter of the function. An absolute path, or a directory (`"src/"`),
+  is refused when the library is imported: observe the files a directory holds with a
+  glob (`"src/**/*"`). **Every evidence must observe something**: one that observes
+  nothing checks nothing in the world, and is an error (`JP018`). Existing evidence, and
+  the skeletons jPipe 2.5.0 generates, must be given their artifacts
+  ([ADR-0018](docs/adr/0018-evidence-declares-observed-artifacts.md),
+  [ADR-0019](docs/adr/0019-evidence-observes-files.md)).
 - **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
   validation rule checks, why, its severity and how to fix what it reports, and the codes
   reported when a model is loaded or a step returns. It is generated from the rules

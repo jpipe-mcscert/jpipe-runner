@@ -126,8 +126,9 @@ shows what validation reports on the release example.
   assembled or unified keeps working where composition changed its element's kind: it is
   a warning (`JP008`), and the step runs as a cross-check.
 - **Evidence declares the artifacts it observes**, with
-  `observes={"changelog": "CHANGELOG.md"}`: a file, a directory or a glob, relative to
-  where the runner runs. The step receives each one as a parameter, so a test passes its
+  `observes={"changelog": "CHANGELOG.md"}`: a file or a glob, relative to where the
+  runner runs. (M3 also accepted a directory; M4 dropped it,
+  [ADR-0019](adr/0019-evidence-observes-files.md).) The step receives each one as a parameter, so a test passes its
   own. An evidence that observes nothing is an error (`JP018`). Documented in
   [`authoring.md`](authoring.md#observing-artifacts).
 - **A model whose relations form a cycle is refused when it is loaded** (`JP004`), like

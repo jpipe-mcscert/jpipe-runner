@@ -10,7 +10,7 @@ rewrites the page; ``tests/unit/test_rules_doc.py`` fails when it is out of date
 import inspect
 from pathlib import Path
 
-from jpipe_runner import loader, model, outcomes
+from jpipe_runner import artifacts, loader, model, outcomes
 from jpipe_runner.validation import Rule, RuleSet
 from tests.conftest import REPO_ROOT
 
@@ -48,6 +48,13 @@ OTHER_CODES = (
         "NotAnOutcome",
         "running a step",
         "A step returned something other than `Pass`, `Fail` or `Skip`.",
+    ),
+    (
+        artifacts.UNREACHABLE_ARTIFACT,
+        "UnreachableArtifact",
+        "calling an evidence",
+        "An artifact the evidence observes is missing, unreadable or a directory, or a glob "
+        "matches no file: the step is not called.",
     ),
 )
 
@@ -104,8 +111,9 @@ def _other_codes() -> str:
         [
             "## Codes reported outside validation",
             "",
-            "These are errors. A model that cannot be loaded is not validated, and a step that",
-            "returns anything other than an outcome fails.",
+            "These are errors. A model that cannot be loaded is not validated. While the steps",
+            "run, an error fails the element it is about, and the run goes on: what that element",
+            "supports is skipped.",
             "",
             "| Code | Name | Reported when | Reports |",
             "|---|---|---|---|",

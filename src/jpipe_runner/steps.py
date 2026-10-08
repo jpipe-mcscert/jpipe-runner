@@ -41,7 +41,7 @@ _WILDCARDS = frozenset("*?[")
 
 @dataclass(frozen=True)
 class Artifact:
-    """An artifact an evidence observes: a file, a directory or a glob of files (ADR-0018).
+    """An artifact an evidence observes: a file, or a glob of files (ADR-0018, ADR-0019).
 
     ``path`` is relative to the run's working directory. The runner passes the artifact to
     the step's parameter ``name``: a ``Path``, or the sorted ``list[Path]`` a glob matches.
@@ -54,11 +54,6 @@ class Artifact:
     def is_glob(self) -> bool:
         """Whether ``path`` is a pattern, which may match several files."""
         return not _WILDCARDS.isdisjoint(self.path)
-
-    @property
-    def is_directory(self) -> bool:
-        """Whether ``path`` names a directory, written with a trailing ``/``."""
-        return self.path.endswith("/")
 
 
 @dataclass(frozen=True)
@@ -225,13 +220,12 @@ def _artifacts(kind: Kind, observes: Mapping[str, str]) -> tuple[Artifact, ...]:
                 f"{decorator}(observes=...) takes paths relative to the run's working "
                 f"directory, so that the library works on every machine, not {path!r}"
             )
-        artifact = Artifact(name, path)
-        if artifact.is_glob and artifact.is_directory:
+        if path.endswith(("/", "\\")):
             raise TypeError(
-                f"{decorator}(observes=...): the glob {path!r} ends with '/', but a glob "
-                f"matches files. Observe the directory without wildcards, or its files."
+                f"{decorator}(observes=...) takes files, and {path!r} names a directory. "
+                f"Observe the files it holds, with a glob such as {path + '**/*'!r}."
             )
-        artifacts.append(artifact)
+        artifacts.append(Artifact(name, path))
     return tuple(artifacts)
 
 

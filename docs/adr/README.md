@@ -30,4 +30,5 @@ and add a row to this table.
 | [0015](0015-draft-pull-request-per-milestone.md) | Open each milestone's pull request as a draft when the milestone starts | accepted |
 | [0016](0016-hide-the-graph-inside-justification.md) | Hide the graph inside `Justification`; no NetworkX type in the public API | accepted, amended by [0010](0010-diagnostics-as-data-rules-as-objects.md) |
 | [0017](0017-document-in-the-milestone-that-builds-it.md) | Document a feature in the milestone that builds it; M7 reviews the whole | accepted |
-| [0018](0018-evidence-declares-observed-artifacts.md) | Evidence declares the artifacts it observes | accepted |
+| [0018](0018-evidence-declares-observed-artifacts.md) | Evidence declares the artifacts it observes | accepted, amended by [0019](0019-evidence-observes-files.md) |
+| [0019](0019-evidence-observes-files.md) | Evidence observes files, recorded just before its step runs | accepted |

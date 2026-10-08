@@ -82,6 +82,7 @@ any model is read:
 | an observed artifact that is not a parameter | `@evidence the_changelog_is_up_to_date: it observes ['changelog'] but has no parameter for them. …` |
 | a list instead of a mapping | `@evidence(observes=...) maps each parameter to the path it receives: observes={'changelog': 'CHANGELOG.md'}` |
 | an absolute path | `@evidence(observes=...) takes paths relative to the run's working directory, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
+| a directory | `@evidence(observes=...) takes files, and 'src/' names a directory. Observe the files it holds, with a glob such as 'src/**/*'.` |
 | two step decorators on one function | `f is already declared as evidence ('release:e1',): one function is one step` |
 
 Whether the ids designate elements of the model, and whether the data flows (every consumed
@@ -103,19 +104,21 @@ from jpipe_runner import Outcome, Pass, evidence
 
 @evidence(
     "release:e3",
-    observes={"reports": "build/reports/*.xml", "sources": "src/"},
+    observes={"reports": "build/reports/*.xml", "sources": "src/**/*.py"},
     produces=["report_count", "source_count"],
 )
-def every_module_has_a_report(reports: list[Path], sources: Path) -> Outcome:
-    return Pass(report_count=len(reports), source_count=len(list(sources.rglob("*.py"))))
+def every_module_has_a_report(reports: list[Path], sources: list[Path]) -> Outcome:
+    return Pass(report_count=len(reports), source_count=len(sources))
 ```
 
 | Path | Names | The parameter receives |
 |---|---|---|
 | `"CHANGELOG.md"` | a file | a `Path` |
-| `"src/"` | a directory, written with a trailing `/` | a `Path` |
-| `"build/reports/*.xml"` | the files a glob matches | their sorted `list[Path]` |
+| `"build/reports/*.xml"` | the files a glob matches (`**` matches any depth) | their sorted `list[Path]` |
 
+- **An evidence observes files.** A directory, written `"src/"`, is refused when the
+  library is imported: observe the files it holds, with a glob such as `"src/**/*"`
+  ([ADR-0019](adr/0019-evidence-observes-files.md)).
 - **Paths are relative** to the directory the runner runs in. An absolute path is refused
   when the library is imported: the library must work on every machine.
 - **An observed artifact is never optional.** When the steps run, an artifact that is not

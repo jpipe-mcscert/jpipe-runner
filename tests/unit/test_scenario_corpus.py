@@ -132,5 +132,5 @@ def test_every_observed_artifact_is_in_the_scenario(scenario: Scenario) -> None:
         registry = StepRegistry.from_modules(modules)
     for step in registry:
         for artifact in step.observes:
-            found = list(scenario.directory.glob(artifact.path.rstrip("/")))
+            found = list(scenario.directory.glob(artifact.path))
             assert found, f"{scenario.name}: {step.name} observes {artifact.path}, not found"

@@ -231,8 +231,9 @@ that they exist, record them, and archive them with the report
 
 ## Codes reported outside validation
 
-These are errors. A model that cannot be loaded is not validated, and a step that
-returns anything other than an outcome fails.
+These are errors. A model that cannot be loaded is not validated. While the steps
+run, an error fails the element it is about, and the run goes on: what that element
+supports is skipped.
 
 | Code | Name | Reported when | Reports |
 |---|---|---|---|
@@ -241,3 +242,4 @@ returns anything other than an outcome fails.
 | JP003 | `RelationEndpointsExist` | loading the model | A relation names an element that does not exist. |
 | JP004 | `Acyclic` | loading the model | The relations form a cycle: an element supports itself, directly or not. |
 | JP017 | `NotAnOutcome` | running a step | A step returned something other than `Pass`, `Fail` or `Skip`. |
+| JP019 | `UnreachableArtifact` | calling an evidence | An artifact the evidence observes is missing, unreadable or a directory, or a glob matches no file: the step is not called. |
