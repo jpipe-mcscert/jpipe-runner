@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 
 from jpipe_runner import loader
+from jpipe_runner.model import InvalidJustificationError
 from jpipe_runner.steps import StepRegistry
-from tests.scenarios import Scenario, discover
+from tests.scenarios import REFUSED_MODELS, Scenario, discover
 
 SCENARIOS = discover()
 
@@ -51,8 +52,11 @@ def test_every_planned_scenario_exists() -> None:
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
 def test_justification_loads(scenario: Scenario) -> None:
-    # Every scenario's model is valid, cycles included: they are a validation error (#119),
-    # not a load error.
+    if scenario.name in REFUSED_MODELS:
+        with pytest.raises(InvalidJustificationError) as error:
+            loader.load(scenario.justification)
+        assert [d.code for d in error.value.diagnostics] == REFUSED_MODELS[scenario.name]
+        return
     justification = loader.load(scenario.justification)
     model = json.loads(scenario.justification.read_text(encoding="utf-8"))
     assert len(justification) == len(model["elements"])

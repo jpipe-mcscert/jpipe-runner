@@ -33,6 +33,15 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   returns `True`, `False` or nothing is reported with `JP017`, whose fix names the outcome
   to return instead
   ([ADR-0005](docs/adr/0005-outcomes-as-return-values.md)).
+- **Validation reports every problem at once, each with a code, and only errors stop a
+  run.** v3 validators printed pre-formatted messages and counted a warning as a failure,
+  so a clean library could fail on a warning. A problem is now a diagnostic with a stable
+  code (`JPnnn`) and a severity: an error stops the run before any step executes, and a
+  warning is reported while the run continues. No rule can be disabled
+  ([ADR-0010](docs/adr/0010-diagnostics-as-data-rules-as-objects.md)).
+- **A justification whose relations form a cycle is refused when it is loaded** (`JP004`),
+  with the cycle it found, before any step library is bound. The jPipe compiler never
+  emits a cycle, so such a file has been edited or corrupted.
 - **The Homebrew formula no longer depends on `libjpeg-turbo` and `freetype`.** They were
   needed by `matplotlib`, which only the GUI removed in 3.4.0 used, and no current
   dependency needs them.

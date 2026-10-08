@@ -1,11 +1,12 @@
 # The defect is kept as in v3: a cycle in the relations (S1 -> S2 -> S1) and the matching
 # variable cycle (S1 consumes var_b, S2 consumes var_a). v3 exited 1 like any other
-# failure; v4 distinguishes a rejected model (3).
-description = "Two strategies support each other, in the model and in their data; validation rejects the cycle."
+# failure; v4 refuses the model when it loads it (JP004), since the compiler never emits a
+# cycle, and exits 3, before binding or validating the library.
+description = "Two strategies support each other, in the model and in their data; the model is refused when it is loaded."
 origin = "v3.6.0:tests/e2e/resources/circular_dependency"
 libraries = ["steps.py"]
 exit_code = 3
 exercises = [
-    "JP004 Acyclic",
-    "validation failure blocks execution",
+    "JP004: a cyclic model is refused at load time",
+    "a refused model blocks execution",
 ]

@@ -22,6 +22,10 @@ flowchart LR
     binding --> model
     binding --> steps
     binding --> diagnostics
+    validation --> binding
+    validation --> model
+    validation --> steps
+    validation --> diagnostics
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -33,6 +37,7 @@ arrow is data.
 | [`model`](../src/jpipe_runner/model.py) | The justification model: elements, the relations between them, and the graph they form. |
 | [`steps`](../src/jpipe_runner/steps.py) | The decorators that declare a step library's functions, `@evidence`, `@strategy`, `@sub_conclusion` and `@conclusion`, and the `StepRegistry` that collects them from the library's modules. |
 | [`binding`](../src/jpipe_runner/binding.py) | Resolves the ids a step names to elements of the model, and binds steps to elements, one to one, in a `BindingTable`. |
+| [`validation`](../src/jpipe_runner/validation.py) | Checks a step library against its model before anything runs: `Rule`, one check; `RuleSet`, which runs rules over a `ValidationContext` and collects what they report in a `ValidationReport`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run. |
@@ -72,6 +77,13 @@ classDiagram
         class AmbiguousIdError
     }
 
+    namespace validation {
+        class Rule
+        class RuleSet
+        class ValidationContext
+        class ValidationReport
+    }
+
     namespace values {
         class ValueStore
         class ProducedValue
@@ -91,6 +103,7 @@ classDiagram
         class Severity
     }
 
+    <<abstract>> Rule
     <<enumeration>> Kind
     <<enumeration>> Severity
     <<enumeration>> Unset
@@ -113,6 +126,14 @@ classDiagram
     Binding --> Step : step
     Resolver ..> AmbiguousIdError : raises
     LookupError <|-- AmbiguousIdError
+    RuleSet "1" o-- "*" Rule : rules
+    RuleSet ..> ValidationContext : checks
+    RuleSet ..> ValidationReport : returns
+    ValidationContext --> Justification : justification
+    ValidationContext --> StepRegistry : registry
+    ValidationContext --> BindingTable : bindings
+    Rule ..> Diagnostic : reports
+    ValidationReport "1" o-- "*" Diagnostic : diagnostics
     ValueStore "1" *-- "*" ProducedValue : values
     ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
@@ -134,11 +155,11 @@ elements that composition merged into it, which binding resolution uses.
 
 **The graph is hidden inside `Justification`.** It is a NetworkX `DiGraph`, but no
 NetworkX type appears in the public API, and only `model` imports NetworkX. Callers ask the
-model instead: `supporters(id)`, `supported(id)`, `topological_order()` and `cycle()`.
-Their results are deterministic, ordered by model order, the order in which the model lists
-its elements: supporters and supported elements are sorted by it, the topological order
-breaks ties by it, and a cycle, listed from supporter to supported, starts from its element
-that comes first in it.
+model instead: `supporters(id)`, `supported(id)`, `upstream(id)` (every element that
+supports it, directly or not) and `topological_order()`. Their results are deterministic,
+ordered by model order, the order in which the model lists its elements: supporters,
+supported and upstream elements are sorted by it, and the topological order breaks ties by
+it.
 
 **A model is immutable.** `Element`, `Relation` and `Diagnostic` are frozen dataclasses,
 and the graph is frozen once built.
@@ -148,10 +169,23 @@ loaded. The loader rejects a document that is not JSON or does not match the sch
 (`JP001`), and the `Justification` constructor rejects a duplicate element id (`JP002`) or
 a relation to an element that does not exist (`JP003`). An alias counts as an id: one that
 another element also answers to is `JP002` too. Each of these raises an
-`InvalidJustificationError` carrying every problem found, as diagnostics.
+`InvalidJustificationError` carrying every problem found, as diagnostics. So does a cycle
+in the relations (`JP004`), reported once the rest is sound: the compiler never emits one,
+and the steps of a cyclic argument would have no order to run in.
 
 **A diagnostic's `code` is its contract.** The `message` is written for humans and may be
 reworded. A `Severity.ERROR` stops the run; a `WARNING` is reported and the run continues.
+
+**A step library is validated against its model before anything runs.** Each check is a
+`Rule`, reified as a class: its `code`, `severity` and `summary` are class attributes, and
+its docstring says what it checks, why, and how to fix what it reports, so that every rule
+can be audited in one place. A `ValidationContext` holds what the rules read: the model,
+the step registry, and the `BindingTable` of one to the other, with the bound steps that
+produce and consume each variable. A step that binds nothing never runs, so the rules about
+data look only at bound steps. A `RuleSet` runs every rule, in code order, and collects
+every diagnostic in a `ValidationReport`, which passes when none is an error. A strict run
+reports warnings as errors. No rule can be disabled. What the model alone shows to be
+unrunnable (`JP001` to `JP004`) is not a rule: the loader refuses it first.
 
 **A step library declares its functions with one decorator per kind.** `@evidence`,
 `@strategy`, `@sub_conclusion` and `@conclusion` take the ids of the elements a function

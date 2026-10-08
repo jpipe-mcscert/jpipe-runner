@@ -19,6 +19,10 @@ GOLDEN_FILE = "expected.json"
 # runner is invoked, which a scenario fixes, so no scenario can legitimately expect them.
 EXIT_CODES = {0: "ok", 1: "justification failed", 3: "validation failed"}
 
+# The scenarios whose model the loader refuses, and the codes it refuses them with. Their
+# libraries still import, but bind to nothing: there is no model to bind them to.
+REFUSED_MODELS = {"circular_dependency": ["JP004"]}
+
 _REQUIRED = {"description": str, "origin": str, "libraries": list, "exit_code": int}
 _OPTIONAL = {"python_path": list, "exercises": list}
 
