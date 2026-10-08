@@ -20,7 +20,6 @@ Depends: ${python3:Depends},
          ${misc:Depends},
          python3-networkx,
          python3-graphviz,
-         python3-yaml,
          python3-jsonschema
 Description: Justification pipeline runner for jPipe
  jpipe-runner orchestrates justification pipelines: research workflows where

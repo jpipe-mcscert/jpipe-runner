@@ -16,6 +16,8 @@ flowchart LR
     loader --> diagnostics
     model --> diagnostics
     outcomes --> diagnostics
+    steps --> model
+    steps --> outcomes
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -25,8 +27,13 @@ arrow is data.
 |--------|------|
 | [`loader`](../src/jpipe_runner/loader.py) | Reads the JSON the jPipe compiler emits, checks it against the schema, and builds a `Justification`. Entry points: `load(path)` and `loads(text)`. |
 | [`model`](../src/jpipe_runner/model.py) | The justification model: elements, the relations between them, and the graph they form. |
+| [`steps`](../src/jpipe_runner/steps.py) | The decorators that declare a step library's functions, `@evidence`, `@strategy`, `@sub_conclusion` and `@conclusion`, and the `StepRegistry` that collects them from the library's modules. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run. |
+| [`framework`](../src/jpipe_runner/framework/__init__.py) | Not a module of v4: the v3 authoring API lived under this name, and importing it raises an `ImportError` that says what replaced it. |
+
+The public API, what a step library imports, is the package itself: `from jpipe_runner
+import evidence, strategy, sub_conclusion, conclusion, Outcome, Pass, Fail, Skip`.
 
 ## Classes
 
@@ -45,6 +52,11 @@ classDiagram
         class Relation
         class Kind
         class InvalidJustificationError
+    }
+
+    namespace steps {
+        class Step
+        class StepRegistry
     }
 
     namespace outcomes {
@@ -72,6 +84,9 @@ classDiagram
     InvalidJustificationError "1" o-- "1..*" Diagnostic : diagnostics
     Diagnostic --> Severity : severity
     Diagnostic ..> Element : element
+    StepRegistry "1" o-- "*" Step : steps
+    Step --> Kind : kind
+    Step ..> Outcome : returns
     Outcome <|-- Pass
     Outcome <|-- Fail
     Outcome <|-- Skip
@@ -108,6 +123,21 @@ a relation to an element that does not exist (`JP003`). Either raises an
 
 **A diagnostic's `code` is its contract.** The `message` is written for humans and may be
 reworded. A `Severity.ERROR` stops the run; a `WARNING` is reported and the run continues.
+
+**A step library declares its functions with one decorator per kind.** `@evidence`,
+`@strategy`, `@sub_conclusion` and `@conclusion` take the ids of the elements a function
+implements, as positional arguments, and the variables it `consumes` and `produces`. Each
+kind's decorator accepts only what the kind can do: evidence consumes nothing, and a
+conclusion produces nothing. A decorator attaches a `Step` to the function and returns the
+function unchanged, so a step is still a plain function. A declaration that is wrong on
+its face is a `TypeError` when the library is imported: no id, a variable name that is not
+a Python identifier, or a parameter list that is not exactly the consumed variables (a
+parameter with a default, or `**kwargs`, is allowed).
+
+**Declarations are collected per run, never in a global.** `StepRegistry.from_modules`
+scans the namespaces of a library's modules for steps, each listed once, in order. A
+registry holds what the steps declare and no values, so two runs in one process share
+nothing, and a library module that Python has cached is collected again as it is.
 
 **A step reports its result by returning an `Outcome`.** `Pass` carries the values the
 step produces, by variable name; `Fail` carries the reason the check does not hold; `Skip`
