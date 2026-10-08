@@ -344,6 +344,36 @@ class IncompatibleKind(Rule):
                 )
 
 
+class EvidenceObservesNothing(Rule):
+    """An evidence step declares no artifact that it observes.
+
+    Evidence is where an argument touches the world: a test report, a changelog, a
+    configuration file. An evidence that observes nothing checks nothing in the world,
+    whatever it returns. Placeholder steps (`return Pass()`) and skeletons left unfilled
+    are the usual cause. In an assurance case, fake evidence is worse than missing
+    evidence: it looks like a check. Declaring the artifacts also lets the runner check
+    that they exist, record them, and archive them with the report
+    ([ADR-0018](adr/0018-evidence-declares-observed-artifacts.md)).
+
+    **Fix:** declare what the evidence observes, and take it as a parameter:
+    `@evidence("id", observes={"changelog": "CHANGELOG.md"})`.
+    """
+
+    code = "JP018"
+    severity = Severity.ERROR
+    summary = "An evidence observes no artifact."
+
+    def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
+        for bound in ctx.bindings:
+            if bound.step.kind is Kind.EVIDENCE and not bound.step.observes:
+                yield self.diagnostic(
+                    f"the evidence {bound.step.name} observes no artifact, so it checks "
+                    f"nothing in the world",
+                    element=bound.element.id,
+                    fix='Declare what it observes: observes={"name": "path/to/artifact"}.',
+                )
+
+
 def _decorator(kind: Kind) -> str:
     return f"@{kind.value.replace('-', '_')}"
 
@@ -377,6 +407,7 @@ RULES = RuleSet(
         ConsumedBeforeProduced(),
         UnknownBindingTarget(),
         IncompatibleKind(),
+        EvidenceObservesNothing(),
     ]
 )
 """Every rule, run on every validation."""

@@ -4,14 +4,14 @@ A case builds a small model and a few steps, and asserts what one rule reports: 
 severities and elements, never messages.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 
 from jpipe_runner import loader
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.model import Element, Justification, Kind, Relation
 from jpipe_runner.outcomes import Outcome, Pass
-from jpipe_runner.steps import Step, StepRegistry
+from jpipe_runner.steps import Artifact, Step, StepRegistry
 from jpipe_runner.validation import Rule, ValidationContext
 
 Reported = tuple[str, Severity, str | None]
@@ -48,6 +48,7 @@ def step(
     *ids: str,
     consumes: Iterable[str] = (),
     produces: Iterable[str] = (),
+    observes: Mapping[str, str] | None = None,
     name: str = "f",
 ) -> Step:
     """A step as its decorator would declare it, without the decorator's checks."""
@@ -56,7 +57,8 @@ def step(
         return Pass()
 
     function.__qualname__ = name
-    return Step(kind, ids, function, tuple(consumes), tuple(produces))
+    artifacts = tuple(Artifact(n, path) for n, path in (observes or {}).items())
+    return Step(kind, ids, function, tuple(consumes), tuple(produces), artifacts)
 
 
 def context(justification: Justification, *steps: Step) -> ValidationContext:

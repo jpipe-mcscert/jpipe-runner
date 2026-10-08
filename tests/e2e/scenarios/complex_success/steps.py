@@ -11,8 +11,6 @@ from pathlib import Path
 
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 
-MOCK = Path("mock")
-
 # Thresholds (v3 read pass_size and min_lines from config.yaml; the others were inline).
 MIN_DOCUMENT_SIZE = 50
 MIN_SCHEDULE_SIZE = 20
@@ -22,118 +20,109 @@ MIN_FLEET_SIZE = 3
 MIN_STAFF = 5
 
 
-def _missing(path: Path) -> Fail:
-    return Fail(f"{path} not found")
-
-
 def _row_count(path: Path) -> int:
     """Number of data rows in a CSV file with a header line."""
     with path.open(encoding="utf-8", newline="") as stream:
         return sum(1 for row in csv.DictReader(stream) if any(row.values()))
 
 
-# Evidence: what the campaign has on file.
+# Evidence: what the campaign has on file. The runner passes each observed artifact, and
+# fails the evidence if it is not there, so a step never checks that its file exists.
 
 
-@evidence("press_release", produces=["press_release_size"])
-def approved_press_release_document() -> Outcome:
+@evidence(
+    "press_release",
+    observes={"press_release": "mock/press_release.txt"},
+    produces=["press_release_size"],
+)
+def approved_press_release_document(press_release: Path) -> Outcome:
     """An approved press release is on file."""
-    path = MOCK / "press_release.txt"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(press_release_size=path.stat().st_size)
+    return Pass(press_release_size=press_release.stat().st_size)
 
 
-@evidence("social_posts", produces=["social_posts_size"])
-def set_of_preapproved_social_media_posts_and_graphics() -> Outcome:
+@evidence(
+    "social_posts",
+    observes={"social_posts": "mock/social_posts.json"},
+    produces=["social_posts_size"],
+)
+def set_of_preapproved_social_media_posts_and_graphics(social_posts: Path) -> Outcome:
     """A set of pre-approved social media posts is on file."""
-    path = MOCK / "social_posts.json"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(social_posts_size=path.stat().st_size)
+    return Pass(social_posts_size=social_posts.stat().st_size)
 
 
-@evidence("event_calendar", produces=["event_count"])
-def list_of_scheduled_events_with_dates_and_venues() -> Outcome:
+@evidence(
+    "event_calendar", observes={"calendar": "mock/event_calendar.csv"}, produces=["event_count"]
+)
+def list_of_scheduled_events_with_dates_and_venues(calendar: Path) -> Outcome:
     """A calendar of scheduled events is on file."""
-    path = MOCK / "event_calendar.csv"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(event_count=_row_count(path))
+    return Pass(event_count=_row_count(calendar))
 
 
-@evidence("speakers_list", produces=["speaker_count"])
-def list_of_trained_community_speakers() -> Outcome:
+@evidence(
+    "speakers_list", observes={"speakers": "mock/speakers_list.csv"}, produces=["speaker_count"]
+)
+def list_of_trained_community_speakers(speakers: Path) -> Outcome:
     """A list of trained community speakers is on file."""
-    path = MOCK / "speakers_list.csv"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(speaker_count=_row_count(path))
+    return Pass(speaker_count=_row_count(speakers))
 
 
-@evidence("fleet_available", produces=["fleet_size"])
-def three_operational_mobile_medical_units() -> Outcome:
+@evidence("fleet_available", observes={"fleet": "mock/fleet_info.json"}, produces=["fleet_size"])
+def three_operational_mobile_medical_units(fleet: Path) -> Outcome:
     """The mobile fleet is described, with its size."""
-    path = MOCK / "fleet_info.json"
-    if not path.is_file():
-        return _missing(path)
-    fleet = json.loads(path.read_text(encoding="utf-8"))
-    return Pass(fleet_size=fleet["fleet_size"])
+    return Pass(fleet_size=json.loads(fleet.read_text(encoding="utf-8"))["fleet_size"])
 
 
-@evidence("trained_staff", produces=["staff_count"])
-def roster_of_trained_vaccination_staff_for_mobile_units() -> Outcome:
+@evidence("trained_staff", observes={"roster": "mock/staff_roster.csv"}, produces=["staff_count"])
+def roster_of_trained_vaccination_staff_for_mobile_units(roster: Path) -> Outcome:
     """A roster of trained vaccination staff is on file."""
-    path = MOCK / "staff_roster.csv"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(staff_count=_row_count(path))
+    return Pass(staff_count=_row_count(roster))
 
 
-@evidence("schedule_plan", produces=["schedule_plan_size"])
-def approved_extendedhours_operation_schedule() -> Outcome:
+@evidence(
+    "schedule_plan",
+    observes={"schedule": "mock/schedule_plan.txt"},
+    produces=["schedule_plan_size"],
+)
+def approved_extendedhours_operation_schedule(schedule: Path) -> Outcome:
     """An extended-hours operation schedule is on file."""
-    path = MOCK / "schedule_plan.txt"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(schedule_plan_size=path.stat().st_size)
+    return Pass(schedule_plan_size=schedule.stat().st_size)
 
 
-@evidence("leader_commitments", produces=["leader_commitments_size"])
-def written_commitments_from_local_leaders_to_participate() -> Outcome:
+@evidence(
+    "leader_commitments",
+    observes={"commitments": "mock/leader_commitments.txt"},
+    produces=["leader_commitments_size"],
+)
+def written_commitments_from_local_leaders_to_participate(commitments: Path) -> Outcome:
     """Written commitments from local leaders are on file."""
-    path = MOCK / "leader_commitments.txt"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(leader_commitments_size=path.stat().st_size)
+    return Pass(leader_commitments_size=commitments.stat().st_size)
 
 
-@evidence("testimonial_videos", produces=["testimonial_count"])
-def recorded_testimonials_from_trusted_figures() -> Outcome:
+@evidence(
+    "testimonial_videos",
+    observes={"testimonials": "mock/testimonial_videos_list.txt"},
+    produces=["testimonial_count"],
+)
+def recorded_testimonials_from_trusted_figures(testimonials: Path) -> Outcome:
     """A list of recorded testimonials is on file."""
-    path = MOCK / "testimonial_videos_list.txt"
-    if not path.is_file():
-        return _missing(path)
-    lines = path.read_text(encoding="utf-8").splitlines()
+    lines = testimonials.read_text(encoding="utf-8").splitlines()
     return Pass(testimonial_count=sum(1 for line in lines if line.strip()))
 
 
-@evidence("safety_report", produces=["safety_report_format"])
-def public_safety_report_approved_by_health_authority() -> Outcome:
+@evidence(
+    "safety_report",
+    observes={"reports": "mock/safety_report.*"},
+    produces=["safety_report_format"],
+)
+def public_safety_report_approved_by_health_authority(reports: list[Path]) -> Outcome:
     """A public safety report is on file, in some format."""
-    reports = sorted(MOCK.glob("safety_report.*"))
-    if not reports:
-        return _missing(MOCK / "safety_report.*")
     return Pass(safety_report_format=reports[0].suffix.lower())
 
 
-@evidence("faq_document", produces=["faq_document_size"])
-def frequently_asked_questions_document() -> Outcome:
+@evidence("faq_document", observes={"faq": "mock/faq_document.txt"}, produces=["faq_document_size"])
+def frequently_asked_questions_document(faq: Path) -> Outcome:
     """A frequently-asked-questions document is on file."""
-    path = MOCK / "faq_document.txt"
-    if not path.is_file():
-        return _missing(path)
-    return Pass(faq_document_size=path.stat().st_size)
+    return Pass(faq_document_size=faq.stat().st_size)
 
 
 # Strategies: is what is on file enough?

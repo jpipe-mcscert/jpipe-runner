@@ -6,24 +6,27 @@ Binding it here too would be a conflict (JP007), not a cross-check.
 """
 
 from pathlib import Path
+from xml.etree import ElementTree
 
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 
 THRESHOLD = 80.0
 
 
-@evidence("tested:suite", produces=["suite_passes"])
-def the_test_suite_passes() -> Outcome:
+@evidence("tested:suite", observes={"report": "mock/junit.xml"}, produces=["suite_passes"])
+def the_test_suite_passes(report: Path) -> Outcome:
     """[evidence] The test suite passes"""
-    if Path("mock/tests.ok").is_file():
+    suite = ElementTree.parse(report).getroot()
+    failed = int(suite.get("failures", "0")) + int(suite.get("errors", "0"))
+    if failed == 0:
         return Pass(suite_passes=True)
-    return Fail("mock/tests.ok not found: the test suite did not pass")
+    return Fail(f"{report}: {failed} tests failed")
 
 
-@evidence("tested:coverage", produces=["coverage"])
-def coverage_is_above_80() -> Outcome:
+@evidence("tested:coverage", observes={"measured": "mock/coverage.txt"}, produces=["coverage"])
+def coverage_is_above_80(measured: Path) -> Outcome:
     """[evidence] Coverage is above 80%"""
-    coverage = float(Path("mock/coverage.txt").read_text(encoding="utf-8"))
+    coverage = float(measured.read_text(encoding="utf-8"))
     if coverage > THRESHOLD:
         return Pass(coverage=coverage)
     return Fail(f"coverage is {coverage}%, not above {THRESHOLD}%")

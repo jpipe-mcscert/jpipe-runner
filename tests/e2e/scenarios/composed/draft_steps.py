@@ -9,24 +9,27 @@ warning).
 """
 
 from pathlib import Path
+from xml.etree import ElementTree
 
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 
 
-@evidence("draft:tests", produces=["tests_pass"])
-def the_test_suite_passes() -> Outcome:
+@evidence("draft:tests", observes={"report": "mock/junit.xml"}, produces=["tests_pass"])
+def the_test_suite_passes(report: Path) -> Outcome:
     """[evidence] The test suite passes"""
-    if Path("mock/tests.ok").is_file():
+    suite = ElementTree.parse(report).getroot()
+    failed = int(suite.get("failures", "0")) + int(suite.get("errors", "0"))
+    if failed == 0:
         return Pass(tests_pass=True)
-    return Fail("mock/tests.ok not found: the test suite did not pass")
+    return Fail(f"{report}: {failed} tests failed")
 
 
-@evidence("draft:changelog", produces=["changelog_ok"])
-def the_changelog_is_up_to_date() -> Outcome:
+@evidence("draft:changelog", observes={"changelog": "mock/CHANGELOG.md"}, produces=["changelog_ok"])
+def the_changelog_is_up_to_date(changelog: Path) -> Outcome:
     """[evidence] The changelog is up to date"""
-    if "2.0" in Path("mock/CHANGELOG.md").read_text(encoding="utf-8"):
+    if "2.0" in changelog.read_text(encoding="utf-8"):
         return Pass(changelog_ok=True)
-    return Fail("mock/CHANGELOG.md does not name release 2.0")
+    return Fail(f"{changelog} does not name release 2.0")
 
 
 @strategy("draft:docs", consumes=["changelog_ok"], produces=["docs_current"])

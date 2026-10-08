@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="release" tests="42" failures="0" errors="0" skipped="0">
+  <testcase classname="release" name="test_release_builds"/>
+</testsuite>

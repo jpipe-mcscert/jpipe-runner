@@ -4,13 +4,15 @@ The evidence `rigor:r17:e_metric` is bound by its last segment only: segment-suf
 resolution.
 """
 
+from pathlib import Path
+
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence
 
 
-@evidence("e_metric", produces=["metrics_reported"])
-def report_metrics() -> Outcome:
-    """The model reports its metrics."""
-    return Pass(metrics_reported=True)
+@evidence("e_metric", observes={"metrics": "mock/metrics.csv"}, produces=["metrics_reported"])
+def report_metrics(metrics: Path) -> Outcome:
+    """The model reports its metrics: the metrics file has at least one row."""
+    return Pass(metrics_reported=len(metrics.read_text(encoding="utf-8").splitlines()) > 1)
 
 
 @conclusion("C1", consumes=["metrics_reported"])

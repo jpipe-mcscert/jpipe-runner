@@ -104,32 +104,35 @@ conclusion   release:c    Version 2.0 is ready to ship
 ## 4. Writing the step library
 
 Each piece of evidence, and the strategy, gets a Python function that checks it. The
-library, [`steps.py`](../tests/e2e/scenarios/release_example/steps.py), checks files under
-`mock/` instead of a real build: `mock/tests.ok` stands for a passing test suite, and
+library, [`steps.py`](../tests/e2e/scenarios/release_example/steps.py), observes files under
+`mock/` instead of a real build: `mock/junit.xml` stands for the test suite's report, and
 `mock/CHANGELOG.md` for the release's changelog.
 
 ```python
 from pathlib import Path
+from xml.etree import ElementTree
 
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 
 RELEASE = "2.0"
 
 
-@evidence("release:e1", produces=["tests_pass"])
-def the_test_suite_passes() -> Outcome:
+@evidence("release:e1", observes={"report": "mock/junit.xml"}, produces=["tests_pass"])
+def the_test_suite_passes(report: Path) -> Outcome:
     """[evidence] The test suite passes"""
-    if Path("mock/tests.ok").is_file():
+    suite = ElementTree.parse(report).getroot()
+    failed = int(suite.get("failures", "0")) + int(suite.get("errors", "0"))
+    if failed == 0:
         return Pass(tests_pass=True)
-    return Fail("mock/tests.ok not found: the test suite did not pass")
+    return Fail(f"{report}: {failed} tests failed")
 
 
-@evidence("release:e2", produces=["changelog_ok"])
-def the_changelog_is_up_to_date() -> Outcome:
+@evidence("release:e2", observes={"changelog": "mock/CHANGELOG.md"}, produces=["changelog_ok"])
+def the_changelog_is_up_to_date(changelog: Path) -> Outcome:
     """[evidence] The changelog is up to date"""
-    if RELEASE in Path("mock/CHANGELOG.md").read_text(encoding="utf-8"):
+    if RELEASE in changelog.read_text(encoding="utf-8"):
         return Pass(changelog_ok=True)
-    return Fail(f"mock/CHANGELOG.md does not name release {RELEASE}")
+    return Fail(f"{changelog} does not name release {RELEASE}")
 
 
 @strategy("release:s", consumes=["tests_pass", "changelog_ok"])
@@ -145,12 +148,17 @@ What each part says:
 - **The decorator is the element's kind.** `@evidence` for evidence, `@strategy` for a
   strategy; there are also `@sub_conclusion` and `@conclusion`. Its first arguments are the
   ids of the element the function implements, here as the compiler exported them.
+- **`observes` declares the artifacts an evidence reads.** It maps each of the function's
+  parameters to a path, relative to where the runner runs; the runner passes the
+  `Path`. An evidence must observe something: one that observes nothing checks nothing in
+  the world (`JP018`).
 - **`produces` and `consumes` declare the data that flows along the argument.** Each
-  piece of evidence produces one variable; the strategy consumes both. Evidence observes
-  the world, so `@evidence` has no `consumes`.
-- **A function's parameters are the variables it consumes.** The runner passes
-  `tests_pass` and `changelog_ok` by name. A function whose parameters do not match its
-  `consumes` is refused when the library is imported.
+  piece of evidence produces what it observed; the strategy consumes both. Evidence
+  observes the world, so `@evidence` has no `consumes`.
+- **A function's parameters are what it observes or consumes.** The runner passes
+  `report` and `changelog` to the evidence, and `tests_pass` and `changelog_ok` to the
+  strategy, by name. A function whose parameters do not match is refused when the library
+  is imported.
 - **A function returns an outcome.** `Pass(...)` says the check holds and carries the
   values it produces. `Fail(reason)` says it does not hold, and why. `Skip(reason)`, not
   used here, says the check cannot be judged.
@@ -161,7 +169,7 @@ What each part says:
 Because the functions are plain Python, they can be tried directly, without the runner:
 
 ```python
->>> the_test_suite_passes()
+>>> the_test_suite_passes(Path("mock/junit.xml"))
 Pass({'tests_pass': True})
 >>> all_release_gates_pass(tests_pass=True, changelog_ok=False)
 Fail(reason='a release gate did not pass')

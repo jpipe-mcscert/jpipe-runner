@@ -31,6 +31,7 @@ No rule can be disabled.
 | [JP014](#jp014-consumedbeforeproduced) | `ConsumedBeforeProduced` | error | A step consumes a variable whose producer does not support it. |
 | [JP015](#jp015-unknownbindingtarget) | `UnknownBindingTarget` | error | An id designates no element of the model. |
 | [JP016](#jp016-incompatiblekind) | `IncompatibleKind` | error | A step's kind differs from its element's, in a way composition cannot explain. |
+| [JP018](#jp018-evidenceobservesnothing) | `EvidenceObservesNothing` | error | An evidence observes no artifact. |
 
 ### JP005 `UnboundElement`
 
@@ -209,6 +210,23 @@ built for another kind of element.
 
 **Fix:** use the decorator of the element's kind, or bind the step to the element it
 was written for.
+
+### JP018 `EvidenceObservesNothing`
+
+Severity: **error**.
+
+An evidence step declares no artifact that it observes.
+
+Evidence is where an argument touches the world: a test report, a changelog, a
+configuration file. An evidence that observes nothing checks nothing in the world,
+whatever it returns. Placeholder steps (`return Pass()`) and skeletons left unfilled
+are the usual cause. In an assurance case, fake evidence is worse than missing
+evidence: it looks like a check. Declaring the artifacts also lets the runner check
+that they exist, record them, and archive them with the report
+([ADR-0018](adr/0018-evidence-declares-observed-artifacts.md)).
+
+**Fix:** declare what the evidence observes, and take it as a parameter:
+`@evidence("id", observes={"changelog": "CHANGELOG.md"})`.
 
 ## Codes reported outside validation
 

@@ -11,6 +11,15 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
 
 ### Added
+- **Evidence declares the artifacts it observes.** `@evidence` takes
+  `observes={"changelog": "CHANGELOG.md"}`, a mapping from each of the function's
+  parameters to a file, a directory (`"src/"`) or a glob (`"build/reports/*.xml"`), relative
+  to the directory the runner runs in, and the runner passes the artifact to that
+  parameter. An absolute path is refused when the library is imported. **Every evidence
+  must observe something**: one that observes nothing checks nothing in the world, and is
+  an error (`JP018`). Existing evidence, and the skeletons jPipe 2.5.0 generates, must be
+  given their artifacts
+  ([ADR-0018](docs/adr/0018-evidence-declares-observed-artifacts.md)).
 - **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
   validation rule checks, why, its severity and how to fix what it reports, and the codes
   reported when a model is loaded or a step returns. It is generated from the rules

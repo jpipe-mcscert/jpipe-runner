@@ -3,21 +3,23 @@
 S1 produces `total`, which nothing consumes: the conclusion is not bound.
 """
 
+from pathlib import Path
+
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 
 EXPECTED_TOTAL = 15
 
 
-@evidence("E1", produces=["number_a"])
-def generate_number_a() -> Outcome:
+@evidence("E1", observes={"source": "mock/number_a.txt"}, produces=["number_a"])
+def generate_number_a(source: Path) -> Outcome:
     """The first number is available."""
-    return Pass(number_a=10)
+    return Pass(number_a=int(source.read_text(encoding="utf-8")))
 
 
-@evidence("E2", produces=["number_b"])
-def generate_number_b() -> Outcome:
+@evidence("E2", observes={"source": "mock/number_b.txt"}, produces=["number_b"])
+def generate_number_b(source: Path) -> Outcome:
     """The second number is available."""
-    return Pass(number_b=5)
+    return Pass(number_b=int(source.read_text(encoding="utf-8")))
 
 
 @strategy("S1", consumes=["number_a", "number_b"], produces=["total"])

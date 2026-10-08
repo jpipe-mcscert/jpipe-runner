@@ -4,15 +4,11 @@ from pathlib import Path
 
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence
 
-CHECKED_FILE = Path("mock/test_file.txt")
 
-
-@evidence("E1", produces=["file_exists"])
-def check_file_exists() -> Outcome:
+@evidence("E1", observes={"checked": "mock/test_file.txt"}, produces=["file_exists"])
+def check_file_exists(checked: Path) -> Outcome:
     """The file under validation is present."""
-    if CHECKED_FILE.is_file():
-        return Pass(file_exists=True)
-    return Fail(f"{CHECKED_FILE} not found")
+    return Pass(file_exists=checked.is_file())
 
 
 @conclusion("C1", consumes=["file_exists"])

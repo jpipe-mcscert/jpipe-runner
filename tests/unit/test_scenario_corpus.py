@@ -122,3 +122,15 @@ def test_validation_reports_what_the_scenario_is_about(scenario: Scenario) -> No
     report = RULES.run(ValidationContext.of(loader.load(scenario.justification), registry))
     assert [d.code for d in report.diagnostics] == VALIDATION_CODES.get(scenario.name, [])
     assert report.passed is (scenario.exit_code != 3)
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
+def test_every_observed_artifact_is_in_the_scenario(scenario: Scenario) -> None:
+    # The runner fails an evidence whose artifact is unreachable (#144); in a scenario
+    # meant to pass, every one is there, relative to the scenario's directory.
+    with scenario.imported_libraries() as modules:
+        registry = StepRegistry.from_modules(modules)
+    for step in registry:
+        for artifact in step.observes:
+            found = list(scenario.directory.glob(artifact.path.rstrip("/")))
+            assert found, f"{scenario.name}: {step.name} observes {artifact.path}, not found"

@@ -73,6 +73,7 @@ classDiagram
     namespace steps {
         class Step
         class StepRegistry
+        class Artifact
     }
 
     namespace binding {
@@ -102,6 +103,7 @@ classDiagram
         class ConsumedBeforeProduced
         class UnknownBindingTarget
         class IncompatibleKind
+        class EvidenceObservesNothing
     }
 
     namespace values {
@@ -139,6 +141,7 @@ classDiagram
     Diagnostic ..> Element : element
     StepRegistry "1" o-- "*" Step : steps
     Step --> Kind : kind
+    Step "1" *-- "*" Artifact : observes
     Step ..> Outcome : returns
     BindingTable "1" *-- "*" Binding : bindings
     BindingTable ..> Resolver : uses
@@ -166,6 +169,7 @@ classDiagram
     Rule <|-- ConsumedBeforeProduced
     Rule <|-- UnknownBindingTarget
     Rule <|-- IncompatibleKind
+    Rule <|-- EvidenceObservesNothing
     ValueStore "1" *-- "*" ProducedValue : values
     ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
@@ -234,11 +238,14 @@ committed page differs.
 `@strategy`, `@sub_conclusion` and `@conclusion` take the ids of the elements a function
 implements, as positional arguments, and the variables it `consumes` and `produces`. Each
 kind's decorator accepts only what the kind can do: evidence consumes nothing, and a
-conclusion produces nothing. A decorator attaches a `Step` to the function and returns the
+conclusion produces nothing. Only evidence `observes` artifacts: a mapping from parameter
+name to a path relative to the run's working directory, kept on the `Step` as `Artifact`s.
+A path names a file, a directory (with a trailing `/`), or a glob of files. A decorator attaches a `Step` to the function and returns the
 function unchanged, so a step is still a plain function. A declaration that is wrong on
-its face is a `TypeError` when the library is imported: no id, a variable name that is not
-a Python identifier, or a parameter list that is not exactly the consumed variables (a
-parameter with a default, or `**kwargs`, is allowed).
+its face is a `TypeError` when the library is imported: no id, a variable or parameter name
+that is not a Python identifier, an absolute path, or a parameter list that is not exactly
+the consumed variables, or for evidence the observed artifacts (a parameter with a
+default, or `**kwargs`, is allowed).
 
 **A step is bound to an element through the ids it names.** An id designates an element
 if it is the element's id or one of its aliases, then if it is that prefixed with the
