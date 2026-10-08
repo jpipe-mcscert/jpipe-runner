@@ -55,6 +55,20 @@ def test_a_name_given_twice_to_pass_is_refused() -> None:
         Pass({"a": 1}, a=2)
 
 
+@pytest.mark.parametrize("values", [False, 0, "", ["a"], "a"], ids=repr)
+def test_pass_takes_a_mapping_and_nothing_else(values: object) -> None:
+    with pytest.raises(TypeError, match="mapping"):
+        Pass(values)  # type: ignore[arg-type]
+
+
+def test_pass_copies_every_entry_of_a_mapping_however_it_tests_as_a_boolean() -> None:
+    class AlwaysFalse(dict[str, int]):
+        def __bool__(self) -> bool:
+            return False
+
+    assert dict(Pass(AlwaysFalse(a=1)).values) == {"a": 1}
+
+
 def test_produced_variables_are_named_by_strings() -> None:
     mapping: dict[Any, int] = {1: 1}
     with pytest.raises(TypeError, match="str"):

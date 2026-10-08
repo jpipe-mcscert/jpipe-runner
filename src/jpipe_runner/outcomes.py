@@ -39,7 +39,12 @@ class Pass(Outcome):
     values: Mapping[str, Any]
 
     def __init__(self, values: Mapping[str, Any] | None = None, /, **kwargs: Any) -> None:
-        produced = dict(values or {})
+        if values is not None and not isinstance(values, Mapping):
+            raise TypeError(
+                f"Pass() takes a mapping of produced values, not {type(values).__name__}: "
+                f"Pass({{'name': value}}) or Pass(name=value)"
+            )
+        produced = {} if values is None else dict(values)
         if not all(isinstance(name, str) for name in produced):
             raise TypeError(f"a produced variable is named by a str: {list(produced)!r}")
         if twice := sorted(produced.keys() & kwargs.keys()):
@@ -92,7 +97,8 @@ def as_outcome(returned: object, element_id: str) -> Outcome:
     elif returned is False:
         message, fix = "returned False", "Return Fail(reason) instead of False."
     elif returned is None:
-        message, fix = "returned None: it has no return statement", f"Return {_OUTCOMES}."
+        message = "returned None"
+        fix = f"Return {_OUTCOMES}. A function without a return statement returns None."
     elif isinstance(returned, Mapping):
         message = f"returned a {type(returned).__name__}"
         fix = "Return Pass(values) to produce these values."
