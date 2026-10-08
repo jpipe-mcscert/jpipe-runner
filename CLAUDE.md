@@ -105,6 +105,11 @@ the `v3.6.0` tag.
   on its branch: set the milestone's row in the status table to done, and add a subsection
   listing the user-visible features it added (what a user can now do, not the modules
   built). This is part of the milestone's work, like the CHANGELOG, and lands in its PR.
+- **In the same way, bring [`docs/end-to-end.md`](docs/end-to-end.md) up to date.** It
+  walks the release example from `.jd` to verdict for human readers (the e2e scenarios are
+  for coverage). Turn each stage the milestone built from *planned* into what actually
+  happens, quoting output produced by running the code, never written by hand.
+  `tests/unit/test_end_to_end_doc.py` keeps its step library in step with the scenario's.
 - The maintainer marks the PR ready for review when the milestone is complete, and merges it.
 - Never commit or push to `main` directly.
 

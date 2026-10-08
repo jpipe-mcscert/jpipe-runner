@@ -15,7 +15,8 @@ of a justification to a Python function, runs the checks, and reports which clai
 v4 is built one [milestone](https://github.com/jpipe-mcscert/jpipe-runner/milestones) at a
 time, and this section is updated as each one lands. There is no command line until M6, so
 nothing below can be run as `jpipe-runner` yet: it is the library the command line will
-be built on.
+be built on. [`docs/end-to-end.md`](docs/end-to-end.md) follows one example through
+every stage, from the `.jd` file to the verdict, saying which stages work today.
 
 | Milestone | Status |
 |-----------|--------|

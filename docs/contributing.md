@@ -41,7 +41,9 @@ The reasons are recorded in
    a branch with an open pull request.
 4. Before the milestone is complete, update the README's
    [*What v4 can do so far*](../README.md#what-v4-can-do-so-far) section: mark the
-   milestone done in the status table, and list the features it added for users.
+   milestone done in the status table, and list the features it added for users. Then
+   update [`end-to-end.md`](end-to-end.md), which follows one example through every stage:
+   describe the stages the milestone built as they now work, with real output.
 5. When the milestone is complete, mark its pull request **ready for review**. The maintainer
    merges it with a merge commit, which keeps the per-ticket commits and closes their issues.
 
