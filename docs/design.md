@@ -26,6 +26,9 @@ flowchart LR
     validation --> model
     validation --> steps
     validation --> diagnostics
+    rules --> validation
+    rules --> binding
+    rules --> diagnostics
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -38,6 +41,7 @@ arrow is data.
 | [`steps`](../src/jpipe_runner/steps.py) | The decorators that declare a step library's functions, `@evidence`, `@strategy`, `@sub_conclusion` and `@conclusion`, and the `StepRegistry` that collects them from the library's modules. |
 | [`binding`](../src/jpipe_runner/binding.py) | Resolves the ids a step names to elements of the model, and binds steps to elements, one to one, in a `BindingTable`. |
 | [`validation`](../src/jpipe_runner/validation.py) | Checks a step library against its model before anything runs: `Rule`, one check; `RuleSet`, which runs rules over a `ValidationContext` and collects what they report in a `ValidationReport`. |
+| [`rules`](../src/jpipe_runner/rules.py) | Every validation rule, one class each, and `RULES`, the rule set every run uses. [`rules.md`](rules.md) is generated from it. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run. |
@@ -82,6 +86,12 @@ classDiagram
         class RuleSet
         class ValidationContext
         class ValidationReport
+    }
+
+    namespace rules {
+        class AmbiguousBinding
+        class ConflictingBinding
+        class UnknownBindingTarget
     }
 
     namespace values {
@@ -134,6 +144,9 @@ classDiagram
     ValidationContext --> BindingTable : bindings
     Rule ..> Diagnostic : reports
     ValidationReport "1" o-- "*" Diagnostic : diagnostics
+    Rule <|-- AmbiguousBinding
+    Rule <|-- ConflictingBinding
+    Rule <|-- UnknownBindingTarget
     ValueStore "1" *-- "*" ProducedValue : values
     ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
@@ -186,6 +199,12 @@ data look only at bound steps. A `RuleSet` runs every rule, in code order, and c
 every diagnostic in a `ValidationReport`, which passes when none is an error. A strict run
 reports warnings as errors. No rule can be disabled. What the model alone shows to be
 unrunnable (`JP001` to `JP004`) is not a rule: the loader refuses it first.
+
+**Every rule is in one module, `rules`, and the reference is generated from it.** Each
+rule is a subclass of `Rule`. The rules about binding (`JP006`, `JP007`, `JP015`) report
+what the `BindingTable` found, under their own code. [`rules.md`](rules.md), the reference
+of every diagnostic code, is rendered from the rules' classes, and a test fails when the
+committed page differs.
 
 **A step library declares its functions with one decorator per kind.** `@evidence`,
 `@strategy`, `@sub_conclusion` and `@conclusion` take the ids of the elements a function

@@ -36,7 +36,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
         "--update-goldens",
         action="store_true",
-        help="rewrite the golden reports of the e2e scenarios instead of comparing them",
+        help="rewrite the golden reports of the e2e scenarios, and docs/rules.md, instead of comparing them",
     )
 
 

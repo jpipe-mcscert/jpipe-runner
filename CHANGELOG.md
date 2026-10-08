@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
 
+### Added
+- **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
+  validation rule checks, why, its severity and how to fix what it reports, and the codes
+  reported when a model is loaded or a step returns. It is generated from the rules
+  themselves, so it cannot drift from what the runner checks.
+
 ### Changed
 - **Steps are declared with one decorator per element kind.** `@evidence`, `@strategy`,
   `@sub_conclusion` and `@conclusion`, imported from `jpipe_runner`, replace `@jpipe` and

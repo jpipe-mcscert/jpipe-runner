@@ -8,9 +8,13 @@ three layers (#133). Each layer has one job and one way of asserting.
 tests/
   conftest.py          markers by directory, hypothesis profiles
   golden.py            golden-file comparison (layer 2)
+  rules_doc.py         renders docs/rules.md from the rules
   scenarios.py         scenario discovery and the scenario.toml format (layer 2)
   strategies.py        hypothesis strategies for justification models (layer 3)
   unit/                layer 1 and layer 3, plus unit tests of the helpers above
+    validation/
+      builders.py      minimal in-memory validation contexts
+      rules/           layer 1: one module per rule
   e2e/
     test_scenarios.py  layer 2: one test per scenario
     scenarios/<name>/  one directory per scenario
@@ -20,7 +24,7 @@ tests/
 |-----|---------|
 | `poetry run pytest -m unit` | everything under `tests/unit/` |
 | `poetry run pytest -m e2e` | everything under `tests/e2e/` |
-| `poetry run pytest --update-goldens` | rewrites the golden reports instead of comparing them |
+| `poetry run pytest --update-goldens` | rewrites the golden reports and `docs/rules.md` instead of comparing them |
 
 The marker comes from the directory (`tests/conftest.py`). A test file anywhere else is a
 collection error.
@@ -30,13 +34,16 @@ collection error.
 One test module per validation `Rule` (#118, #119), under `tests/unit/validation/rules/`.
 
 - **Table-driven.** A list of `pytest.param(...)` cases, each a minimal in-memory
-  `ValidationContext`, and the diagnostics it must produce.
+  `ValidationContext` built with `tests/unit/validation/builders.py`, and the diagnostics
+  it must produce.
 - **Assert `Diagnostic.code` and `Diagnostic.severity`, and the element they point at.
   Never a message substring.** Messages are written for humans and will be reworded. Codes
   are the contract.
 - Each rule has at least one case that fires and one near-miss that does not.
 
-The rule tests arrive with the rules themselves, in #119.
+`docs/rules.md`, the reference of every code, is rendered from the rules by
+`tests/rules_doc.py`. `tests/unit/test_rules_doc.py` fails when the committed page differs,
+or when a code defined in the package is not on it; `--update-goldens` rewrites it.
 
 ## Layer 2: golden JSON reports
 

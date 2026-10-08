@@ -79,7 +79,8 @@ poetry run mypy              # --strict, over src/
 - All tool configuration (pytest, coverage, ruff, mypy) lives in `pyproject.toml`.
 - The test architecture (rule tests, golden reports, property tests, the scenario format)
   is described in [`tests/README.md`](tests/README.md). `--update-goldens` regenerates the
-  golden reports of the e2e scenarios.
+  golden reports of the e2e scenarios and `docs/rules.md`, which is generated from the
+  validation rules (`src/jpipe_runner/rules.py`) and checked by a test.
 - The `unit` / `e2e` markers are applied by `tests/conftest.py` from the test's directory.
   A test file outside `tests/unit/` or `tests/e2e/` is a collection error.
 - `pre-commit install` runs ruff and mypy before each commit; CI's `lint` job runs the same.
