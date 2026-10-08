@@ -142,7 +142,8 @@ class RefinedElement(Rule):
                     f"{bound.step.name} is declared as {bound.step.kind}, and is bound to "
                     f"a sub-conclusion: it runs as a cross-check of the argument below it",
                     element=bound.element.id,
-                    fix="None, for a cross-check. For the composed model only, use @sub_conclusion.",
+                    fix="Nothing to do for a cross-check. If the library serves only the "
+                    "composed model, declare the step with @sub_conclusion.",
                 )
 
 

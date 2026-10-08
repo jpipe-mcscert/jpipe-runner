@@ -5,8 +5,8 @@ written in jPipe becomes a model the runner reads, how a Python step library is 
 to it, and what the runner does with the two. The test suite runs the same example (and
 others) for coverage. This page is meant to be read.
 
-v4 is still being built ([progress](v4-progress.md)). Steps 1 to 4 work
-today. Steps 5 to 7 describe what the next milestones build, and are marked as such. This
+v4 is still being built ([progress](v4-progress.md)). Steps 1 to 5 work
+today. Steps 6 and 7 describe what the next milestones build, and are marked as such. This
 page grows with each milestone.
 
 The example is the release argument of the [jPipe tutorials](https://www.jpipe.org/tutorials/),
@@ -192,13 +192,36 @@ one element. An id may also be shorter than the element's: `@evidence("e1")` bin
 `release:e1` too, as long as no other element's id also ends in `e1`. See
 [ADR-0007](adr/0007-binding-resolution.md) for the rule.
 
-## 5. Validating the library against the model (planned, M3)
+## 5. Validating the library against the model
 
-Before running anything, the runner will check that the library fits the model: every
-piece of evidence and every strategy has a function, the functions' kinds agree with the
-model, every consumed variable has a producer that runs before its consumer, and nothing
-forms a cycle ([#119](https://github.com/jpipe-mcscert/jpipe-runner/issues/119)). The
-release library passes all of these.
+Before running anything, the runner checks that the library fits the model:
+
+- every piece of evidence and every strategy has a function;
+- each function's kind agrees with its element's;
+- each piece of evidence observes an artifact, and produces a value that another step
+  consumes;
+- every consumed variable is produced by one step, which supports its consumer, so the
+  value exists by the time it is needed.
+
+[`rules.md`](rules.md) lists every check. All the problems are reported at once. An error
+stops the run before any step executes; a warning is reported, and the run continues.
+
+The release library passes every check: validation reports nothing.
+
+Suppose the strategy misspells a variable, `consumes=["tests_passed", "changelog_ok"]`,
+and its parameter with it. The library still imports, since its declaration is consistent
+on its face, but validation reports two errors, each with the element it is about and what
+to do:
+
+```
+JP009 error [release:s]: steps.all_release_gates_pass consumes 'tests_passed', which no step produces
+  fix: Produce 'tests_passed' in a step that supports this one.
+JP012 error [release:e1]: the evidence steps.the_test_suite_passes produces 'tests_pass', which no step consumes
+  fix: Produce what the evidence observed, and consume it in its strategy.
+```
+
+The second follows from the first: with the typo, nothing reads what `e1` observed, and
+an evidence whose findings nobody uses supports nothing.
 
 ## 6. Running the steps (planned, M4)
 
@@ -292,5 +315,13 @@ Two things happened:
   and the conclusion of `tested` into one sub-conclusion, `readiness:hook`, which keeps
   both old ids as aliases. The draft's check for "the test suite passes" therefore still
   binds, to a node that is now argued in full below it. When it runs, it will run as an
-  independent cross-check of that sub-argument, and validation (M3) will point the kind
-  change out as a warning rather than an error.
+  independent cross-check of that sub-argument.
+
+Validation points the change of kind out, as a warning rather than an error
+([ADR-0013](adr/0013-kind-divergence-under-composition.md)). It is the only thing it
+reports on the refined model, so the run goes on:
+
+```
+JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
+  fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
+```

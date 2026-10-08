@@ -130,7 +130,8 @@ the `v3.6.0` tag.
   walks the release example from `.jd` to verdict for human readers (the e2e scenarios are
   for coverage). Turn each stage the milestone built from *planned* into what actually
   happens, quoting output produced by running the code, never written by hand.
-  `tests/unit/test_end_to_end_doc.py` keeps its step library in step with the scenario's.
+  `tests/unit/test_end_to_end_doc.py` keeps its step library, and the validation output it
+  quotes, in step with the scenario's.
 - The maintainer marks the PR ready for review when the milestone is complete, and merges it.
 - Never commit or push to `main` directly.
 
