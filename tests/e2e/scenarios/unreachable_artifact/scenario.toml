@@ -1,0 +1,12 @@
+# The release example, run before the test suite has written its report: steps.py and
+# justification.json are release_example's, and mock/junit.xml is not there.
+description = "An evidence observes a file that does not exist: it fails without being called (JP019), and what it supports is skipped."
+origin = "new in v4: #144"
+libraries = ["steps.py"]
+exit_code = 1
+exercises = [
+    "JP019: an unreachable artifact fails its evidence",
+    "the step of an unreachable artifact is not called",
+    "the other evidence still runs and is recorded",
+    "Fail propagates downstream as Skip, blocked by the evidence",
+]

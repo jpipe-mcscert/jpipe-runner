@@ -1,0 +1,44 @@
+{
+  "elements": [
+    {
+      "escaped": "version_2_0_is_ready_to_ship",
+      "id": "release:c",
+      "label": "Version 2.0 is ready to ship",
+      "type": "conclusion"
+    },
+    {
+      "escaped": "all_release_gates_pass",
+      "id": "release:s",
+      "label": "All release gates pass",
+      "type": "strategy"
+    },
+    {
+      "escaped": "the_test_suite_passes",
+      "id": "release:e1",
+      "label": "The test suite passes",
+      "type": "evidence"
+    },
+    {
+      "escaped": "the_changelog_is_up_to_date",
+      "id": "release:e2",
+      "label": "The changelog is up to date",
+      "type": "evidence"
+    }
+  ],
+  "name": "release",
+  "type": "justification",
+  "relations": [
+    {
+      "source": "release:s",
+      "target": "release:c"
+    },
+    {
+      "source": "release:e1",
+      "target": "release:s"
+    },
+    {
+      "source": "release:e2",
+      "target": "release:s"
+    }
+  ]
+}

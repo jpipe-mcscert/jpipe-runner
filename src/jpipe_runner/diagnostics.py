@@ -1,8 +1,10 @@
 """Diagnostics: what the runner reports about a model, a step library or a run.
 
 A diagnostic is data. Its ``code`` is the contract that tests, reports and users rely on;
-its ``message`` is written for humans and may be reworded at any time. Severity is real:
-an ``ERROR`` stops the run, a ``WARNING`` is reported and the run continues (#118).
+its ``message`` is written for humans and may be reworded at any time. Severity is real
+(#118). An ``ERROR`` in loading or validation stops the run before any step executes;
+while the steps run, an ``ERROR`` fails the element it is about, and the run goes on. A
+``WARNING`` is reported and changes nothing else.
 """
 
 from dataclasses import dataclass

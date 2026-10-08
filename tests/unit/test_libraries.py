@@ -245,3 +245,25 @@ def test_an_interrupt_is_not_a_failed_import(tmp_path: Path) -> None:
 
     with pytest.raises(KeyboardInterrupt), imported([library]):
         pass
+
+
+def test_a_failure_in_a_helper_is_located_in_the_helper(tmp_path: Path) -> None:
+    helper = _write(tmp_path, "helpers/broken_helper.py", "VALUE = 1 / 0\n")
+    library = _write(tmp_path, "uses_helper.py", "import broken_helper\n")
+
+    with (
+        pytest.raises(LibraryLoadError) as error,
+        imported([library], python_path=[tmp_path / "helpers"]),
+    ):
+        pass
+
+    assert f"at {helper.resolve()}, line 1" in error.value.diagnostics[0].message
+
+
+def test_a_file_that_is_not_python_source_is_jp020(tmp_path: Path) -> None:
+    library = _write(tmp_path, "steps.txt", "")
+
+    with pytest.raises(LibraryLoadError) as error, imported([library]):
+        pass
+
+    assert _codes(error) == [LIBRARY_IMPORT_FAILED]

@@ -11,6 +11,9 @@ into a DAG, as unification does in composed models.
 Ids are drawn from a deliberately small vocabulary of ``:``-separated segments, so that
 segment-suffix collisions (the hard case for binding resolution, #115) come up often.
 Aliases model unified elements, which carry the ids of the originals they replaced.
+
+``step_plans(model)`` draws what a step library for such a model does when it runs: the
+outcome of each element's step, or ``None`` for a claim left unbound (#120).
 The invariants are checked in tests/unit/test_strategies.py.
 """
 
@@ -125,3 +128,21 @@ def justifications(
         "elements": draw(st.permutations(elements)),
         "relations": draw(st.permutations(relations)),
     }
+
+
+# What a step does when it is called: return Pass, Fail or Skip, or raise.
+PASS, FAIL, SKIP, RAISE = "pass", "fail", "skip", "raise"
+BEHAVIOURS = (PASS, FAIL, SKIP, RAISE)
+
+
+@st.composite
+def step_plans(draw: st.DrawFn, model: dict[str, Any]) -> dict[str, str | None]:
+    """What each element's step does in a run, by element id. Evidence and strategies are
+    always bound, as validation requires; a claim is bound or not (``None``)."""
+    plan: dict[str, str | None] = {}
+    for element in model["elements"]:
+        bound = element["type"] not in CLAIMS or draw(st.booleans())
+        # Passing is likelier, so that runs reach deep into the argument.
+        behaviours = st.sampled_from((PASS, PASS, PASS, FAIL, SKIP, RAISE))
+        plan[element["id"]] = draw(behaviours) if bound else None
+    return plan
