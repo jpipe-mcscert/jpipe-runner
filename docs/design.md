@@ -18,6 +18,7 @@ flowchart LR
     outcomes --> diagnostics
     steps --> model
     steps --> outcomes
+    values[values]
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -28,6 +29,7 @@ arrow is data.
 | [`loader`](../src/jpipe_runner/loader.py) | Reads the JSON the jPipe compiler emits, checks it against the schema, and builds a `Justification`. Entry points: `load(path)` and `loads(text)`. |
 | [`model`](../src/jpipe_runner/model.py) | The justification model: elements, the relations between them, and the graph they form. |
 | [`steps`](../src/jpipe_runner/steps.py) | The decorators that declare a step library's functions, `@evidence`, `@strategy`, `@sub_conclusion` and `@conclusion`, and the `StepRegistry` that collects them from the library's modules. |
+| [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run. |
 | [`framework`](../src/jpipe_runner/framework/__init__.py) | Not a module of v4: the v3 authoring API lived under this name, and importing it raises an `ImportError` that says what replaced it. |
@@ -59,6 +61,12 @@ classDiagram
         class StepRegistry
     }
 
+    namespace values {
+        class ValueStore
+        class Value
+        class Unset
+    }
+
     namespace outcomes {
         class Outcome
         class Pass
@@ -74,6 +82,7 @@ classDiagram
 
     <<enumeration>> Kind
     <<enumeration>> Severity
+    <<enumeration>> Unset
 
     Justification "1" *-- "*" Element : elements
     Justification "1" *-- "*" Relation : relations
@@ -87,6 +96,8 @@ classDiagram
     StepRegistry "1" o-- "*" Step : steps
     Step --> Kind : kind
     Step ..> Outcome : returns
+    ValueStore "1" *-- "*" Value : values
+    Value ..> Element : produced_by
     Outcome <|-- Pass
     Outcome <|-- Fail
     Outcome <|-- Skip
@@ -134,10 +145,14 @@ its face is a `TypeError` when the library is imported: no id, a variable name t
 a Python identifier, or a parameter list that is not exactly the consumed variables (a
 parameter with a default, or `**kwargs`, is allowed).
 
-**Declarations are collected per run, never in a global.** `StepRegistry.from_modules`
-scans the namespaces of a library's modules for steps, each listed once, in order. A
-registry holds what the steps declare and no values, so two runs in one process share
-nothing, and a library module that Python has cached is collected again as it is.
+**Declaration and execution are kept apart, and neither is global.** What a step library
+declares is a `StepRegistry`; what a run produces is a `ValueStore`. Both are built for a
+run and dropped with it, and no module holds one, so two runs in one process share
+nothing. `StepRegistry.from_modules` scans the namespaces of a library's modules for
+steps, each listed once, in order, so a module that Python has cached is collected again
+as it is. A `ValueStore` maps each variable to its `Value`: what was produced, and the id
+of the element whose step produced it. A variable is produced once, and one that nothing
+has produced reads as `UNSET`, which is not `None`: `None` is a value a step can produce.
 
 **A step reports its result by returning an `Outcome`.** `Pass` carries the values the
 step produces, by variable name; `Fail` carries the reason the check does not hold; `Skip`

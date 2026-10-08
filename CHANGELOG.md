@@ -52,6 +52,10 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0/docs).
 
 ### Fixed
+- **A step may produce `None`.** v3 could not tell a variable that was never produced from
+  one produced as `None`, and logged an error when a step consumed a legitimate `None`.
+  Values are now kept per run, each with the element that produced it
+  ([ADR-0009](docs/adr/0009-separate-registry-from-value-store.md)).
 - **A malformed justification file no longer runs as an empty justification.** v3 logged
   the problem, carried on with no elements, executed nothing and reported success. A file
   that is not UTF-8 JSON, does not have the compiler's format, has no elements, declares an
