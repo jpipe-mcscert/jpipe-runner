@@ -17,7 +17,7 @@ and add a row to this table.
 | [0002](0002-rewrite-from-scratch.md) | Rewrite from scratch on a branch rather than port v3 | accepted |
 | [0003](0003-drop-sphinx-markdown-docs.md) | Drop Sphinx; docs are task-oriented Markdown | accepted |
 | [0004](0004-sonarcloud-quality-gate.md) | SonarCloud as the quality gate | accepted |
-| 0005 | Outcomes as return values instead of a `produce` callable | reserved ([#113](https://github.com/jpipe-mcscert/jpipe-runner/issues/113)) |
+| [0005](0005-outcomes-as-return-values.md) | Outcomes as return values instead of a `produce` callable | accepted |
 | 0006 | One decorator per kind | reserved ([#114](https://github.com/jpipe-mcscert/jpipe-runner/issues/114)) |
 | 0007 | Binding resolution, and why elements carry several ids | reserved ([#115](https://github.com/jpipe-mcscert/jpipe-runner/issues/115)) |
 | 0008 | Drop external variable injection | reserved ([#114](https://github.com/jpipe-mcscert/jpipe-runner/issues/114)) |

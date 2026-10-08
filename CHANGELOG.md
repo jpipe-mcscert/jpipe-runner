@@ -11,6 +11,13 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
 
 ### Changed
+- **A step returns an outcome instead of a `bool`.** It returns `Pass()`, `Fail(reason)` or
+  `Skip(reason)`, imported from `jpipe_runner`, and `Pass` carries the values the step
+  produces: `Pass(coverage=92.0)` or `Pass({"coverage": 92.0})`. The injected `produce`
+  parameter is gone, along with the rule that it be the last parameter. A step that still
+  returns `True`, `False` or nothing is reported with `JP017`, whose fix names the outcome
+  to return instead
+  ([ADR-0005](docs/adr/0005-outcomes-as-return-values.md)).
 - **The Homebrew formula no longer depends on `libjpeg-turbo` and `freetype`.** They were
   needed by `matplotlib`, which only the GUI removed in 3.4.0 used, and no current
   dependency needs them.

@@ -15,6 +15,7 @@ flowchart LR
     loader --> model
     loader --> diagnostics
     model --> diagnostics
+    outcomes --> diagnostics
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -24,6 +25,7 @@ arrow is data.
 |--------|------|
 | [`loader`](../src/jpipe_runner/loader.py) | Reads the JSON the jPipe compiler emits, checks it against the schema, and builds a `Justification`. Entry points: `load(path)` and `loads(text)`. |
 | [`model`](../src/jpipe_runner/model.py) | The justification model: elements, the relations between them, and the graph they form. |
+| [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run. |
 
 ## Classes
@@ -45,6 +47,14 @@ classDiagram
         class InvalidJustificationError
     }
 
+    namespace outcomes {
+        class Outcome
+        class Pass
+        class Fail
+        class Skip
+        class NotAnOutcomeError
+    }
+
     namespace diagnostics {
         class Diagnostic
         class Severity
@@ -62,6 +72,11 @@ classDiagram
     InvalidJustificationError "1" o-- "1..*" Diagnostic : diagnostics
     Diagnostic --> Severity : severity
     Diagnostic ..> Element : element
+    Outcome <|-- Pass
+    Outcome <|-- Fail
+    Outcome <|-- Skip
+    TypeError <|-- NotAnOutcomeError
+    NotAnOutcomeError "1" o-- "1" Diagnostic : diagnostic
 ```
 
 A `Justification` is a model loaded from the compiler: a name, its elements and its
@@ -93,3 +108,10 @@ a relation to an element that does not exist (`JP003`). Either raises an
 
 **A diagnostic's `code` is its contract.** The `message` is written for humans and may be
 reworded. A `Severity.ERROR` stops the run; a `WARNING` is reported and the run continues.
+
+**A step reports its result by returning an `Outcome`.** `Pass` carries the values the
+step produces, by variable name; `Fail` carries the reason the check does not hold; `Skip`
+the reason the step declines to judge. Outcomes are frozen, and so are the values of a
+`Pass`. A step that returns anything else, such as the `bool` a v3 step returned, is
+reported with `JP017` by `as_outcome`, and the diagnostic's `fix` names the outcome to
+return instead.
