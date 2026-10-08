@@ -70,7 +70,8 @@ the runner then calls the wrapper.
 ### Mistakes caught when the library is imported
 
 A declaration that cannot be right raises a `TypeError` when the module is imported, before
-any model is read:
+any model is read. The runner reports it as `JP020`, at the line of the declaration, with
+every other library that failed to import, and runs nothing:
 
 | Mistake | Message |
 |---|---|
