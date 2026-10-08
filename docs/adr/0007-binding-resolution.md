@@ -90,6 +90,43 @@ every problem as a diagnostic rather than stopping at the first:
 All three are errors (#119 turns them into rules). The second JP007 case is new in v4: v3
 let one function implement several elements, which then produced the same variables twice.
 
+### The hook's id survives `refine` (#116)
+
+The cross-checks of #119 (JP008, JP016) assume that a step written against a model still
+binds after that model is refined. `RefineOperator`'s javadoc says the hook and the
+refinement's conclusion are *merged* into a sub-conclusion named `hook`, which would keep
+the hook's id as an alias. The [refine tutorial](https://www.jpipe.org/tutorials/refine/)
+says *"the black-box tests evidence is gone"*, which can be read as the id ceasing to exist.
+Both cannot be true, so it was checked on 2026-10-08 with jPipe 2.5.0, on
+`tests/e2e/scenarios/composed/refine.jd` (the tutorial's models):
+
+```console
+$ jpipe process -i refine.jd -m readiness -f JSON
+```
+
+The output is byte-identical to the committed `justification.json`, and the merged element
+is:
+
+```json
+{ "id": "readiness:hook", "type": "sub-conclusion", "label": "The code is tested",
+  "aliases": ["readiness:draft:tests", "readiness:tested:tested"] }
+```
+
+`jpipe process … -f PYTHON` writes both ids on the one (commented-out) sub-conclusion
+function: `@jpipe_link("draft:tests")` and `@jpipe_link("tested:tested")`.
+
+- **The javadoc is right.** The hook's id survives as an alias of the merged element, so
+  `@evidence("draft:tests")` still binds, now to a sub-conclusion. That kind divergence is
+  what JP008 reports (#119).
+- **The tutorial is not wrong**, only silent about ids: the tests node is gone *as
+  evidence*, replaced by an argued sub-conclusion. No correction is needed. The runner's
+  own tutorial and authoring guide (#125, #126) say that the id keeps binding.
+- **The refinement's conclusion is aliased onto the same element.** A step for
+  `draft:tests` and another for `tested:tested` therefore claim one element: JP007, not a
+  cross-check. The `composed` scenario binds only the first.
+
+`tests/unit/test_binding.py` pins all three facts on the compiler's output.
+
 ### Consequences
 
 - Good, because every link the compiler writes resolves to its element. A property test

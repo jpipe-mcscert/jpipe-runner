@@ -1,9 +1,13 @@
 """End-to-end scenarios: discovery and the ``scenario.toml`` format (see tests/README.md)."""
 
+import importlib.util
 import sys
 import tomllib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 from typing import Any
 
 SCENARIOS_ROOT = Path(__file__).parent / "e2e" / "scenarios"
@@ -41,6 +45,36 @@ class Scenario:
     @property
     def golden(self) -> Path:
         return self.directory / GOLDEN_FILE
+
+    def library_files(self) -> list[Path]:
+        """The step library files ``libraries`` names, each once, sorted."""
+        return sorted({path for pattern in self.libraries for path in self.directory.glob(pattern)})
+
+    @contextmanager
+    def imported_libraries(self) -> Iterator[list[ModuleType]]:
+        """The step libraries, imported with ``python_path`` on ``sys.path``, then forgotten.
+
+        Unit tests use it to check libraries without the CLI. ``sys.path`` and
+        ``sys.modules`` are restored on exit, so helpers the libraries import do not leak.
+        """
+        saved_path, saved_modules = list(sys.path), set(sys.modules)
+        sys.path[:0] = [str(self.directory / entry) for entry in self.python_path]
+        try:
+            modules = []
+            for index, library in enumerate(self.library_files()):
+                name = f"_scenario_{self.name}_{index}"
+                spec = importlib.util.spec_from_file_location(name, library)
+                assert spec is not None, library
+                assert spec.loader is not None, library
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[name] = module
+                spec.loader.exec_module(module)
+                modules.append(module)
+            yield modules
+        finally:
+            sys.path[:] = saved_path
+            for name in set(sys.modules) - saved_modules:
+                del sys.modules[name]
 
     def command(self) -> list[str]:
         """The CLI invocation (#124), to run with the scenario's copy as working directory."""

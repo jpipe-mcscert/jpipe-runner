@@ -1,13 +1,8 @@
 """Static checks on the e2e scenarios, which run before the CLI exists to execute them."""
 
 import ast
-import importlib.util
 import json
-import sys
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
-from types import ModuleType
 
 import pytest
 
@@ -65,10 +60,7 @@ def test_justification_loads(scenario: Scenario) -> None:
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
 def test_step_libraries_use_only_the_public_api(scenario: Scenario) -> None:
-    libraries = sorted(
-        {path for pattern in scenario.libraries for path in scenario.directory.glob(pattern)}
-    )
-    for library in libraries:
+    for library in scenario.library_files():
         tree = ast.parse(library.read_text(encoding="utf-8"), filename=str(library))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("jpipe_runner"):
@@ -76,35 +68,6 @@ def test_step_libraries_use_only_the_public_api(scenario: Scenario) -> None:
                 assert {alias.name for alias in node.names} <= PUBLIC_API, library
             if isinstance(node, ast.Import):
                 assert not any(a.name.startswith("jpipe_runner") for a in node.names), library
-
-
-@contextmanager
-def _imported(scenario: Scenario) -> Iterator[list[ModuleType]]:
-    """The scenario's step libraries, imported as the runner will, then forgotten."""
-    saved_path, saved_modules = list(sys.path), set(sys.modules)
-    sys.path[:0] = [str(scenario.directory / entry) for entry in scenario.python_path]
-    try:
-        modules = []
-        for index, library in enumerate(_libraries(scenario)):
-            name = f"_scenario_{scenario.name}_{index}"
-            spec = importlib.util.spec_from_file_location(name, library)
-            assert spec is not None, library
-            assert spec.loader is not None, library
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[name] = module
-            spec.loader.exec_module(module)
-            modules.append(module)
-        yield modules
-    finally:
-        sys.path[:] = saved_path
-        for name in set(sys.modules) - saved_modules:
-            del sys.modules[name]
-
-
-def _libraries(scenario: Scenario) -> list[Path]:
-    return sorted(
-        {path for pattern in scenario.libraries for path in scenario.directory.glob(pattern)}
-    )
 
 
 def _decorated_functions(library: Path) -> list[str]:
@@ -124,7 +87,9 @@ def _decorated_functions(library: Path) -> list[str]:
 def test_step_libraries_declare_every_decorated_function(scenario: Scenario) -> None:
     # Validation scenarios (cycles, self-dependencies, missing producers) still import:
     # their faults are in the dataflow, which only the model can judge (#119).
-    with _imported(scenario) as modules:
+    with scenario.imported_libraries() as modules:
         registry = StepRegistry.from_modules(modules)
-    declared = [name for library in _libraries(scenario) for name in _decorated_functions(library)]
+    declared = [
+        name for library in scenario.library_files() for name in _decorated_functions(library)
+    ]
     assert [step.function.__name__ for step in registry] == declared

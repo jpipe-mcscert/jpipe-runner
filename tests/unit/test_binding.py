@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 import pytest
 
-from jpipe_runner import Outcome, Pass, conclusion, evidence, strategy
+from jpipe_runner import Outcome, Pass, conclusion, evidence, loader, strategy
 from jpipe_runner.binding import (
     AMBIGUOUS_BINDING,
     CONFLICTING_BINDING,
@@ -20,8 +20,10 @@ from jpipe_runner.binding import (
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.model import Element, Justification, Kind, Relation
 from jpipe_runner.steps import Step, StepRegistry, step_of
+from tests.scenarios import SCENARIOS_ROOT, Scenario, discover
 
 CONCLUSION = Element("C1", "Done", Kind.CONCLUSION)
+SCENARIOS = discover()
 
 
 def justification(*elements: Element, name: str = "rigor") -> Justification:
@@ -239,3 +241,53 @@ def test_every_problem_is_reported_together() -> None:
 
     table = BindingTable(justification(METRIC), registry(lost, done, also_done))
     assert codes(table) == [(UNKNOWN_BINDING_TARGET, None), (CONFLICTING_BINDING, "C1")]
+
+
+# --- The e2e scenarios: real compiler output ---------------------------------------------
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
+def test_every_scenario_binds_each_step_to_one_element(scenario: Scenario) -> None:
+    with scenario.imported_libraries() as modules:
+        registry = StepRegistry.from_modules(modules)
+    table = BindingTable(loader.load(scenario.justification), registry)
+    assert table.diagnostics == ()
+    assert sorted(binding.step.name for binding in table) == sorted(s.name for s in registry)
+
+
+def test_a_refined_hook_keeps_its_id_as_an_alias() -> None:
+    # #116: `refine(draft, tested) { hook: "tests" }` merges draft's evidence `tests` and
+    # tested's conclusion into one sub-conclusion. jPipe 2.5.0 keeps both ids as aliases,
+    # so a step written against the standalone `draft` still binds after the refine.
+    composed = loader.load(SCENARIOS_ROOT / "composed" / "justification.json")
+    hook = composed.element("readiness:hook")
+    assert hook.kind is Kind.SUB_CONCLUSION
+    assert hook.aliases == ("readiness:draft:tests", "readiness:tested:tested")
+    resolver = Resolver(composed)
+    assert resolver.resolve("draft:tests") is hook
+    assert resolver.resolve("tested:tested") is hook
+
+
+def test_a_check_of_the_refined_hook_binds_to_it() -> None:
+    @evidence("draft:tests")
+    def the_test_suite_passes() -> Outcome:
+        return Pass()
+
+    composed = loader.load(SCENARIOS_ROOT / "composed" / "justification.json")
+    table = BindingTable(composed, registry(the_test_suite_passes))
+    assert table.diagnostics == ()
+    assert table.step_for("readiness:hook") == declared(the_test_suite_passes)
+
+
+def test_binding_both_ids_of_a_refined_hook_is_a_conflict() -> None:
+    @evidence("draft:tests")
+    def the_test_suite_passes() -> Outcome:
+        return Pass()
+
+    @conclusion("tested:tested")
+    def the_code_is_tested() -> Outcome:
+        return Pass()
+
+    composed = loader.load(SCENARIOS_ROOT / "composed" / "justification.json")
+    table = BindingTable(composed, registry(the_test_suite_passes, the_code_is_tested))
+    assert codes(table) == [(CONFLICTING_BINDING, "readiness:hook")]
