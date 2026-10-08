@@ -7,6 +7,10 @@ an ``ERROR`` stops the run, a ``WARNING`` is reported and the run continues (#11
 
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
+from traceback import FrameSummary, StackSummary, TracebackException
+
+_PACKAGE = Path(__file__).resolve().parent
 
 
 class Severity(StrEnum):
@@ -28,3 +32,21 @@ class Diagnostic:
     def __str__(self) -> str:
         where = f" [{self.element}]" if self.element else ""
         return f"{self.code} {self.severity}{where}: {self.message}"
+
+
+def user_traceback(error: BaseException) -> TracebackException:
+    """``error``'s traceback, as the author of a step library needs it.
+
+    The frames of the runner and of ``importlib`` are left out, so the traceback starts in
+    the library: what remains is where the author can act. It is kept structured, frame
+    by frame, and holds no reference to the frames' variables.
+    """
+    trace = TracebackException.from_exception(error)
+    trace.stack = StackSummary.from_list([f for f in trace.stack if _in_user_code(f)])
+    return trace
+
+
+def _in_user_code(frame: FrameSummary) -> bool:
+    if frame.filename.startswith("<frozen importlib"):
+        return False
+    return not Path(frame.filename).resolve().is_relative_to(_PACKAGE)

@@ -73,6 +73,13 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 - **A justification whose relations form a cycle is refused when it is loaded** (`JP004`),
   with the cycle it found, before any step library is bound. The jPipe compiler never
   emits a cycle, so such a file has been edited or corrupted.
+- **A step library is a module named after its file, and two libraries cannot share a
+  name.** `steps.py` is imported as the module `steps`, registered in `sys.modules` (so a
+  library may define a dataclass). v3 imported two libraries called `steps.py` and
+  silently used the first one's functions; a library named like another library of the
+  run, like a module Python already has (`json.py`), or with a file name that is not a
+  Python identifier (`my-steps.py`) is now refused before anything is imported
+  (`JP021`): rename the file ([ADR-0020](docs/adr/0020-importing-step-libraries.md)).
 - **The Homebrew formula no longer depends on `libjpeg-turbo` and `freetype`.** They were
   needed by `matplotlib`, which only the GUI removed in 3.4.0 used, and no current
   dependency needs them.
@@ -104,6 +111,12 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   one produced as `None`, and logged an error when a step consumed a legitimate `None`.
   Values are now kept per run, each with the element that produced it
   ([ADR-0009](docs/adr/0009-separate-registry-from-value-store.md)).
+- **A step library that fails to import is reported** (#75). v3 caught only a
+  `ValueError`, so an `ImportError`, a `SyntaxError` or a typo at module level escaped as
+  a bare traceback, which GitHub Actions did not show. Every library is now imported, and
+  each one that raises is reported with its exception and its line (`JP020`); nothing is
+  validated or run. The python path is restored exactly after the run, even when a step
+  raised or changed it.
 - **A malformed justification file no longer runs as an empty justification.** v3 logged
   the problem, carried on with no elements, executed nothing and reported success. A file
   that is not UTF-8 JSON, does not have the compiler's format, has no elements, declares an

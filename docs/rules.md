@@ -231,9 +231,9 @@ that they exist, record them, and archive them with the report
 
 ## Codes reported outside validation
 
-These are errors. A model that cannot be loaded is not validated. While the steps
-run, an error fails the element it is about, and the run goes on: what that element
-supports is skipped.
+These are errors. A model or a step library that cannot be loaded is not validated.
+While the steps run, an error fails the element it is about, and the run goes on:
+what that element supports is skipped.
 
 | Code | Name | Reported when | Reports |
 |---|---|---|---|
@@ -243,3 +243,5 @@ supports is skipped.
 | JP004 | `Acyclic` | loading the model | The relations form a cycle: an element supports itself, directly or not. |
 | JP017 | `NotAnOutcome` | running a step | A step returned something other than `Pass`, `Fail` or `Skip`. |
 | JP019 | `UnreachableArtifact` | calling an evidence | An artifact the evidence observes is missing, unreadable or a directory, or a glob matches no file: the step is not called. |
+| JP020 | `LibraryImportFailed` | importing the step libraries | A step library raised an exception when it was imported: nothing is validated or run. |
+| JP021 | `UnusableLibraryName` | importing the step libraries | A library's file name cannot be its module's name: another library or module has it, or it is not a Python identifier. |

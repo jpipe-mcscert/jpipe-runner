@@ -1,14 +1,14 @@
 """End-to-end scenarios: discovery and the ``scenario.toml`` format (see tests/README.md)."""
 
-import importlib.util
 import sys
 import tomllib
-from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+
+from jpipe_runner import libraries
 
 SCENARIOS_ROOT = Path(__file__).parent / "e2e" / "scenarios"
 SCENARIO_FILE = "scenario.toml"
@@ -22,6 +22,10 @@ EXIT_CODES = {0: "ok", 1: "justification failed", 3: "validation failed"}
 # The scenarios whose model the loader refuses, and the codes it refuses them with. Their
 # libraries still import, but bind to nothing: there is no model to bind them to.
 REFUSED_MODELS = {"circular_dependency": ["JP004"]}
+
+# The scenarios whose step libraries cannot be imported, and the codes the loader reports.
+# Nothing is validated or run.
+REFUSED_LIBRARIES = {"import_error": ["JP020"]}
 
 _REQUIRED = {"description": str, "origin": str, "libraries": list, "exit_code": int}
 _OPTIONAL = {"python_path": list, "exercises": list}
@@ -54,31 +58,11 @@ class Scenario:
         """The step library files ``libraries`` names, each once, sorted."""
         return sorted({path for pattern in self.libraries for path in self.directory.glob(pattern)})
 
-    @contextmanager
-    def imported_libraries(self) -> Iterator[list[ModuleType]]:
-        """The step libraries, imported with ``python_path`` on ``sys.path``, then forgotten.
-
-        Unit tests use it to check libraries without the CLI. ``sys.path`` and
-        ``sys.modules`` are restored on exit, so helpers the libraries import do not leak.
-        """
-        saved_path, saved_modules = list(sys.path), set(sys.modules)
-        sys.path[:0] = [str(self.directory / entry) for entry in self.python_path]
-        try:
-            modules = []
-            for index, library in enumerate(self.library_files()):
-                name = f"_scenario_{self.name}_{index}"
-                spec = importlib.util.spec_from_file_location(name, library)
-                assert spec is not None, library
-                assert spec.loader is not None, library
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[name] = module
-                spec.loader.exec_module(module)
-                modules.append(module)
-            yield modules
-        finally:
-            sys.path[:] = saved_path
-            for name in set(sys.modules) - saved_modules:
-                del sys.modules[name]
+    def imported_libraries(self) -> AbstractContextManager[tuple[ModuleType, ...]]:
+        """The step libraries, imported by the runner's loader with ``python_path``
+        (``jpipe_runner.libraries``), which forgets them on exit."""
+        python_path = [self.directory / entry for entry in self.python_path]
+        return libraries.imported(self.library_files(), python_path)
 
     def command(self) -> list[str]:
         """The CLI invocation (#124), to run with the scenario's copy as working directory."""

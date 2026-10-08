@@ -10,7 +10,7 @@ rewrites the page; ``tests/unit/test_rules_doc.py`` fails when it is out of date
 import inspect
 from pathlib import Path
 
-from jpipe_runner import artifacts, loader, model, outcomes
+from jpipe_runner import artifacts, libraries, loader, model, outcomes
 from jpipe_runner.validation import Rule, RuleSet
 from tests.conftest import REPO_ROOT
 
@@ -42,6 +42,19 @@ OTHER_CODES = (
         "Acyclic",
         "loading the model",
         "The relations form a cycle: an element supports itself, directly or not.",
+    ),
+    (
+        libraries.LIBRARY_IMPORT_FAILED,
+        "LibraryImportFailed",
+        "importing the step libraries",
+        "A step library raised an exception when it was imported: nothing is validated or run.",
+    ),
+    (
+        libraries.UNUSABLE_LIBRARY_NAME,
+        "UnusableLibraryName",
+        "importing the step libraries",
+        "A library's file name cannot be its module's name: another library or module has "
+        "it, or it is not a Python identifier.",
     ),
     (
         outcomes.NOT_AN_OUTCOME,
@@ -105,15 +118,16 @@ def _anchor(rule: Rule) -> str:
 
 def _other_codes() -> str:
     rows = [
-        f"| {code} | `{name}` | {when} | {summary} |" for code, name, when, summary in OTHER_CODES
+        f"| {code} | `{name}` | {when} | {summary} |"
+        for code, name, when, summary in sorted(OTHER_CODES)
     ]
     return "\n".join(
         [
             "## Codes reported outside validation",
             "",
-            "These are errors. A model that cannot be loaded is not validated. While the steps",
-            "run, an error fails the element it is about, and the run goes on: what that element",
-            "supports is skipped.",
+            "These are errors. A model or a step library that cannot be loaded is not validated.",
+            "While the steps run, an error fails the element it is about, and the run goes on:",
+            "what that element supports is skipped.",
             "",
             "| Code | Name | Reported when | Reports |",
             "|---|---|---|---|",

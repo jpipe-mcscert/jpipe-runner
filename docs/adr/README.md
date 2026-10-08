@@ -32,3 +32,4 @@ and add a row to this table.
 | [0017](0017-document-in-the-milestone-that-builds-it.md) | Document a feature in the milestone that builds it; M7 reviews the whole | accepted |
 | [0018](0018-evidence-declares-observed-artifacts.md) | Evidence declares the artifacts it observes | accepted, amended by [0019](0019-evidence-observes-files.md) |
 | [0019](0019-evidence-observes-files.md) | Evidence observes files, recorded just before its step runs | accepted |
+| [0020](0020-importing-step-libraries.md) | Import step libraries as modules named after their files, for one run | accepted |

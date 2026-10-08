@@ -20,10 +20,12 @@ from jpipe_runner.binding import (
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.model import Element, Justification, Kind, Relation
 from jpipe_runner.steps import Step, StepRegistry, step_of
-from tests.scenarios import REFUSED_MODELS, SCENARIOS_ROOT, Scenario, discover
+from tests.scenarios import REFUSED_LIBRARIES, REFUSED_MODELS, SCENARIOS_ROOT, Scenario, discover
 
 CONCLUSION = Element("C1", "Done", Kind.CONCLUSION)
-SCENARIOS = [scenario for scenario in discover() if scenario.name not in REFUSED_MODELS]
+SCENARIOS = [
+    scenario for scenario in discover() if scenario.name not in REFUSED_MODELS | REFUSED_LIBRARIES
+]
 
 
 def justification(*elements: Element, name: str = "rigor") -> Justification:

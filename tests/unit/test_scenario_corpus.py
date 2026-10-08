@@ -7,13 +7,15 @@ from pathlib import Path
 import pytest
 
 from jpipe_runner import loader
+from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
 from jpipe_runner.validation import ValidationContext
-from tests.scenarios import REFUSED_MODELS, Scenario, discover
+from tests.scenarios import REFUSED_LIBRARIES, REFUSED_MODELS, Scenario, discover
 
 SCENARIOS = discover()
+IMPORTABLE = [scenario for scenario in SCENARIOS if scenario.name not in REFUSED_LIBRARIES]
 
 # The v4 public API (#113, #114). A step library imports from `jpipe_runner` directly and
 # nothing else from it: no v3 `framework` paths, no internals.
@@ -45,6 +47,7 @@ EXPECTED_SCENARIOS = {
     # New in v4.
     "release_example",
     "composed",
+    "import_error",
 }
 
 
@@ -99,7 +102,18 @@ def _decorated_functions(library: Path) -> list[str]:
     ]
 
 
-@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
+@pytest.mark.parametrize(
+    "scenario",
+    [scenario for scenario in SCENARIOS if scenario.name in REFUSED_LIBRARIES],
+    ids=lambda scenario: scenario.name,
+)
+def test_a_library_that_cannot_be_imported_is_reported(scenario: Scenario) -> None:
+    with pytest.raises(LibraryLoadError) as error, scenario.imported_libraries():
+        pass
+    assert [d.code for d in error.value.diagnostics] == REFUSED_LIBRARIES[scenario.name]
+
+
+@pytest.mark.parametrize("scenario", IMPORTABLE, ids=lambda scenario: scenario.name)
 def test_step_libraries_declare_every_decorated_function(scenario: Scenario) -> None:
     # Validation scenarios (cycles, self-dependencies, missing producers) still import:
     # their faults are in the dataflow, which only the model can judge (#119).
@@ -113,7 +127,7 @@ def test_step_libraries_declare_every_decorated_function(scenario: Scenario) -> 
 
 @pytest.mark.parametrize(
     "scenario",
-    [scenario for scenario in SCENARIOS if scenario.name not in REFUSED_MODELS],
+    [scenario for scenario in IMPORTABLE if scenario.name not in REFUSED_MODELS],
     ids=lambda scenario: scenario.name,
 )
 def test_validation_reports_what_the_scenario_is_about(scenario: Scenario) -> None:
@@ -124,7 +138,7 @@ def test_validation_reports_what_the_scenario_is_about(scenario: Scenario) -> No
     assert report.passed is (scenario.exit_code != 3)
 
 
-@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
+@pytest.mark.parametrize("scenario", IMPORTABLE, ids=lambda scenario: scenario.name)
 def test_every_observed_artifact_is_in_the_scenario(scenario: Scenario) -> None:
     # The runner fails an evidence whose artifact is unreachable (#144); in a scenario
     # meant to pass, every one is there, relative to the scenario's directory.

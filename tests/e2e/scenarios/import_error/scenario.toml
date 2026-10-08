@@ -1,0 +1,11 @@
+# The library imports a module that is not installed, as in #75 (v3), where the import
+# error escaped as a bare traceback that GitHub Actions did not show. The model is
+# simple_success's; only the library's first import differs.
+description = "A step library fails to import; the runner reports where (JP020), and validates and runs nothing."
+origin = "new in v4: #75"
+libraries = ["steps.py"]
+exit_code = 3
+exercises = [
+    "JP020: a library that raises on import is reported, at its line",
+    "a library that cannot be imported blocks validation and execution",
+]
