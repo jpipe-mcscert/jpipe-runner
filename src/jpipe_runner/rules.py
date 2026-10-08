@@ -84,7 +84,8 @@ class UnboundElement(Rule):
     the world, a strategy's judges what its supporters found. Without a step, the claim
     they stand for would be accepted unchecked. Conclusions and sub-conclusions are
     optional: an unbound one takes its status from what supports it. An element left
-    unbound because several steps claim it is reported by `JP007` instead.
+    unbound by a conflict, claimed by several steps or designated by a step whose ids
+    designate several elements, is reported by `JP007` instead.
 
     **Fix:** write its step, `@evidence("id")` or `@strategy("id")`.
     """
@@ -94,13 +95,13 @@ class UnboundElement(Rule):
     summary = "An evidence or a strategy has no step."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        conflicts = {
-            d.element for d in ctx.bindings.diagnostics if d.code == binding.CONFLICTING_BINDING
-        }
         for element in ctx.justification:
             if element.kind not in (Kind.EVIDENCE, Kind.STRATEGY):
                 continue
-            if ctx.bindings.step_for(element.id) is None and element.id not in conflicts:
+            if (
+                ctx.bindings.step_for(element.id) is None
+                and element.id not in ctx.bindings.contested
+            ):
                 yield self.diagnostic(
                     f"the {element.kind} {element.label!r} has no step, so nothing checks it",
                     element=element.id,
@@ -274,16 +275,14 @@ class StrategyIgnoresUpstreamOutput(Rule):
         for bound in ctx.bindings:
             if bound.element.kind is not Kind.STRATEGY:
                 continue
-            for supporter in ctx.justification.supporters(bound.element.id):
-                below = ctx.bindings.step_for(supporter.id)
-                for variable in () if below is None else below.produces:
-                    if variable in ctx.consumers and variable not in bound.step.consumes:
-                        yield self.diagnostic(
-                            f"{bound.step.name} ignores {variable!r}, which its supporter "
-                            f"{supporter.id!r} produces",
-                            element=bound.element.id,
-                            fix=f"Consume {variable!r} in this strategy.",
-                        )
+            for supporter, variable in _produced_below(bound, ctx):
+                if variable in ctx.consumers and variable not in bound.step.consumes:
+                    yield self.diagnostic(
+                        f"{bound.step.name} ignores {variable!r}, which its supporter "
+                        f"{supporter!r} produces",
+                        element=bound.element.id,
+                        fix=f"Consume {variable!r} in this strategy.",
+                    )
 
 
 class ConsumedBeforeProduced(Rule):
@@ -385,6 +384,14 @@ def _composed(bound: Binding) -> bool:
         Kind.EVIDENCE,
         Kind.CONCLUSION,
     )
+
+
+def _produced_below(bound: Binding, ctx: ValidationContext) -> Iterator[tuple[str, str]]:
+    """Each variable the steps of ``bound``'s direct supporters produce, with its supporter."""
+    for supporter in ctx.justification.supporters(bound.element.id):
+        if (below := ctx.bindings.step_for(supporter.id)) is not None:
+            for variable in below.produces:
+                yield supporter.id, variable
 
 
 def _evidence_without_use(bound: Binding, ctx: ValidationContext) -> bool:

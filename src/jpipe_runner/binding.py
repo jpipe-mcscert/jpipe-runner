@@ -85,16 +85,18 @@ class BindingTable:
     """The steps of a registry bound to the elements of a model, one to one.
 
     Every problem is collected, not raised: ``diagnostics`` lists them in the registry's
-    order, and an element or a step involved in a JP007 conflict is left unbound.
-    ``bindings`` are in model order.
+    order, and an element or a step involved in a JP007 conflict is left unbound; the
+    elements it concerns are ``contested``. ``bindings`` are in model order.
     """
 
     def __init__(self, justification: Justification, registry: StepRegistry) -> None:
         resolver = Resolver(justification)
         problems: list[Diagnostic] = []
+        contested: set[str] = set()
         candidates: dict[str, list[Binding]] = {}
         for step in registry:
-            if (binding := _bind(step, resolver, justification.name, problems)) is not None:
+            binding = _bind(step, resolver, justification.name, problems, contested)
+            if binding is not None:
                 candidates.setdefault(binding.element.id, []).append(binding)
 
         bound: dict[str, Binding] = {}
@@ -103,6 +105,7 @@ class BindingTable:
             if len(found) == 1:
                 bound[element.id] = found[0]
             elif found:
+                contested.add(element.id)
                 names = ", ".join(binding.step.name for binding in found)
                 problems.append(
                     Diagnostic(
@@ -115,6 +118,7 @@ class BindingTable:
                 )
         self._bound = bound
         self._diagnostics = tuple(problems)
+        self._contested = frozenset(contested)
 
     @property
     def bindings(self) -> tuple[Binding, ...]:
@@ -123,6 +127,12 @@ class BindingTable:
     @property
     def diagnostics(self) -> tuple[Diagnostic, ...]:
         return self._diagnostics
+
+    @property
+    def contested(self) -> frozenset[str]:
+        """The ids of the elements a JP007 conflict concerns: claimed by several steps, or
+        designated by a step that designates several. None of them is bound."""
+        return self._contested
 
     def step_for(self, element_id: str) -> Step | None:
         """The step bound to the element whose own id is ``element_id``, if any."""
@@ -139,8 +149,13 @@ class BindingTable:
         return f"BindingTable({len(self._bound)} bindings, {len(self._diagnostics)} problems)"
 
 
-def _bind(step: Step, resolver: Resolver, model: str, problems: list[Diagnostic]) -> Binding | None:
-    """The element all of ``step``'s ids designate, or ``None`` after reporting why not."""
+def _bind(
+    step: Step, resolver: Resolver, model: str, problems: list[Diagnostic], contested: set[str]
+) -> Binding | None:
+    """The element all of ``step``'s ids designate, or ``None`` after reporting why not.
+
+    The elements of a step whose ids designate several are added to ``contested``.
+    """
     targets: dict[str, list[str]] = {}
     elements: dict[str, Element] = {}
     for designator in step.ids:
@@ -170,6 +185,7 @@ def _bind(step: Step, resolver: Resolver, model: str, problems: list[Diagnostic]
         targets.setdefault(element.id, []).append(designator)
         elements[element.id] = element
     if len(targets) > 1:
+        contested.update(targets)
         ids = ", ".join(map(repr, targets))
         problems.append(
             Diagnostic(

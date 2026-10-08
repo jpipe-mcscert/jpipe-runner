@@ -255,7 +255,9 @@ resolved to either. This is the rule the jPipe compiler uses to shorten the ids 
 into a step library, so whatever it writes resolves. A `BindingTable` binds a registry's
 steps to a model's elements one to one, and reports, without stopping, every id that
 designates no element (`JP015`) or several (`JP006`), every element claimed by several
-steps, and every step whose ids designate several elements (`JP007`).
+steps, and every step whose ids designate several elements (`JP007`). The elements of a
+conflict are left unbound, and listed as `contested`, so that validation does not report
+them again as unbound.
 
 **Declaration and execution are kept apart, and neither is global.** What a step library
 declares is a `StepRegistry`; what a run produces is a `ValueStore`. Both are built for a

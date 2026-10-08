@@ -12,10 +12,11 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 
 ### Added
 - **Evidence declares the artifacts it observes.** `@evidence` takes
-  `observes={"changelog": "CHANGELOG.md"}`, a mapping from each of the function's
-  parameters to a file, a directory (`"src/"`) or a glob (`"build/reports/*.xml"`), relative
-  to the directory the runner runs in, and the runner passes the artifact to that
-  parameter. An absolute path is refused when the library is imported. **Every evidence
+  `observes={"changelog": "CHANGELOG.md"}`, which maps a parameter of the function to the
+  artifact it is to receive: a file, a directory (`"src/"`) or a glob
+  (`"build/reports/*.xml"`), relative to the directory the runner runs in. Every observed
+  name must be a parameter of the function. An absolute path is refused when the library
+  is imported. **Every evidence
   must observe something**: one that observes nothing checks nothing in the world, and is
   an error (`JP018`). Existing evidence, and the skeletons jPipe 2.5.0 generates, must be
   given their artifacts

@@ -43,7 +43,8 @@ Evidence and strategies are where an argument is checked: an evidence's step obs
 the world, a strategy's judges what its supporters found. Without a step, the claim
 they stand for would be accepted unchecked. Conclusions and sub-conclusions are
 optional: an unbound one takes its status from what supports it. An element left
-unbound because several steps claim it is reported by `JP007` instead.
+unbound by a conflict, claimed by several steps or designated by a step whose ids
+designate several elements, is reported by `JP007` instead.
 
 **Fix:** write its step, `@evidence("id")` or `@strategy("id")`.
 

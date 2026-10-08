@@ -103,16 +103,18 @@ def test_upstream_elements_support_directly_or_not_in_model_order() -> None:
 def test_a_cycle_is_reported_from_supporter_to_supported_from_the_first_in_model_order(
     elements: tuple[Element, ...], cycle: str
 ) -> None:
+    relations = (*RELATIONS, Relation("m:c", "m:e"))
     with pytest.raises(InvalidJustificationError) as error:
-        model(elements=elements, relations=(*RELATIONS, Relation("m:c", "m:e")))
+        model(elements=elements, relations=relations)
     assert codes(error) == [("JP004", elements[0].id)]
     assert cycle in error.value.diagnostics[0].message
     assert error.value.diagnostics[0].fix
 
 
 def test_an_element_supporting_itself_is_a_cycle() -> None:
+    relations = (*RELATIONS, Relation("m:e", "m:e"))
     with pytest.raises(InvalidJustificationError) as error:
-        model(relations=(*RELATIONS, Relation("m:e", "m:e")))
+        model(relations=relations)
     assert codes(error) == [("JP004", "m:e")]
 
 

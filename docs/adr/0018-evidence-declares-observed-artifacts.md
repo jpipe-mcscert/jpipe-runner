@@ -82,8 +82,10 @@ def the_changelog_is_up_to_date(changelog: Path) -> Outcome: ...
   documentation. It is also SACM's ("Artifact") and the jPipe skills' spelling.
 
 Import-time checks raise a `TypeError`, as for the rest of the declaration: `observes` is
-a mapping, its keys are Python identifiers, its values non-empty relative paths, and the
-function's parameters are exactly the observed names.
+a mapping, its keys are Python identifiers, and its values non-empty relative paths. The
+function's parameters match the observed names as other steps' match their consumed
+variables: every observed name is a parameter that can be passed by keyword (or
+`**kwargs` takes it), and every parameter without a default is observed.
 
 ### Consequences
 

@@ -291,3 +291,23 @@ def test_binding_both_ids_of_a_refined_hook_is_a_conflict() -> None:
     composed = loader.load(SCENARIOS_ROOT / "composed" / "justification.json")
     table = BindingTable(composed, registry(the_test_suite_passes, the_code_is_tested))
     assert codes(table) == [(CONFLICTING_BINDING, "readiness:hook")]
+
+
+def test_the_elements_of_a_conflict_are_contested_and_unbound() -> None:
+    a, b, c = (evidence_element(f"rigor:{name}") for name in "abc")
+
+    @evidence("rigor:a", "rigor:b")
+    def claims_two() -> Outcome:
+        return Pass()
+
+    @evidence("rigor:c")
+    def claims_c() -> Outcome:
+        return Pass()
+
+    @evidence("c")
+    def also_claims_c() -> Outcome:
+        return Pass()
+
+    table = BindingTable(justification(a, b, c), registry(claims_two, claims_c, also_claims_c))
+    assert table.contested == {"rigor:a", "rigor:b", "rigor:c"}
+    assert len(table) == 0

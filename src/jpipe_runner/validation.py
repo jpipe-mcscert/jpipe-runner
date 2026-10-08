@@ -17,7 +17,7 @@ not by a rule: a ``Justification`` that exists is valid.
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import cached_property
 from typing import ClassVar
 
@@ -116,9 +116,10 @@ class RuleSet:
     """
 
     def __init__(self, rules: Iterable[Rule]) -> None:
-        self._rules = tuple(sorted(rules, key=lambda rule: rule.code))
-        for rule in self._rules:
+        given = tuple(rules)
+        for rule in given:
             _check_metadata(rule)
+        self._rules = tuple(sorted(given, key=lambda rule: rule.code))
         codes = [rule.code for rule in self._rules]
         if repeated := sorted({code for code in codes if codes.count(code) > 1}):
             raise TypeError(f"several rules have the code {', '.join(repeated)}")
@@ -128,12 +129,19 @@ class RuleSet:
         return self._rules
 
     def run(self, ctx: ValidationContext, *, strict: bool = False) -> ValidationReport:
-        """Run every rule over ``ctx``. ``strict`` reports every warning as an error."""
+        """Run every rule over ``ctx``. ``strict`` reports every warning as an error.
+
+        A rule reports with its own code and severity, or the documentation of the rules,
+        and the blocking of errors, would not hold: anything else is a bug, and raises.
+        """
         found: list[Diagnostic] = []
         for rule in self._rules:
             for diagnostic in rule.check(ctx):
-                if diagnostic.code != rule.code:
-                    raise RuntimeError(f"{rule.name} reported {diagnostic.code}, not {rule.code}")
+                if (diagnostic.code, diagnostic.severity) != (rule.code, rule.severity):
+                    raise RuntimeError(
+                        f"{rule.name} reported a {diagnostic.code} {diagnostic.severity}, "
+                        f"not a {rule.code} {rule.severity}"
+                    )
                 found.append(diagnostic)
         if strict:
             found = [_promoted(diagnostic) for diagnostic in found]
@@ -173,6 +181,8 @@ def _check_metadata(rule: Rule) -> None:
 
 
 def _promoted(diagnostic: Diagnostic) -> Diagnostic:
-    if diagnostic.severity is Severity.WARNING:
-        return replace(diagnostic, severity=Severity.ERROR)
-    return diagnostic
+    if diagnostic.severity is not Severity.WARNING:
+        return diagnostic
+    return Diagnostic(
+        diagnostic.code, Severity.ERROR, diagnostic.message, diagnostic.element, diagnostic.fix
+    )

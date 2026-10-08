@@ -43,6 +43,11 @@ ERROR = Severity.ERROR
             [],
             id="claimed twice: JP007",
         ),
+        pytest.param(
+            [step(EVIDENCE, "m:e", "m:s")],
+            [],
+            id="one step claiming both: JP007",
+        ),
     ],
 )
 def test_an_evidence_or_strategy_without_a_step_is_reported(

@@ -150,8 +150,9 @@ def test_two_rules_cannot_share_a_code() -> None:
     class Again(Fires):
         """The same code as Fires."""
 
+    rules = [Fires(), Again()]
     with pytest.raises(TypeError, match="JP901"):
-        RuleSet([Fires(), Again()])
+        RuleSet(rules)
 
 
 @pytest.mark.parametrize(
@@ -167,9 +168,24 @@ def test_two_rules_cannot_share_a_code() -> None:
 def test_a_rule_that_cannot_be_audited_is_refused(
     attributes: dict[str, object], problem: str
 ) -> None:
-    unaudited = type("Unaudited", (Fires,), {"__doc__": "Documented.", **attributes})
+    unaudited = type("Unaudited", (Fires,), {"__doc__": "Documented.", **attributes})()
     with pytest.raises(TypeError, match=problem):
-        RuleSet([unaudited()])
+        RuleSet([unaudited])
+
+
+def test_a_rule_without_a_code_is_refused_before_the_rules_are_ordered() -> None:
+    class Uncoded(Rule):
+        """Declares no code at all."""
+
+        severity = Severity.ERROR
+        summary = "Has no code."
+
+        def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
+            yield from ()
+
+    rules = [Fires(), Uncoded()]
+    with pytest.raises(TypeError, match="Uncoded: code"):
+        RuleSet(rules)
 
 
 def test_a_rule_reporting_another_code_is_a_bug() -> None:
@@ -183,5 +199,22 @@ def test_a_rule_reporting_another_code_is_a_bug() -> None:
         def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
             yield Diagnostic("JP904", Severity.ERROR, "not mine")
 
+    rules, ctx = RuleSet([Liar()]), context()
     with pytest.raises(RuntimeError, match="JP904"):
-        RuleSet([Liar()]).run(context())
+        rules.run(ctx)
+
+
+def test_a_rule_reporting_another_severity_is_a_bug() -> None:
+    class Softened(Rule):
+        """Reports its own code, but as a warning although it is an error."""
+
+        code: ClassVar[str] = "JP905"
+        severity = Severity.ERROR
+        summary = "Softens."
+
+        def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
+            yield Diagnostic("JP905", Severity.WARNING, "only a warning")
+
+    rules, ctx = RuleSet([Softened()]), context()
+    with pytest.raises(RuntimeError, match="warning"):
+        rules.run(ctx)
