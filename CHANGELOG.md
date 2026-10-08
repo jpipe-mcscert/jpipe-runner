@@ -45,6 +45,20 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   code (`JPnnn`) and a severity: an error stops the run before any step executes, and a
   warning is reported while the run continues. No rule can be disabled
   ([ADR-0010](docs/adr/0010-diagnostics-as-data-rules-as-objects.md)).
+- **Validation compares each step's kind with its element's.** Composition turns an
+  evidence or a conclusion into a sub-conclusion (`refine`, `assemble`, unification), so a
+  step written against a model before it was composed is declared with the old kind. That
+  is a warning (`JP008`): the step runs after the sub-argument below it, as a
+  cross-check. Any other mismatch, such as `@strategy` on an evidence, is an error
+  (`JP016`) ([ADR-0013](docs/adr/0013-kind-divergence-under-composition.md)).
+- **A consumed variable must be produced by a step that supports its consumer, directly
+  or not** (`JP014`). v3 only checked that the producer came earlier in its execution
+  order, so a consumer on another branch could run without its value when the producer
+  failed. A step that consumes what it produces is reported the same way.
+- **A strategy that ignores a value its supporters produce is a warning** (`JP013`), and
+  only when another step reads that value: v3 made it an error. An evidence must still
+  produce a value that another step consumes (`JP012`, an error), and a value that no step
+  consumes is a warning (`JP011`).
 - **A justification whose relations form a cycle is refused when it is loaded** (`JP004`),
   with the cycle it found, before any step library is bound. The jPipe compiler never
   emits a cycle, so such a file has been edited or corrupted.

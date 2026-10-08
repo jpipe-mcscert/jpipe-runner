@@ -1,5 +1,5 @@
 # The conclusion only restated metrics_reported in v3, but it is kept: without a consumer
-# the evidence would raise JP011 (or JP012 if it produced nothing), noise unrelated to binding.
+# the evidence would be an error (JP012), unrelated to binding.
 description = "An evidence is bound by a suffix of one of its aliases, which resolves to the canonical element."
 origin = "v3.6.0:tests/e2e/resources/suffix_alias_binding"
 libraries = ["steps.py"]

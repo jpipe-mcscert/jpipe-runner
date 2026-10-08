@@ -8,7 +8,9 @@ import pytest
 
 from jpipe_runner import loader
 from jpipe_runner.model import InvalidJustificationError
+from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
+from jpipe_runner.validation import ValidationContext
 from tests.scenarios import REFUSED_MODELS, Scenario, discover
 
 SCENARIOS = discover()
@@ -43,6 +45,16 @@ EXPECTED_SCENARIOS = {
     # New in v4.
     "release_example",
     "composed",
+}
+
+
+# What validation reports on each scenario, by code, until the golden reports pin it (#124).
+# A scenario not listed reports nothing.
+VALIDATION_CODES = {
+    "composed": ["JP008"],
+    "missing_consumer": ["JP011"],
+    "missing_producer": ["JP009"],
+    "self_dependency": ["JP014"],
 }
 
 
@@ -97,3 +109,16 @@ def test_step_libraries_declare_every_decorated_function(scenario: Scenario) -> 
         name for library in scenario.library_files() for name in _decorated_functions(library)
     ]
     assert [step.function.__name__ for step in registry] == declared
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [scenario for scenario in SCENARIOS if scenario.name not in REFUSED_MODELS],
+    ids=lambda scenario: scenario.name,
+)
+def test_validation_reports_what_the_scenario_is_about(scenario: Scenario) -> None:
+    with scenario.imported_libraries() as modules:
+        registry = StepRegistry.from_modules(modules)
+    report = RULES.run(ValidationContext.of(loader.load(scenario.justification), registry))
+    assert [d.code for d in report.diagnostics] == VALIDATION_CODES.get(scenario.name, [])
+    assert report.passed is (scenario.exit_code != 3)

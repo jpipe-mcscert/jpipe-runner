@@ -28,6 +28,7 @@ flowchart LR
     validation --> diagnostics
     rules --> validation
     rules --> binding
+    rules --> model
     rules --> diagnostics
 ```
 
@@ -89,9 +90,18 @@ classDiagram
     }
 
     namespace rules {
+        class UnboundElement
         class AmbiguousBinding
         class ConflictingBinding
+        class RefinedElement
+        class MissingProducer
+        class DuplicateProducer
+        class UnconsumedOutput
+        class EvidenceProducesNothing
+        class StrategyIgnoresUpstreamOutput
+        class ConsumedBeforeProduced
         class UnknownBindingTarget
+        class IncompatibleKind
     }
 
     namespace values {
@@ -144,9 +154,18 @@ classDiagram
     ValidationContext --> BindingTable : bindings
     Rule ..> Diagnostic : reports
     ValidationReport "1" o-- "*" Diagnostic : diagnostics
+    Rule <|-- UnboundElement
     Rule <|-- AmbiguousBinding
     Rule <|-- ConflictingBinding
+    Rule <|-- RefinedElement
+    Rule <|-- MissingProducer
+    Rule <|-- DuplicateProducer
+    Rule <|-- UnconsumedOutput
+    Rule <|-- EvidenceProducesNothing
+    Rule <|-- StrategyIgnoresUpstreamOutput
+    Rule <|-- ConsumedBeforeProduced
     Rule <|-- UnknownBindingTarget
+    Rule <|-- IncompatibleKind
     ValueStore "1" *-- "*" ProducedValue : values
     ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
@@ -202,7 +221,12 @@ unrunnable (`JP001` to `JP004`) is not a rule: the loader refuses it first.
 
 **Every rule is in one module, `rules`, and the reference is generated from it.** Each
 rule is a subclass of `Rule`. The rules about binding (`JP006`, `JP007`, `JP015`) report
-what the `BindingTable` found, under their own code. [`rules.md`](rules.md), the reference
+what the `BindingTable` found, under their own code. The rules about data ask the model
+which elements support which: a variable's producer must support its consumer, directly
+or not (`upstream`), because a step runs only once its supporters have passed. A step's
+kind is compared with its element's: an evidence or a conclusion turned into a
+sub-conclusion is what composition does, and is a warning (`JP008`); any other difference
+is an error (`JP016`). [`rules.md`](rules.md), the reference
 of every diagnostic code, is rendered from the rules' classes, and a test fails when the
 committed page differs.
 

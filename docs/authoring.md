@@ -44,7 +44,10 @@ def all_release_gates_pass(tests_pass: bool) -> Outcome:
 ```
 
 - **Evidence and strategies must be implemented.** Each one in the model needs a step;
-  validation reports a missing one (`JP005`, from M3).
+  validation reports a missing one (`JP005`).
+- **Evidence reports what it observed**, as values that another step consumes, so that
+  the strategy above it judges the facts and not only a verdict. An evidence whose values
+  no step consumes, or that produces none, is an error (`JP012`).
 - **Conclusions and sub-conclusions are optional.** An unbound one takes its status from
   what supports it. Bind one only to check something more about the claim itself; when
   bound, it runs like any other step.
@@ -77,8 +80,8 @@ any model is read:
 | two step decorators on one function | `f is already declared as evidence ('release:e1',): one function is one step` |
 
 Whether the ids designate elements of the model, and whether the data flows (every consumed
-variable produced, no cycle), depends on the model. Those are checked against it, as
-described below and in [M3](v4-progress.md).
+variable produced by a step that supports its consumer), depends on the model. Those are
+checked against it before anything runs: see [Validation](#validation-checking-the-library-against-the-model).
 
 ## Returning an outcome
 
@@ -175,18 +178,21 @@ from pathlib import Path
 from jpipe_runner import Fail, Outcome, Pass, evidence
 
 
-def _file_check(path: str) -> Outcome:
-    return Pass() if Path(path).is_file() else Fail(f"{path} not found")
+def _size_of(path: str, variable: str) -> Outcome:
+    file = Path(path)
+    if not file.is_file():
+        return Fail(f"{path} not found")
+    return Pass({variable: file.stat().st_size})
 
 
-@evidence("release:e1")
-def the_test_suite_passes() -> Outcome:
-    return _file_check("mock/tests.ok")
+@evidence("release:e1", produces=["test_log_size"])
+def the_test_log_exists() -> Outcome:
+    return _size_of("mock/tests.log", "test_log_size")
 
 
-@evidence("release:e2")
+@evidence("release:e2", produces=["changelog_size"])
 def the_changelog_exists() -> Outcome:
-    return _file_check("mock/CHANGELOG.md")
+    return _size_of("mock/CHANGELOG.md", "changelog_size")
 ```
 
 ### When the model is composed
@@ -199,10 +205,27 @@ others, the library keeps binding:
 - **`refine` merges the hook into a sub-conclusion** that keeps the hook's id as an alias.
   An `@evidence("draft:tests")` written against the draft still binds, now to a node that
   is argued in full below it. It runs after that sub-argument, as an independent
-  cross-check of the same claim, and validation will flag the change of kind as a warning
-  (`JP008`, M3), not an error.
+  cross-check of the same claim, and validation reports the change of kind as a warning
+  (`JP008`), not an error ([ADR-0013](adr/0013-kind-divergence-under-composition.md)).
 - The refinement's conclusion is aliased onto the same element. Binding both the hook's id
   and the refinement's conclusion is two functions for one element: `JP007`.
+
+## Validation: checking the library against the model
+
+Before running any step, the runner checks the library against the model, and reports
+every problem at once. An error stops the run: no step executes. A warning is reported,
+and the run continues. [`rules.md`](rules.md) describes every check; in short:
+
+- every evidence and every strategy has a step (`JP005`), and ids bind one to one
+  (`JP006`, `JP007`, `JP015`);
+- a step's decorator is its element's kind (`JP016`), unless composition changed the
+  element's kind (`JP008`, a warning);
+- every consumed variable is produced by one step (`JP009`, `JP010`), which supports its
+  consumer, directly or not (`JP014`): a step runs only after its supporters pass, so a
+  value from another branch might never exist;
+- an evidence produces a value another step consumes (`JP012`); a strategy consumes what
+  its supporters produce for other steps (`JP013`, a warning), and a produced value is
+  consumed somewhere (`JP011`, a warning).
 
 ## Coming from v3
 

@@ -89,9 +89,7 @@ def _rule_table(rules: RuleSet) -> str:
 
 def _rule_section(rule: Rule) -> str:
     explanation = inspect.cleandoc(type(rule).__doc__ or "")
-    return (
-        f"### {rule.code} `{rule.name}`\n\n**{rule.severity}**: {rule.summary}\n\n{explanation}\n"
-    )
+    return f"### {rule.code} `{rule.name}`\n\nSeverity: **{rule.severity}**.\n\n{explanation}\n"
 
 
 def _anchor(rule: Rule) -> str:

@@ -145,3 +145,5 @@ ever has to consider one. This amends [ADR-0016](0016-hide-the-graph-inside-just
 
 - #118 (this decision), #119 (the rules), #128 (`docs/rules.md`).
 - [ADR-0016](0016-hide-the-graph-inside-justification.md), amended by this record.
+- [ADR-0013](0013-kind-divergence-under-composition.md) sets the severity of a kind
+  divergence under composition.
