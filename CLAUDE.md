@@ -107,6 +107,11 @@ the `v3.6.0` tag.
   (what a user can now do, not the modules built), and extend *Gone from v3* if it removed
   anything. This is part of the milestone's work, like the CHANGELOG, and lands in its PR.
   The README only points to that page.
+- **Document what the milestone adds, in the milestone** ([ADR-0017](docs/adr/0017-document-in-the-milestone-that-builds-it.md)):
+  a user-visible feature gets its page under `docs/` in the milestone's PR (M2:
+  `docs/authoring.md`), with its code examples executed by a test. Documentation issues sit
+  on the milestone that builds what they describe; M7 only reviews the whole for
+  consistency and writes the README, troubleshooting and migration guide.
 - **In the same way, bring [`docs/end-to-end.md`](docs/end-to-end.md) up to date.** It
   walks the release example from `.jd` to verdict for human readers (the e2e scenarios are
   for coverage). Turn each stage the milestone built from *planned* into what actually

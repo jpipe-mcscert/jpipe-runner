@@ -39,8 +39,10 @@ The reasons are recorded in
    the ticket with `Closes #N`.
 3. Push often. CI runs on every push to every branch, and the quality gate on every push to
    a branch with an open pull request.
-4. Before the milestone is complete, update [`v4-progress.md`](v4-progress.md): mark the
-   milestone done, and list the features it added for users. Then
+4. Document what the milestone adds for users, in the milestone: a page under `docs/` for
+   each new feature ([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)).
+   Then update [`v4-progress.md`](v4-progress.md): mark the milestone done, and list the
+   features it added for users. Then
    update [`end-to-end.md`](end-to-end.md), which follows one example through every stage:
    describe the stages the milestone built as they now work, with real output.
 5. When the milestone is complete, mark its pull request **ready for review**. The maintainer

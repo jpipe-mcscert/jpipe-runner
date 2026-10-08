@@ -29,3 +29,4 @@ and add a row to this table.
 | [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted, amended by [0015](0015-draft-pull-request-per-milestone.md) |
 | [0015](0015-draft-pull-request-per-milestone.md) | Open each milestone's pull request as a draft when the milestone starts | accepted |
 | [0016](0016-hide-the-graph-inside-justification.md) | Hide the graph inside `Justification`; no NetworkX type in the public API | accepted |
+| [0017](0017-document-in-the-milestone-that-builds-it.md) | Document a feature in the milestone that builds it; M7 reviews the whole | accepted |

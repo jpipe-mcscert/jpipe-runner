@@ -10,6 +10,7 @@ the library the command line will be built on. For a working runner, use the
 [latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest)
 (3.6.0).
 
+- [`authoring.md`](authoring.md) is the guide to writing a step library (M2).
 - [`end-to-end.md`](end-to-end.md) follows one example through every stage, from the `.jd`
   file to the verdict, and says which stages work today.
 - [`design.md`](design.md) describes how the code built so far fits together.
@@ -21,12 +22,12 @@ the library the command line will be built on. For a working runner, use the
 |-----------|--------|--------|------|
 | M0 Foundation | done | #106–#111, #133 | [0001](adr/0001-consume-compiler-json.md), [0002](adr/0002-rewrite-from-scratch.md), [0003](adr/0003-drop-sphinx-markdown-docs.md), [0004](adr/0004-sonarcloud-quality-gate.md), [0014](adr/0014-trunk-with-milestone-branches.md), [0015](adr/0015-draft-pull-request-per-milestone.md) |
 | M1 Model | done | #112 | [0016](adr/0016-hide-the-graph-inside-justification.md) |
-| M2 Authoring API | done | #113–#117 | [0005](adr/0005-outcomes-as-return-values.md), [0006](adr/0006-one-decorator-per-kind.md), [0007](adr/0007-binding-resolution.md), [0008](adr/0008-drop-external-variable-injection.md), [0009](adr/0009-separate-registry-from-value-store.md) |
+| M2 Authoring API | done | #113–#117, #126 | [0005](adr/0005-outcomes-as-return-values.md), [0006](adr/0006-one-decorator-per-kind.md), [0007](adr/0007-binding-resolution.md), [0008](adr/0008-drop-external-variable-injection.md), [0009](adr/0009-separate-registry-from-value-store.md) |
 | M3 Validation | planned | #118, #119 | 0010, 0013 (reserved) |
 | M4 Execution | planned | #120 | |
 | M5 Reporting | planned | #121–#123 | 0011 (reserved) |
 | M6 CLI | planned | #124 | |
-| M7 Docs | planned | #125–#129, #140 | |
+| M7 Docs | planned | #125, #127–#129, #140 | [0017](adr/0017-document-in-the-milestone-that-builds-it.md) |
 | MB0 Action extraction | planned | #130, #131 | 0012 (reserved) |
 | MB1 Action v1 | planned | #132 (in `jpipe-runner-action`) | |
 
@@ -36,7 +37,9 @@ What each planned milestone will add:
 - **M4 Execution:** running the steps, supporters first.
 - **M5 Reporting:** text and JSON reports, and diagrams.
 - **M6 CLI:** the `jpipe-runner` command and its exit codes.
-- **M7 Docs:** tutorial, authoring guide, CLI and rules reference, migration guide.
+- **M7 Docs:** a consistency review of the documentation each milestone wrote, the README,
+  troubleshooting and the migration guide
+  ([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)).
 - **MB0, MB1:** the GitHub Action, moved to its own repository and rebuilt on the JSON
   report.
 
@@ -57,6 +60,8 @@ tooling, quality gate and test architecture are in place.
   exist (`JP003`). A template is refused with a message saying why it cannot be run.
 
 ### M2 Authoring API: writing a step library
+
+Documented in [`authoring.md`](authoring.md).
 
 ```python
 from pathlib import Path
