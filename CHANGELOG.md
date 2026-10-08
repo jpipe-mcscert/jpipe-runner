@@ -32,8 +32,8 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   ([ADR-0021](docs/adr/0021-execution-semantics.md)).
 - **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
   validation rule checks, why, its severity and how to fix what it reports, and the codes
-  reported when a model is loaded or a step returns. It is generated from the rules
-  themselves, so it cannot drift from what the runner checks.
+  reported when a model or a step library is loaded, or a step runs. It is generated from
+  the rules themselves, so it cannot drift from what the runner checks.
 
 ### Changed
 - **Steps are declared with one decorator per element kind.** `@evidence`, `@strategy`,
