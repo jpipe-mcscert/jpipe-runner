@@ -12,7 +12,7 @@ def test_render_is_indented_utf8_with_final_newline() -> None:
     assert render({"label": "Prêt"}) == '{\n  "label": "Prêt"\n}\n'
 
 
-def test_normalise_rewrites_strings_but_not_keys() -> None:
+def test_normalize_rewrites_strings_but_not_keys() -> None:
     document = {"/tmp/x": ["/tmp/x/a", {"k": "at /tmp/x/b"}], "n": 1, "t": None}
     assert normalize(document, {"/tmp/x": "<scenario>"}) == {
         "/tmp/x": ["<scenario>/a", {"k": "at <scenario>/b"}],
@@ -21,7 +21,7 @@ def test_normalise_rewrites_strings_but_not_keys() -> None:
     }
 
 
-def test_normalise_replaces_longer_needles_first() -> None:
+def test_normalize_replaces_longer_needles_first() -> None:
     replacements = {"/tmp": "<tmp>", "/tmp/x": "<scenario>"}
     assert normalize("/tmp/x/a /tmp/y", replacements) == "<scenario>/a <tmp>/y"
 

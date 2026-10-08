@@ -174,7 +174,7 @@ def deploy_mobile_vaccination_units_to_remote_areas(fleet_size: int, staff_count
 
 
 @strategy("extended_hours", consumes=["schedule_plan_size"])
-def keep_vaccination_centers_open_during_evenings_and_weekends(
+def keep_vaccination_centres_open_during_evenings_and_weekends(
     schedule_plan_size: int,
 ) -> Outcome:
     """The extended-hours schedule is more than a placeholder."""

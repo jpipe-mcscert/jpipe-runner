@@ -3,7 +3,11 @@
 Canadian spelling is ``-our`` (colour, behaviour), ``-re`` (centre), ``-ize`` and ``-yze``
 (organize, analyze), a doubled ``l`` (modelled, labelled), ``-ence`` (defence) and
 ``artifact``. This test flags the British ``-ise`` / ``-yse`` forms and the American
-``-or`` / ``-er`` / single-``l`` / ``-ense`` forms in every tracked text file.
+``-or`` / ``-er`` / single-``l`` / ``-ense`` forms in every tracked text file, with their
+inflections (``organisational``, ``favored``, ``colorful``, ``centering``).
+
+Words are found inside identifiers too: ``test_normalise_paths`` and ``normaliseRewrites``
+are split at underscores and case changes before matching.
 
 Text that is not the project's own is left as it is, and so not checked: third-party
 documents kept verbatim, compiler output, mock data, and the keys of external formats.
@@ -17,84 +21,77 @@ import pytest
 from tests.conftest import REPO_ROOT
 
 NOT_OURS = re.compile(
-    r"\.(json|lock|csv|svg|png|pdf|txt)$"
+    r"\.(json|lock|csv|svg|png|pdf)$"
     r"|/mock/"
     r"|^LICENSE$"
     r"|^debian/(changelog|copyright)$"
     r"|^\.github/CODE_OF_CONDUCT\.md$"  # the Contributor Covenant, verbatim
-    r"|^action\.yml$"  # GitHub's `branding.color` key
+    r"|^action\.yml$"  # GitHub's branding key
     r"|^tests/unit/test_spelling\.py$"  # this test's own counter-examples
 )
 
-# Words ending in -ise that are spelled so in Canadian English too.
-ISE_IS_RIGHT = set(
-    [
-        "raise",
-        "raised",
-        "raises",
-        "raising",
-        "otherwise",
-        "exercise",
-        "exercised",
-        "exercises",
-        "exercising",
-        "precise",
-        "promise",
-        "promised",
-        "promises",
-        "likewise",
-        "advise",
-        "advised",
-        "advises",
-        "revise",
-        "revised",
-        "revises",
-        "comprise",
-        "comprises",
-        "comprised",
-        "surprise",
-        "surprised",
-        "surprises",
-        "surprising",
-        "compromise",
-        "expertise",
-        "enterprise",
-        "premise",
-        "premises",
-        "concise",
-        "noise",
-        "arise",
-        "arises",
-        "arising",
-        "devise",
-        "devised",
-        "supervise",
-        "supervised",
-        "disguise",
-        "praise",
-        "praised",
-        "cruise",
-        "poise",
-        "treatise",
-        "paradise",
-        "clockwise",
-        "advertise",
-        "advertised",
-        "demise",
-        "reprise",
-        "guise",
-        "franchise",
-        "rise",
-        "rises",
-        "wise",
-    ]
+# A word is a run of ASCII letters: underscores, digits and case changes separate words.
+_WORD_START, _WORD_END = r"(?<![a-z])", r"(?![a-z])"
+
+
+def _family(stems: str, suffixes: str) -> str:
+    return rf"{_WORD_START}(?:{stems})(?:{suffixes}){_WORD_END}"
+
+
+# British -ise, and every inflection: organise, organised, organising, organiser,
+# organisation, organisational, organisationally. Not -isable, which "disable" ends in.
+_ISE = _family(r"[a-z]+is", r"e|ed|es|ing|er|ers|ation|ations|ational|ationally")
+# British -yse: analyse, analysed, analysing, analyser. Not "analyses", which is also
+# the plural of "analysis", the same in every spelling.
+_YSE = _family(r"[a-z]*lys", r"e|ed|ing|er|ers")
+# American -or: color, colors, colored, coloring, colorful, colorless, favorite, behavioral.
+_OR = _family(
+    r"color|behavior|favor|honor|labor|neighbor|flavor|humor|rumor|harbor|armor|endeavor"
+    r"|odor|vapor",
+    r"|s|ed|ing|ful|fully|less|al|ally|ite|ites|able|ably|er|ers",
 )
-BRITISH = re.compile(r"\b([a-z]+is(?:e|ed|es|ing|ation|ations))\b|\b([a-z]*lys(?:e|ed|ing))\b")
-AMERICAN = re.compile(
-    r"\b(colou?rs?|colored|coloring|behaviors?|behavioral|favors?|favorite|honors?|labors?"
-    r"|neighbors?|centers?|centered|theaters?|defense|offense"
-    r"|labeled|labeling|modeled|modeling|traveled|traveling|canceled|canceling)\b"
+# American -er: center, centered, centering, theater, fiber.
+_ER = _family(r"center|theater|fiber|somber|caliber", r"|s|ed|ing")
+# American single l: labeled, modeling, traveler, canceled.
+_SINGLE_L = _family(
+    r"label|model|travel|cancel|signal|level|fuel|tunnel|marshal|channel|dial|equal|total",
+    r"ed|ing|er|ers",
 )
+# American -ense: defense, offense, pretense.
+_ENSE = _family(r"defense|offense|pretense", r"|s")
+MISSPELLED = re.compile("|".join([_ISE, _YSE, _OR, _ER, _SINGLE_L, _ENSE]))
+
+# Words ending in -ise that are spelled so in Canadian English too, given as the base
+# form: an inflection is allowed when its base is (raising -> raise).
+ISE_IS_RIGHT = {
+    "raise", "otherwise", "exercise", "precise", "promise", "likewise", "advise", "revise",
+    "comprise", "surprise", "compromise", "expertise", "enterprise", "premise", "concise",
+    "noise", "arise", "devise", "supervise", "disguise", "praise", "cruise", "poise",
+    "treatise", "paradise", "clockwise", "advertise", "demise", "reprise", "guise",
+    "franchise", "rise", "wise", "despise", "chastise", "merchandise", "televise",
+    "improvise", "incise", "excise", "circumcise",
+    "crise", "irise", "mise",  # crises, irises, miser
+}  # fmt: skip
+
+
+def _base(word: str) -> str:
+    """The -ise base of a word: raising -> raise, organisation -> organise."""
+    return word[: word.rindex("is")] + "ise"
+
+
+def _misspellings(text: str) -> list[str]:
+    found = []
+    for raw in text.splitlines():
+        line = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", raw).lower()  # camelCase -> camel case
+        for match in MISSPELLED.finditer(line):
+            word = match.group(0)
+            if _ISE_ONLY.fullmatch(word) and _base(word) in ISE_IS_RIGHT:
+                continue
+            found.append(word)
+    return found
+
+
+_ISE_ONLY = re.compile(r"[a-z]+is(?:e|ed|es|ing|er|ers|ation|ations|ational|ationally)")
 
 
 def _ours() -> list[str]:
@@ -102,19 +99,6 @@ def _ours() -> list[str]:
         ["git", "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
     ).stdout.split()
     return [path for path in tracked if not NOT_OURS.search(path)]
-
-
-def _misspellings(text: str) -> list[str]:
-    found = []
-    for line in text.lower().splitlines():
-        for match in BRITISH.finditer(line):
-            word = match.group(1) or match.group(2)
-            if word not in ISE_IS_RIGHT:
-                found.append(word)
-        found += [
-            m.group(1) for m in AMERICAN.finditer(line) if not m.group(1).startswith("colour")
-        ]
-    return found
 
 
 @pytest.mark.parametrize("path", _ours())
@@ -129,11 +113,18 @@ def test_spelling_is_canadian(path: str) -> None:
 @pytest.mark.parametrize(
     ("text", "flagged"),
     [
-        ("the organisation analysed it", ["organisation", "analysed"]),
-        ("its color and behavior, centered", ["color", "behavior", "centered"]),
-        ("modeled and labeled", ["modeled", "labeled"]),
-        ("raise otherwise; organize, analyze, colour, behaviour, centre, modelled", []),
+        pytest.param("organise organised organising organiser organisation", ["organise", "organised", "organising", "organiser", "organisation"], id="-ise"),
+        pytest.param("organisational organisationally recognises", ["organisational", "organisationally", "recognises"], id="-ise derived"),
+        pytest.param("analyse analysed analysing analyser", ["analyse", "analysed", "analysing", "analyser"], id="-yse"),
+        pytest.param("color colored colorful colorless favored favorite behavioral", ["color", "colored", "colorful", "colorless", "favored", "favorite", "behavioral"], id="-or"),
+        pytest.param("center centered centering theaters", ["center", "centered", "centering", "theaters"], id="-er"),
+        pytest.param("labeled modeling traveler canceled", ["labeled", "modeling", "traveler", "canceled"], id="single l"),
+        pytest.param("defense offenses", ["defense", "offenses"], id="-ense"),
+        pytest.param("test_normalise_paths, normaliseRewrites, _organised", ["normalise", "normalise", "organised"], id="inside identifiers"),
+        pytest.param("organize organizational analyze analyses colour colourful favoured behaviour centre centring modelled labelling defence", [], id="Canadian"),
+        pytest.param("raise raising otherwise exercising wiser riser crises miser disable", [], id="-ise words that are right"),
+        pytest.param("literal laboratory honorary humorous coloration totally levels", [], id="near misses"),
     ],
-)
+)  # fmt: skip
 def test_the_check_tells_canadian_from_the_rest(text: str, flagged: list[str]) -> None:
     assert _misspellings(text) == flagged
