@@ -2,10 +2,12 @@
 
 import ast
 import json
+from pathlib import Path
 
 import pytest
 
 from jpipe_runner import loader
+from jpipe_runner.steps import StepRegistry
 from tests.scenarios import Scenario, discover
 
 SCENARIOS = discover()
@@ -22,6 +24,7 @@ PUBLIC_API = {
     "Fail",
     "Skip",
 }
+DECORATORS = {"evidence", "strategy", "sub_conclusion", "conclusion"}
 EXPECTED_SCENARIOS = {
     # Ported from v3.6.0:tests/e2e/resources/.
     "simple_success",
@@ -57,10 +60,7 @@ def test_justification_loads(scenario: Scenario) -> None:
 
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
 def test_step_libraries_use_only_the_public_api(scenario: Scenario) -> None:
-    libraries = sorted(
-        {path for pattern in scenario.libraries for path in scenario.directory.glob(pattern)}
-    )
-    for library in libraries:
+    for library in scenario.library_files():
         tree = ast.parse(library.read_text(encoding="utf-8"), filename=str(library))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("jpipe_runner"):
@@ -68,3 +68,28 @@ def test_step_libraries_use_only_the_public_api(scenario: Scenario) -> None:
                 assert {alias.name for alias in node.names} <= PUBLIC_API, library
             if isinstance(node, ast.Import):
                 assert not any(a.name.startswith("jpipe_runner") for a in node.names), library
+
+
+def _decorated_functions(library: Path) -> list[str]:
+    tree = ast.parse(library.read_text(encoding="utf-8"), filename=str(library))
+    return [
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and any(
+            isinstance(d, ast.Call) and isinstance(d.func, ast.Name) and d.func.id in DECORATORS
+            for d in node.decorator_list
+        )
+    ]
+
+
+@pytest.mark.parametrize("scenario", SCENARIOS, ids=lambda scenario: scenario.name)
+def test_step_libraries_declare_every_decorated_function(scenario: Scenario) -> None:
+    # Validation scenarios (cycles, self-dependencies, missing producers) still import:
+    # their faults are in the dataflow, which only the model can judge (#119).
+    with scenario.imported_libraries() as modules:
+        registry = StepRegistry.from_modules(modules)
+    declared = [
+        name for library in scenario.library_files() for name in _decorated_functions(library)
+    ]
+    assert [step.function.__name__ for step in registry] == declared

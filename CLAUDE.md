@@ -101,6 +101,22 @@ the `v3.6.0` tag.
 - Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
   pushed (SonarCloud only analyses `main` and PRs on this plan). An assistant opens it only
   when the maintainer asks; otherwise it pushes the branch and stops.
+- **Before a milestone is complete, update [`docs/v4-progress.md`](docs/v4-progress.md)**
+  on its branch: set the milestone's row to done (with its issues and ADRs), add a
+  subsection under *What v4 can do so far* listing the user-visible features it added
+  (what a user can now do, not the modules built), and extend *Gone from v3* if it removed
+  anything. This is part of the milestone's work, like the CHANGELOG, and lands in its PR.
+  The README only points to that page.
+- **Document what the milestone adds, in the milestone** ([ADR-0017](docs/adr/0017-document-in-the-milestone-that-builds-it.md)):
+  a user-visible feature gets its page under `docs/` in the milestone's PR (M2:
+  `docs/authoring.md`), with its code examples executed by a test. Documentation issues sit
+  on the milestone that builds what they describe; M7 only reviews the whole for
+  consistency and writes the README, troubleshooting and migration guide.
+- **In the same way, bring [`docs/end-to-end.md`](docs/end-to-end.md) up to date.** It
+  walks the release example from `.jd` to verdict for human readers (the e2e scenarios are
+  for coverage). Turn each stage the milestone built from *planned* into what actually
+  happens, quoting output produced by running the code, never written by hand.
+  `tests/unit/test_end_to_end_doc.py` keeps its step library in step with the scenario's.
 - The maintainer marks the PR ready for review when the milestone is complete, and merges it.
 - Never commit or push to `main` directly.
 

@@ -100,8 +100,10 @@ models in the compiler's JSON format. Its own invariants are tested in
 `tests/unit/test_strategies.py`, so a property test that fails points at the code under
 test, not at the generator.
 
-The property tests themselves arrive with the code they test: the resolver in #115, the
-ordering in #120.
+The resolver's properties are in `tests/unit/test_binding_properties.py`. They check the
+resolver against the rule of ADR-0007 written as a declarative oracle, and against a port
+of the compiler's `minimalLink`, so the ids the compiler writes into a step library are
+tested to resolve. The ordering's properties arrive with #120.
 
 Profiles are selected with `HYPOTHESIS_PROFILE`:
 

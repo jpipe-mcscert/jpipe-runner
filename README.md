@@ -5,7 +5,8 @@ of a justification to a Python function, runs the checks, and reports which clai
 
 > [!WARNING]
 > **Work in progress.** This branch holds version 4, a rewrite from scratch that cannot
-> run a justification yet. For a working runner, use the
+> run a justification yet. [`docs/v4-progress.md`](docs/v4-progress.md) says what it can
+> do so far. For a working runner, use the
 > [latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest)
 > (3.6.0), whose documentation is at the
 > [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0).
