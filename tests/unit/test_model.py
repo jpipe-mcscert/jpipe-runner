@@ -124,6 +124,27 @@ def test_a_duplicate_id_is_reported_once_per_id() -> None:
 
 
 @pytest.mark.parametrize(
+    ("alias", "first_designated"),
+    [
+        pytest.param("a:s", "m:s", id="an alias of another element"),
+        pytest.param("m:c", "m:c", id="the id of another element"),
+    ],
+)
+def test_an_id_or_alias_designating_two_elements_is_reported(
+    alias: str, first_designated: str
+) -> None:
+    evidence = Element("m:e", "The tests pass", Kind.EVIDENCE, (alias,))
+    with pytest.raises(InvalidJustificationError) as error:
+        model(elements=(CONCLUSION, STRATEGY, evidence))
+    assert codes(error) == [("JP002", first_designated)]
+
+
+def test_an_element_repeating_its_own_id_as_an_alias_is_one_element() -> None:
+    evidence = Element("m:e", "The tests pass", Kind.EVIDENCE, ("m:e",))
+    assert model(elements=(CONCLUSION, STRATEGY, evidence)).element("m:e") is evidence
+
+
+@pytest.mark.parametrize(
     "relation",
     [
         pytest.param(Relation("m:x", "m:s"), id="source"),

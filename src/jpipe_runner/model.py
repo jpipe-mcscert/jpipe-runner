@@ -69,9 +69,11 @@ class Justification:
     elements are sorted by it, the topological order breaks ties by it, and a cycle starts
     from its element that comes first in it. A model does not change once loaded.
 
-    Raises ``InvalidJustificationError`` if an id is declared twice (JP002) or a relation
-    names an element that does not exist (JP003). Neither can be represented by the graph:
-    it would merge the duplicates, and invent the missing element.
+    Raises ``InvalidJustificationError`` if an id is declared twice or designates two
+    elements, as an id or an alias (JP002), or if a relation names an element that does not
+    exist (JP003). The graph can represent neither: it would merge the duplicates, and
+    invent the missing element. Binding resolution needs an id or alias to designate one
+    element (#115).
     """
 
     def __init__(self, name: str, elements: Iterable[Element], relations: Iterable[Relation]):
@@ -79,7 +81,11 @@ class Justification:
         self._elements = tuple(elements)
         self._relations = tuple(relations)
 
-        problems = [*_duplicate_ids(self._elements), *_dangling(self._relations, self._elements)]
+        problems = [
+            *_duplicate_ids(self._elements),
+            *_shared_aliases(self._elements),
+            *_dangling(self._relations, self._elements),
+        ]
         if problems:
             raise InvalidJustificationError(problems)
 
@@ -172,6 +178,23 @@ def _duplicate_ids(elements: tuple[Element, ...]) -> Iterator[Diagnostic]:
                 Severity.ERROR,
                 f"element id {element_id!r} is declared {count} times",
                 element=element_id,
+            )
+
+
+def _shared_aliases(elements: tuple[Element, ...]) -> Iterator[Diagnostic]:
+    """An id or alias that designates several elements, at least once as an alias."""
+    owners: dict[str, dict[str, None]] = {}
+    for element in elements:
+        for key in element.ids:
+            owners.setdefault(key, {})[element.id] = None
+    for key, designated in owners.items():
+        if len(designated) > 1:
+            names = ", ".join(map(repr, designated))
+            yield Diagnostic(
+                DUPLICATE_ID,
+                Severity.ERROR,
+                f"{key!r} designates {len(designated)} elements, as an id or an alias: {names}",
+                element=next(iter(designated)),
             )
 
 

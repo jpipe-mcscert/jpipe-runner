@@ -19,7 +19,7 @@ and add a row to this table.
 | [0004](0004-sonarcloud-quality-gate.md) | SonarCloud as the quality gate | accepted |
 | [0005](0005-outcomes-as-return-values.md) | Outcomes as return values instead of a `produce` callable | accepted |
 | [0006](0006-one-decorator-per-kind.md) | One decorator per kind | accepted |
-| 0007 | Binding resolution, and why elements carry several ids | reserved ([#115](https://github.com/jpipe-mcscert/jpipe-runner/issues/115)) |
+| [0007](0007-binding-resolution.md) | Binding resolution, and why elements carry several ids | accepted |
 | [0008](0008-drop-external-variable-injection.md) | Drop external variable injection | accepted |
 | [0009](0009-separate-registry-from-value-store.md) | Separate the declaration registry from the per-run value store | accepted |
 | 0010 | Diagnostics as data, rules as objects, real severity levels | reserved ([#118](https://github.com/jpipe-mcscert/jpipe-runner/issues/118)) |
