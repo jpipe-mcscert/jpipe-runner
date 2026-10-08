@@ -101,6 +101,10 @@ the `v3.6.0` tag.
 - Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
   pushed (SonarCloud only analyses `main` and PRs on this plan). An assistant opens it only
   when the maintainer asks; otherwise it pushes the branch and stops.
+- **Before a milestone is complete, update the README's *What v4 can do so far* section**
+  on its branch: set the milestone's row in the status table to done, and add a subsection
+  listing the user-visible features it added (what a user can now do, not the modules
+  built). This is part of the milestone's work, like the CHANGELOG, and lands in its PR.
 - The maintainer marks the PR ready for review when the milestone is complete, and merges it.
 - Never commit or push to `main` directly.
 

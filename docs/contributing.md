@@ -39,7 +39,10 @@ The reasons are recorded in
    the ticket with `Closes #N`.
 3. Push often. CI runs on every push to every branch, and the quality gate on every push to
    a branch with an open pull request.
-4. When the milestone is complete, mark its pull request **ready for review**. The maintainer
+4. Before the milestone is complete, update the README's
+   [*What v4 can do so far*](../README.md#what-v4-can-do-so-far) section: mark the
+   milestone done in the status table, and list the features it added for users.
+5. When the milestone is complete, mark its pull request **ready for review**. The maintainer
    merges it with a merge commit, which keeps the per-ticket commits and closes their issues.
 
 Work on one milestone at a time. If the next one has to start before the previous pull
