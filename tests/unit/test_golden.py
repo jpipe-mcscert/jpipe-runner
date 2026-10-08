@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.golden import assert_matches_golden, normalise, render
+from tests.golden import assert_matches_golden, normalize, render
 
 REPORT = {"status": "failed", "elements": [{"id": "a", "path": "/tmp/x/steps.py"}, {"id": "b"}]}
 
@@ -14,7 +14,7 @@ def test_render_is_indented_utf8_with_final_newline() -> None:
 
 def test_normalise_rewrites_strings_but_not_keys() -> None:
     document = {"/tmp/x": ["/tmp/x/a", {"k": "at /tmp/x/b"}], "n": 1, "t": None}
-    assert normalise(document, {"/tmp/x": "<scenario>"}) == {
+    assert normalize(document, {"/tmp/x": "<scenario>"}) == {
         "/tmp/x": ["<scenario>/a", {"k": "at <scenario>/b"}],
         "n": 1,
         "t": None,
@@ -23,7 +23,7 @@ def test_normalise_rewrites_strings_but_not_keys() -> None:
 
 def test_normalise_replaces_longer_needles_first() -> None:
     replacements = {"/tmp": "<tmp>", "/tmp/x": "<scenario>"}
-    assert normalise("/tmp/x/a /tmp/y", replacements) == "<scenario>/a <tmp>/y"
+    assert normalize("/tmp/x/a /tmp/y", replacements) == "<scenario>/a <tmp>/y"
 
 
 def test_update_writes_the_canonical_rendering(tmp_path: Path) -> None:

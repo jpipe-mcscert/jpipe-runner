@@ -16,7 +16,7 @@ def render(document: Any, *, sort_keys: bool = False) -> str:
     return json.dumps(document, indent=2, ensure_ascii=False, sort_keys=sort_keys) + "\n"
 
 
-def normalise(document: Any, replacements: Mapping[str, str]) -> Any:
+def normalize(document: Any, replacements: Mapping[str, str]) -> Any:
     """Replace run-specific substrings (temporary paths) in every string of ``document``.
 
     Keys are left alone: a report's keys are names, never paths. Longer needles are

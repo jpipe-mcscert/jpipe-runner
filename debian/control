@@ -25,4 +25,4 @@ Description: Justification pipeline runner for jPipe
  jpipe-runner orchestrates justification pipelines: research workflows where
  Python functions explicitly declare the variables they produce and consume.
  It validates the resulting dependency graph, executes the functions in
- topological order, and can visualise the results with Graphviz.
+ topological order, and can visualize the results with Graphviz.

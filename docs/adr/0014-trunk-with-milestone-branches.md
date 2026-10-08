@@ -39,7 +39,7 @@ many pull requests that added little:
 The v4 rewrite has about 27 tickets (#107–#133) across 10 milestones (M0–M7, MB0, MB1).
 Kept unchanged, the model would have produced about 30 pull requests before 4.0.0.
 
-How should branches and pull requests be organised so that each pull request is worth
+How should branches and pull requests be organized so that each pull request is worth
 reviewing?
 
 ## Decision Drivers
@@ -62,7 +62,7 @@ reviewing?
 
 Chosen option: **3, a `main` trunk with one pull request per milestone.** It removes every
 pull request that only moves code between branches, and it keeps a human review point at
-each milestone, the unit the v4 plan is already organised around.
+each milestone, the unit the v4 plan is already organized around.
 
 - **One long-lived branch, `main`**, which is also the default branch. `dev` and `v4` are
   deleted. `v4` becomes `main` by fast-forward (`main` was already an ancestor of `v4`), so

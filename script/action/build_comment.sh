@@ -10,7 +10,7 @@ set -euo pipefail
 #   2. Includes an image (collapsed on success, visible on failure).
 #   3. Cleans the runner output:
 #       - On SUCCESS: hides the runner output entirely.
-#       - On FAILURE: removes ANSI color codes so the PR comment stays readable.
+#       - On FAILURE: removes ANSI colour codes so the PR comment stays readable.
 #
 # ENVIRONMENT VARIABLES REQUIRED:
 #   RESULT          : "0" for success, "1" for failure
@@ -184,10 +184,10 @@ if [[ "${RESULT}" == "0" ]]; then
 else
 
   ###########################################################################
-  # CLEAN STEP 3: Strip ANSI color codes
+  # CLEAN STEP 3: Strip ANSI colour codes
   #
   # Why:
-  #   The runner output may contain color codes like:
+  #   The runner output may contain colour codes like:
   #     ^[[91mFAIL^[[0m
   #
   #   These should be removed so the PR comment shows clean text.
@@ -195,7 +195,7 @@ else
   # Regex matches ESC[...m or ESC[...K sequences.
   ###########################################################################
   CLEANED_OUTPUT=$(echo "$RUNNER_OUTPUT" | sed 's/\x1B\[[0-9;]*[mK]//g')
-  echo "Cleaning runner output: removed ANSI color codes."
+  echo "Cleaning runner output: removed ANSI colour codes."
 
   ###########################################################################
   # Wrap the cleaned output in a collapsible <details> block for the PR
