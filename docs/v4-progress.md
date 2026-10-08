@@ -23,11 +23,11 @@ the library the command line will be built on. For a working runner, use the
 | M0 Foundation | done | #106–#111, #133 | [0001](adr/0001-consume-compiler-json.md), [0002](adr/0002-rewrite-from-scratch.md), [0003](adr/0003-drop-sphinx-markdown-docs.md), [0004](adr/0004-sonarcloud-quality-gate.md), [0014](adr/0014-trunk-with-milestone-branches.md), [0015](adr/0015-draft-pull-request-per-milestone.md) |
 | M1 Model | done | #112 | [0016](adr/0016-hide-the-graph-inside-justification.md) |
 | M2 Authoring API | done | #113–#117, #126 | [0005](adr/0005-outcomes-as-return-values.md), [0006](adr/0006-one-decorator-per-kind.md), [0007](adr/0007-binding-resolution.md), [0008](adr/0008-drop-external-variable-injection.md), [0009](adr/0009-separate-registry-from-value-store.md) |
-| M3 Validation | planned | #118, #119 | 0010, 0013 (reserved) |
+| M3 Validation | planned | #118, #119, #128 | 0010, 0013 (reserved) |
 | M4 Execution | planned | #120 | |
 | M5 Reporting | planned | #121–#123 | 0011 (reserved) |
-| M6 CLI | planned | #124 | |
-| M7 Docs | planned | #125, #127–#129, #140 | [0017](adr/0017-document-in-the-milestone-that-builds-it.md) |
+| M6 CLI | planned | #124, #125, #127 | |
+| M7 Docs | planned | #129, #140, #142 | [0017](adr/0017-document-in-the-milestone-that-builds-it.md) |
 | MB0 Action extraction | planned | #130, #131 | 0012 (reserved) |
 | MB1 Action v1 | planned | #132 (in `jpipe-runner-action`) | |
 

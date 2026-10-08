@@ -58,8 +58,8 @@ same review as the code.
   | #127 | `docs/cli.md` and `docs/report-schema.md` | M6 CLI (the report schema with M5) |
   | #125 | `docs/tutorial.md`, from `.jd` to a green run | M6 CLI, the first milestone that can run one |
 
-- **M7 becomes a review:** it reads the documentation as a whole for consistency of terms
-  and structure, checks that the public API is completely described, and writes what
+- **M7 becomes a review** (#142): it reads the documentation as a whole for consistency of
+  terms and structure, checks that the public API is completely described, and writes what
   belongs to no single milestone: the README, troubleshooting, the migration guide and
   `CLAUDE.md` (#129).
 
