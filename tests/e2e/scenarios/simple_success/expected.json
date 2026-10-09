@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "justification": "file_validation",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 2,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Check file exists",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.check_file_exists",
+      "bound_by": [
+        "E1"
+      ],
+      "observes": [
+        "mock/test_file.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "file_exists"
+      ],
+      "produced": {
+        "file_exists": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/test_file.txt",
+          "reachable": true,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "label": "File is valid",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.file_is_valid",
+      "bound_by": [
+        "C1"
+      ],
+      "observes": [],
+      "consumes": [
+        "file_exists"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null,
+  "dataflow": null
+}

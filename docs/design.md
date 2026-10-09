@@ -61,6 +61,17 @@ flowchart LR
     text_report --> engine
     text_report --> model
     text_report --> report
+    cli --> diagnostics
+    cli --> diagram
+    cli --> engine
+    cli --> json_report
+    cli --> libraries
+    cli --> loader
+    cli --> model
+    cli --> report
+    cli --> steps
+    cli --> text_report
+    __main__ --> cli
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -68,6 +79,8 @@ arrow is data.
 
 | Module | Role |
 |--------|------|
+| [`cli`](../src/jpipe_runner/cli.py) | The command line, `jpipe-runner`: reads its options, runs a justification through the modules below, writes the report and the diagrams, and returns an `ExitCode`. Entry point: `main(argv)`. |
+| [`__main__`](../src/jpipe_runner/__main__.py) | `python -m jpipe_runner`, which runs `cli.main` as the `jpipe-runner` script does. |
 | [`loader`](../src/jpipe_runner/loader.py) | Reads the JSON the jPipe compiler emits, checks it against the schema, and builds a `Justification`. Entry points: `load(path)` and `loads(text)`. |
 | [`model`](../src/jpipe_runner/model.py) | The justification model: elements, the relations between them, and the graph they form. |
 | [`steps`](../src/jpipe_runner/steps.py) | The decorators that declare a step library's functions, `@evidence`, `@strategy`, `@sub_conclusion` and `@conclusion`, and the `StepRegistry` that collects them from the library's modules. |
@@ -88,7 +101,7 @@ arrow is data.
 
 The public API, what a step library imports, is the package itself: `from jpipe_runner
 import evidence, strategy, sub_conclusion, conclusion, Outcome, Pass, Fail, Skip`.
-What runs a justification, the command line from M6, uses three entry points:
+What runs a justification, the command line, uses three entry points:
 `loader.load(path)`, `libraries.imported(libraries, python_path)`, inside which
 `engine.run(justification, registry)` runs. Whichever way the run ends, it builds a
 `RunReport`, and renders it.
@@ -103,6 +116,10 @@ config:
 ---
 classDiagram
     direction LR
+
+    namespace cli {
+        class ExitCode
+    }
 
     namespace model {
         class Justification
@@ -202,6 +219,7 @@ classDiagram
     <<enumeration>> Status
     <<enumeration>> Verdict
     <<enumeration>> View
+    <<enumeration>> ExitCode
 
     Justification "1" *-- "*" Element : elements
     Justification "1" *-- "*" Relation : relations
@@ -279,6 +297,7 @@ classDiagram
     Outcome <|-- Skip
     TypeError <|-- NotAnOutcomeError
     NotAnOutcomeError "1" o-- "1" Diagnostic : diagnostic
+    ExitCode ..> Verdict : from
 ```
 
 A `Justification` is a model loaded from the compiler: a name, its elements and its
@@ -465,3 +484,23 @@ each observed file and each variable as a node. `write` pipes the text to Graphv
 only the `dot` format is written without it. Since the compiler's drawing follows the
 model's order, a diagram is drawn from the model and the report together, and a report
 whose elements, or what each supports, differ from the model's is refused.
+
+**A dry run validates and calls no step**
+([ADR-0024](adr/0024-dry-run-verdict-and-both-diagrams.md)). `run(..., dry_run=True)`
+returns a `RunResult` without element results, as when validation stops a run, and its
+verdict is `VALID` when validation reported no error. Its report lists every element with
+its step and what that step declares, so its dataflow can be drawn.
+
+**The command line composes the modules, and owns only what a process needs**
+([ADR-0023](adr/0023-the-command-line.md)). `cli.main` parses the options, refuses
+outputs it could not write before anything runs (a diagram whose suffix is not a format,
+or that needs a `dot` that is not installed), then loads the model, imports the libraries
+and runs the engine inside `imported`, with the working directory as the root. Each way
+this ends gives a `RunReport`: `refused`, `not_imported` or `of`. It draws the diagrams
+asked for, recording where on the report (`with_diagram`, `with_dataflow`), writes the
+JSON report to a file if asked, and prints the report on stdout: the text one, or the JSON
+one. Everything else goes to stderr, through the `jpipe_runner` logger, which `main`
+configures for its duration only. A file that cannot be read or written is an `OSError`,
+logged, and the exit code `IO`; the exit code of a run is otherwise `exit_code(verdict)`.
+`python -m jpipe_runner` drops the working directory that Python puts on `sys.path`, so
+that a library imports the same modules whichever way the runner is started.

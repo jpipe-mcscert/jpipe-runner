@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "justification": "self_dependency",
+  "verdict": "invalid",
+  "strict": false,
+  "summary": {
+    "elements": 3,
+    "pass": 0,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 3,
+    "errors": 1,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Function a",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "S2",
+        "C1"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "steps.function_a",
+      "bound_by": [
+        "S1"
+      ],
+      "observes": [],
+      "consumes": [
+        "var_a"
+      ],
+      "produces": [
+        "var_a"
+      ],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "S2",
+      "label": "Function b",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "steps.function_b",
+      "bound_by": [
+        "S2"
+      ],
+      "observes": [],
+      "consumes": [
+        "var_a"
+      ],
+      "produces": [
+        "var_b"
+      ],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "C1",
+      "label": "Final check",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "steps.final_check",
+      "bound_by": [
+        "C1"
+      ],
+      "observes": [],
+      "consumes": [
+        "var_a",
+        "var_b"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP014",
+      "severity": "error",
+      "element": "S1",
+      "message": "steps.function_a consumes 'var_a', produced by 'S1', which does not support it",
+      "fix": "Produce 'var_a' in a step that supports this one.",
+      "traceback": null
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}

@@ -11,6 +11,33 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
 
 ### Added
+- **The `jpipe-runner` command, rebuilt for v4.** `jpipe-runner --library steps.py
+  justification.json` loads the JSON the jPipe compiler wrote, imports the step libraries,
+  validates them against the model, runs the steps and prints the text report;
+  `python -m jpipe_runner` does the same. Its outputs are explicit: `--json` prints the
+  JSON report on stdout instead of the text one, `--report PATH` writes the JSON report to
+  a file, `--diagram PATH` draws the justification with the run over it, and
+  `--dataflow PATH` its dataflow view, each in the format its suffix names (`dot`, `gif`,
+  `jpeg`, `jpg`, `pdf`, `png` or `svg`). An output that cannot be written, such as a
+  diagram whose suffix is not a format, is refused before any step runs, and so is a
+  diagram that needs Graphviz when it is not installed. `--colour auto|always|never`
+  chooses whether the text report is coloured (`always` suits GitHub Actions, which is
+  not a terminal), and `--strict` counts warnings as errors and fails a skipped
+  justification ([ADR-0023](docs/adr/0023-the-command-line.md)).
+- **Exit codes a CI pipeline can act on**: 0 when the justification holds (or is skipped,
+  unless `--strict`), 1 when it fails, 2 for a wrong command line, 3 when nothing could
+  run (a refused model, a step library that cannot be imported, a validation error), and 4
+  when a file cannot be read or written. v3 exited 1 for all of them.
+- **A dry run that says what it checked.** `--dry-run` validates the step libraries
+  against the model and calls no step. Its verdict is `valid` when validation finds no
+  error, and the JSON report lists every element with its step and what that step
+  declares, so `--dry-run --dataflow flow.svg` draws the declared dataflow without
+  running anything. v3's dry run reported the justification as passed
+  ([ADR-0024](docs/adr/0024-dry-run-verdict-and-both-diagrams.md)).
+- **Logging that works.** `-v` logs what the run does on stderr (the model loaded, the
+  libraries imported, each element's status, the Python that runs the steps), `-vv` adds
+  details such as each step called and the python path, and `-q` shows errors only. v3's
+  `--verbose` changed nothing that could be seen. stdout carries only the report.
 - **Evidence declares the artifacts it observes.** `@evidence` takes
   `observes={"changelog": "CHANGELOG.md"}`, which maps a parameter of the function to the
   artifact it is to receive: a file, or the files a glob matches
@@ -48,8 +75,9 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   to it and the ids that bound it (`bound_to`, `bound_by`, and the element's `aliases`, to
   explain a binding on a composed model), what that step declares it observes, consumes
   and produces, the values it produced, and each file it observed with its SHA-256 and
-  size; then every diagnostic, with its traceback for an exception, a summary and the
-  verdict. A run that stopped before any step ran is reported too. The report is
+  size; then every diagnostic, with its traceback for an exception, a summary, the
+  verdict, and where the diagrams were drawn. A run that stopped before any step ran is
+  reported too. The report is
   deterministic (no time, relative paths), versioned by `schema_version` (`1.0`), and
   described by a JSON Schema shipped in the package, `jpipe_runner/schema/report.schema.json`;
   [`docs/report-schema.md`](docs/report-schema.md) documents it. Programs, such as the
@@ -71,6 +99,15 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   the rules themselves, so it cannot drift from what the runner checks.
 
 ### Changed
+- **The command line's options changed** (#124). `-v` is now `--verbose`; it was
+  `--variable`, so a v3 command that injects a variable is now a usage error. `--library`
+  is required. `--python-path` has no default: v3 made the working directory importable
+  by default, and a library that imports a module next to it now needs `-p .`.
+  `-o/--output-path`, a directory, and `-f/--format` are replaced by `--diagram PATH` and
+  `--dataflow PATH`; `--diagram`, which v3 parsed and ignored, now names the file to draw.
+  `-V` is gone. The justification no longer needs to end in `.json`: its content is
+  checked, and a `.jd` file passed by mistake is refused (`JP001`) with a fix that says to
+  compile it.
 - **Steps are declared with one decorator per element kind.** `@evidence`, `@strategy`,
   `@sub_conclusion` and `@conclusion`, imported from `jpipe_runner`, replace `@jpipe` and
   `@jpipe_link`. They take the element ids as positional arguments, one or several, and

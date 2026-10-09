@@ -23,7 +23,7 @@ and add a row to this table.
 | [0008](0008-drop-external-variable-injection.md) | Drop external variable injection | accepted |
 | [0009](0009-separate-registry-from-value-store.md) | Separate the declaration registry from the per-run value store | accepted |
 | [0010](0010-diagnostics-as-data-rules-as-objects.md) | Diagnostics as data, rules as objects, real severity levels | accepted |
-| [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted |
+| [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
 | 0012 | Extract the GitHub Action to its own repository | reserved ([#130](https://github.com/jpipe-mcscert/jpipe-runner/issues/130)) |
 | [0013](0013-kind-divergence-under-composition.md) | Kind divergence under composition is a warning, not an error | accepted |
 | [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted, amended by [0015](0015-draft-pull-request-per-milestone.md) |
@@ -33,5 +33,7 @@ and add a row to this table.
 | [0018](0018-evidence-declares-observed-artifacts.md) | Evidence declares the artifacts it observes | accepted, amended by [0019](0019-evidence-observes-files.md) |
 | [0019](0019-evidence-observes-files.md) | Evidence observes files, recorded just before its step runs | accepted |
 | [0020](0020-importing-step-libraries.md) | Import step libraries as modules named after their files, for one run | accepted |
-| [0021](0021-execution-semantics.md) | Failures and skips propagate as skips; a step's mistakes fail its element | accepted |
+| [0021](0021-execution-semantics.md) | Failures and skips propagate as skips; a step's mistakes fail its element | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
 | [0022](0022-diagrams-follow-the-compiler.md) | Diagrams follow the compiler's, with a status overlay and a dataflow view | accepted |
+| [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted |
+| [0024](0024-dry-run-verdict-and-both-diagrams.md) | A dry run validates and is `valid`; the report records both diagrams | accepted |

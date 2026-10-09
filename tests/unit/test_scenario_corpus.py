@@ -1,4 +1,9 @@
-"""Static checks on the e2e scenarios, which run before the CLI exists to execute them."""
+"""Static checks on the e2e scenarios: what their golden reports cannot say.
+
+The golden reports (tests/e2e/) pin what each run concludes. These check how the scenarios
+are written: their libraries use the public API only, declare every decorated function and
+observe files that exist, and a cross-check runs after the argument below it.
+"""
 
 import ast
 import json
@@ -7,12 +12,10 @@ from pathlib import Path
 import pytest
 
 from jpipe_runner import loader
-from jpipe_runner.engine import Verdict, run
+from jpipe_runner.engine import run
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
-from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
-from jpipe_runner.validation import ValidationContext
 from tests.scenarios import REFUSED_LIBRARIES, REFUSED_MODELS, Scenario, discover
 
 SCENARIOS = discover()
@@ -55,16 +58,6 @@ EXPECTED_SCENARIOS = {
 }
 
 
-# What validation reports on each scenario, by code, until the golden reports pin it (#124).
-# A scenario not listed reports nothing.
-VALIDATION_CODES = {
-    "composed": ["JP008"],
-    "missing_consumer": ["JP011"],
-    "missing_producer": ["JP009"],
-    "self_dependency": ["JP014"],
-    "unified": ["JP008", "JP013"],
-}
-
 # The cross-checks of the composed scenarios: the element bound by a step written against
 # a source model before composition, and the root of the argument below it, which runs
 # first (ADR-0013, ADR-0021).
@@ -72,35 +65,6 @@ CROSS_CHECKS = {
     "composed": ("readiness:hook", "readiness:tested:testing"),
     "unified": ("release:unified_0", "release:argued:testing"),
 }
-
-
-# What a run concludes on each scenario that validates, until the golden reports pin it
-# (#124): its verdict, each element that did not pass with what blocked it, and the codes
-# reported while the steps ran. Every element not listed passes.
-EXECUTION: dict[str, tuple[Verdict, dict[str, tuple[str, tuple[str, ...]]], list[str]]] = {
-    "exception_handling": (
-        Verdict.FAIL,
-        {"S1": ("fail", ()), "C1": ("skip", ("S1",))},
-        ["JP022"],
-    ),
-    "skip_scenario": (
-        Verdict.SKIP,
-        {"S1": ("skip", ()), "C1": ("skip", ("S1",))},
-        [],
-    ),
-    "unreachable_artifact": (
-        Verdict.FAIL,
-        {
-            "release:e1": ("fail", ()),
-            "release:s": ("skip", ("release:e1",)),
-            "release:c": ("skip", ("release:e1",)),
-        },
-        ["JP019"],
-    ),
-}
-
-# The exit code of each verdict (#124): a skipped justification is not a failure.
-EXIT_CODES = {Verdict.PASS: 0, Verdict.SKIP: 0, Verdict.FAIL: 1, Verdict.INVALID: 3}
 
 
 def test_every_planned_scenario_exists() -> None:
@@ -169,19 +133,6 @@ def test_step_libraries_declare_every_decorated_function(scenario: Scenario) -> 
 
 @pytest.mark.parametrize(
     "scenario",
-    [scenario for scenario in IMPORTABLE if scenario.name not in REFUSED_MODELS],
-    ids=lambda scenario: scenario.name,
-)
-def test_validation_reports_what_the_scenario_is_about(scenario: Scenario) -> None:
-    with scenario.imported_libraries() as modules:
-        registry = StepRegistry.from_modules(modules)
-    report = RULES.run(ValidationContext.of(loader.load(scenario.justification), registry))
-    assert [d.code for d in report.diagnostics] == VALIDATION_CODES.get(scenario.name, [])
-    assert report.passed is (scenario.exit_code != 3)
-
-
-@pytest.mark.parametrize(
-    "scenario",
     [scenario for scenario in IMPORTABLE if scenario.exit_code == 0],
     ids=lambda scenario: scenario.name,
 )
@@ -194,27 +145,6 @@ def test_every_observed_artifact_is_in_the_scenario(scenario: Scenario) -> None:
         for artifact in step.observes:
             found = list(scenario.directory.glob(artifact.path))
             assert found, f"{scenario.name}: {step.name} observes {artifact.path}, not found"
-
-
-@pytest.mark.parametrize(
-    "scenario",
-    [scenario for scenario in IMPORTABLE if scenario.name not in REFUSED_MODELS],
-    ids=lambda scenario: scenario.name,
-)
-def test_a_run_concludes_what_the_scenario_is_about(scenario: Scenario) -> None:
-    justification = loader.load(scenario.justification)
-    with scenario.imported_libraries() as modules:
-        result = run(justification, StepRegistry.from_modules(modules), root=scenario.directory)
-    verdict, not_passed, codes = EXECUTION.get(scenario.name, (Verdict.PASS, {}, []))
-    if not result.validation.passed:
-        verdict, not_passed = Verdict.INVALID, {}
-    assert result.verdict is verdict
-    assert {
-        r.element.id: (str(r.status), r.blocked_by) for r in result if r.status != "pass"
-    } == not_passed
-    validation = [d.code for d in result.validation.diagnostics]
-    assert [d.code for d in result.diagnostics] == validation + codes
-    assert EXIT_CODES[result.verdict] == scenario.exit_code
 
 
 @pytest.mark.parametrize(

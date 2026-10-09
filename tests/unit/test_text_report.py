@@ -163,6 +163,14 @@ def test_a_run_in_which_nothing_ran_shows_only_its_diagnostics() -> None:
     )
 
 
+def test_a_dry_run_says_that_no_step_was_called() -> None:
+    not_run = _element("s", STRATEGY, "Gates", step="steps.gates")
+
+    assert render(RunReport("m", Verdict.VALID, (not_run,))) == (
+        "Justification: m\n\nverdict: valid (a dry run: no step was called)\n"
+    )
+
+
 def test_a_refused_model_has_no_header() -> None:
     problem = Diagnostic("JP001", Severity.ERROR, "not JSON")
 

@@ -179,6 +179,27 @@ def test_a_file_that_is_not_utf8_is_reported(tmp_path: Path) -> None:
     assert [d.code for d in error.value.diagnostics] == ["JP001"]
 
 
+def test_a_jpipe_source_file_is_refused_with_a_fix_that_says_to_compile_it(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "release.jd"
+    path.write_text("justification release {\n}\n", encoding="utf-8")
+    with pytest.raises(InvalidJustificationError) as error:
+        loader.load(path)
+    [diagnostic] = error.value.diagnostics
+    assert diagnostic.code == "JP001"
+    assert diagnostic.fix is not None
+    assert "jpipe process -f JSON" in diagnostic.fix
+
+
+def test_a_model_that_is_not_json_has_no_fix(tmp_path: Path) -> None:
+    path = tmp_path / "release.json"
+    path.write_text("justification release {\n}\n", encoding="utf-8")
+    with pytest.raises(InvalidJustificationError) as error:
+        loader.load(path)
+    assert [d.fix for d in error.value.diagnostics] == [None]
+
+
 def test_a_file_that_cannot_be_read_is_an_os_error(tmp_path: Path) -> None:
     # Not a diagnostic: an unreadable file is an I/O failure, with its own exit code (#124).
     with pytest.raises(FileNotFoundError):

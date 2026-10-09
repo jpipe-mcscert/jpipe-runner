@@ -66,6 +66,7 @@ def document(report: RunReport) -> dict[str, Any]:
         "elements": [_element(element, report.root) for element in report.elements],
         "diagnostics": [_diagnostic(report, diagnostic) for diagnostic in report.diagnostics],
         "diagram": report.diagram,
+        "dataflow": report.dataflow,
     }
 
 

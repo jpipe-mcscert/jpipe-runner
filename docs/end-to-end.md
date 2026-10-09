@@ -5,9 +5,8 @@ written in jPipe becomes a model the runner reads, how a Python step library is 
 to it, and what the runner does with the two. The test suite runs the same example (and
 others) for coverage. This page is meant to be read.
 
-v4 is still being built ([progress](v4-progress.md)). Steps 1 to 7 work
-today, except the command line that step 7 ends with, which is marked as planned. This page
-grows with each milestone.
+v4 is still being built ([progress](v4-progress.md)), and every step on this page works
+today: step 7 ends with the command that runs them all.
 
 The example is the release argument of the [jPipe tutorials](https://www.jpipe.org/tutorials/),
 whose source lives in
@@ -379,12 +378,59 @@ failed, so it was never produced, and `s`, which consumes it, could not run.
 
 ![The same run, with the files observed and the variables produced and consumed](images/release-fail-dataflow.svg)
 
-**Planned (M6).** The `jpipe-runner` command
-([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124)) will print the text
-report, or the JSON report with `--report json`, and draw the diagram where `--output`
-says. Its exit code will tell a CI pipeline whether the justification holds: 0 when it
-passes, 1 when it fails, and 3 when nothing could run. A skipped justification exits 0,
-unless the run is strict.
+### From the command line
+
+Everything this page has done, from reading the model to the verdict, is one command. It
+runs in the directory the evidence observes its files from, here the example's own:
+
+```console
+$ jpipe-runner --library steps.py justification.json
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✔ Evidence    The test suite passes         # release:e1
+  ✔ Evidence    The changelog is up to date   # release:e2
+  ✔ Strategy    All release gates pass        # release:s
+  ✔ Conclusion  Version 2.0 is ready to ship  # release:c
+
+4 elements (4 passed)
+verdict: pass
+$ echo $?
+0
+```
+
+`--library` names the step library (repeat it for several), and the last argument is the
+JSON file the compiler wrote. In the run where two tests fail, the command also writes the
+JSON report and draws the diagram:
+
+```console
+$ jpipe-runner --library steps.py --report report.json --diagram release.svg justification.json
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✘ Evidence    The test suite passes         # release:e1
+      steps.the_test_suite_passes: mock/junit.xml: 2 tests failed
+      observed mock/junit.xml (sha256 f757d068913c…, 187 bytes)
+  ✔ Evidence    The changelog is up to date   # release:e2
+  - Strategy    All release gates pass        # release:s
+      not run: release:e1 did not pass
+  - Conclusion  Version 2.0 is ready to ship  # release:c
+      not run: release:e1 did not pass
+
+4 elements (1 failed, 2 skipped, 1 passed)
+diagram: release.svg
+verdict: fail
+$ echo $?
+1
+```
+
+The text report is for the person at the terminal; `report.json` holds the JSON report
+quoted above, and `release.svg` the first diagram (`--dataflow` draws the second). The
+exit code is for a CI pipeline: 0 when the justification holds, 1 when it fails, 3 when
+nothing could run (a refused model, a library that cannot be imported, a validation
+error), and 4 when a file could not be read or written. A skipped justification exits 0,
+unless the run is `--strict`. [ADR-0023](adr/0023-the-command-line.md) explains these
+choices.
 
 ## When something is wrong
 

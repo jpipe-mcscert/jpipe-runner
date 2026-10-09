@@ -31,8 +31,7 @@ def test_load_reads_a_valid_scenario(tmp_path: Path) -> None:
     assert scenario.command()[1:] == [
         "-m",
         "jpipe_runner",
-        "--report",
-        "json",
+        "--json",
         "--library",
         "steps.py",
         JUSTIFICATION_FILE,
@@ -43,9 +42,8 @@ def test_command_passes_libraries_and_python_path_in_order(tmp_path: Path) -> No
     toml = VALID.replace('["steps.py"]', '["steps/*.py", "extra.py"]') + 'python_path = ["lib"]\n'
     directory = make(tmp_path, toml, files=("steps/a.py", "extra.py", "lib/__init__.py"))
     command = load(directory).command()
-    assert command[command.index("--report") :] == [
-        "--report",
-        "json",
+    assert command[command.index("--json") :] == [
+        "--json",
         "--library",
         "steps/*.py",
         "--library",
