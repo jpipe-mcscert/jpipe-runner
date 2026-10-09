@@ -114,7 +114,9 @@ def _import_all(files: list[Path]) -> tuple[ModuleType, ...]:
     for file in files:
         try:
             modules.append(_import(file))
-        except (Exception, SystemExit) as error:
+        # A library that calls sys.exit() is reported like any other that fails to import,
+        # rather than end the run without a report (ADR-0020).
+        except (Exception, SystemExit) as error:  # NOSONAR
             trace = user_traceback(error)
             tracebacks[str(file)] = trace
             problems.append(_import_failed(file, error, trace))
@@ -125,6 +127,11 @@ def _import_all(files: list[Path]) -> tuple[ModuleType, ...]:
 
 def _import(file: Path) -> ModuleType:
     name = file.stem
+    # Another library of the run may have imported this one already, from the python
+    # path: it is the same module, and running it again would duplicate its steps.
+    existing = sys.modules.get(name)
+    if existing is not None and file.resolve() in _locations(existing):
+        return existing
     spec = importlib.util.spec_from_file_location(name, file.resolve())
     if spec is None or spec.loader is None:
         raise ImportError(f"{file} cannot be imported as a Python module")
@@ -174,11 +181,17 @@ def _forget(added: set[str], libraries: set[str], entries: list[Path]) -> None:
 def _from_entries(name: str, entries: list[Path]) -> bool:
     """Whether the module ``name`` was found in one of ``entries``, as a top-level module
     or package of that entry."""
-    file = getattr(sys.modules.get(name), "__file__", None)
-    if not isinstance(file, str):
-        return False
-    path, top = Path(file).resolve(), name.partition(".")[0]
+    top = name.partition(".")[0]
     return any(
         path.is_relative_to(entry) and path.relative_to(entry).parts[0].partition(".")[0] == top
+        for path in _locations(sys.modules.get(name))
         for entry in entries
     )
+
+
+def _locations(module: ModuleType | None) -> list[Path]:
+    """Where ``module`` was found: its file, or for a namespace package, its directories."""
+    file = getattr(module, "__file__", None)
+    if isinstance(file, str):
+        return [Path(file).resolve()]
+    return [Path(directory).resolve() for directory in getattr(module, "__path__", ())]

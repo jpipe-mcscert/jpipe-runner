@@ -10,8 +10,8 @@ relative to the run's root. Before calling its step, the runner observes each on
   step is about to see it;
 - **injected**: the step receives a ``Path``, or the sorted ``list[Path]`` a glob matches.
 
-An artifact that cannot be reached, a missing or unreadable file, a directory, or a glob
-that matches nothing, is reported with ``JP019``, and the step is not called: an observed
+An artifact that cannot be reached, a missing or unreadable file, a directory or anything
+else that is not a regular file, or a glob that matches nothing, is reported with ``JP019``, and the step is not called: an observed
 artifact is never optional.
 """
 
@@ -108,6 +108,11 @@ def _record(
         return Observation(artifact, path), _unreachable(element, artifact, path, problem, fix)
     if not file.exists():
         return Observation(artifact, path), _unreachable(element, artifact, path, "does not exist")
+    if not file.is_file():
+        # A FIFO, a socket or a device: reading it could block, or never end.
+        problem = "is not a regular file, such as a pipe, a socket or a device"
+        fix = "Observe a regular file: the runner reads what an evidence observes, to the end."
+        return Observation(artifact, path), _unreachable(element, artifact, path, problem, fix)
     try:
         sha256, size = _digest(file)
     except OSError as error:

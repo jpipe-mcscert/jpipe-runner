@@ -61,8 +61,8 @@ OTHER_CODES = (
         "UnreachableArtifact",
         Severity.ERROR,
         _RUNNING,
-        "An artifact an evidence observes is missing, unreadable or a directory, or a glob "
-        "matches no file: the step is not called.",
+        "An artifact an evidence observes is missing, unreadable or not a regular file, or "
+        "a glob matches no file: the step is not called.",
     ),
     (
         libraries.LIBRARY_IMPORT_FAILED,

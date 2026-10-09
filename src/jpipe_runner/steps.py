@@ -215,18 +215,28 @@ def _artifacts(kind: Kind, observes: Mapping[str, str]) -> tuple[Artifact, ...]:
             raise TypeError(
                 f"{decorator}(observes=...) takes paths as non-empty strings: {example}"
             )
-        if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
-            raise TypeError(
-                f"{decorator}(observes=...) takes paths relative to the run's working "
-                f"directory, so that the library works on every machine, not {path!r}"
-            )
-        if path.endswith(("/", "\\")):
-            raise TypeError(
-                f"{decorator}(observes=...) takes files, and {path!r} names a directory. "
-                f"Observe the files it holds, with a glob such as {path + '**/*'!r}."
-            )
+        _check_path(decorator, path)
         artifacts.append(Artifact(name, path))
     return tuple(artifacts)
+
+
+def _check_path(decorator: str, path: str) -> None:
+    """``path`` names files relative to the run's working directory, by name or by glob."""
+    if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
+        raise TypeError(
+            f"{decorator}(observes=...) takes paths relative to the run's working "
+            f"directory, so that the library works on every machine, not {path!r}"
+        )
+    if path.endswith(("/", "\\")):
+        raise TypeError(
+            f"{decorator}(observes=...) takes files, and {path!r} names a directory. "
+            f"Observe the files it holds, with a glob such as {path + '**/*'!r}."
+        )
+    if any("**" in part and part != "**" for part in path.replace("\\", "/").split("/")):
+        raise TypeError(
+            f"{decorator}(observes=...): '**' matches any depth only as a whole part of a "
+            f"path, as in 'build/**/*.xml', not {path!r}"
+        )
 
 
 def _is_name(name: object) -> bool:

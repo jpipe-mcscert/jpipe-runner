@@ -21,8 +21,8 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   nothing checks nothing in the world, and is an error (`JP018`). Existing evidence, and
   the skeletons jPipe 2.5.0 generates, must be given their artifacts. Before an evidence
   is called, each of its artifacts is checked and recorded, as its path, SHA-256 and size;
-  one that is missing or unreadable, or a glob that matches nothing, fails the evidence
-  without calling it (`JP019`)
+  one that is missing, unreadable or not a regular file, or a glob that matches nothing,
+  fails the evidence without calling it (`JP019`)
   ([ADR-0018](docs/adr/0018-evidence-declares-observed-artifacts.md),
   [ADR-0019](docs/adr/0019-evidence-observes-files.md)).
 - **Every element that did not pass says what stopped it.** An element skipped because

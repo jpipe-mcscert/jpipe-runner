@@ -168,3 +168,13 @@ def test_the_arguments_are_read_only(tmp_path: Path) -> None:
 
     with pytest.raises(TypeError):
         observed.arguments["a"] = tmp_path  # type: ignore[index]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="named pipes are POSIX")
+def test_a_named_pipe_is_unreachable_and_never_opened(tmp_path: Path) -> None:
+    os.mkfifo(tmp_path / "pipe")
+
+    observed = observe([Artifact("pipe", "pipe"), Artifact("pipes", "pip*")], tmp_path, ELEMENT)
+
+    assert [d.code for d in observed.diagnostics] == [UNREACHABLE_ARTIFACT] * 2
+    assert [o.reachable for o in observed.observations] == [False, False]

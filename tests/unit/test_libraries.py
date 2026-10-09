@@ -267,3 +267,27 @@ def test_a_file_that_is_not_python_source_is_jp020(tmp_path: Path) -> None:
         pass
 
     assert _codes(error) == [LIBRARY_IMPORT_FAILED]
+
+
+def test_a_library_another_one_imported_first_is_not_run_twice(tmp_path: Path) -> None:
+    runs = tmp_path / "runs.txt"
+    record = f"with open({str(runs)!r}, 'a') as log:\n    log.write('once\\n')\n"
+    first = _write(tmp_path, "first_steps.py", "from second_steps import checked\n")
+    second = _write(tmp_path, "second_steps.py", record + STEP)
+
+    with imported([first, second], python_path=[tmp_path]) as modules:
+        assert modules[1] is sys.modules["second_steps"]
+        assert len(StepRegistry.from_modules(modules)) == 1
+
+    assert runs.read_text(encoding="utf-8") == "once\n"
+    assert "second_steps" not in sys.modules
+
+
+def test_a_namespace_package_from_the_python_path_is_forgotten(tmp_path: Path) -> None:
+    (tmp_path / "helpers" / "namespace_only").mkdir(parents=True)
+    library = _write(tmp_path, "steps.py", "import namespace_only\n")
+
+    with imported([library], python_path=[tmp_path / "helpers"]):
+        assert "namespace_only" in sys.modules
+
+    assert "namespace_only" not in sys.modules

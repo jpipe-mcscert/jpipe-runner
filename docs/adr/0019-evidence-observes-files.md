@@ -53,9 +53,12 @@ This amends ADR-0018, which allowed directories:
   nothing.
 - **Reachable** means a file that exists and can be read, or a glob that matches at least
   one file, each of which can be read. A glob matches as pathlib does: `**` matches any
-  depth, and directories it matches are ignored. Symbolic links are followed.
+  depth, and is refused at import unless it is a whole part of the path (`build/**.xml`
+  would make pathlib raise). A glob ignores what it matches that is not a regular file.
+  Symbolic links are followed.
 - **Unreachable** is a missing file, a broken link, a file that cannot be read, a path
-  that names a directory, or a glob that matches no file. Each is reported with
+  that names a directory or anything else that is not a regular file (a named pipe or a
+  device, whose reading could block the run), or a glob that matches no file. Each is reported with
   `JP019` `UnreachableArtifact`, an error: the step is not called and the evidence fails.
   Every unreachable artifact of the evidence is reported, not only the first.
 - **Recorded**: for each file, its path relative to the run's root, its SHA-256 and its

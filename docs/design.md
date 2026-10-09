@@ -335,8 +335,9 @@ the step's `Artifact`s and the run's root, and returns what was `Observed`: an
 `Observation` of each file, with its path relative to the root, its SHA-256 and its size,
 the arguments the step receives (a `Path`, or for a glob the sorted `list[Path]` it
 matches), and a `JP019` diagnostic for each artifact that cannot be reached. A missing or
-unreadable file, a directory, and a glob that matches nothing are unreachable, and are
-recorded without a digest. Each file is read once, to hash it and measure it, so the
+unreadable file, a directory or anything else that is not a regular file (a pipe, a
+device, which could block the run), and a glob that matches nothing are unreachable, and
+are recorded without a digest. Each file is read once, to hash it and measure it, so the
 record is the state the step is about to see.
 
 **A run's step libraries are imported for the run, and forgotten after it.** `imported`

@@ -243,7 +243,7 @@ else.
 | JP003 | `RelationEndpointsExist` | error | loading the model | A relation names an element that does not exist. |
 | JP004 | `Acyclic` | error | loading the model | The relations form a cycle: an element supports itself, directly or not. |
 | JP017 | `NotAnOutcome` | error | running a step | A step returned something other than `Pass`, `Fail` or `Skip`. |
-| JP019 | `UnreachableArtifact` | error | running a step | An artifact an evidence observes is missing, unreadable or a directory, or a glob matches no file: the step is not called. |
+| JP019 | `UnreachableArtifact` | error | running a step | An artifact an evidence observes is missing, unreadable or not a regular file, or a glob matches no file: the step is not called. |
 | JP020 | `LibraryImportFailed` | error | importing the libraries | A step library raised an exception when it was imported. |
 | JP021 | `UnusableLibraryName` | error | importing the libraries | A library's file name cannot be its module's name: another library or module has it, or it is not a Python identifier. |
 | JP022 | `StepRaised` | error | running a step | A step raised an exception. The traceback is kept. |

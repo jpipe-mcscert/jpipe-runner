@@ -205,7 +205,9 @@ class _Run:
         _LOG.debug("calling %s for %s", step.name, element.id)
         try:
             returned = step.function(**arguments)
-        except (Exception, SystemExit) as error:
+        # A step that calls sys.exit() fails its element, rather than end the run without a
+        # report; KeyboardInterrupt still stops it (ADR-0021).
+        except (Exception, SystemExit) as error:  # NOSONAR
             trace = user_traceback(error)
             raised = _raised(element, error, trace)
             return _failed(binding, (raised,), observed=observed.observations, error=trace)

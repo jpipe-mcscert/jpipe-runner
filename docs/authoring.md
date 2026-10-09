@@ -84,6 +84,7 @@ every other library that failed to import, and runs nothing:
 | a list instead of a mapping | `@evidence(observes=...) maps each parameter to the path it receives: observes={'changelog': 'CHANGELOG.md'}` |
 | an absolute path | `@evidence(observes=...) takes paths relative to the run's working directory, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
 | a directory | `@evidence(observes=...) takes files, and 'src/' names a directory. Observe the files it holds, with a glob such as 'src/**/*'.` |
+| `**` inside a name | `@evidence(observes=...): '**' matches any depth only as a whole part of a path, as in 'build/**/*.xml', not 'build/**.xml'` |
 | two step decorators on one function | `f is already declared as evidence ('release:e1',): one function is one step` |
 
 Whether the ids designate elements of the model, and whether the data flows (every consumed

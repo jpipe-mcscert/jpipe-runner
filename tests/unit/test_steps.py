@@ -264,6 +264,8 @@ def test_only_evidence_observes() -> None:
         pytest.param({"a": "src/"}, "directory", id="a directory"),
         pytest.param({"a": "src\\"}, "directory", id="a directory on Windows"),
         pytest.param({"a": "build/*/"}, "directory", id="a glob of directories"),
+        pytest.param({"a": "build/**.xml"}, "whole part", id="'**' inside a name"),
+        pytest.param({"a": "a**/b.xml"}, "whole part", id="'**' ending a name"),
     ],
 )
 def test_a_malformed_observation_is_a_type_error(observes: Any, problem: str) -> None:

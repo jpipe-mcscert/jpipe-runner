@@ -71,8 +71,11 @@ while making a clash an error rather than a guess.
   `sys.path` is restored to the list it was, in place, whatever happened: an exception,
   or a step that changed it. No other directory is added: a library's own directory is
   not importable unless it is on the python path.
+- **A library another library of the run has already imported**, from the python path,
+  is that module: it is not run a second time, which would repeat its side effects and
+  give its steps a second set of functions.
 - **On exit, the libraries leave `sys.modules`**, with every module imported from a
-  python path entry during the run. Modules imported from elsewhere, such as third-party
+  python path entry during the run, namespace packages included. Modules imported from elsewhere, such as third-party
   packages a step imported, stay cached: re-importing a C extension in the same process
   breaks it.
 
