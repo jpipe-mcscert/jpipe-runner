@@ -345,6 +345,112 @@ others, the library keeps binding:
 - The refinement's conclusion is aliased onto the same element. Binding both the hook's id
   and the refinement's conclusion is two functions for one element: `JP007`.
 
+The libraries of the source models then run together, in one run: see
+[Libraries written for separate models](#libraries-written-for-separate-models) for what
+that changes.
+
+## Libraries written for separate models
+
+When models are composed, the step libraries written against each source model run
+together, against the composed model, in one run. Their ids keep binding (see
+[When the model is composed](#when-the-model-is-composed)), but what was separate is now
+shared, and a library may need a change for it. The
+[`assembled`](../tests/e2e/scenarios/assembled/) and
+[`unified`](../tests/e2e/scenarios/unified/) scenarios run such libraries.
+
+### Variable names are shared by every library of a run
+
+A run has one set of variables. A value one library produces can be consumed by another,
+and two libraries that produce the same name are two producers of one variable (`JP010`).
+Name a variable after what it means in its own model, rather than with a word every model
+would use, such as `ok` or `tests_pass`:
+
+```python
+from pathlib import Path
+
+from jpipe_runner import Outcome, evidence
+
+
+# tested_steps.py, written against the model `tested`
+@evidence("tested:suite", observes={"report": "build/junit.xml"}, produces=["suite_passes"])
+def the_test_suite_passes(report: Path) -> Outcome: ...
+
+
+# documented_steps.py, written against the model `documented`
+@evidence(
+    "documented:changelog",
+    observes={"changelog": "CHANGELOG.md"},
+    produces=["documented_release"],
+)
+def the_changelog_is_up_to_date(changelog: Path) -> Outcome: ...
+```
+
+### Library file names must differ
+
+Each library is imported as the module named after its file
+([ADR-0020](adr/0020-importing-step-libraries.md)), so two libraries called `steps.py`
+cannot be imported in one run, even from different directories:
+
+```
+JP021 error: 2 libraries are named 'steps': tested/steps.py, documented/steps.py
+  fix: Rename the library's file: its name, without '.py', is the name of its module.
+```
+
+Name each library after its model: `tested_steps.py`, `documented_steps.py`.
+
+### `assemble` adds a strategy that no library implements
+
+`assemble` puts a strategy, `assembleStrategy`, and a conclusion, `assembleConclusion`,
+above the conclusions of the models it assembles, which become sub-conclusions. No
+source library can implement that strategy, since no source model has it, and every
+strategy needs a step:
+
+```
+JP005 error [readiness:assembleStrategy]: the strategy 'All release gates pass' has no step, so nothing checks it
+  fix: Write its step: @strategy("readiness:assembleStrategy").
+```
+
+Write it in a library of its own, against the composed model. It judges what the
+assembled arguments establish together, and it may consume what either source library
+produces, since both arguments are below it:
+
+```python
+from jpipe_runner import Fail, Outcome, Pass, strategy
+
+RELEASE = "2.0"
+
+
+@strategy("readiness:assembleStrategy", consumes=["documented_release"])
+def all_release_gates_pass(documented_release: str) -> Outcome:
+    """[strategy] All release gates pass"""
+    if documented_release == RELEASE:
+        return Pass()
+    return Fail(f"the changelog documents release {documented_release}, not {RELEASE}")
+```
+
+### A cross-check carries the data, not the sub-argument
+
+After `refine`, the hook is a sub-conclusion argued in full below it, and the step written
+for the old evidence still binds it, as a cross-check. The strategy above the hook still
+consumes what that step produces: the argument below the hook contributes its status,
+not the values the strategy reads. So keep the old step bound. Removing it, because the
+sub-argument now establishes the claim, leaves the strategy without its input:
+
+```
+JP009 error [readiness:draft:gates]: draft_steps.all_release_gates_pass consumes 'tests_pass', which no step produces
+  fix: Produce 'tests_pass' in a step that supports this one.
+```
+
+The reverse happens too. When a merged element is bound to a step from one library, a
+strategy above it from another library may ignore a value that step produces, which its
+own library could not know of. Validation warns about it (`JP013`). Consume the value if
+the strategy should judge it; otherwise, the warning changes nothing:
+
+```
+JP013 warning [release:argued:docs]: argued_steps.the_changelog_and_api_docs_are_current ignores 'code_tested', which its supporter 'release:unified_0' produces
+  fix: Consume 'code_tested' in this strategy.
+```
+
 ## Validation: checking the library against the model
 
 Before running any step, the runner checks the library against the model, and reports

@@ -412,3 +412,8 @@ pass  readiness:draft:gates       draft_steps.all_release_gates_pass
 pass  readiness:draft:ready       (no function)
 verdict: pass
 ```
+
+Libraries written against separate models need a little care to run together: variable
+and file names are shared by the whole run, `assemble` adds a strategy that needs a step
+of its own, and a cross-check must stay bound. See
+[Libraries written for separate models](authoring.md#libraries-written-for-separate-models).
