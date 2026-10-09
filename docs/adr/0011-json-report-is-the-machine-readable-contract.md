@@ -98,7 +98,11 @@ validation's first, then each element's in the order run. Each has its severity,
 `{"value": ...}` when it is JSON as it is, and `{"repr": ..., "type": ...}` otherwise (a
 `Path`, a `datetime`, an object, a float that is not finite). Refusing would fail a run
 over its report; a new diagnostic code would be noise for a `Path`, a legitimate value.
-The wrapper makes the two forms impossible to confuse.
+The wrapper makes the two forms impossible to confuse. The `repr` is made canonical, at
+any depth of the lists, tuples, sets and dicts a value holds: a path under the run's root
+is shown relative to it, the items of a set are sorted, and an object's address is left
+out. A value is recorded as it was when its step returned, a deep copy, so that a step
+that changes a value it consumes does not change what the report says was produced.
 
 **A traceback is structured.** The diagnostic of a step that raised (`JP022`) or of a
 library that failed to import (`JP020`) carries its exception, as frames (file, line,
@@ -110,7 +114,9 @@ carry it, the traceback moved onto the `Diagnostic`, where M4 had kept it beside
 
 **Deterministic.** No time, duration or host name; no runner version, which would change
 every golden report at every release, and can come back as an optional field; paths
-relative to where the runner runs; fields in a fixed order.
+relative to where the runner runs; fields in a fixed order; canonical `repr`s. A value
+whose own `repr` changes from run to run (one that prints the time) is the one exception
+the runner cannot remove.
 
 **Versioned by `schema_version`**, `"1.0"` first. A minor version only adds optional
 fields, and a consumer ignores the fields it does not know; renaming or removing a field,

@@ -144,6 +144,21 @@ def test_an_element_that_skips_on_its_own_account_has_a_thicker_border(tmp_path:
     assert "penwidth" not in drawn['"s"']
 
 
+def test_a_report_of_another_model_with_the_same_name_is_refused(tmp_path: Path) -> None:
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    report = RunReport.of(run(RELEASE, _steps(lambda: Pass(a="a"), lambda: Pass(b="b"))))
+    rewired = model(
+        element("c", CONCLUSION),
+        element("s", STRATEGY),
+        element("e1", EVIDENCE),
+        element("e2", EVIDENCE),
+        relations=[("s", "c"), ("e1", "s"), ("e2", "c")],
+    )
+
+    with pytest.raises(ValueError, match="what supports what"):
+        source(rewired, report)
+
+
 def test_a_report_of_another_justification_is_refused() -> None:
     other = RunReport("other", Verdict.PASS)
 

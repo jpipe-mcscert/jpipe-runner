@@ -21,6 +21,7 @@ The verdict is ``FAIL`` if an element failed, ``SKIP`` if one was skipped, and `
 otherwise; ``INVALID`` when validation stopped the run.
 """
 
+import copy
 import logging
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
@@ -86,7 +87,8 @@ class ElementResult:
     outcome: Outcome | None = None
     """What its step returned, if it returned an outcome."""
     produced: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
-    """The values it produced, as stored for the steps it supports."""
+    """The values it produced, as they were when it returned: a copy, so that a step it
+    supports cannot change the record by changing the value it receives."""
     observed: tuple[Observation, ...] = ()
     """The files its step observed, recorded just before the call."""
     diagnostics: tuple[Diagnostic, ...] = ()
@@ -260,10 +262,19 @@ class _Run:
             binding,
             ran=True,
             outcome=outcome,
-            produced=MappingProxyType(produced),
+            produced=MappingProxyType({name: _snapshot(v) for name, v in produced.items()}),
             observed=observed,
             diagnostics=tuple(problems),
         )
+
+
+def _snapshot(value: Any) -> Any:
+    """A deep copy of ``value``, or ``value`` itself if it cannot be copied (a lock, an open
+    file): what a step produced is recorded as it was when the step returned."""
+    try:
+        return copy.deepcopy(value)
+    except Exception:  # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does
+        return value
 
 
 def _failed(

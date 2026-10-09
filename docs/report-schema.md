@@ -26,7 +26,8 @@ without documenting it.
 
 Two runs over the same files give the same report, byte for byte. It holds no time,
 duration or host name; every path is relative to the directory the runner runs in, with `/`
-as separator; and fields come in a fixed order. A report can be committed, compared with
+as separator; and fields come in a fixed order. The one exception is a produced value whose
+own `repr` changes from run to run, such as one that prints the time. A report can be committed, compared with
 `diff`, or archived with the artifacts it lists.
 
 ## The report
@@ -81,9 +82,14 @@ Each produced value is an object, in one of two forms:
 - `{"value": ...}` when the value is JSON as it is: null, a boolean, a number, a string, or
   a list or a mapping with string keys of such values;
 - `{"repr": ..., "type": ...}` otherwise, such as a `Path`, a `datetime`, a set, an object,
-  or a float that is not finite. `repr` is Python's `repr()` of the value, cut at 1,000
-  characters, and `type` its type, qualified by its module unless it is a built-in. A
-  `repr` is for people: do not parse it.
+  or a float that is not finite. `repr` is Python's `repr()` of the value, made the same on
+  every run: a path under the directory the runner runs in is shown relative to it, the
+  items of a set are sorted, and an object's address is left out, at any depth. It is cut
+  at 1,000 characters. `type` is the value's type, qualified by its module unless it is a
+  built-in. A `repr` is for people: do not parse it.
+
+A value is recorded as it was when its step returned: a step that changes a value it
+consumes does not change what the report says was produced.
 
 So `.produced.tests_pass.value` reads a value whatever it is, and the presence of `repr`
 says that it could not be written as JSON.

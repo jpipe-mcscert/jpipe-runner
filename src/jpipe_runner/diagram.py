@@ -72,13 +72,27 @@ def source(
     *,
     view: View = View.JUSTIFICATION,
 ) -> str:
-    """The DOT text of the diagram of ``justification``, with what ``report`` concluded."""
-    if report is not None and report.justification != justification.name:
-        raise ValueError(
-            f"the report is about {report.justification!r}, not {justification.name!r}"
-        )
+    """The DOT text of the diagram of ``justification``, with what ``report`` concluded.
+
+    The diagram is drawn from the model, whose order of elements and relations the
+    compiler's drawing follows, so ``report`` must be a report of that model: raises
+    ``ValueError`` if its elements, or what each supports, differ from the model's.
+    """
+    if report is not None:
+        _check_reports_on(report, justification)
     reported = {} if report is None else {e.id: e for e in report.elements}
     return "".join(f"{line}\n" for line in _Diagram(justification, reported, view).lines())
+
+
+def _check_reports_on(report: RunReport, model: Justification) -> None:
+    """Raise ``ValueError`` unless ``report`` is a report of ``model``."""
+    reported = {element.id: element.supports for element in report.elements}
+    expected = {e.id: tuple(s.id for s in model.supported(e.id)) for e in model}
+    if report.justification != model.name or reported != expected:
+        raise ValueError(
+            f"the report of {report.justification!r} is not a report of the model "
+            f"{model.name!r}: their elements, or what supports what, differ"
+        )
 
 
 def default_name(justification: Justification, fmt: str, view: View = View.JUSTIFICATION) -> str:

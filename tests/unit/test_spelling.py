@@ -85,7 +85,7 @@ def _base(word: str) -> str:
 # External names, spelled as their owners spell them: https://no-color.org, and Graphviz's
 # node, edge and graph attributes, as an attribute (followed by `=`) or a quoted key.
 EXTERNAL_NAMES = re.compile(
-    r"NO_COLOR(?![A-Za-z_])|no-color\.org"
+    r"NO_COLOR(?![A-Za-z0-9_])|no-color\.org"
     r'|(?<![A-Za-z])(?:fill|font|bg|pen|label)?color(?=\s*=|"\s*:)'
     r'|"(?:fill|font|bg|pen|label)?color"'
 )
@@ -138,7 +138,7 @@ def test_spelling_is_canadian(path: str) -> None:
         pytest.param("raise raising otherwise exercising wiser riser crises miser disable", [], id="-ise words that are right"),
         pytest.param("literal laboratory honorary humorous coloration totally levels", [], id="near misses"),
         pytest.param('NO_COLOR=1, fillcolor="#fff", color=red, fontcolor = white, {"color": x}', [], id="external names"),
-        pytest.param("the colors of a node, color it, NO_COLORS", ["colors", "color", "colors"], id="external names, near misses"),
+        pytest.param("the colors of a node, color it, NO_COLORS, NO_COLOR2", ["colors", "color", "colors", "color"], id="external names, near misses"),
     ],
 )  # fmt: skip
 def test_the_check_tells_canadian_from_the_rest(text: str, flagged: list[str]) -> None:

@@ -155,7 +155,7 @@ def test_an_element_lists_what_it_observed_and_produced(
     ]
     assert element_document["produced"] == {
         "lines": {"value": 2},
-        "where": {"repr": repr(tmp_path / "log.txt"), "type": "pathlib.PosixPath"},
+        "where": {"repr": "PosixPath('log.txt')", "type": "pathlib.PosixPath"},
     }
 
 
@@ -200,6 +200,30 @@ class Opaque:
 )
 def test_a_produced_value_is_written_as_json_or_as_its_repr(value: Any, written: Any) -> None:
     assert encoded(value) == written
+
+
+class Report:
+    """An object with Python's default repr, which holds its address."""
+
+
+@pytest.mark.parametrize(
+    ("value", "shown"),
+    [
+        pytest.param(Report(), f"<{__name__}.Report object>", id="an object's address"),
+        pytest.param({"b", "a", "c"}, "{'a', 'b', 'c'}", id="a set, sorted"),
+        pytest.param(frozenset({2, 1}), "frozenset({1, 2})", id="a frozenset, sorted"),
+        pytest.param(set(), "set()", id="an empty set"),
+        pytest.param((Report(),), f"(<{__name__}.Report object>,)", id="a tuple of one"),
+        pytest.param({1: [Report()]}, f"{{1: [<{__name__}.Report object>]}}", id="nested"),
+        pytest.param(
+            [HERE / "steps.py", Path("/elsewhere/steps.py")],
+            "[PosixPath('steps.py'), PosixPath('/elsewhere/steps.py')]",
+            id="paths, relative to the root when under it",
+        ),
+    ],
+)
+def test_a_repr_is_the_same_on_every_run(value: Any, shown: str) -> None:
+    assert encoded(value, HERE)["repr"] == shown
 
 
 def test_a_value_that_contains_itself_is_written_as_its_repr() -> None:

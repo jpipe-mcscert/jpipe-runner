@@ -8,17 +8,21 @@ a consumer ignores the fields it does not know.
 It is deterministic: two runs over the same files give the same document. It holds no
 time, duration or host name, paths are relative to where the runner runs, and keys come
 in a fixed order. A produced value that is not JSON (a ``Path``, a ``datetime``, an object,
-a float that is not finite) is written as its ``repr`` and its type, never refused.
+a float that is not finite) is written as its ``repr`` and its type, never refused. That
+``repr`` is made canonical: a path under the run's root is shown relative to it, the
+items of a set are sorted, and an object's address is left out, at any depth.
 """
 
 import json
 import math
+import re
 from collections.abc import Mapping
 from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 from jpipe_runner.artifacts import Observation
-from jpipe_runner.diagnostics import Diagnostic
+from jpipe_runner.diagnostics import Diagnostic, shown_path
 from jpipe_runner.report import ElementReport, RunReport, Trace
 
 SCHEMA_VERSION = "1.0"
@@ -29,6 +33,17 @@ SCHEMA: dict[str, Any] = json.loads(
 
 _REPR_LIMIT = 1000
 """The longest ``repr`` written for a value that is not JSON, in characters."""
+
+_ADDRESS = re.compile(r" at 0x[0-9A-Fa-f]+")
+"""The address in an object's default repr, ``<steps.Report object at 0x10f3a2b50>``."""
+
+_RECURSION: dict[type, str] = {
+    list: "[...]",
+    dict: "{...}",
+    tuple: "(...)",
+    set: "{...}",
+    frozenset: "{...}",
+}
 
 
 def document(report: RunReport) -> dict[str, Any]:
@@ -48,7 +63,7 @@ def document(report: RunReport) -> dict[str, Any]:
             "errors": summary.errors,
             "warnings": summary.warnings,
         },
-        "elements": [_element(element) for element in report.elements],
+        "elements": [_element(element, report.root) for element in report.elements],
         "diagnostics": [_diagnostic(report, diagnostic) for diagnostic in report.diagnostics],
         "diagram": report.diagram,
     }
@@ -60,7 +75,7 @@ def dumps(report: RunReport) -> str:
     return json.dumps(document(report), indent=2, ensure_ascii=False) + "\n"
 
 
-def _element(element: ElementReport) -> dict[str, Any]:
+def _element(element: ElementReport, root: Path) -> dict[str, Any]:
     return {
         "id": element.id,
         "label": element.label,
@@ -76,7 +91,7 @@ def _element(element: ElementReport) -> dict[str, Any]:
         "observes": list(element.observes),
         "consumes": list(element.consumes),
         "produces": list(element.produces),
-        "produced": {name: encoded(value) for name, value in element.produced.items()},
+        "produced": {name: encoded(value, root) for name, value in element.produced.items()},
         "artifacts": [_artifact(artifact) for artifact in element.artifacts],
     }
 
@@ -114,12 +129,13 @@ def _trace(trace: Trace) -> dict[str, Any]:
     }
 
 
-def encoded(value: Any) -> dict[str, Any]:
+def encoded(value: Any, root: Path = Path()) -> dict[str, Any]:
     """A produced value, as the report writes it: ``{"value": ...}`` if it is JSON, and
-    ``{"repr": ..., "type": ...}`` otherwise."""
+    ``{"repr": ..., "type": ...}`` otherwise, with a canonical ``repr`` (paths shown
+    relative to ``root``)."""
     if _is_json(value, set()):
         return {"value": _plain(value)}
-    return {"repr": _repr(value), "type": _type_name(type(value))}
+    return {"repr": _cut(_Canonical(root)(value)), "type": _type_name(type(value))}
 
 
 def _is_json(value: Any, seen: set[int]) -> bool:
@@ -146,11 +162,52 @@ def _plain(value: Any) -> Any:
     return value
 
 
+class _Canonical:
+    """The ``repr`` of a value, the same on every run: Python's own, except that a path
+    under the root is shown relative to it, the items of a set are sorted, and an object's
+    address is left out, in the value and in the lists, tuples, sets and dicts it holds."""
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self._seen: set[int] = set()
+
+    def __call__(self, value: Any) -> str:
+        kind = type(value)
+        if isinstance(value, Path):
+            return repr(kind(shown_path(str(value), self._root)))
+        if kind not in _RECURSION:
+            return _ADDRESS.sub("", _repr(value))
+        if id(value) in self._seen:
+            return _RECURSION[kind]
+        self._seen.add(id(value))
+        try:
+            return self._container(value)
+        finally:
+            self._seen.discard(id(value))
+
+    def _container(self, value: Any) -> str:
+        if isinstance(value, dict):
+            return "{" + ", ".join(f"{self(k)}: {self(v)}" for k, v in value.items()) + "}"
+        items = [self(item) for item in value]
+        if isinstance(value, list):
+            return "[" + ", ".join(items) + "]"
+        if isinstance(value, tuple):
+            return "(" + ", ".join(items) + ("," if len(items) == 1 else "") + ")"
+        name = type(value).__name__
+        if not items:
+            return f"{name}()"
+        body = "{" + ", ".join(sorted(items)) + "}"
+        return body if name == "set" else f"{name}({body})"
+
+
 def _repr(value: Any) -> str:
     try:
-        text = repr(value)
+        return repr(value)
     except Exception as error:  # a broken __repr__ must not break the report
         return f"<{_type_name(type(value))} object: repr() raised {type(error).__name__}>"
+
+
+def _cut(text: str) -> str:
     if len(text) > _REPR_LIMIT:
         return text[: _REPR_LIMIT - 1] + "…"
     return text

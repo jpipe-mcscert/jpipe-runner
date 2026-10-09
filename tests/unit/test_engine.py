@@ -1,5 +1,6 @@
 """The engine: statuses, propagation, run-time diagnostics and the verdict (#120, #144)."""
 
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -181,6 +182,37 @@ def test_every_root_cause_is_named_in_model_order(release: Release) -> None:
 
 def _divide() -> Outcome:
     return Pass(a=str(1 / 0))
+
+
+def test_what_a_step_produced_is_recorded_as_it_returned_it(release: Release) -> None:
+    received: list[str] = ["one"]
+
+    @strategy("s", consumes=["a", "b"])
+    def mutates(a: list[str], b: int) -> Outcome:
+        a.append("changed by s")
+        return Pass()
+
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["a"])
+    def first(log: Path) -> Outcome:
+        return Pass(a=received)
+
+    @evidence("e2", observes={"logs": "*.txt"}, produces=["b"])
+    def second(logs: list[Path]) -> Outcome:
+        return Pass(b=len(logs))
+
+    result = run(RELEASE, _registry(first, second, mutates), root=release.root)
+
+    assert received == ["one", "changed by s"]
+    assert result.result("e1").produced == {"a": ["one"]}
+
+
+def test_a_value_that_cannot_be_copied_is_recorded_as_it_is(release: Release) -> None:
+    lock = threading.Lock()
+    release.returns["e1"] = lambda: Pass(a=lock)
+
+    result = release.run()
+
+    assert result.result("e1").produced["a"] is lock
 
 
 def test_jp022_names_where_the_step_raised_relative_to_the_root(tmp_path: Path) -> None:

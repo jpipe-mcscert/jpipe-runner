@@ -424,11 +424,14 @@ whose diagnostic carries the traceback, trimmed by `user_traceback`), a value th
 (`JP017`), an unreachable artifact (`JP019`, and the step is not called) and a missing
 declared value (`JP023`) fail the element, with the diagnostic on its `ElementResult`. An
 undeclared value is dropped, with a warning (`JP024`): no step can consume it, so it
-changes nothing. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
+changes nothing. What a step produced is recorded on its `ElementResult` as a deep copy,
+taken when it returned, so that a step that changes a value it consumes does not change
+the record. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
 failed, else `SKIP` if one was skipped, else `PASS`. The engine prints nothing: it logs
 to the `jpipe_runner.engine` logger, and the report is built from the `RunResult`.
 
-**Every way a run ends has a report, and renderers are pure functions of it.** A
+**Every way a run ends has a report, and renderers are pure functions of it** (the diagram,
+of it and its model). A
 `RunReport` is built from a `RunResult`, or, when nothing could run, from the
 `InvalidJustificationError` of a refused model or the `LibraryLoadError` of libraries that
 could not be imported. It is plain data: every element of the model, in topological order,
@@ -440,13 +443,15 @@ shows as a `Trace`: its frames' files relative to the run's root, and the same o
 Python version. The text renderer, `text_report.render`, lays a report out for a person, in
 the manner of Cucumber: each element with a symbol for its status, its kind, its label and
 its id, why it did not pass, then the diagnostics, the summary and the verdict. Its layout
-is not a contract.
+is not a contract. Whether to colour it is the caller's decision (`use_colour`: a terminal,
+unless `NO_COLOR` is set).
 
 **The JSON report is the contract** ([ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)).
 `json_report.document` writes a report as the JSON document that `report.schema.json`,
 shipped in the package, describes, versioned by `schema_version`. It is deterministic: no
 time, relative paths, fields in a fixed order. A produced value is written as itself when
-it is JSON, and as its `repr` and type otherwise. [`report-schema.md`](report-schema.md)
+it is JSON, and as its `repr` and type otherwise, a `repr` made canonical: paths under the
+root relative to it, sets sorted, no object addresses. [`report-schema.md`](report-schema.md)
 documents it for readers.
 
 **A diagram is the compiler's drawing, with the run over it**
@@ -457,5 +462,6 @@ and edges in the order of the model's relations. A report's statuses are drawn o
 the same palette: a green border for a pass, a vermillion fill for a failure, a dashed grey
 node for a skip. The dataflow `View` adds, from what the report says the steps declare,
 each observed file and each variable as a node. `write` pipes the text to Graphviz's `dot`;
-only the `dot` format is written without it. Whether to colour it is the caller's decision (`use_colour`: a terminal,
-unless `NO_COLOR` is set).
+only the `dot` format is written without it. Since the compiler's drawing follows the
+model's order, a diagram is drawn from the model and the report together, and a report
+whose elements, or what each supports, differ from the model's is refused.

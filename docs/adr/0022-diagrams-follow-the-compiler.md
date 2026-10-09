@@ -53,6 +53,10 @@ How should the runner draw a justification and a run?
 Chosen option: **2, follow the compiler**, because it is the only one that gives one
 drawing of an argument, whichever tool drew it.
 
+- **A diagram is drawn from the model and a report of it.** The compiler's drawing follows
+  the order of the model's elements and relations, which the report does not keep, so the
+  model is drawn, and the report's statuses over it. A report whose elements, or what each
+  supports, differ from the model's is refused.
 - **The drawing of a model is the compiler's**, byte for byte: its ids, quoted, with
   `id=`; its labels, wrapped at 40 characters and escaped as it escapes them; its
   shapes and colours; the model's name as the graph's label. A run in which nothing ran
