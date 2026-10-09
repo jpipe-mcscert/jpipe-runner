@@ -93,6 +93,9 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   never when `NO_COLOR` is set; the symbols fall back to ASCII where the terminal cannot
   show them. v3's ASCII banners and fixed-width table are gone. The layout is for people,
   and may change: scripts should read the JSON report.
+- **A reference of the command line**, [`docs/cli.md`](docs/cli.md): every option, every
+  exit code, where each output goes, and how a step library finds the packages it
+  imports. Its examples are run by the test suite.
 - **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
   validation rule checks, why, its severity and how to fix what it reports, and the codes
   reported when a model or a step library is loaded, or a step runs. It is generated from

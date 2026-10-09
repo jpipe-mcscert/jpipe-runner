@@ -6,7 +6,7 @@ script. It is a versioned contract
 Schema that ships in the package,
 [`jpipe_runner/schema/report.schema.json`](../src/jpipe_runner/schema/report.schema.json).
 The `jpipe-runner` command prints it with `--json`, and writes it to a file with
-`--report PATH` ([ADR-0023](adr/0023-the-command-line.md)).
+`--report PATH` ([`cli.md`](cli.md)).
 
 The report is about what was validated: which claims hold, which steps judged them, what
 the steps declared they read and produce, and what they actually observed. The text report

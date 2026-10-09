@@ -429,8 +429,7 @@ quoted above, and `release.svg` the first diagram (`--dataflow` draws the second
 exit code is for a CI pipeline: 0 when the justification holds, 1 when it fails, 3 when
 nothing could run (a refused model, a library that cannot be imported, a validation
 error), and 4 when a file could not be read or written. A skipped justification exits 0,
-unless the run is `--strict`. [ADR-0023](adr/0023-the-command-line.md) explains these
-choices.
+unless the run is `--strict`. [`cli.md`](cli.md) describes every option.
 
 ## When something is wrong
 
