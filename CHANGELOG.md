@@ -30,6 +30,16 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   than its immediate supporter. A justification in which nothing failed but something was
   skipped is reported as skipped, not as passed
   ([ADR-0021](docs/adr/0021-execution-semantics.md)).
+- **A text report of the run, in the manner of Cucumber.** Each element is one line, in the
+  order run: a symbol for its status (`✔`, `✘`, `-`), its kind, its label and its id. An
+  element that did not pass says why underneath, and a failed evidence names the files it
+  observed. The diagnostics follow, each with its fix and, for an exception, its traceback
+  from the step's own code; then the summary and the verdict, last. A run that stopped
+  before any step ran (a refused model, a library that cannot be imported, a validation
+  error) is reported too, with its diagnostics. Colours are used only on a terminal, and
+  never when `NO_COLOR` is set; the symbols fall back to ASCII where the terminal cannot
+  show them. v3's ASCII banners and fixed-width table are gone. The layout is for people,
+  and may change: scripts should read the JSON report.
 - **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
   validation rule checks, why, its severity and how to fix what it reports, and the codes
   reported when a model or a step library is loaded, or a step runs. It is generated from

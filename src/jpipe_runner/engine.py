@@ -32,7 +32,7 @@ from typing import Any
 
 from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, Observation, observe
 from jpipe_runner.binding import Binding, BindingTable
-from jpipe_runner.diagnostics import Diagnostic, Severity, user_traceback
+from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.outcomes import Fail, NotAnOutcomeError, Outcome, Pass, Skip, as_outcome
 from jpipe_runner.rules import RULES
@@ -90,9 +90,8 @@ class ElementResult:
     observed: tuple[Observation, ...] = ()
     """The files its step observed, recorded just before the call."""
     diagnostics: tuple[Diagnostic, ...] = ()
-    """What went wrong while running it."""
-    error: TracebackException | None = None
-    """The exception its step raised, with the step's frames of the traceback."""
+    """What went wrong while running it. A step that raised is reported with ``JP022``,
+    which carries the traceback."""
 
 
 @dataclass(frozen=True)
@@ -105,6 +104,8 @@ class RunResult:
     elements: tuple[ElementResult, ...]
     """One per element, in topological order. Empty when validation stopped the run."""
     values: ValueStore
+    strict: bool = False
+    """Whether validation counted warnings as errors."""
 
     @property
     def verdict(self) -> Verdict:
@@ -150,9 +151,9 @@ def run(
     values = ValueStore()
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
-        return RunResult(justification, ctx.bindings, report, (), values)
+        return RunResult(justification, ctx.bindings, report, (), values, strict)
     elements = _Run(ctx, values, root).execute()
-    return RunResult(justification, ctx.bindings, report, elements, values)
+    return RunResult(justification, ctx.bindings, report, elements, values, strict)
 
 
 class _Run:
@@ -208,9 +209,8 @@ class _Run:
         # A step that calls sys.exit() fails its element, rather than end the run without a
         # report; KeyboardInterrupt still stops it (ADR-0021).
         except (Exception, SystemExit) as error:  # NOSONAR
-            trace = user_traceback(error)
-            raised = _raised(element, error, trace)
-            return _failed(binding, (raised,), observed=observed.observations, error=trace)
+            raised = _raised(element, error, user_traceback(error), self._root)
+            return _failed(binding, (raised,), observed=observed.observations)
         try:
             outcome = as_outcome(returned, element.id)
         except NotAnOutcomeError as error:
@@ -271,7 +271,6 @@ def _failed(
     diagnostics: tuple[Diagnostic, ...] | list[Diagnostic],
     *,
     observed: tuple[Observation, ...],
-    error: TracebackException | None = None,
     outcome: Outcome | None = None,
 ) -> ElementResult:
     """The element failed because of ``diagnostics``. Its step ran, unless an artifact was
@@ -287,15 +286,16 @@ def _failed(
         outcome=outcome,
         observed=observed,
         diagnostics=tuple(diagnostics),
-        error=error,
     )
 
 
-def _raised(element: Element, error: BaseException, trace: TracebackException) -> Diagnostic:
+def _raised(
+    element: Element, error: BaseException, trace: TracebackException, root: Path
+) -> Diagnostic:
     where = ""
     if trace.stack:
         frame = trace.stack[-1]
-        where = f", at {frame.filename}, line {frame.lineno}"
+        where = f", at {shown_path(frame.filename, root)}, line {frame.lineno}"
     return Diagnostic(
         STEP_RAISED,
         Severity.ERROR,
@@ -303,6 +303,7 @@ def _raised(element: Element, error: BaseException, trace: TracebackException) -
         element=element.id,
         fix="Return Fail(reason) when the check does not hold: an exception says the step "
         "itself is broken.",
+        traceback=trace,
     )
 
 

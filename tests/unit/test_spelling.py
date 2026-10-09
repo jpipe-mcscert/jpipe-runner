@@ -11,6 +11,9 @@ are split at underscores and case changes before matching.
 
 Text that is not the project's own is left as it is, and so not checked: third-party
 documents kept verbatim, compiler output, mock data, and the keys of external formats.
+The names of external conventions are also left as they are, wherever they appear: the
+``NO_COLOR`` environment variable, and Graphviz's ``color`` attributes written as
+attributes (``fillcolor=``, ``"fontcolor"``).
 """
 
 import re
@@ -79,9 +82,19 @@ def _base(word: str) -> str:
     return word[: word.rindex("is")] + "ise"
 
 
+# External names, spelled as their owners spell them: https://no-color.org, and Graphviz's
+# node, edge and graph attributes, as an attribute (followed by `=`) or a quoted key.
+EXTERNAL_NAMES = re.compile(
+    r"NO_COLOR(?![A-Za-z_])"
+    r'|(?<![A-Za-z])(?:fill|font|bg|pen|label)?color(?=\s*=|"\s*:)'
+    r'|"(?:fill|font|bg|pen|label)?color"'
+)
+
+
 def _misspellings(text: str) -> list[str]:
     found = []
     for raw in text.splitlines():
+        raw = EXTERNAL_NAMES.sub(" ", raw)
         line = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", raw).lower()  # camelCase -> camel case
         for match in MISSPELLED.finditer(line):
             word = match.group(0)
@@ -124,6 +137,8 @@ def test_spelling_is_canadian(path: str) -> None:
         pytest.param("organize organizational analyze analyses colour colourful favoured behaviour centre centring modelled labelling defence", [], id="Canadian"),
         pytest.param("raise raising otherwise exercising wiser riser crises miser disable", [], id="-ise words that are right"),
         pytest.param("literal laboratory honorary humorous coloration totally levels", [], id="near misses"),
+        pytest.param('NO_COLOR=1, fillcolor="#fff", color=red, fontcolor = white, {"color": x}', [], id="external names"),
+        pytest.param("the colors of a node, color it, NO_COLORS", ["colors", "color", "colors"], id="external names, near misses"),
     ],
 )  # fmt: skip
 def test_the_check_tells_canadian_from_the_rest(text: str, flagged: list[str]) -> None:

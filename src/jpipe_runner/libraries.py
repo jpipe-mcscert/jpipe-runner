@@ -16,12 +16,12 @@ before anything is imported, then ``JP020`` for each library whose import raised
 
 import importlib.util
 import sys
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from os import PathLike
 from pathlib import Path
 from traceback import TracebackException
-from types import MappingProxyType, ModuleType
+from types import ModuleType
 
 from jpipe_runner.diagnostics import Diagnostic, Severity, user_traceback
 
@@ -32,16 +32,11 @@ _RENAME = "Rename the library's file: its name, without '.py', is the name of it
 
 
 class LibraryLoadError(Exception):
-    """Step libraries that cannot be imported. It carries every problem, as diagnostics,
-    and the traceback of each library whose import raised, by the path it was given as."""
+    """Step libraries that cannot be imported. It carries every problem, as diagnostics:
+    the ``JP020`` of a library whose import raised carries its traceback."""
 
-    def __init__(
-        self,
-        diagnostics: Iterable[Diagnostic],
-        tracebacks: Mapping[str, TracebackException] | None = None,
-    ) -> None:
+    def __init__(self, diagnostics: Iterable[Diagnostic]) -> None:
         self.diagnostics = tuple(diagnostics)
-        self.tracebacks = MappingProxyType(dict(tracebacks or {}))
         super().__init__("\n".join(str(diagnostic) for diagnostic in self.diagnostics))
 
 
@@ -110,18 +105,15 @@ def _import_all(files: list[Path]) -> tuple[ModuleType, ...]:
     """Import every library, in order. Raises ``LibraryLoadError`` if any raised."""
     modules: list[ModuleType] = []
     problems: list[Diagnostic] = []
-    tracebacks: dict[str, TracebackException] = {}
     for file in files:
         try:
             modules.append(_import(file))
         # A library that calls sys.exit() is reported like any other that fails to import,
         # rather than end the run without a report (ADR-0020).
         except (Exception, SystemExit) as error:  # NOSONAR
-            trace = user_traceback(error)
-            tracebacks[str(file)] = trace
-            problems.append(_import_failed(file, error, trace))
+            problems.append(_import_failed(file, error, user_traceback(error)))
     if problems:
-        raise LibraryLoadError(problems, tracebacks)
+        raise LibraryLoadError(problems)
     return tuple(modules)
 
 
@@ -165,6 +157,7 @@ def _import_failed(file: Path, error: BaseException, trace: TracebackException) 
         Severity.ERROR,
         f"{file} cannot be imported: {type(error).__name__}: {error}{where}",
         fix=fix,
+        traceback=trace,
     )
 
 

@@ -232,17 +232,23 @@ about to read it ([ADR-0019](adr/0019-evidence-observes-files.md)). Then it pass
 function what it observes and consumes, and records what it returns
 ([ADR-0021](adr/0021-execution-semantics.md)).
 
-There is no command line or report yet (step 7), so what follows lists, for each element
-in the order it was run, its status, the function bound to it, the files it observed, and
-why it did not pass, if it did not. With both mock files in place, everything passes:
+What follows is the text report of the run, as a terminal shows it: each element in the
+order it was run, with a symbol for its status (`✔` passed, `✘` failed, `-` skipped), its
+kind, its label and its id; under an element that did not pass, why, and for a failed
+evidence, the files it observed; then the summary and the verdict. The JSON report of
+step 7 records every observed file, with its hash. With both mock files in place,
+everything passes:
 
 ```
-pass  release:e1  steps.the_test_suite_passes
-      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
-pass  release:e2  steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-pass  release:s   steps.all_release_gates_pass
-pass  release:c   (no function)
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✔ Evidence    The test suite passes         # release:e1
+  ✔ Evidence    The changelog is up to date   # release:e2
+  ✔ Strategy    All release gates pass        # release:s
+  ✔ Conclusion  Version 2.0 is ready to ship  # release:c
+
+4 elements (4 passed)
 verdict: pass
 ```
 
@@ -256,15 +262,19 @@ never produced. So `s` and the conclusion are skipped, not called, and each name
 element that stopped it. `e2` does not depend on `e1`, and still runs.
 
 ```
-fail  release:e1  steps.the_test_suite_passes
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✘ Evidence    The test suite passes         # release:e1
+      steps.the_test_suite_passes: mock/junit.xml: 2 tests failed
       observed mock/junit.xml (sha256 f757d068913c…, 187 bytes)
-      mock/junit.xml: 2 tests failed
-pass  release:e2  steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-skip  release:s   steps.all_release_gates_pass
+  ✔ Evidence    The changelog is up to date   # release:e2
+  - Strategy    All release gates pass        # release:s
       not run: release:e1 did not pass
-skip  release:c   (no function)
+  - Conclusion  Version 2.0 is ready to ship  # release:c
       not run: release:e1 did not pass
+
+4 elements (1 failed, 2 skipped, 1 passed)
 verdict: fail
 ```
 
@@ -274,24 +284,28 @@ its verdict is `skip`.
 
 **An artifact that is not there.** If the tests have not run yet, `mock/junit.xml` does
 not exist. The runner does not call `the_test_suite_passes` at all: the evidence fails,
-and the diagnostic says that the check could not look, rather than that it said no.
+and the diagnostic says that the check could not look, rather than that it said no. The
+report lists each diagnostic after the elements, with what to do about it.
 
 ```
-fail  release:e1  steps.the_test_suite_passes
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✘ Evidence    The test suite passes         # release:e1
+      steps.the_test_suite_passes: mock/junit.xml, observed as 'report', does not exist
       observed mock/junit.xml (unreachable)
-      mock/junit.xml, observed as 'report', does not exist
-pass  release:e2  steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-skip  release:s   steps.all_release_gates_pass
+  ✔ Evidence    The changelog is up to date   # release:e2
+  - Strategy    All release gates pass        # release:s
       not run: release:e1 did not pass
-skip  release:c   (no function)
+  - Conclusion  Version 2.0 is ready to ship  # release:c
       not run: release:e1 did not pass
-verdict: fail
-```
 
-```
 JP019 error [release:e1]: mock/junit.xml, observed as 'report', does not exist
   fix: Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.
+
+4 elements (1 failed, 2 skipped, 1 passed)
+1 diagnostic (1 error)
+verdict: fail
 ```
 
 A function that raises an exception fails its element in the same way, with `JP022` and
@@ -301,8 +315,7 @@ broken step fails its element, and the run goes on, so one run reports them all.
 ## 7. Reading the verdict (planned, M5 and M6)
 
 The `jpipe-runner` command ([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124))
-will report each element's status and the run's verdict, as text
-([#121](https://github.com/jpipe-mcscert/jpipe-runner/issues/121)) or as JSON
+will print the text report of step 6, or a JSON report
 ([#122](https://github.com/jpipe-mcscert/jpipe-runner/issues/122)), and can draw the
 argument as a diagram ([#123](https://github.com/jpipe-mcscert/jpipe-runner/issues/123)).
 The report will list the artifacts each evidence observed, so that a CI pipeline can
@@ -392,24 +405,28 @@ JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as
   fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
 ```
 
-The run calls `the_test_suite_passes` of the draft after the argument of `tested` below
-it, and only because that argument passed. Both libraries observe `mock/junit.xml`, and
-both record the same file:
+The run calls `the_test_suite_passes` of the draft, for `readiness:hook`, after the
+argument of `tested` below it, and only because that argument passed:
 
 ```
-pass  readiness:draft:changelog   draft_steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-pass  readiness:draft:docs        draft_steps.the_changelog_and_api_docs_are_current
-pass  readiness:draft:documented  (no function)
-pass  readiness:tested:suite      tested_steps.the_test_suite_passes
-      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
-pass  readiness:tested:coverage   tested_steps.coverage_is_above_80
-      observed mock/coverage.txt (sha256 83a626104926…, 5 bytes)
-pass  readiness:tested:testing    tested_steps.the_test_suite_passes_with_high_coverage
-pass  readiness:hook              draft_steps.the_test_suite_passes
-      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
-pass  readiness:draft:gates       draft_steps.all_release_gates_pass
-pass  readiness:draft:ready       (no function)
+Justification: readiness
+  Version 2.0 is ready to ship
+
+  ✔ Evidence        The changelog is up to date               # readiness:draft:changelog
+  ✔ Strategy        The changelog and API docs are current    # readiness:draft:docs
+  ✔ Sub-conclusion  The documentation is updated              # readiness:draft:documented
+  ✔ Evidence        The test suite passes                     # readiness:tested:suite
+  ✔ Evidence        Coverage is above 80%                     # readiness:tested:coverage
+  ✔ Strategy        The test suite passes with high coverage  # readiness:tested:testing
+  ✔ Sub-conclusion  The code is tested                        # readiness:hook
+  ✔ Strategy        All release gates pass                    # readiness:draft:gates
+  ✔ Conclusion      Version 2.0 is ready to ship              # readiness:draft:ready
+
+JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
+  fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
+
+9 elements (9 passed)
+1 diagnostic (1 warning)
 verdict: pass
 ```
 

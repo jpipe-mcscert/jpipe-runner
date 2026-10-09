@@ -221,7 +221,9 @@ def test_the_traceback_of_a_failed_import_starts_in_the_library(tmp_path: Path) 
     with pytest.raises(LibraryLoadError) as error, imported([library]):
         pass
 
-    trace = error.value.tracebacks[str(library)]
+    (diagnostic,) = error.value.diagnostics
+    trace = diagnostic.traceback
+    assert trace is not None
     assert [frame.filename for frame in trace.stack] == [str(library.resolve())]
     assert trace.exc_type is TypeError
 
@@ -236,7 +238,7 @@ def test_every_library_is_tried_and_every_failure_reported(tmp_path: Path) -> No
 
     assert _codes(error) == [LIBRARY_IMPORT_FAILED, LIBRARY_IMPORT_FAILED]
     assert error.value.diagnostics[0].fix is not None
-    assert list(error.value.tracebacks) == [str(first), str(second)]
+    assert all(d.traceback is not None for d in error.value.diagnostics)
     assert "fine" not in sys.modules
 
 

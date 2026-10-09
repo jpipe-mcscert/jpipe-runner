@@ -3,7 +3,7 @@
 Every function of ``tests/e2e/scenarios/release_example/steps.py`` appears in the page,
 character for character, and so does what validation reports on the release and composed
 examples, and what running them does, so the walkthrough cannot drift from the code the
-e2e suite runs.
+e2e suite runs. Runs are quoted as their text report.
 """
 
 import ast
@@ -17,8 +17,10 @@ import pytest
 from jpipe_runner import loader
 from jpipe_runner.diagnostics import Diagnostic
 from jpipe_runner.engine import RunResult, run
+from jpipe_runner.report import RunReport
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
+from jpipe_runner.text_report import render
 from jpipe_runner.validation import ValidationContext, ValidationReport
 from tests.conftest import REPO_ROOT
 
@@ -99,21 +101,8 @@ def test_the_page_quotes_validation_of_the_refined_model() -> None:
 
 
 def _as_run(result: RunResult) -> str:
-    """A run as the page shows it: each element in the order run, then the verdict."""
-    width = max(len(r.element.id) for r in result)
-    lines = []
-    for r in result:
-        name = r.binding.step.name if r.binding else "(no function)"
-        lines.append(f"{r.status:<4}  {r.element.id:<{width}}  {name}")
-        for o in r.observed:
-            seen = (
-                f"sha256 {(o.sha256 or '')[:12]}…, {o.size} bytes" if o.reachable else "unreachable"
-            )
-            lines.append(f"      observed {o.path} ({seen})")
-        if r.reason:
-            lines.append(f"      {r.reason}")
-    lines.append(f"verdict: {result.verdict}")
-    return "```\n" + "\n".join(lines) + "\n```"
+    """A run as the page shows it: its text report, without colour."""
+    return "```\n" + render(RunReport.of(result)) + "```"
 
 
 def _run(
@@ -164,7 +153,7 @@ def test_the_page_quotes_the_run_without_a_test_report(
     result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, remove_report)
     assert _as_run(result) in PAGE
     assert result.validation.diagnostics == ()
-    assert _as_shown(result.diagnostics) in PAGE
+    assert [d.code for d in result.diagnostics] == ["JP019"]
 
 
 def test_the_page_quotes_the_run_of_the_refined_model(

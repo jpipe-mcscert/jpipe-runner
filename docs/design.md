@@ -42,6 +42,16 @@ flowchart LR
     engine --> steps
     engine --> validation
     engine --> values
+    report --> artifacts
+    report --> binding
+    report --> diagnostics
+    report --> engine
+    report --> libraries
+    report --> model
+    text_report --> diagnostics
+    text_report --> engine
+    text_report --> model
+    text_report --> report
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -58,6 +68,8 @@ arrow is data.
 | [`engine`](../src/jpipe_runner/engine.py) | Runs a step library against its model: validates it, then calls the steps supporters first, and returns a `RunResult`, each element's `ElementResult` and the verdict. Entry point: `run(justification, registry)`. |
 | [`libraries`](../src/jpipe_runner/libraries.py) | Imports a run's step libraries, each as a module named after its file, with the run's python path, and forgets them after the run. Entry point: `imported(libraries, python_path)`. |
 | [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: whether each can be reached, what it was (path, SHA-256, size), and what the step receives. |
+| [`report`](../src/jpipe_runner/report.py) | The `RunReport` of a run, built for every way a run ends, even when nothing ran: each element of the model with its status, its step and what that step declares, observed and produced, then every diagnostic. Entry points: `RunReport.of(result)`, `RunReport.refused(error)`, `RunReport.not_imported(justification, error)`. |
+| [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run, and `user_traceback`, an exception's traceback without the runner's frames. |
@@ -67,7 +79,8 @@ The public API, what a step library imports, is the package itself: `from jpipe_
 import evidence, strategy, sub_conclusion, conclusion, Outcome, Pass, Fail, Skip`.
 What runs a justification, the command line from M6, uses three entry points:
 `loader.load(path)`, `libraries.imported(libraries, python_path)`, inside which
-`engine.run(justification, registry)` runs.
+`engine.run(justification, registry)` runs. Whichever way the run ends, it builds a
+`RunReport`, and renders it.
 
 ## Classes
 
@@ -133,6 +146,14 @@ classDiagram
 
     namespace libraries {
         class LibraryLoadError
+    }
+
+    namespace report {
+        class RunReport
+        class ElementReport
+        class Summary
+        class Trace
+        class Frame
     }
 
     namespace artifacts {
@@ -218,6 +239,18 @@ classDiagram
     ElementResult ..> Outcome : outcome
     ElementResult "1" *-- "*" Observation : observed
     ElementResult "1" o-- "*" Diagnostic : diagnostics
+    Diagnostic ..> TracebackException : traceback
+    RunReport "1" *-- "*" ElementReport : elements
+    RunReport "1" o-- "*" Diagnostic : diagnostics
+    RunReport ..> Verdict : verdict
+    RunReport ..> Summary : summary
+    RunReport ..> Trace : trace
+    RunReport ..> RunResult : of
+    ElementReport --> Kind : kind
+    ElementReport --> Status : status
+    ElementReport "1" *-- "*" Observation : artifacts
+    Trace "1" *-- "*" Frame : frames
+    Trace --> Trace : cause
     Exception <|-- LibraryLoadError
     LibraryLoadError "1" o-- "1..*" Diagnostic : diagnostics
     Observed "1" *-- "*" Observation : observations
@@ -371,10 +404,25 @@ supports its consumer (`JP009`, `JP014`), and a `Pass` stores every value its st
 declares or fails (`JP023`). The engine raises a `RuntimeError` rather than pass `UNSET`.
 
 **What a step does wrong fails its element, and the run goes on.** An exception (`JP022`,
-with its traceback, trimmed by `user_traceback`), a value that is not an outcome
+whose diagnostic carries the traceback, trimmed by `user_traceback`), a value that is not an outcome
 (`JP017`), an unreachable artifact (`JP019`, and the step is not called) and a missing
 declared value (`JP023`) fail the element, with the diagnostic on its `ElementResult`. An
 undeclared value is dropped, with a warning (`JP024`): no step can consume it, so it
 changes nothing. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
 failed, else `SKIP` if one was skipped, else `PASS`. The engine prints nothing: it logs
 to the `jpipe_runner.engine` logger, and the report is built from the `RunResult`.
+
+**Every way a run ends has a report, and renderers are pure functions of it.** A
+`RunReport` is built from a `RunResult`, or, when nothing could run, from the
+`InvalidJustificationError` of a refused model or the `LibraryLoadError` of libraries that
+could not be imported. It is plain data: every element of the model, in topological order,
+with its status (`None` when nothing ran), the step bound to it, what that step declares
+(the artifacts it observes, the variables it consumes and produces), and what the run
+observed and produced; then every diagnostic, in the order found, and a `Summary` of both.
+A diagnostic about an exception (`JP020`, `JP022`) carries its traceback, which the report
+shows as a `Trace`: its frames' files relative to the run's root, and the same on every
+Python version. The text renderer, `text_report.render`, lays a report out for a person, in
+the manner of Cucumber: each element with a symbol for its status, its kind, its label and
+its id, why it did not pass, then the diagnostics, the summary and the verdict. Its layout
+is not a contract. Whether to colour it is the caller's decision (`use_colour`: a terminal,
+unless `NO_COLOR` is set).
