@@ -50,6 +50,8 @@ EXPECTED_SCENARIOS = {
     "composed",
     "import_error",
     "unreachable_artifact",
+    "assembled",
+    "unified",
 }
 
 
@@ -60,6 +62,15 @@ VALIDATION_CODES = {
     "missing_consumer": ["JP011"],
     "missing_producer": ["JP009"],
     "self_dependency": ["JP014"],
+    "unified": ["JP008", "JP013"],
+}
+
+# The cross-checks of the composed scenarios: the element bound by a step written against
+# a source model before composition, and the root of the argument below it, which runs
+# first (ADR-0013, ADR-0021).
+CROSS_CHECKS = {
+    "composed": ("readiness:hook", "readiness:tested:testing"),
+    "unified": ("release:unified_0", "release:argued:testing"),
 }
 
 
@@ -204,3 +215,20 @@ def test_a_run_concludes_what_the_scenario_is_about(scenario: Scenario) -> None:
     validation = [d.code for d in result.validation.diagnostics]
     assert [d.code for d in result.diagnostics] == validation + codes
     assert EXIT_CODES[result.verdict] == scenario.exit_code
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [scenario for scenario in SCENARIOS if scenario.name in CROSS_CHECKS],
+    ids=lambda scenario: scenario.name,
+)
+def test_a_cross_check_runs_after_the_argument_below_it(scenario: Scenario) -> None:
+    checked, argued = CROSS_CHECKS[scenario.name]
+    justification = loader.load(scenario.justification)
+    with scenario.imported_libraries() as modules:
+        result = run(justification, StepRegistry.from_modules(modules), root=scenario.directory)
+    order = [r.element.id for r in result]
+    assert result.result(checked).ran
+    assert result.result(checked).binding is not None
+    assert result.result(checked).binding.step.kind == "evidence"
+    assert order.index(argued) < order.index(checked)

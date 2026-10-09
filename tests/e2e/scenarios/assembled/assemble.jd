@@ -1,0 +1,22 @@
+justification tested {
+  conclusion tested is "The code is tested"
+  strategy testing is "The test suite passes with high coverage"
+  testing supports tested
+  evidence suite is "The test suite passes"
+  suite supports testing
+  evidence coverage is "Coverage is above 80%"
+  coverage supports testing
+}
+
+justification documented {
+  conclusion documented is "The documentation is updated"
+  strategy docs is "The changelog and API docs are current"
+  docs supports documented
+  evidence changelog is "The changelog is up to date"
+  changelog supports docs
+}
+
+justification readiness is assemble(tested, documented) {
+  conclusionLabel: "Version 2.0 is ready to ship"
+  strategyLabel: "All release gates pass"
+}

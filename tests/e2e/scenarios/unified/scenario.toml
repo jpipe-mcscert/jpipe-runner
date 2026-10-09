@@ -1,0 +1,16 @@
+# justification.json is `jpipe process -i dominance.jd -m release -f JSON` (jPipe 2.5.0),
+# identical to tests/unit/validation/fixtures/dominance.json.
+# checked_steps.py and argued_steps.py were each written against one standalone source
+# model; release_steps.py implements the strategy that `assemble` adds.
+description = "A model in which unification merged an evidence of one source with a sub-conclusion of the other: the evidence's step, bound through its alias, runs as a cross-check after the argument below the merged element, with a JP008 warning. A strategy of the other source, above the merged element, ignores the value the cross-check produces: a JP013 warning that only composition can cause."
+origin = "new in v4 (#150)"
+libraries = ["checked_steps.py", "argued_steps.py", "release_steps.py"]
+exit_code = 0
+exercises = [
+    "alias binding: checked:tests reaches release:unified_0 through release:checked:tests",
+    "kind divergence under unification: @evidence on a sub-conclusion (JP008, warning)",
+    "cross-check execution: unified_0's step runs after argued:testing passes",
+    "an element that supports two strategies, one from each source",
+    "a strategy ignoring a variable its library could not know (JP013, warning)",
+    "a step for assembleStrategy, consuming values from both sources",
+]

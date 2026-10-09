@@ -1,0 +1,94 @@
+{
+  "elements": [
+    {
+      "escaped": "version_2_0_is_ready_to_ship",
+      "id": "readiness:assembleConclusion",
+      "label": "Version 2.0 is ready to ship",
+      "type": "conclusion"
+    },
+    {
+      "escaped": "the_code_is_tested",
+      "id": "readiness:tested:tested",
+      "label": "The code is tested",
+      "type": "sub-conclusion"
+    },
+    {
+      "escaped": "the_test_suite_passes_with_high_coverage",
+      "id": "readiness:tested:testing",
+      "label": "The test suite passes with high coverage",
+      "type": "strategy"
+    },
+    {
+      "escaped": "the_test_suite_passes",
+      "id": "readiness:tested:suite",
+      "label": "The test suite passes",
+      "type": "evidence"
+    },
+    {
+      "escaped": "coverage_is_above_80",
+      "id": "readiness:tested:coverage",
+      "label": "Coverage is above 80%",
+      "type": "evidence"
+    },
+    {
+      "escaped": "the_documentation_is_updated",
+      "id": "readiness:documented:documented",
+      "label": "The documentation is updated",
+      "type": "sub-conclusion"
+    },
+    {
+      "escaped": "the_changelog_and_api_docs_are_current",
+      "id": "readiness:documented:docs",
+      "label": "The changelog and API docs are current",
+      "type": "strategy"
+    },
+    {
+      "escaped": "the_changelog_is_up_to_date",
+      "id": "readiness:documented:changelog",
+      "label": "The changelog is up to date",
+      "type": "evidence"
+    },
+    {
+      "escaped": "all_release_gates_pass",
+      "id": "readiness:assembleStrategy",
+      "label": "All release gates pass",
+      "type": "strategy"
+    }
+  ],
+  "name": "readiness",
+  "type": "justification",
+  "relations": [
+    {
+      "source": "readiness:assembleStrategy",
+      "target": "readiness:assembleConclusion"
+    },
+    {
+      "source": "readiness:tested:testing",
+      "target": "readiness:tested:tested"
+    },
+    {
+      "source": "readiness:documented:docs",
+      "target": "readiness:documented:documented"
+    },
+    {
+      "source": "readiness:tested:suite",
+      "target": "readiness:tested:testing"
+    },
+    {
+      "source": "readiness:tested:coverage",
+      "target": "readiness:tested:testing"
+    },
+    {
+      "source": "readiness:documented:changelog",
+      "target": "readiness:documented:docs"
+    },
+    {
+      "source": "readiness:tested:tested",
+      "target": "readiness:assembleStrategy"
+    },
+    {
+      "source": "readiness:documented:documented",
+      "target": "readiness:assembleStrategy"
+    }
+  ]
+}
