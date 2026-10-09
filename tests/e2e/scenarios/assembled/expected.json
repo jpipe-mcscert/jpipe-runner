@@ -1,0 +1,262 @@
+{
+  "schema_version": "1.0",
+  "justification": "readiness",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 9,
+    "pass": 9,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "readiness:tested:suite",
+      "label": "The test suite passes",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:tested:testing"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "tested_steps.the_test_suite_passes",
+      "bound_by": [
+        "tested:suite"
+      ],
+      "observes": [
+        "mock/junit.xml"
+      ],
+      "consumes": [],
+      "produces": [
+        "suite_passes"
+      ],
+      "produced": {
+        "suite_passes": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/junit.xml",
+          "reachable": true,
+          "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
+          "size": 187
+        }
+      ]
+    },
+    {
+      "id": "readiness:tested:coverage",
+      "label": "Coverage is above 80%",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:tested:testing"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "tested_steps.coverage_is_above_80",
+      "bound_by": [
+        "tested:coverage"
+      ],
+      "observes": [
+        "mock/coverage.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "coverage"
+      ],
+      "produced": {
+        "coverage": {
+          "value": 87.5
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/coverage.txt",
+          "reachable": true,
+          "sha256": "83a6261049265dba411398dbfdd2117e86e1f8ead030f979074be9c8839f4e74",
+          "size": 5
+        }
+      ]
+    },
+    {
+      "id": "readiness:tested:testing",
+      "label": "The test suite passes with high coverage",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:tested:tested"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "tested_steps.the_test_suite_passes_with_high_coverage",
+      "bound_by": [
+        "tested:testing"
+      ],
+      "observes": [],
+      "consumes": [
+        "suite_passes",
+        "coverage"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:tested:tested",
+      "label": "The code is tested",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "readiness:assembleStrategy"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:documented:changelog",
+      "label": "The changelog is up to date",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:documented:docs"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "documented_steps.the_changelog_is_up_to_date",
+      "bound_by": [
+        "documented:changelog"
+      ],
+      "observes": [
+        "mock/CHANGELOG.md"
+      ],
+      "consumes": [],
+      "produces": [
+        "documented_release"
+      ],
+      "produced": {
+        "documented_release": {
+          "value": "2.0"
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/CHANGELOG.md",
+          "reachable": true,
+          "sha256": "8497d30f2b5aec4c9d91a1b8f5289e8c1991035488e34eda7539c8312877a72a",
+          "size": 35
+        }
+      ]
+    },
+    {
+      "id": "readiness:documented:docs",
+      "label": "The changelog and API docs are current",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:documented:documented"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "documented_steps.the_changelog_and_api_docs_are_current",
+      "bound_by": [
+        "documented:docs"
+      ],
+      "observes": [],
+      "consumes": [
+        "documented_release"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:documented:documented",
+      "label": "The documentation is updated",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "readiness:assembleStrategy"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:assembleStrategy",
+      "label": "All release gates pass",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:assembleConclusion"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "readiness_steps.all_release_gates_pass",
+      "bound_by": [
+        "readiness:assembleStrategy"
+      ],
+      "observes": [],
+      "consumes": [
+        "documented_release"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:assembleConclusion",
+      "label": "Version 2.0 is ready to ship",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null,
+  "dataflow": null
+}

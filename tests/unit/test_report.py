@@ -170,12 +170,27 @@ def test_libraries_that_cannot_be_imported_are_reported_with_the_unbound_model()
     )
 
 
+def test_a_dry_run_lists_every_element_with_its_step_and_runs_nothing(root: Path) -> None:
+    report = _report(root, first, second, gates, dry_run=True)
+
+    assert report.verdict is Verdict.VALID
+    assert not report.ran
+    assert [(e.id, e.status, e.step) for e in report.elements] == [
+        ("e1", None, f"{MODULE}.first"),
+        ("e2", None, f"{MODULE}.second"),
+        ("s", None, f"{MODULE}.gates"),
+        ("c", None, None),
+    ]
+    assert report.summary == Summary(elements=4, not_run=4)
+
+
 def test_a_diagram_is_recorded_on_a_copy(root: Path) -> None:
     report = _report(root, first, second, gates)
 
-    drawn = report.with_diagram("m.svg")
+    drawn = report.with_diagram("m.svg").with_dataflow("m-dataflow.svg")
 
-    assert (report.diagram, drawn.diagram) == (None, "m.svg")
+    assert (report.diagram, report.dataflow) == (None, None)
+    assert (drawn.diagram, drawn.dataflow) == ("m.svg", "m-dataflow.svg")
     assert drawn.elements == report.elements
 
 

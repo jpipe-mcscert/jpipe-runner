@@ -294,11 +294,34 @@ def test_a_refused_model_has_no_justification_and_no_element() -> None:
     VALIDATOR.validate(written)
 
 
+def test_a_dry_run_is_valid_and_lists_its_elements_unrun() -> None:
+    @evidence("e", observes={"log": "e.txt"}, produces=["a"])
+    def check(log: Path) -> Pass:
+        return Pass(a=1)
+
+    @strategy("s", consumes=["a"])
+    def judge(a: int) -> Pass:
+        return Pass()
+
+    justification = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (check, judge)) if s is not None)
+    report = RunReport.of(run(justification, registry, dry_run=True))
+
+    written = document(report)
+
+    assert written["verdict"] == "valid"
+    assert [(e["id"], e["status"], e["ran"]) for e in written["elements"]] == [
+        ("e", None, False),
+        ("s", None, False),
+    ]
+    VALIDATOR.validate(written)
+
+
 def test_the_text_of_a_report_is_its_document_indented() -> None:
-    report = RunReport("m", Verdict.PASS).with_diagram("m.svg")
+    report = RunReport("m", Verdict.PASS).with_diagram("m.svg").with_dataflow("m-dataflow.svg")
 
     text = json_report.dumps(report)
 
     assert text.endswith("}\n")
     assert json.loads(text) == document(report)
-    assert '\n  "diagram": "m.svg"\n' in text
+    assert '\n  "diagram": "m.svg",\n  "dataflow": "m-dataflow.svg"\n}' in text

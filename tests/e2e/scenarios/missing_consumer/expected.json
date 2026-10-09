@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "justification": "math_operations",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 4,
+    "pass": 4,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 1
+  },
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Generate number a",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "S1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.generate_number_a",
+      "bound_by": [
+        "E1"
+      ],
+      "observes": [
+        "mock/number_a.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "number_a"
+      ],
+      "produced": {
+        "number_a": {
+          "value": 10
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/number_a.txt",
+          "reachable": true,
+          "sha256": "917df3320d778ddbaa5c5c7742bc4046bf803c36ed2b050f30844ed206783469",
+          "size": 3
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "label": "Generate number b",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "S1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.generate_number_b",
+      "bound_by": [
+        "E2"
+      ],
+      "observes": [
+        "mock/number_b.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "number_b"
+      ],
+      "produced": {
+        "number_b": {
+          "value": 5
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/number_b.txt",
+          "reachable": true,
+          "sha256": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
+          "size": 2
+        }
+      ]
+    },
+    {
+      "id": "S1",
+      "label": "Add numbers",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.add_numbers",
+      "bound_by": [
+        "S1"
+      ],
+      "observes": [],
+      "consumes": [
+        "number_a",
+        "number_b"
+      ],
+      "produces": [
+        "total"
+      ],
+      "produced": {
+        "total": {
+          "value": 15
+        }
+      },
+      "artifacts": []
+    },
+    {
+      "id": "C1",
+      "label": "Math operation completed",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP011",
+      "severity": "warning",
+      "element": "S1",
+      "message": "steps.add_numbers produces 'total', which no step consumes",
+      "fix": "Consume 'total' where it is needed, or stop producing it.",
+      "traceback": null
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}

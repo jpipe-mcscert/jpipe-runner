@@ -131,6 +131,8 @@ class RunReport:
     """Whether validation counted warnings as errors."""
     diagram: str | None = None
     """Where the diagram of the run was written, if one was."""
+    dataflow: str | None = None
+    """Where the dataflow diagram of the run was written, if one was."""
     root: Path = field(default=Path(), compare=False)
     """The directory the run observed artifacts from: tracebacks are shown relative to it."""
 
@@ -197,9 +199,9 @@ class RunReport:
 
     @property
     def ran(self) -> bool:
-        """Whether the steps were run: the model loaded, the libraries were imported, and
-        validation reported no error."""
-        return self.verdict is not Verdict.INVALID
+        """Whether the steps were run: the model loaded, the libraries were imported,
+        validation reported no error, and the run was not a dry run."""
+        return self.verdict not in (Verdict.INVALID, Verdict.VALID)
 
     def trace(self, diagnostic: Diagnostic) -> Trace | None:
         """The traceback ``diagnostic`` carries, as the report shows it, if it carries one."""
@@ -210,6 +212,10 @@ class RunReport:
     def with_diagram(self, path: str) -> "RunReport":
         """This report, recording that its diagram was written at ``path``."""
         return replace(self, diagram=path)
+
+    def with_dataflow(self, path: str) -> "RunReport":
+        """This report, recording that its dataflow diagram was written at ``path``."""
+        return replace(self, dataflow=path)
 
 
 def _element(

@@ -5,8 +5,8 @@ script. It is a versioned contract
 ([ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)), described by a JSON
 Schema that ships in the package,
 [`jpipe_runner/schema/report.schema.json`](../src/jpipe_runner/schema/report.schema.json).
-The `jpipe-runner` command will write it with `--report json`
-([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124)).
+The `jpipe-runner` command prints it with `--json`, and writes it to a file with
+`--report PATH` ([`cli.md`](cli.md)).
 
 The report is about what was validated: which claims hold, which steps judged them, what
 the steps declared they read and produce, and what they actually observed. The text report
@@ -36,12 +36,13 @@ own `repr` changes from run to run, such as one that prints the time. A report c
 |---|---|---|
 | `schema_version` | string | `"1.0"` |
 | `justification` | string or null | the justification's name; null if the model was refused before it could be read |
-| `verdict` | `pass`, `fail`, `skip` or `invalid` | `fail` if an element failed; `skip` if none failed and one was skipped; `pass` if every element passed; `invalid` if nothing ran |
-| `strict` | boolean | whether validation counted warnings as errors |
+| `verdict` | `pass`, `fail`, `skip`, `invalid` or `valid` | `fail` if an element failed; `skip` if none failed and one was skipped; `pass` if every element passed; `invalid` if nothing ran; `valid` if a dry run found nothing wrong |
+| `strict` | boolean | whether the run was strict: validation counted warnings as errors, and the command line failed a skipped verdict (`--strict`) |
 | `summary` | object | see [Summary](#summary) |
 | `elements` | array | every element of the justification, each after the elements that support it; see [Elements](#elements) |
 | `diagnostics` | array | every problem found, in the order found; see [Diagnostics](#diagnostics) |
 | `diagram` | string or null | the path of the diagram drawn for the run, if one was |
+| `dataflow` | string or null | the path of the dataflow diagram drawn for the run, if one was |
 
 **Every way a run ends has a report.** When nothing ran, the verdict is `invalid` and the
 diagnostics say why:
@@ -51,6 +52,14 @@ diagnostics say why:
 | the model was refused | null | empty | `JP001` to `JP004` |
 | a step library could not be imported | the name | every element, unbound, `status` null | `JP020`, `JP021` |
 | validation reported an error | the name | every element, with its step, `status` null | see [`rules.md`](rules.md) |
+
+**A dry run** validates the step library and calls no step. When validation reports no
+error, its verdict is `valid`, and every element is listed with its step and what that
+step declares, with `status` null; the diagnostics are validation's warnings. When
+validation reports an error, it is `invalid`, as any other run would be.
+
+The paths of `diagram` and `dataflow` are relative to the directory the runner runs in,
+when the diagram was drawn under it.
 
 ## Elements
 
@@ -285,7 +294,8 @@ failures:
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "dataflow": null
 }
 ```
 
@@ -378,7 +388,8 @@ A step that raises (the `exception_handling` scenario):
       }
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "dataflow": null
 }
 ```
 
@@ -410,6 +421,7 @@ A model the loader refuses (the `circular_dependency` scenario):
       "traceback": null
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "dataflow": null
 }
 ```

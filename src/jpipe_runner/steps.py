@@ -39,6 +39,11 @@ _KEYWORD_ARGUMENT = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.
 _WILDCARDS = frozenset("*?[")
 
 
+def is_glob(path: str) -> bool:
+    """Whether ``path`` is a glob pattern, which may match several files, rather than a path."""
+    return not _WILDCARDS.isdisjoint(path)
+
+
 @dataclass(frozen=True)
 class Artifact:
     """An artifact an evidence observes: a file, or a glob of files (ADR-0018, ADR-0019).
@@ -53,7 +58,7 @@ class Artifact:
     @property
     def is_glob(self) -> bool:
         """Whether ``path`` is a pattern, which may match several files."""
-        return not _WILDCARDS.isdisjoint(self.path)
+        return is_glob(self.path)
 
 
 @dataclass(frozen=True)

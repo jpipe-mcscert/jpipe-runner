@@ -15,6 +15,7 @@ before anything is imported, then ``JP020`` for each library whose import raised
 """
 
 import importlib.util
+import logging
 import sys
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
@@ -27,6 +28,8 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, user_traceback
 
 LIBRARY_IMPORT_FAILED = "JP020"
 UNUSABLE_LIBRARY_NAME = "JP021"
+
+_LOG = logging.getLogger(__name__)
 
 _RENAME = "Rename the library's file: its name, without '.py', is the name of its module."
 
@@ -136,6 +139,7 @@ def _import(file: Path) -> ModuleType:
     except BaseException:
         del sys.modules[name]
         raise
+    _LOG.debug("imported %s as the module %s", file, name)
     return module
 
 
@@ -151,7 +155,10 @@ def _import_failed(file: Path, error: BaseException, trace: TracebackException) 
             where = f", at {frame.filename}, line {frame.lineno}"
     fix = None
     if isinstance(error, ModuleNotFoundError):
-        fix = "Install the module it imports, or pass the directory that holds it as a python path."
+        fix = (
+            "Install the module in the environment jpipe-runner runs in, "
+            "or pass the directory that holds it as a python path."
+        )
     return Diagnostic(
         LIBRARY_IMPORT_FAILED,
         Severity.ERROR,

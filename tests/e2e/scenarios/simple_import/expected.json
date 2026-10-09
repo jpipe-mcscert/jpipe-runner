@@ -1,0 +1,213 @@
+{
+  "schema_version": "1.0",
+  "justification": "math_operation",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 6,
+    "pass": 6,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Generate number a",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "S1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "math_operation.generate_number_a",
+      "bound_by": [
+        "E1"
+      ],
+      "observes": [
+        "root_utils.py"
+      ],
+      "consumes": [],
+      "produces": [
+        "number_a"
+      ],
+      "produced": {
+        "number_a": {
+          "value": 10
+        }
+      },
+      "artifacts": [
+        {
+          "path": "root_utils.py",
+          "reachable": true,
+          "sha256": "a51fcd27b82192a8c0c03280e46c9e6cf0701bc69f910c88d7b408ff2bb63da6",
+          "size": 203
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "label": "Generate number b",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "S1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "math_operation.generate_number_b",
+      "bound_by": [
+        "E2"
+      ],
+      "observes": [
+        "steps/step_utils.py"
+      ],
+      "consumes": [],
+      "produces": [
+        "number_b"
+      ],
+      "produced": {
+        "number_b": {
+          "value": 5
+        }
+      },
+      "artifacts": [
+        {
+          "path": "steps/step_utils.py",
+          "reachable": true,
+          "sha256": "b50c09d7cfabdc8ed52d3c8147b16c1fa88414363e29a8cec71764bb5e161849",
+          "size": 197
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "label": "Generate number c",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "S1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "math_operation.generate_number_c",
+      "bound_by": [
+        "E3"
+      ],
+      "observes": [
+        "root_runtime_utils.py"
+      ],
+      "consumes": [],
+      "produces": [
+        "number_c"
+      ],
+      "produced": {
+        "number_c": {
+          "value": 20
+        }
+      },
+      "artifacts": [
+        {
+          "path": "root_runtime_utils.py",
+          "reachable": true,
+          "sha256": "312200dc7b071ae2d8111d45f20c5d35c1048708b5c8b0054a160cd6561e99d2",
+          "size": 331
+        }
+      ]
+    },
+    {
+      "id": "E4",
+      "label": "Generate number d",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "S1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "math_operation.generate_number_d",
+      "bound_by": [
+        "E4"
+      ],
+      "observes": [
+        "steps/step_runtime_utils.py"
+      ],
+      "consumes": [],
+      "produces": [
+        "number_d"
+      ],
+      "produced": {
+        "number_d": {
+          "value": 2
+        }
+      },
+      "artifacts": [
+        {
+          "path": "steps/step_runtime_utils.py",
+          "reachable": true,
+          "sha256": "9cba705b20c7504b159457f77377bfd492c6c5649ea7b92744ceddcde6eaf471",
+          "size": 325
+        }
+      ]
+    },
+    {
+      "id": "S1",
+      "label": "Add numbers",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "math_operation.add_numbers",
+      "bound_by": [
+        "S1"
+      ],
+      "observes": [],
+      "consumes": [
+        "number_a",
+        "number_b",
+        "number_c",
+        "number_d"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "C1",
+      "label": "Math operation completed",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null,
+  "dataflow": null
+}

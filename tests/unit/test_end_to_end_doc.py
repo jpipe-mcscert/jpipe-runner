@@ -9,7 +9,6 @@ shows the diagrams of a run, which ``--update-goldens`` redraws where Graphviz i
 
 import ast
 import json
-import re
 import shutil
 import types
 from collections.abc import Callable
@@ -29,8 +28,11 @@ from jpipe_runner.steps import StepRegistry
 from jpipe_runner.text_report import render
 from jpipe_runner.validation import ValidationContext, ValidationReport
 from tests.conftest import REPO_ROOT
+from tests.console import blocks, replay
 
 PAGE = (REPO_ROOT / "docs" / "end-to-end.md").read_text(encoding="utf-8")
+STEP_7 = PAGE[PAGE.index("## 7. Reading the verdict") : PAGE.index("## When something is wrong")]
+COMMANDS = blocks(STEP_7)
 IMAGES = REPO_ROOT / "docs" / "images"
 needs_dot = pytest.mark.skipif(
     shutil.which("dot") is None, reason="Graphviz's dot is not installed"
@@ -115,6 +117,22 @@ def _as_run(result: RunResult) -> str:
     return "```\n" + render(RunReport.of(result)) + "```"
 
 
+def _copy(
+    scenario: str,
+    workdir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    edit: Callable[[Path], object] = lambda _: None,
+) -> Path:
+    """A copy of ``scenario``, edited by ``edit``, as the working directory."""
+    copy = workdir / scenario
+    shutil.copytree(
+        SCENARIOS / scenario, copy, ignore=shutil.ignore_patterns("__pycache__", "expected.json")
+    )
+    edit(copy)
+    monkeypatch.chdir(copy)
+    return copy
+
+
 def _run(
     scenario: str,
     libraries: list[str],
@@ -123,10 +141,7 @@ def _run(
     edit: Callable[[Path], object] = lambda _: None,
 ) -> RunResult:
     """Run a copy of ``scenario``, from its directory as the runner would, after ``edit``."""
-    copy = workdir / scenario
-    shutil.copytree(SCENARIOS / scenario, copy, ignore=shutil.ignore_patterns("__pycache__"))
-    edit(copy)
-    monkeypatch.chdir(copy)
+    copy = _copy(scenario, workdir, monkeypatch, edit)
     modules = [_module(copy / library, Path(library).stem) for library in libraries]
     return run(loader.load(copy / "justification.json"), StepRegistry.from_modules(modules))
 
@@ -179,10 +194,35 @@ def test_the_page_quotes_the_json_report_of_the_failing_evidence(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, _two_failures)
-    step_7 = PAGE[PAGE.index("## 7. Reading the verdict") :]
-    (quoted,) = re.findall(r"^```json\n(.*?)^```", step_7, re.MULTILINE | re.DOTALL)
+    (quoted,) = blocks(STEP_7, "json")
 
     assert json.loads(quoted) == document(RunReport.of(result))["elements"][0]
+
+
+def test_step_7_has_two_command_line_sessions() -> None:
+    assert len(COMMANDS) == 2
+
+
+def test_step_7_quotes_the_command_line_on_the_release_example(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _copy("release_example", tmp_path, monkeypatch)
+
+    assert replay(COMMANDS[0], capsys) == COMMANDS[0]
+
+
+@needs_dot
+def test_step_7_quotes_the_command_line_on_a_failing_test_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    copy = _copy("release_example", tmp_path, monkeypatch, _two_failures)
+
+    assert replay(COMMANDS[1], capsys) == COMMANDS[1]
+    report = json.loads((copy / "report.json").read_text(encoding="utf-8"))
+    (quoted,) = blocks(STEP_7, "json")
+    assert report["elements"][0] == json.loads(quoted)
+    assert report["diagram"] == "release.svg"
+    assert (copy / "release.svg").is_file()
 
 
 SVG = "{http://www.w3.org/2000/svg}"

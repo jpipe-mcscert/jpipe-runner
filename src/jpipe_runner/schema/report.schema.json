@@ -3,7 +3,7 @@
   "title": "jpipe-runner report 1.0",
   "description": "What a run of jpipe-runner concluded (ADR-0011): every element of the justification, with its status, its step and what that step declares, observed and produced; then every diagnostic. Within a major version, a minor version only adds optional fields: a consumer ignores fields it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/report-schema.md.",
   "type": "object",
-  "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram"],
+  "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram", "dataflow"],
   "additionalProperties": false,
   "properties": {
     "schema_version": {"const": "1.0"},
@@ -12,11 +12,11 @@
       "type": ["string", "null"]
     },
     "verdict": {
-      "description": "fail if an element failed; skip if none failed and one was skipped; pass if every element passed; invalid if nothing ran, because the model was refused, a step library could not be imported, or validation reported an error.",
-      "enum": ["pass", "fail", "skip", "invalid"]
+      "description": "fail if an element failed; skip if none failed and one was skipped; pass if every element passed; invalid if nothing ran, because the model was refused, a step library could not be imported, or validation reported an error; valid if the run was a dry run and validation reported no error, so that no step was called.",
+      "enum": ["pass", "fail", "skip", "invalid", "valid"]
     },
     "strict": {
-      "description": "Whether validation counted warnings as errors.",
+      "description": "Whether the run was strict: validation counted warnings as errors, and the command line failed a skipped verdict.",
       "type": "boolean"
     },
     "summary": {"$ref": "#/$defs/summary"},
@@ -31,7 +31,11 @@
       "items": {"$ref": "#/$defs/diagnostic"}
     },
     "diagram": {
-      "description": "The path of the diagram drawn for this run, as it was given to the runner, or null.",
+      "description": "The path of the diagram drawn for this run, relative to the directory the runner ran in when it is under it, or null.",
+      "type": ["string", "null"]
+    },
+    "dataflow": {
+      "description": "The path of the dataflow diagram drawn for this run, relative to the directory the runner ran in when it is under it, or null.",
       "type": ["string", "null"]
     }
   },

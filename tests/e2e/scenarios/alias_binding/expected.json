@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "justification": "alias_binding",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 2,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "rigor:unified_0",
+      "label": "The model reports its metrics",
+      "kind": "evidence",
+      "aliases": [
+        "rigor:r17:e_metric",
+        "rigor:r18:e"
+      ],
+      "supports": [
+        "C1"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.report_metrics",
+      "bound_by": [
+        "rigor:r17:e_metric",
+        "rigor:r18:e"
+      ],
+      "observes": [
+        "mock/metrics.csv"
+      ],
+      "consumes": [],
+      "produces": [
+        "metrics_reported"
+      ],
+      "produced": {
+        "metrics_reported": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/metrics.csv",
+          "reachable": true,
+          "sha256": "f6033ee80d960144dd047371eae2fb060eedfc5344bbb5fd8718a8f5901f3946",
+          "size": 32
+        }
+      ]
+    },
+    {
+      "id": "C1",
+      "label": "Model is rigorous",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.model_is_rigorous",
+      "bound_by": [
+        "C1"
+      ],
+      "observes": [],
+      "consumes": [
+        "metrics_reported"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null,
+  "dataflow": null
+}

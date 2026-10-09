@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "justification": "string_operations",
+  "verdict": "invalid",
+  "strict": false,
+  "summary": {
+    "elements": 2,
+    "pass": 0,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 2,
+    "errors": 1,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Process string",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "steps.process_string",
+      "bound_by": [
+        "S1"
+      ],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "C1",
+      "label": "Validate string",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "steps.validate_string",
+      "bound_by": [
+        "C1"
+      ],
+      "observes": [],
+      "consumes": [
+        "processed_string"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP009",
+      "severity": "error",
+      "element": "C1",
+      "message": "steps.validate_string consumes 'processed_string', which no step produces",
+      "fix": "Produce 'processed_string' in a step that supports this one.",
+      "traceback": null
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}

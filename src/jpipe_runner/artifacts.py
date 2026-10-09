@@ -114,7 +114,7 @@ def _record(
         fix = "Observe a regular file: the runner reads what an evidence observes, to the end."
         return Observation(artifact, path), _unreachable(element, artifact, path, problem, fix)
     try:
-        sha256, size = _digest(file)
+        sha256, size = digest(file)
     except OSError as error:
         problem = f"cannot be read: {error.strerror or error}"
         fix = "Make it readable by the user the runner runs as."
@@ -122,15 +122,15 @@ def _record(
     return Observation(artifact, path, sha256, size), None
 
 
-def _digest(file: Path) -> tuple[str, int]:
+def digest(file: Path) -> tuple[str, int]:
     """The SHA-256 of ``file``'s content, and its size in bytes, from one read."""
-    digest = hashlib.sha256()
+    hashed = hashlib.sha256()
     size = 0
     with file.open("rb") as stream:
         while chunk := stream.read(_CHUNK):
-            digest.update(chunk)
+            hashed.update(chunk)
             size += len(chunk)
-    return digest.hexdigest(), size
+    return hashed.hexdigest(), size
 
 
 def _unreachable(

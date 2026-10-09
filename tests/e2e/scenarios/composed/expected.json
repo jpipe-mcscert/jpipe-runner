@@ -1,0 +1,298 @@
+{
+  "schema_version": "1.0",
+  "justification": "readiness",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 9,
+    "pass": 9,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 1
+  },
+  "elements": [
+    {
+      "id": "readiness:draft:changelog",
+      "label": "The changelog is up to date",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:draft:docs"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "draft_steps.the_changelog_is_up_to_date",
+      "bound_by": [
+        "draft:changelog"
+      ],
+      "observes": [
+        "mock/CHANGELOG.md"
+      ],
+      "consumes": [],
+      "produces": [
+        "changelog_ok"
+      ],
+      "produced": {
+        "changelog_ok": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/CHANGELOG.md",
+          "reachable": true,
+          "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
+          "size": 4
+        }
+      ]
+    },
+    {
+      "id": "readiness:draft:docs",
+      "label": "The changelog and API docs are current",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:draft:documented"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "draft_steps.the_changelog_and_api_docs_are_current",
+      "bound_by": [
+        "draft:docs"
+      ],
+      "observes": [],
+      "consumes": [
+        "changelog_ok"
+      ],
+      "produces": [
+        "docs_current"
+      ],
+      "produced": {
+        "docs_current": {
+          "value": true
+        }
+      },
+      "artifacts": []
+    },
+    {
+      "id": "readiness:draft:documented",
+      "label": "The documentation is updated",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "readiness:draft:gates"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:tested:suite",
+      "label": "The test suite passes",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:tested:testing"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "tested_steps.the_test_suite_passes",
+      "bound_by": [
+        "tested:suite"
+      ],
+      "observes": [
+        "mock/junit.xml"
+      ],
+      "consumes": [],
+      "produces": [
+        "suite_passes"
+      ],
+      "produced": {
+        "suite_passes": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/junit.xml",
+          "reachable": true,
+          "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
+          "size": 187
+        }
+      ]
+    },
+    {
+      "id": "readiness:tested:coverage",
+      "label": "Coverage is above 80%",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:tested:testing"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "tested_steps.coverage_is_above_80",
+      "bound_by": [
+        "tested:coverage"
+      ],
+      "observes": [
+        "mock/coverage.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "coverage"
+      ],
+      "produced": {
+        "coverage": {
+          "value": 87.5
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/coverage.txt",
+          "reachable": true,
+          "sha256": "83a6261049265dba411398dbfdd2117e86e1f8ead030f979074be9c8839f4e74",
+          "size": 5
+        }
+      ]
+    },
+    {
+      "id": "readiness:tested:testing",
+      "label": "The test suite passes with high coverage",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:hook"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "tested_steps.the_test_suite_passes_with_high_coverage",
+      "bound_by": [
+        "tested:testing"
+      ],
+      "observes": [],
+      "consumes": [
+        "suite_passes",
+        "coverage"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:hook",
+      "label": "The code is tested",
+      "kind": "sub-conclusion",
+      "aliases": [
+        "readiness:draft:tests",
+        "readiness:tested:tested"
+      ],
+      "supports": [
+        "readiness:draft:gates"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "draft_steps.the_test_suite_passes",
+      "bound_by": [
+        "draft:tests"
+      ],
+      "observes": [
+        "mock/junit.xml"
+      ],
+      "consumes": [],
+      "produces": [
+        "tests_pass"
+      ],
+      "produced": {
+        "tests_pass": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/junit.xml",
+          "reachable": true,
+          "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
+          "size": 187
+        }
+      ]
+    },
+    {
+      "id": "readiness:draft:gates",
+      "label": "All release gates pass",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:draft:ready"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "draft_steps.all_release_gates_pass",
+      "bound_by": [
+        "draft:gates"
+      ],
+      "observes": [],
+      "consumes": [
+        "tests_pass",
+        "docs_current"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "readiness:draft:ready",
+      "label": "Version 2.0 is ready to ship",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP008",
+      "severity": "warning",
+      "element": "readiness:hook",
+      "message": "draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it",
+      "fix": "Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.",
+      "traceback": null
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}

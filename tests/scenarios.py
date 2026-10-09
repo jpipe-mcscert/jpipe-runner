@@ -15,9 +15,9 @@ SCENARIO_FILE = "scenario.toml"
 JUSTIFICATION_FILE = "justification.json"
 GOLDEN_FILE = "expected.json"
 
-# The exit codes a scenario may expect (#124). 2 (usage) and 4 (I/O) are about how the
+# The exit codes a scenario may expect (ADR-0023). 2 (usage) and 4 (I/O) are about how the
 # runner is invoked, which a scenario fixes, so no scenario can legitimately expect them.
-EXIT_CODES = {0: "ok", 1: "justification failed", 3: "validation failed"}
+EXIT_CODES = {0: "ok", 1: "justification failed", 3: "nothing ran"}
 
 # The scenarios whose model the loader refuses, and the codes it refuses them with. Their
 # libraries still import, but bind to nothing: there is no model to bind them to.
@@ -66,7 +66,7 @@ class Scenario:
 
     def command(self) -> list[str]:
         """The CLI invocation (#124), to run with the scenario's copy as working directory."""
-        command = [sys.executable, "-m", "jpipe_runner", "--report", "json"]
+        command = [sys.executable, "-m", "jpipe_runner", "--json"]
         for library in self.libraries:
             command += ["--library", library]
         for path in self.python_path:
