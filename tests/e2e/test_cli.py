@@ -77,6 +77,35 @@ def test_a_module_beside_the_library_is_imported_only_through_the_python_path(
     assert with_path.returncode == 0
 
 
+@pytest.mark.parametrize("start", STARTS.values(), ids=STARTS.keys())
+def test_a_module_of_the_working_directory_does_not_shadow_the_runners_dependencies(
+    start: list[str], release: Path
+) -> None:
+    for dependency in ("networkx", "jsonschema"):
+        (release / f"{dependency}.py").write_text(
+            "raise ImportError('shadowed')\n", encoding="utf-8"
+        )
+
+    done = _runner(start, release)("--library", "steps.py", "justification.json")
+
+    assert done.returncode == 0, done.stderr
+
+
+def test_importing_the_package_loads_none_of_its_dependencies() -> None:
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys, jpipe_runner; print(sorted({'networkx', 'jsonschema'} & set(sys.modules)))",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert done.stdout == "[]\n"
+
+
 @needs_git
 def test_impact_since_a_revision_reads_what_git_says_changed(release: Path) -> None:
     def git(*arguments: str) -> None:

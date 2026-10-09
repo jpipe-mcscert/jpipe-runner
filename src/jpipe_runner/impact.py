@@ -31,8 +31,27 @@ from jpipe_runner.steps import is_glob
 
 Document = Mapping[str, Any]
 
-_VALIDATOR = Draft202012Validator(SCHEMA)
 _MAJOR = SCHEMA_VERSION.partition(".")[0]
+
+
+def _compatible(schema: Any) -> Any:
+    """``schema`` without ``additionalProperties: false``: a later minor version may add
+    fields, which a reader ignores (ADR-0011)."""
+    if isinstance(schema, dict):
+        return {
+            key: _compatible(value)
+            for key, value in schema.items()
+            if not (key == "additionalProperties" and value is False)
+        }
+    if isinstance(schema, list):
+        return [_compatible(value) for value in schema]
+    return schema
+
+
+_VALIDATOR = Draft202012Validator(SCHEMA)
+_LATER = _compatible(SCHEMA)
+_LATER["properties"]["schema_version"] = {"type": "string", "pattern": f"^{_MAJOR}\\.[0-9]+$"}
+_LATER_VALIDATOR = Draft202012Validator(_LATER)
 _RECURSIVE = "**"
 
 
@@ -82,7 +101,8 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
     """The JSON report in the file at ``path``.
 
     Raises ``OSError`` if the file cannot be read, and ``InvalidReportError`` if it is not
-    a report of the schema's major version.
+    a report of the schema's major version. A report of a later minor version is read: the
+    fields it adds are ignored.
     """
     try:
         document = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -93,7 +113,10 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
         raise InvalidReportError(
             f"{path} is not a JSON report of version {_MAJOR}.x: its schema_version is {version!r}"
         )
-    problem = next(iter(_VALIDATOR.iter_errors(document)), None)
+    # A report of this version is checked against its schema; one of a later minor version
+    # only for the fields this version knows.
+    validator = _VALIDATOR if version == SCHEMA_VERSION else _LATER_VALIDATOR
+    problem = next(iter(validator.iter_errors(document)), None)
     if problem is not None:
         raise InvalidReportError(
             f"{path} is not a JSON report: {problem.json_path}: {problem.message}"
@@ -201,22 +224,28 @@ def changed_since(ref: str, root: Path = Path()) -> list[str]:
     """
     if ref.startswith("-"):
         raise ValueError(f"{ref!r} is not a git revision")
-    diff = _git(["diff", "--name-only", "--relative", ref, "--"], root)
-    untracked = _git(["ls-files", "--others", "--exclude-standard"], root)
+    # -z: each path as it is, NUL-terminated, rather than quoted when it is not ASCII.
+    diff = _git(["diff", "--name-only", "-z", "--relative", ref, "--"], root)
+    untracked = _git(["ls-files", "-z", "--others", "--exclude-standard"], root)
     return sorted({*diff, *untracked})
 
 
 def _git(arguments: list[str], root: Path) -> list[str]:
     try:
         done = subprocess.run(
-            ["git", *arguments], cwd=root, capture_output=True, text=True, check=False
+            ["git", *arguments],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
         )
     except FileNotFoundError:
         raise FileNotFoundError("git is not installed, or not on the PATH") from None
     if done.returncode != 0:
         problem = next(iter(done.stderr.strip().splitlines()), f"exit code {done.returncode}")
         raise OSError(f"git {arguments[0]} failed: {problem}")
-    return [line for line in done.stdout.splitlines() if line]
+    return [path for path in done.stdout.split("\0") if path]
 
 
 def render_impact(document: Document, impact: Impact) -> str:

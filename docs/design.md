@@ -105,7 +105,8 @@ arrow is data.
 | [`framework`](../src/jpipe_runner/framework/__init__.py) | Not a module of v4: the v3 authoring API lived under this name, and importing it raises an `ImportError` that says what replaced it. |
 
 The public API, what a step library imports, is the package itself: `from jpipe_runner
-import evidence, strategy, sub_conclusion, conclusion, Outcome, Pass, Fail, Skip`.
+import evidence, strategy, sub_conclusion, conclusion, Outcome, Pass, Fail, Skip`. It is
+loaded when first used, so that importing the package loads only the standard library.
 What runs a justification, the command line, uses three entry points:
 `loader.load(path)`, `libraries.imported(libraries, python_path)`, inside which
 `engine.run(justification, registry)` runs. Whichever way the run ends, it builds a

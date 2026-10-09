@@ -329,12 +329,34 @@ def test_a_report_that_cannot_be_read_is_an_os_error(tmp_path: Path) -> None:
         read(tmp_path / "missing.json")
 
 
-def test_a_report_of_a_later_minor_version_is_read(tmp_path: Path) -> None:
+def test_a_report_of_a_later_minor_version_is_read_and_its_new_fields_ignored(
+    tmp_path: Path,
+) -> None:
     document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
+    document |= {"schema_version": "1.1", "duration": 3.5}
     path = tmp_path / "report.json"
-    path.write_text(json.dumps(document | {"schema_version": "1.0"}), encoding="utf-8")
+    path.write_text(json.dumps(document), encoding="utf-8")
 
     assert read(path)["justification"] == "m"
+
+
+def test_a_report_of_this_version_with_a_field_it_does_not_define_is_refused(
+    tmp_path: Path,
+) -> None:
+    document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(document | {"duration": 3.5}), encoding="utf-8")
+
+    with pytest.raises(InvalidReportError):
+        read(path)
+
+
+def test_the_stale_files_of_a_later_minor_version_are_found(root: Path) -> None:
+    artifact = _artifact("build/tests.log", "was ok") | {"modified": "2026-10-09"}
+    element = _element("e1", observes=["build/tests.log"], artifacts=[artifact])
+    document = {"schema_version": "1.1", "justification": "release", "elements": [element]}
+
+    assert stale(document, root) == (Change("e1", "build/tests.log", ChangeKind.CHANGED),)
 
 
 # --- Changes since a revision --------------------------------------------------------------
@@ -365,6 +387,13 @@ def repository(tmp_path: Path) -> Path:
 @needs_git
 def test_changes_since_a_revision_are_the_edited_and_untracked_files(repository: Path) -> None:
     assert changed_since("HEAD", repository) == ["edited.txt", "new.txt", "sub/deep.txt"]
+
+
+@needs_git
+def test_a_changed_path_that_is_not_ascii_is_listed_as_it_is(repository: Path) -> None:
+    (repository / "délai.txt").write_text("1", encoding="utf-8")
+
+    assert "délai.txt" in changed_since("HEAD", repository)
 
 
 @needs_git

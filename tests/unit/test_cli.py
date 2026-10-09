@@ -493,6 +493,20 @@ def test_impact_takes_absolute_paths_and_leaves_out_those_outside(
     assert "elsewhere.txt is outside the working directory, and is left out" in err
 
 
+def test_impact_keeps_a_symbolic_link_under_the_working_directory_as_named(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outside = release.parent / "junit.xml"
+    shutil.move(release / "mock" / "junit.xml", outside)
+    (release / "mock" / "junit.xml").symlink_to(outside)
+
+    code, out, err = _main(capsys, "impact", "--changed", "mock/../mock/junit.xml", *RELEASE)
+
+    assert code == ExitCode.OK
+    assert "  mock/junit.xml  release:e1\n" in out
+    assert err == ""
+
+
 def test_impact_without_declarations_shows_why_and_exits_3(
     scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
 ) -> None:

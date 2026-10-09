@@ -26,8 +26,7 @@ it did not run, is a decision of its own.
 
 ## Decision Drivers
 
-- **No step runs**: both must be cheap enough for every pull request, and safe to run on
-  a branch nobody has reviewed.
+- **No step runs**: both must be cheap enough for every pull request.
 - **One source of truth**: what the runner declared and observed is the report, the
   contract other tools read (ADR-0011).
 - **A file matches as the runner observes it**: a glob must mean in `impact` what it means
@@ -48,7 +47,11 @@ too, and it already carries everything both questions need: `supports`, `observe
 `artifacts`.
 
 - **`impact`** runs a dry run, which imports the step libraries and binds them but calls
-  no step, and works on its JSON document. A changed file reaches each evidence one of
+  no step, and works on its JSON document. Importing a library runs its module-level code,
+  as any import does: `impact` trusts the libraries as a run does, and is no sandbox for
+  code nobody has reviewed. Reading the declarations without importing, from the source
+  of the decorators, would need a parser of Python that agrees with the decorators on
+  every form they accept; it is not done. A changed file reaches each evidence one of
   whose declared paths matches it, and each element above that evidence, following
   `supports`. Changed files no evidence observes are listed as such: the argument does
   not cover them. The changes are given with `--changed PATH`, repeated, or with
@@ -80,7 +83,7 @@ too, and it already carries everything both questions need: `supports`, `observe
 
 ### Consequences
 
-- Good, because neither question runs a step, so both are cheap and safe on any branch.
+- Good, because neither question runs a step, so both are cheap.
 - Good, because `impact` and `status` read the same contract as the Action, so the report
   is exercised by the runner itself.
 - Good, because a change the argument does not cover is visible.
@@ -88,6 +91,8 @@ too, and it already carries everything both questions need: `supports`, `observe
   declaring it is invisible. `JP018` catches only the extreme case, an evidence that
   observes nothing.
 - Bad, because `status` must run in the directory the run ran in.
+- Bad, because `impact` imports the step libraries, and so runs their module-level code:
+  on a pull request from an untrusted fork, it needs the isolation a run would need.
 - Neutral, because the text output is not a contract.
 
 ### Confirmation

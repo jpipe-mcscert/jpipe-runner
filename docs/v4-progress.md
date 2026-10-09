@@ -224,7 +224,7 @@ jpipe-runner --library steps.py --report report.json --diagram release.svg justi
 - **Logs that can be seen**, on stderr: `-v` for what the run does, `-vv` for details,
   `-q` for errors only. `--colour` chooses whether the text report is coloured.
 - **What a change reaches**: `jpipe-runner impact --changed PATH` or `--since REF` lists
-  the evidence observing changed files and everything above it, without running a step.
+  the evidence observing changed files and everything above it, without calling a step.
 - **What has changed since a run**: `jpipe-runner status report.json` compares the files a
   run recorded with the files now, and lists what is stale.
 - **Each scenario's whole JSON report is pinned by a golden file**, run through the

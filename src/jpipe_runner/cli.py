@@ -400,14 +400,29 @@ def _impact(options: argparse.Namespace) -> int:
 
 def _relative(paths: Sequence[str]) -> list[str]:
     """``paths``, relative to the working directory; those outside it are left out."""
-    here = Path.cwd().resolve()
     inside: list[str] = []
     for path in paths:
-        try:
-            inside.append(Path(path).resolve().relative_to(here).as_posix())
-        except ValueError:
+        shown = _under_working_directory(path)
+        if shown is None:
             _LOG.warning("%s is outside the working directory, and is left out", path)
+        else:
+            inside.append(shown)
     return inside
+
+
+def _under_working_directory(path: str) -> str | None:
+    """``path`` relative to the working directory, as evidence declares it, or ``None``.
+
+    ``.`` and ``..`` are resolved as text, so that a symbolic link under the working
+    directory keeps its own path, as an evidence that observes it names it; a path that
+    reaches the working directory through a link of its own is tried resolved."""
+    here = Path.cwd()
+    candidates = [Path(os.path.normpath(here / path)), Path(path).resolve()]
+    for candidate in candidates:
+        for base in (here, here.resolve()):
+            if candidate.is_relative_to(base):
+                return candidate.relative_to(base).as_posix()
+    return None
 
 
 def _status(options: argparse.Namespace) -> int:

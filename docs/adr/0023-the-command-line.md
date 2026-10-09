@@ -89,7 +89,9 @@ jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...
 - `-p/--python-path` has no default. Only the directories it names are added to
   `sys.path` (ADR-0020); a v3 user whose library imports a module next to it passes
   `-p .`. `python -m jpipe_runner` drops the working directory that Python puts first on
-  `sys.path`, so that it imports what the `jpipe-runner` script imports.
+  `sys.path`, so that it imports what the `jpipe-runner` script imports. Python imports
+  the package before its `__main__`, so the package's top level loads only the standard
+  library, and the public API is loaded when it is first used.
 - The root of the run, against which evidence observes its files and the report shows its
   paths, is the working directory. There is no `--root`: `cd` does it.
 
@@ -164,6 +166,9 @@ is gone: the command line takes each diagram's path.
   the usage errors, the logs and the colours, and every scenario's command.
 - `tests/e2e/test_scenarios.py` runs `python -m jpipe_runner --json` on every scenario in
   a subprocess, and compares its whole report with the scenario's golden file.
+- `tests/e2e/test_cli.py` checks that the script and `python -m` give the same report, and
+  that a module of the working directory reaches neither a step library nor the runner's
+  own dependencies, however the runner is started.
 - `tests/unit/test_cli_doc.py` checks that `docs/cli.md` documents every option and every
   exit code.
 

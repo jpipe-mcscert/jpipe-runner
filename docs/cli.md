@@ -182,9 +182,10 @@ the library that imports it, and exit code 3. `-v` says which Python ran the ste
 ## Impact analysis
 
 `jpipe-runner impact` lists the evidence whose declared artifacts match changed files, and
-every element above it: what a change puts in question. It reads what the step libraries
-declare, as a [dry run](#a-dry-run) does, and runs no step, so it is cheap enough for every
-pull request:
+every element above it: what a change puts in question. It imports the step libraries to
+read what they declare, as a [dry run](#a-dry-run) does, and calls no step, so it is cheap
+enough for every pull request. Importing a library runs its module-level code, as any
+import does: run `impact` only on code you would run the justification on.
 
 ```console
 $ jpipe-runner impact --library steps.py --changed mock/junit.xml --changed README.md justification.json

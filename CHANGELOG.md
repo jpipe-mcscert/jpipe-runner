@@ -40,8 +40,9 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   and the changed files no evidence observes. `jpipe-runner status REPORT` compares the
   files a run observed, as its JSON report recorded them, with the files now, and lists
   those that changed, vanished, appeared or were added to a glob, with the elements they
-  make stale; it exits 1 when something is stale. Neither runs a step. Both are only as
-  good as the declarations: a file a step reads without declaring it is invisible to them
+  make stale; it exits 1 when something is stale. Neither calls a step, though `impact`
+  imports the step libraries to read their declarations. Both are only as good as the
+  declarations: a file a step reads without declaring it is invisible to them
   ([ADR-0025](docs/adr/0025-impact-and-staleness.md)).
 - **Logging that works.** `-v` logs what the run does on stderr (the model loaded, the
   libraries imported, each element's status, the Python that runs the steps), `-vv` adds
