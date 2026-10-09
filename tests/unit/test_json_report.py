@@ -68,7 +68,9 @@ def test_every_scenarios_report_matches_the_schema(scenario: Scenario) -> None:
 def test_a_report_is_the_same_on_every_run(name: str) -> None:
     (scenario,) = [s for s in discover() if s.name == name]
 
-    assert dumps(_scenario_report(scenario)) == dumps(_scenario_report(scenario))
+    first, second = (dumps(_scenario_report(scenario)) for _ in range(2))
+
+    assert first == second
 
 
 def test_a_report_holds_no_absolute_path() -> None:

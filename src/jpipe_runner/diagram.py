@@ -52,7 +52,8 @@ _BLUE = "#0072B2"
 _EDGE_COLOURS = {Status.PASS: _GREEN, Status.FAIL: _VERMILLION, Status.SKIP: _GREY}
 _DATA = {"fontname": "Courier", "fontsize": "10"}
 
-_BARE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*|-?[0-9]*\.?[0-9]+")
+_BARE = re.compile(r"[A-Za-z_]\w*|\d+", re.ASCII)
+"""What DOT accepts unquoted, of the values a diagram uses: a name, or a whole number."""
 _INDENT = "  "
 
 
