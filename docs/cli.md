@@ -11,9 +11,14 @@ jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...
              [--json] [--report PATH] [--diagram PATH] [--dataflow PATH]
              [--strict] [--dry-run] [--colour {auto,always,never}]
              [-v | -vv | -q] [--version]  JUSTIFICATION
+jpipe-runner impact -l … [-p …]... (--changed PATH [--changed …]... | --since REF) JUSTIFICATION
+jpipe-runner status REPORT
 ```
 
-`python -m jpipe_runner` is the same command.
+`python -m jpipe_runner` is the same command. `impact` and `status` are subcommands, and
+come first: [impact analysis](#impact-analysis) lists what changed files reach in the
+argument, and [staleness](#staleness) what has changed since a run, without running any
+step. A justification file named `impact` or `status` is written `./status`.
 
 ## A run
 
@@ -172,6 +177,89 @@ be installed there:
 
 A module that cannot be found stops the run before validation, with `JP020`, the line of
 the library that imports it, and exit code 3. `-v` says which Python ran the steps.
+
+## Impact analysis
+
+`jpipe-runner impact` lists the evidence whose declared artifacts match changed files, and
+every element above it: what a change puts in question. It reads what the step libraries
+declare, as a [dry run](#a-dry-run) does, and runs no step, so it is cheap enough for every
+pull request:
+
+```console
+$ jpipe-runner impact --library steps.py --changed mock/junit.xml --changed README.md justification.json
+Justification: release
+
+Changed files, and the evidence that observes them:
+  README.md       (no evidence)
+  mock/junit.xml  release:e1
+
+Affected (3 elements):
+  Evidence    The test suite passes         # release:e1
+  Strategy    All release gates pass        # release:s
+  Conclusion  Version 2.0 is ready to ship  # release:c
+$ echo $?
+0
+```
+
+| Option | |
+|---|---|
+| `JUSTIFICATION` | The justification, as for a run. |
+| `-l PATH`, `--library PATH` | A step library, as for a run. |
+| `-p DIR`, `--python-path DIR` | A directory the step libraries import modules from, as for a run. |
+| `--changed PATH` | A changed file, relative to the working directory (or absolute, under it); repeat it for several. |
+| `--since REF` | The files that differ from the git revision `REF` (`origin/main`, a tag, a commit), and those git does not track yet but does not ignore. Needs git. |
+| `-v`, `--verbose` | Log what the command does. |
+| `-q`, `--quiet` | Log errors only. |
+| `-h`, `--help` | Print the options. |
+
+One of `--changed` and `--since` is required. A file matches what an evidence declares as
+`Path.glob` matches it: a glob such as `docs/**/*.md` matches every Markdown file under
+`docs/`. A changed file no evidence observes is listed, with "(no evidence)": a change
+the argument does not cover. The exit code is 0 whatever the change reaches, 3 when the
+step libraries declare nothing to analyze (a refused justification, a library that cannot
+be imported), and 4 when git cannot list the changes.
+
+## Staleness
+
+`jpipe-runner status` reads the JSON report of a run (`--report`), and compares the files
+the run observed with the files as they are now: what it lists no longer holds as the
+report says. Run it from the directory the run ran in, where the report's paths start. If
+the changelog changed since a run of the release example:
+
+```console
+$ jpipe-runner status report.json
+Justification: release
+
+Changed since the run:
+  changed  mock/CHANGELOG.md  release:e2
+
+Stale (3 elements):
+  Evidence    The changelog is up to date   # release:e2
+  Strategy    All release gates pass        # release:s
+  Conclusion  Version 2.0 is ready to ship  # release:c
+$ echo $?
+1
+```
+
+| Option | |
+|---|---|
+| `REPORT` | The JSON report of a run. |
+| `-v`, `--verbose` | Log what the command does. |
+| `-q`, `--quiet` | Log errors only. |
+| `-h`, `--help` | Print the options. |
+
+A file is `changed` when its SHA-256 differs from the one recorded, `vanished` when the
+run read it and it is gone, `appeared` when the run could not read it and it is there now,
+and `added` when a glob an evidence observes matches it and the run did not see it. The
+exit code is 0 when nothing changed, 1 when something is stale, 3 when the file is not a
+report, or is the report of a run in which no step ran (`invalid`, or a dry run), and 4
+when it cannot be read. Nothing runs: to judge the stale elements again, run the
+justification.
+
+**Both are only as good as the declarations.** They see the files each evidence declares
+it observes, and nothing else: a file a step reads without declaring it is invisible to
+them. An evidence that observes nothing is an error (`JP018`), so every evidence declares
+something, but whether it declares everything it reads is up to its author.
 
 ## Where to go next
 

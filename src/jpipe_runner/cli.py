@@ -19,10 +19,11 @@ import shutil
 import sys
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
 
-from jpipe_runner import __version__, diagram, engine, json_report, loader, text_report
+from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
 from jpipe_runner.diagnostics import shown_path
 from jpipe_runner.engine import Verdict
 from jpipe_runner.libraries import LibraryLoadError, imported
@@ -73,30 +74,7 @@ def parser() -> argparse.ArgumentParser:
         "valid); 1 it failed; 2 usage error; 3 nothing ran (refused model, library that "
         "cannot be imported, validation error); 4 a file could not be read or written.",
     )
-    parser.add_argument(
-        "justification",
-        metavar="JUSTIFICATION",
-        type=Path,
-        help="the justification, as the JSON file the jPipe compiler writes "
-        "(jpipe process -f JSON)",
-    )
-    parser.add_argument(
-        "-l",
-        "--library",
-        action="append",
-        required=True,
-        metavar="PATH",
-        help="a step library: a Python file, or a glob of files (quoted); repeat for several",
-    )
-    parser.add_argument(
-        "-p",
-        "--python-path",
-        action="append",
-        default=[],
-        type=Path,
-        metavar="DIR",
-        help="a directory the step libraries import modules from; repeat for several",
-    )
+    _add_inputs(parser)
     run = parser.add_argument_group("running")
     run.add_argument(
         "--strict",
@@ -138,6 +116,84 @@ def parser() -> argparse.ArgumentParser:
         help="colour the text report: on a terminal unless NO_COLOR is set (auto, the "
         "default), always, or never",
     )
+    _add_logging(parser)
+    parser.add_argument("--version", action="version", version=f"{_PROGRAM} {__version__}")
+    return parser
+
+
+def impact_parser() -> argparse.ArgumentParser:
+    """The parser of ``jpipe-runner impact``."""
+    parser = argparse.ArgumentParser(
+        prog=f"{_PROGRAM} impact",
+        description="List the evidence that observes changed files, and every element "
+        "above it, from what the step libraries declare. No step is called.",
+    )
+    _add_inputs(parser)
+    changes = parser.add_mutually_exclusive_group(required=True)
+    changes.add_argument(
+        "--changed",
+        action="append",
+        metavar="PATH",
+        help="a changed file, relative to the working directory; repeat for several",
+    )
+    changes.add_argument(
+        "--since",
+        metavar="REF",
+        help="the files that differ from the git revision REF, and those git does not track",
+    )
+    _add_logging(parser)
+    parser.set_defaults(strict=False, dry_run=True)
+    return parser
+
+
+def status_parser() -> argparse.ArgumentParser:
+    """The parser of ``jpipe-runner status``."""
+    parser = argparse.ArgumentParser(
+        prog=f"{_PROGRAM} status",
+        description="Compare the files a run observed, as its JSON report recorded them, "
+        "with the files now, and list what is stale. No step is called.",
+        epilog="Exit codes: 0 nothing changed; 1 something is stale; 3 the file is not a "
+        "report of a run that observed files; 4 it cannot be read.",
+    )
+    parser.add_argument(
+        "report",
+        metavar="REPORT",
+        type=Path,
+        help="the JSON report of a run (--report), read from the directory the run ran in",
+    )
+    _add_logging(parser)
+    return parser
+
+
+def _add_inputs(parser: argparse.ArgumentParser) -> None:
+    """The justification, its step libraries and their python path."""
+    parser.add_argument(
+        "justification",
+        metavar="JUSTIFICATION",
+        type=Path,
+        help="the justification, as the JSON file the jPipe compiler writes "
+        "(jpipe process -f JSON)",
+    )
+    parser.add_argument(
+        "-l",
+        "--library",
+        action="append",
+        required=True,
+        metavar="PATH",
+        help="a step library: a Python file, or a glob of files (quoted); repeat for several",
+    )
+    parser.add_argument(
+        "-p",
+        "--python-path",
+        action="append",
+        default=[],
+        type=Path,
+        metavar="DIR",
+        help="a directory the step libraries import modules from; repeat for several",
+    )
+
+
+def _add_logging(parser: argparse.ArgumentParser) -> None:
     logs = parser.add_mutually_exclusive_group()
     logs.add_argument(
         "-v",
@@ -147,23 +203,24 @@ def parser() -> argparse.ArgumentParser:
         help="log what the runner does, on stderr: -v for each step, -vv for details",
     )
     logs.add_argument("-q", "--quiet", action="store_true", help="log only errors")
-    parser.add_argument("--version", action="version", version=f"{_PROGRAM} {__version__}")
-    return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the command line on ``argv``, by default the process's arguments, and return
-    the exit code."""
+    the exit code. A first argument ``impact`` or ``status`` names a subcommand."""
     arguments = sys.argv[1:] if argv is None else list(argv)
-    command = parser()
+    command = _RUN
+    if arguments and arguments[0] in _SUBCOMMANDS:
+        command = _SUBCOMMANDS[arguments.pop(0)]
+    reader = command.parser()
     try:
-        options = command.parse_args(arguments)
-        _check_outputs(command, options)
+        options = reader.parse_args(arguments)
+        command.check(reader, options)
     except SystemExit as stop:  # argparse exits on --help, --version and usage errors
         return stop.code if isinstance(stop.code, int) else ExitCode.USAGE
     with _logging(options.verbose, options.quiet):
         try:
-            return _run(options)
+            return command.run(options)
         except OSError as error:
             _LOG.error("%s", _reason(error))
             return ExitCode.IO
@@ -313,6 +370,70 @@ def _save(path: Path | None, report: RunReport) -> bool:
     return True
 
 
+def _check_since(reader: argparse.ArgumentParser, options: argparse.Namespace) -> None:
+    if options.since is not None and options.since.startswith("-"):
+        reader.error(f"--since {options.since}: not a git revision")
+
+
+def _check_nothing(reader: argparse.ArgumentParser, options: argparse.Namespace) -> None:
+    """No check beyond the parser's."""
+
+
+def _impact(options: argparse.Namespace) -> int:
+    """What changed files reach in the argument, from the declarations of a dry run."""
+    # Asked first: importing the libraries writes files of its own, such as __pycache__.
+    if options.since is not None:
+        changed = impact.changed_since(options.since)
+    else:
+        changed = _relative(options.changed)
+    _, report = _report(options, Path())
+    if not any(element.step for element in report.elements):
+        # A refused model, libraries that cannot be imported or that bind nothing: there is
+        # nothing declared to analyze, and the report says why.
+        unicode = text_report.use_unicode(sys.stdout)
+        sys.stdout.write(text_report.render(report, unicode=unicode))
+        return ExitCode.INVALID
+    document = json_report.document(report)
+    sys.stdout.write(impact.render_impact(document, impact.affected(document, changed)))
+    return ExitCode.OK
+
+
+def _relative(paths: Sequence[str]) -> list[str]:
+    """``paths``, relative to the working directory; those outside it are left out."""
+    here = Path.cwd().resolve()
+    inside: list[str] = []
+    for path in paths:
+        try:
+            inside.append(Path(path).resolve().relative_to(here).as_posix())
+        except ValueError:
+            _LOG.warning("%s is outside the working directory, and is left out", path)
+    return inside
+
+
+def _status(options: argparse.Namespace) -> int:
+    """Whether the files a run observed have changed since its report was written."""
+    try:
+        document = impact.read(options.report)
+    except impact.InvalidReportError as error:
+        _LOG.error("%s", error)
+        return ExitCode.INVALID
+    if document["verdict"] in (Verdict.INVALID, Verdict.VALID):
+        _LOG.error(
+            "%s is the report of a run in which no step ran: it observed no file", options.report
+        )
+        return ExitCode.INVALID
+    changes = impact.stale(document)
+    reached = [a for e in document["elements"] for a in e["artifacts"] if a["reachable"]]
+    vanished = [change for change in changes if change.kind is impact.ChangeKind.VANISHED]
+    if reached and len(vanished) == len(reached):
+        _LOG.warning(
+            "every file the run observed is missing: run status from the directory the run "
+            "ran in, where the report's paths start"
+        )
+    sys.stdout.write(impact.render_stale(document, changes))
+    return ExitCode.FAILED if changes else ExitCode.OK
+
+
 def _colour(choice: str) -> bool:
     """Whether to colour the text report: ``always`` and ``never`` override ``NO_COLOR``."""
     if choice == "auto":
@@ -360,3 +481,20 @@ def _logging(verbosity: int, quiet: bool) -> Iterator[None]:
         logger.removeHandler(handler)
         logger.setLevel(saved_level)
         logger.propagate = saved_propagate
+
+
+@dataclass(frozen=True)
+class _Command:
+    """A command of the command line: its parser, what it checks before anything runs,
+    and what it does."""
+
+    parser: Callable[[], argparse.ArgumentParser]
+    check: Callable[[argparse.ArgumentParser, argparse.Namespace], None]
+    run: Callable[[argparse.Namespace], int]
+
+
+_RUN = _Command(parser, _check_outputs, _run)
+_SUBCOMMANDS = {
+    "impact": _Command(impact_parser, _check_since, _impact),
+    "status": _Command(status_parser, _check_nothing, _status),
+}

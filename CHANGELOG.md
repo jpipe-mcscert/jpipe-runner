@@ -34,6 +34,15 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   declares, so `--dry-run --dataflow flow.svg` draws the declared dataflow without
   running anything. v3's dry run reported the justification as passed
   ([ADR-0024](docs/adr/0024-dry-run-verdict-and-both-diagrams.md)).
+- **What a change reaches, and what has changed since a run.**
+  `jpipe-runner impact --changed PATH` (repeated) or `--since REF` (a git revision) lists
+  the evidence whose declared artifacts match the changed files, every element above it,
+  and the changed files no evidence observes. `jpipe-runner status REPORT` compares the
+  files a run observed, as its JSON report recorded them, with the files now, and lists
+  those that changed, vanished, appeared or were added to a glob, with the elements they
+  make stale; it exits 1 when something is stale. Neither runs a step. Both are only as
+  good as the declarations: a file a step reads without declaring it is invisible to them
+  ([ADR-0025](docs/adr/0025-impact-and-staleness.md)).
 - **Logging that works.** `-v` logs what the run does on stderr (the model loaded, the
   libraries imported, each element's status, the Python that runs the steps), `-vv` adds
   details such as each step called and the python path, and `-q` shows errors only. v3's

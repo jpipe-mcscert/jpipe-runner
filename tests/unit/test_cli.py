@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from jsonschema import Draft202012Validator
 
-from jpipe_runner import __version__, diagram, json_report, loader
+from jpipe_runner import __version__, diagram, impact, json_report, loader
 from jpipe_runner.cli import ExitCode, exit_code, main
 from jpipe_runner.engine import Verdict, run
 from jpipe_runner.libraries import imported
@@ -451,3 +451,161 @@ def test_colour_is_chosen_by_the_option(
     _, out, _ = _main(capsys, "--colour", choice, *RELEASE)
 
     assert ("\033[" in out) is coloured
+
+
+# --- impact --------------------------------------------------------------------------------
+
+
+def test_impact_lists_what_a_changed_file_reaches(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = _main(capsys, "impact", "--changed", "mock/junit.xml", *RELEASE)
+
+    assert code == ExitCode.OK
+    assert "  mock/junit.xml  release:e1\n" in out
+    assert out.endswith(
+        "Affected (3 elements):\n"
+        "  Evidence    The test suite passes         # release:e1\n"
+        "  Strategy    All release gates pass        # release:s\n"
+        "  Conclusion  Version 2.0 is ready to ship  # release:c\n"
+    )
+
+
+def test_impact_calls_no_step(release: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (release / "mock" / "junit.xml").unlink()  # a step that ran would fail
+
+    code, _, err = _main(capsys, "impact", "-v", "--changed", "mock/junit.xml", *RELEASE)
+
+    assert code == ExitCode.OK
+    assert "a dry run calls no step" in err
+
+
+def test_impact_takes_absolute_paths_and_leaves_out_those_outside(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    junit = str(release / "mock" / "junit.xml")
+    outside = str(release.parent / "elsewhere.txt")
+
+    code, out, err = _main(capsys, "impact", "--changed", junit, "--changed", outside, *RELEASE)
+
+    assert code == ExitCode.OK
+    assert "  mock/junit.xml  release:e1\n" in out
+    assert "elsewhere.txt is outside the working directory, and is left out" in err
+
+
+def test_impact_without_declarations_shows_why_and_exits_3(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario("import_error")
+
+    code, out, _ = _main(
+        capsys, "impact", "--changed", "steps.py", "-l", "steps.py", "justification.json"
+    )
+
+    assert code == ExitCode.INVALID
+    assert "JP020 error" in out
+
+
+def test_impact_since_a_revision_asks_git(
+    release: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[str] = []
+
+    def changed_since(ref: str, root: Path = Path()) -> list[str]:
+        asked.append(ref)
+        return ["mock/CHANGELOG.md"]
+
+    monkeypatch.setattr(impact, "changed_since", changed_since)
+
+    code, out, _ = _main(capsys, "impact", "--since", "origin/main", *RELEASE)
+
+    assert (code, asked) == (ExitCode.OK, ["origin/main"])
+    assert "  mock/CHANGELOG.md  release:e2\n" in out
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        pytest.param([], id="no change"),
+        pytest.param(["--changed", "a", "--since", "HEAD"], id="both"),
+        pytest.param(["--since=--output=x"], id="an option as a revision"),
+    ],
+)
+def test_impact_needs_one_kind_of_change(
+    argv: list[str], release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, _, err = _main(capsys, "impact", *argv, *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert "usage: jpipe-runner impact" in err
+
+
+# --- status --------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def recorded(release: Path, capsys: pytest.CaptureFixture[str]) -> Path:
+    """The release example, with the JSON report of a run that passed."""
+    assert _main(capsys, "--report", "report.json", *RELEASE)[0] == ExitCode.OK
+    return release
+
+
+def test_status_of_unchanged_files_is_0(recorded: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code, out, _ = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.OK
+    assert out.endswith("its report still holds.\n")
+
+
+def test_status_of_a_changed_file_lists_what_is_stale_and_is_1(
+    recorded: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (recorded / "mock" / "CHANGELOG.md").write_text("2.1\n", encoding="utf-8")
+
+    code, out, _ = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.FAILED
+    assert "  changed  mock/CHANGELOG.md  release:e2\n" in out
+    assert "Stale (3 elements):\n" in out
+
+
+def test_status_from_another_directory_warns(
+    recorded: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(recorded / "mock")
+
+    code, _, err = _main(capsys, "status", "../report.json")
+
+    assert code == ExitCode.FAILED
+    assert "run status from the directory the run ran in" in err
+
+
+def test_status_of_a_dry_run_is_3(release: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _main(capsys, "--dry-run", "--report", "report.json", *RELEASE)
+
+    code, _, err = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.INVALID
+    assert "no step ran" in err
+
+
+def test_status_of_a_file_that_is_not_a_report_is_3(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, _, err = _main(capsys, "status", "justification.json")
+
+    assert code == ExitCode.INVALID
+    assert "is not a JSON report" in err
+
+
+def test_status_of_a_missing_report_is_4(release: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert _main(capsys, "status", "missing.json")[0] == ExitCode.IO
+
+
+def test_a_justification_named_like_a_subcommand_is_run_when_not_first(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    shutil.copy(release / "justification.json", release / "status")
+
+    assert _main(capsys, "-l", "steps.py", "status")[0] == ExitCode.OK
+    assert _main(capsys, "./status", "-l", "steps.py")[0] == ExitCode.OK

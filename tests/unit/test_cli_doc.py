@@ -1,17 +1,19 @@
-"""docs/cli.md documents every option and every exit code, and its examples run (#127).
+"""docs/cli.md documents every option and every exit code, and its examples run (#127, #146).
 
-The page's options table lists exactly the options of ``cli.parser()``, and its exit codes
-table exactly ``cli.ExitCode``. Each console session on the page is replayed in a copy of
-the release example, and must print what the page shows.
+The page's options tables list exactly the options of ``cli.parser()``, and of the
+``impact`` and ``status`` subcommands, and its exit codes table exactly ``cli.ExitCode``.
+Each console session on the page is replayed in a copy of the release example, and must
+print what the page shows.
 """
 
+import argparse
 import shutil
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 
-from jpipe_runner.cli import ExitCode, parser
+from jpipe_runner.cli import ExitCode, impact_parser, main, parser, status_parser
 from tests.conftest import REPO_ROOT
 from tests.console import blocks, replay
 from tests.scenarios import GOLDEN_FILE, SCENARIOS_ROOT
@@ -33,15 +35,26 @@ def _first_cells(section: str) -> Iterator[str]:
             yield line.split("|")[1].strip()
 
 
-def test_the_options_table_lists_every_option_of_the_command() -> None:
+@pytest.mark.parametrize(
+    ("section", "command", "positional"),
+    [
+        ("Options", parser, "JUSTIFICATION"),
+        ("Impact analysis", impact_parser, "JUSTIFICATION"),
+        ("Staleness", status_parser, "REPORT"),
+    ],
+)
+def test_each_options_table_lists_every_option_of_its_command(
+    section: str, command: Callable[[], argparse.ArgumentParser], positional: str
+) -> None:
     documented = {
         name.strip().strip("`").split()[0]
-        for cell in _first_cells(_section("Options"))
+        for cell in _first_cells(_section(section))
         for name in cell.split(",")
-    } - {"Option"}
-    options = {option for action in parser()._actions for option in action.option_strings}
+        if cell.startswith("`")
+    }
+    options = {option for action in command()._actions for option in action.option_strings}
 
-    assert documented == options | {"JUSTIFICATION"}
+    assert documented == options | {positional}
 
 
 def test_the_exit_codes_table_lists_every_exit_code() -> None:
@@ -51,7 +64,18 @@ def test_the_exit_codes_table_lists_every_exit_code() -> None:
 
 
 def test_the_page_has_its_sessions() -> None:
-    assert len(SESSIONS) == 4
+    assert len(SESSIONS) == 6
+
+
+def _changed_since_a_run(capsys: pytest.CaptureFixture[str]) -> None:
+    """The release example after a run that wrote its report, with its changelog edited."""
+    assert main(["--library", "steps.py", "--report", "report.json", "justification.json"]) == 0
+    capsys.readouterr()
+    Path("mock/CHANGELOG.md").write_text("2.1\n", encoding="utf-8")
+
+
+# What a session needs done before it, by its first command.
+SETUP = {"jpipe-runner status report.json": _changed_since_a_run}
 
 
 @pytest.mark.parametrize("session", SESSIONS, ids=lambda session: session.splitlines()[0])
@@ -70,5 +94,7 @@ def test_every_session_prints_what_the_page_shows(
     monkeypatch.chdir(workdir)
     monkeypatch.setenv("COLUMNS", "80")  # the width argparse lays its usage out to
     monkeypatch.delenv("NO_COLOR", raising=False)
+    first = session.splitlines()[0].removeprefix("$ ")
+    SETUP.get(first, lambda _: None)(capsys)
 
     assert replay(session, capsys) == session

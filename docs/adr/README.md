@@ -37,3 +37,4 @@ and add a row to this table.
 | [0022](0022-diagrams-follow-the-compiler.md) | Diagrams follow the compiler's, with a status overlay and a dataflow view | accepted |
 | [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted |
 | [0024](0024-dry-run-verdict-and-both-diagrams.md) | A dry run validates and is `valid`; the report records both diagrams | accepted |
+| [0025](0025-impact-and-staleness.md) | Impact and staleness are read from the declarations and the report | accepted |
