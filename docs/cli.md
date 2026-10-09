@@ -19,7 +19,8 @@ jpipe-runner status REPORT
 `python -m jpipe_runner` is the same command. `impact` and `status` are subcommands, and
 come first: [impact analysis](#impact-analysis) lists what changed files reach in the
 argument, and [staleness](#staleness) what has changed since a run, without running any
-step. A justification file named `impact` or `status` is written `./status`.
+step. A justification file named `impact` or `status` is written with `./` before it:
+`./impact`, `./status`.
 
 ## A run
 

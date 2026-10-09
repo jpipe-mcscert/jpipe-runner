@@ -215,15 +215,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     reader = command.parser()
     try:
         options = reader.parse_args(arguments)
-        command.check(reader, options)
     except SystemExit as stop:  # argparse exits on --help, --version and usage errors
-        return stop.code if isinstance(stop.code, int) else ExitCode.USAGE
+        return _usage(stop)
     with _logging(options.verbose, options.quiet):
         try:
+            command.check(reader, options)
             return command.run(options)
-        except OSError as error:
+        except SystemExit as stop:  # a usage error the command's check found
+            return _usage(stop)
+        except OSError as error:  # the check's too: a path it cannot even look at
             _LOG.error("%s", _reason(error))
             return ExitCode.IO
+
+
+def _usage(stop: SystemExit) -> int:
+    """The exit code argparse asked for."""
+    return stop.code if isinstance(stop.code, int) else ExitCode.USAGE
 
 
 def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace) -> None:

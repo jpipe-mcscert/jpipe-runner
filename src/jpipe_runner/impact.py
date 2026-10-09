@@ -14,6 +14,7 @@ invisible to them.
 """
 
 import json
+import os
 import subprocess
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -184,18 +185,22 @@ def stale(document: Document, root: Path = Path()) -> tuple[Change, ...]:
 
 
 def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
+    """Each file of ``element`` that differs, once, even when its declared paths overlap
+    and the run recorded the file under several of them."""
     recorded = {artifact["path"] for artifact in element["artifacts"]}
-    for artifact in element["artifacts"]:
-        kind = _compared(artifact, root)
-        if kind is not None:
-            yield Change(element["id"], artifact["path"], kind)
+    found = [
+        Change(element["id"], artifact["path"], kind)
+        for artifact in element["artifacts"]
+        if (kind := _compared(artifact, root)) is not None
+    ]
     for pattern in element["observes"]:
         if not is_glob(pattern) or not element["artifacts"]:
             continue
         for file in sorted(path for path in root.glob(pattern) if path.is_file()):
             shown = file.relative_to(root).as_posix()
             if shown not in recorded:
-                yield Change(element["id"], shown, ChangeKind.ADDED)
+                found.append(Change(element["id"], shown, ChangeKind.ADDED))
+    yield from dict.fromkeys(found)
 
 
 def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
@@ -232,20 +237,16 @@ def changed_since(ref: str, root: Path = Path()) -> list[str]:
 
 def _git(arguments: list[str], root: Path) -> list[str]:
     try:
-        done = subprocess.run(
-            ["git", *arguments],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            check=False,
-        )
+        done = subprocess.run(["git", *arguments], cwd=root, capture_output=True, check=False)
     except FileNotFoundError:
         raise FileNotFoundError("git is not installed, or not on the PATH") from None
     if done.returncode != 0:
-        problem = next(iter(done.stderr.strip().splitlines()), f"exit code {done.returncode}")
+        errors = done.stderr.decode("utf-8", "replace").strip().splitlines()
+        problem = next(iter(errors), f"exit code {done.returncode}")
         raise OSError(f"git {arguments[0]} failed: {problem}")
-    return [path for path in done.stdout.split("\0") if path]
+    # Paths are bytes, in whatever encoding the file system holds: decoded as Python
+    # decodes file names, so that one that is not UTF-8 is still listed, and found.
+    return [os.fsdecode(path) for path in done.stdout.split(b"\0") if path]
 
 
 def render_impact(document: Document, impact: Impact) -> str:
@@ -267,7 +268,7 @@ def render_impact(document: Document, impact: Impact) -> str:
     lines.append("Changed files, and the evidence that observes them:")
     for file in impact.changed:
         by = ", ".join(observers[file]) or "(no evidence)"
-        lines.append(f"  {file:<{width}}  {by}")
+        lines.append(f"  {_printable(file):<{width}}  {by}")
     lines.append("")
     if not impact.affected:
         lines.append("Nothing is affected: no evidence observes these files.")
@@ -294,6 +295,12 @@ def render_stale(document: Document, changes: Sequence[Change]) -> str:
     lines.append(f"Stale ({len(stale_ids)} elements):")
     lines.extend(_elements(document, stale_ids))
     return "\n".join(lines) + "\n"
+
+
+def _printable(path: str) -> str:
+    """``path`` as text that any output can write: a byte of a file name that is not
+    UTF-8 is shown escaped."""
+    return os.fsencode(path).decode("utf-8", "backslashreplace")
 
 
 def _header(document: Document) -> Iterator[str]:

@@ -329,6 +329,25 @@ def test_a_diagram_is_rendered_in_the_format_of_its_suffix(
     assert "<svg" in (release / "release.SVG").read_text(encoding="utf-8")
 
 
+def test_an_output_whose_place_cannot_be_looked_at_exits_4(
+    release: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    looked_at = Path.is_dir
+
+    def is_dir(path: Path) -> bool:
+        if path.name == "r.svg":
+            raise PermissionError(13, "Permission denied", str(path))
+        return looked_at(path)
+
+    monkeypatch.setattr(Path, "is_dir", is_dir)
+
+    code, out, err = _main(capsys, "--diagram", "locked/r.svg", *RELEASE)
+
+    assert code == ExitCode.IO
+    assert out == ""
+    assert err == "jpipe-runner: error: locked/r.svg: Permission denied\n"
+
+
 def test_without_graphviz_nothing_runs_for_a_diagram_that_needs_it(
     release: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

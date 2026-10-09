@@ -422,3 +422,33 @@ def test_without_git_changes_cannot_be_listed(
 
     with pytest.raises(FileNotFoundError, match="git is not installed"):
         changed_since("HEAD", tmp_path)
+
+
+def test_a_path_that_is_not_utf8_is_listed_as_the_file_system_names_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # macOS refuses such names, so git's output is given rather than produced.
+    def git(arguments: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
+        listed = b"docs/caf\xe9.md\0" if "diff" in arguments else b""
+        return subprocess.CompletedProcess(arguments, 0, listed, b"")
+
+    monkeypatch.setattr(subprocess, "run", git)
+
+    [changed] = changed_since("HEAD", tmp_path)
+
+    assert changed == "docs/caf\udce9.md"
+    assert affected(RELEASE, [changed]).evidence == ("e2",)
+    assert "docs/caf\\xe9.md  e2" in render_impact(RELEASE, affected(RELEASE, [changed]))
+
+
+def test_a_file_recorded_under_two_overlapping_paths_is_listed_once(root: Path) -> None:
+    (root / "docs" / "b.md").write_text("B", encoding="utf-8")
+    recorded = [_artifact("docs/a.md", "was A"), _artifact("docs/a.md", "was A")]
+    document = _recorded(
+        _element("e2", observes=["docs/*.md", "docs/a.md", "docs/**/*.md"], artifacts=recorded)
+    )
+
+    assert stale(document, root) == (
+        Change("e2", "docs/a.md", ChangeKind.CHANGED),
+        Change("e2", "docs/b.md", ChangeKind.ADDED),
+    )

@@ -143,7 +143,8 @@ errors only. Records read `jpipe-runner: <level>: <message>`. `-v` was `--variab
 v3; a v3 command that uses it is a usage error, not a silent change.
 
 **Subcommands.** A first argument `impact` or `status` names a subcommand (#146); any
-other runs a justification. A justification file named `status` is written `./status`.
+other runs a justification. A justification file named `impact` or `status` is written with
+`./` before it: `./impact`, `./status`.
 
 `diagram.default_name`, which ADR-0022 provided for the command line to name a diagram,
 is gone: the command line takes each diagram's path.
