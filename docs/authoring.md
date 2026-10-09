@@ -132,8 +132,9 @@ def every_module_has_a_report(reports: list[Path], sources: list[Path]) -> Outco
   split it into an evidence that reads the file, and the strategy that judges what it
   produced.
 - **The runner records what was observed**: each file's path, SHA-256 and size, read just
-  before the step is called, so the record is what the step saw. The report will list
-  them, so that a CI pipeline can archive the artifacts with the verdict (M5).
+  before the step is called, so the record is what the step saw. The JSON report lists
+  them ([`report-schema.md`](report-schema.md#artifacts)), so that a CI pipeline can
+  archive the artifacts with the verdict.
 
 Since the runner passes the artifact, a test passes its own:
 

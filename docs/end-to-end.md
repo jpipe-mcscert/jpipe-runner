@@ -5,8 +5,8 @@ written in jPipe becomes a model the runner reads, how a Python step library is 
 to it, and what the runner does with the two. The test suite runs the same example (and
 others) for coverage. This page is meant to be read.
 
-v4 is still being built ([progress](v4-progress.md)). Steps 1 to 6 work
-today. Step 7 describes what the next milestones build, and is marked as such. This page
+v4 is still being built ([progress](v4-progress.md)). Steps 1 to 7 work
+today, except the command line that step 7 ends with, which is marked as planned. This page
 grows with each milestone.
 
 The example is the release argument of the [jPipe tutorials](https://www.jpipe.org/tutorials/),
@@ -312,16 +312,79 @@ A function that raises an exception fails its element in the same way, with `JP0
 the traceback from its own code, and so does one that returns `True` (`JP017`). Each
 broken step fails its element, and the run goes on, so one run reports them all.
 
-## 7. Reading the verdict (planned, M5 and M6)
+## 7. Reading the verdict
 
-The `jpipe-runner` command ([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124))
-will print the text report of step 6, or a JSON report
-([#122](https://github.com/jpipe-mcscert/jpipe-runner/issues/122)), and can draw the
-argument as a diagram ([#123](https://github.com/jpipe-mcscert/jpipe-runner/issues/123)).
-The report will list the artifacts each evidence observed, so that a CI pipeline can
-archive them with the verdict ([#145](https://github.com/jpipe-mcscert/jpipe-runner/issues/145)).
-Its exit code tells a CI pipeline whether the justification holds: a skipped
-justification exits 0, unless the run is strict.
+The text report of step 6 is for people. For a program, such as a CI pipeline or the
+GitHub Action, the runner reports the same run as JSON: a versioned contract, described by
+a schema that ships with it ([`report-schema.md`](report-schema.md),
+[ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)). It lists every
+element, then every diagnostic, and the verdict. Here is the first evidence, in the run
+where two tests fail:
+
+```json
+{
+  "id": "release:e1",
+  "label": "The test suite passes",
+  "kind": "evidence",
+  "aliases": [],
+  "supports": [
+    "release:s"
+  ],
+  "status": "fail",
+  "reason": "mock/junit.xml: 2 tests failed",
+  "blocked_by": [],
+  "ran": true,
+  "bound_to": "steps.the_test_suite_passes",
+  "bound_by": [
+    "release:e1"
+  ],
+  "observes": [
+    "mock/junit.xml"
+  ],
+  "consumes": [],
+  "produces": [
+    "tests_pass"
+  ],
+  "produced": {},
+  "artifacts": [
+    {
+      "path": "mock/junit.xml",
+      "reachable": true,
+      "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
+      "size": 187
+    }
+  ]
+}
+```
+
+It says what the run concluded (`status`, `reason`), which function judged it and through
+which of its ids (`bound_to`, `bound_by`), what that function declares (`observes`,
+`consumes`, `produces`), what it produced (nothing, since it failed), and the file it
+observed, with its SHA-256 and size. A CI pipeline can archive the files a report lists
+with its verdict, and check later that they have not changed. The other elements follow,
+each after what supports it; `s` and `c` give `release:e1` as what blocked them. The
+report is the same on every run over the same files: it records no time, and its paths are
+relative to where the runner runs.
+
+The runner can also draw the run. The diagram is the argument as the jPipe compiler draws
+it (`jpipe process -f SVG`), with each element's status over it: here, the failed evidence
+in vermillion, what it blocked dashed and grey, and the evidence that passed with a green
+border ([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)).
+
+![The release argument after the run: e1 failed, e2 passed, s and c were skipped](images/release-fail.svg)
+
+Its dataflow view adds what the functions declare: the file each evidence observes, and
+the variables that flow from the evidence to the strategy. `tests_pass` is dashed: `e1`
+failed, so it was never produced, and `s`, which consumes it, could not run.
+
+![The same run, with the files observed and the variables produced and consumed](images/release-fail-dataflow.svg)
+
+**Planned (M6).** The `jpipe-runner` command
+([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124)) will print the text
+report, or the JSON report with `--report json`, and draw the diagram where `--output`
+says. Its exit code will tell a CI pipeline whether the justification holds: 0 when it
+passes, 1 when it fails, and 3 when nothing could run. A skipped justification exits 0,
+unless the run is strict.
 
 ## When something is wrong
 

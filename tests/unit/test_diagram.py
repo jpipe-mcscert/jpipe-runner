@@ -145,8 +145,10 @@ def test_an_element_that_skips_on_its_own_account_has_a_thicker_border(tmp_path:
 
 
 def test_a_report_of_another_justification_is_refused() -> None:
+    other = RunReport("other", Verdict.PASS)
+
     with pytest.raises(ValueError, match="'other'"):
-        source(RELEASE, RunReport("other", Verdict.PASS))
+        source(RELEASE, other)
 
 
 # --- The dataflow view ----------------------------------------------------------------------

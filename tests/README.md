@@ -102,10 +102,10 @@ Step libraries are written against the v4 authoring API (#113, #114):
 `--variable`, no `--config-file`). A step that needs an input reads it from the world,
 which in a scenario means a file under the scenario directory.
 
-`justification.json`, and `justification.dot` where there is one, are compiler output and are kept **verbatim**, including fields the
-runner ignores (such as `escaped`). The file's format is the interface (ADR-0001), so the
-tests use what the compiler actually emits. The runner's diagram of a model must be the
-compiler's `justification.dot` (ADR-0022).
+`justification.json`, and `justification.dot` where there is one, are compiler output and
+are kept **verbatim**, including fields the runner ignores (such as `escaped`). The file's
+format is the interface (ADR-0001), so the tests use what the compiler actually emits. The
+runner's diagram of a model must be the compiler's `justification.dot` (ADR-0022).
 
 ## Layer 3: property tests
 
