@@ -212,10 +212,10 @@ def test_a_parameter_with_a_default_or_keywords_need_not_match() -> None:
 def test_evidence_observes_artifacts_passed_to_its_parameters_by_name() -> None:
     @evidence(
         "m:e",
-        observes={"changelog": "CHANGELOG.md", "reports": "build/*.xml", "sources": "src/"},
+        observes={"changelog": "CHANGELOG.md", "reports": "build/*.xml"},
         produces=["ok"],
     )
-    def checked(changelog: Path, reports: list[Path], sources: Path) -> Outcome:
+    def checked(changelog: Path, reports: list[Path]) -> Outcome:
         return Pass(ok=changelog.name == "CHANGELOG.md")
 
     step = step_of(checked)
@@ -223,14 +223,9 @@ def test_evidence_observes_artifacts_passed_to_its_parameters_by_name() -> None:
     assert step.observes == (
         Artifact("changelog", "CHANGELOG.md"),
         Artifact("reports", "build/*.xml"),
-        Artifact("sources", "src/"),
     )
-    assert [(a.is_glob, a.is_directory) for a in step.observes] == [
-        (False, False),
-        (True, False),
-        (False, True),
-    ]
-    assert checked(Path("CHANGELOG.md"), [], Path("src")) == Pass(ok=True)
+    assert [a.is_glob for a in step.observes] == [False, True]
+    assert checked(Path("CHANGELOG.md"), []) == Pass(ok=True)
 
 
 def test_a_step_observes_nothing_unless_declared() -> None:
@@ -266,7 +261,11 @@ def test_only_evidence_observes() -> None:
         pytest.param({"a": "/etc/hosts"}, "relative", id="absolute"),
         pytest.param({"a": "C:\\reports\\x.xml"}, "relative", id="absolute on Windows"),
         pytest.param({"a": "\\\\server\\share\\x"}, "relative", id="a UNC path"),
-        pytest.param({"a": "build/*/"}, "glob", id="a glob of directories"),
+        pytest.param({"a": "src/"}, "directory", id="a directory"),
+        pytest.param({"a": "src\\"}, "directory", id="a directory on Windows"),
+        pytest.param({"a": "build/*/"}, "directory", id="a glob of directories"),
+        pytest.param({"a": "build/**.xml"}, "whole part", id="'**' inside a name"),
+        pytest.param({"a": "a**/b.xml"}, "whole part", id="'**' ending a name"),
     ],
 )
 def test_a_malformed_observation_is_a_type_error(observes: Any, problem: str) -> None:

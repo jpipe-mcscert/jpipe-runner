@@ -5,8 +5,18 @@ from typing import Any
 
 import networkx as nx
 from hypothesis import given
+from hypothesis import strategies as st
 
-from tests.strategies import CLAIMS, CONCLUSION, KINDS, STRATEGY, SUPPORTS, justifications
+from tests.strategies import (
+    BEHAVIOURS,
+    CLAIMS,
+    CONCLUSION,
+    KINDS,
+    STRATEGY,
+    SUPPORTS,
+    justifications,
+    step_plans,
+)
 
 
 def graph_of(model: dict[str, Any]) -> nx.DiGraph:
@@ -63,3 +73,14 @@ def test_aliases_can_be_turned_off(model: dict[str, Any]) -> None:
 @given(justifications())
 def test_escaped_is_all_or_nothing(model: dict[str, Any]) -> None:
     assert len(Counter("escaped" in e for e in model["elements"])) == 1
+
+
+@given(justifications().flatmap(lambda model: st.tuples(st.just(model), step_plans(model))))
+def test_a_plan_binds_every_evidence_and_strategy(
+    drawn: tuple[dict[str, Any], dict[str, str | None]],
+) -> None:
+    model, plan = drawn
+    assert list(plan) == [element["id"] for element in model["elements"]]
+    for element in model["elements"]:
+        behaviour = plan[element["id"]]
+        assert behaviour in BEHAVIOURS or (behaviour is None and element["type"] in CLAIMS)

@@ -13,18 +13,27 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ### Added
 - **Evidence declares the artifacts it observes.** `@evidence` takes
   `observes={"changelog": "CHANGELOG.md"}`, which maps a parameter of the function to the
-  artifact it is to receive: a file, a directory (`"src/"`) or a glob
+  artifact it is to receive: a file, or the files a glob matches
   (`"build/reports/*.xml"`), relative to the directory the runner runs in. Every observed
-  name must be a parameter of the function. An absolute path is refused when the library
-  is imported. **Every evidence
-  must observe something**: one that observes nothing checks nothing in the world, and is
-  an error (`JP018`). Existing evidence, and the skeletons jPipe 2.5.0 generates, must be
-  given their artifacts
-  ([ADR-0018](docs/adr/0018-evidence-declares-observed-artifacts.md)).
+  name must be a parameter of the function. An absolute path, or a directory (`"src/"`),
+  is refused when the library is imported: observe the files a directory holds with a
+  glob (`"src/**/*"`). **Every evidence must observe something**: one that observes
+  nothing checks nothing in the world, and is an error (`JP018`). Existing evidence, and
+  the skeletons jPipe 2.5.0 generates, must be given their artifacts. Before an evidence
+  is called, each of its artifacts is checked and recorded, as its path, SHA-256 and size;
+  one that is missing, unreadable or not a regular file, or a glob that matches nothing,
+  fails the evidence without calling it (`JP019`)
+  ([ADR-0018](docs/adr/0018-evidence-declares-observed-artifacts.md),
+  [ADR-0019](docs/adr/0019-evidence-observes-files.md)).
+- **Every element that did not pass says what stopped it.** An element skipped because
+  something below it failed or skipped names that element, however far below, rather
+  than its immediate supporter. A justification in which nothing failed but something was
+  skipped is reported as skipped, not as passed
+  ([ADR-0021](docs/adr/0021-execution-semantics.md)).
 - **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
   validation rule checks, why, its severity and how to fix what it reports, and the codes
-  reported when a model is loaded or a step returns. It is generated from the rules
-  themselves, so it cannot drift from what the runner checks.
+  reported when a model or a step library is loaded, or a step runs. It is generated from
+  the rules themselves, so it cannot drift from what the runner checks.
 
 ### Changed
 - **Steps are declared with one decorator per element kind.** `@evidence`, `@strategy`,
@@ -72,6 +81,25 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 - **A justification whose relations form a cycle is refused when it is loaded** (`JP004`),
   with the cycle it found, before any step library is bound. The jPipe compiler never
   emits a cycle, so such a file has been edited or corrupted.
+- **A skipped step stops what it supports, as a failed one does.** In v3, a step skipped
+  with `@skip` let the steps above it run, without the values it never produced. Now
+  everything above a step that returns `Skip(...)` is skipped, and names it. A check meant
+  to be optional should pass with what it found
+  ([ADR-0021](docs/adr/0021-execution-semantics.md)).
+- **A step that raises fails, and its traceback is kept** (`JP022`), starting in the
+  step's own code. v3 kept only `TypeName: message`. A step that calls `sys.exit()` fails
+  the same way instead of ending the run. A mistake in a step fails its element and the
+  run goes on, so one run reports every broken step.
+- **A `Pass` carries exactly the values the step declares.** One without a value listed
+  in `produces` fails (`JP023`), since the steps that consume it could not run; one with
+  a value that is not listed has it dropped, with a warning (`JP024`).
+- **A step library is a module named after its file, and two libraries cannot share a
+  name.** `steps.py` is imported as the module `steps`, registered in `sys.modules` (so a
+  library may define a dataclass). v3 imported two libraries called `steps.py` and
+  silently used the first one's functions; a library named like another library of the
+  run, like a module Python already has (`json.py`), or with a file name that is not a
+  Python identifier (`my-steps.py`) is now refused before anything is imported
+  (`JP021`): rename the file ([ADR-0020](docs/adr/0020-importing-step-libraries.md)).
 - **The Homebrew formula no longer depends on `libjpeg-turbo` and `freetype`.** They were
   needed by `matplotlib`, which only the GUI removed in 3.4.0 used, and no current
   dependency needs them.
@@ -103,6 +131,12 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   one produced as `None`, and logged an error when a step consumed a legitimate `None`.
   Values are now kept per run, each with the element that produced it
   ([ADR-0009](docs/adr/0009-separate-registry-from-value-store.md)).
+- **A step library that fails to import is reported** (#75). v3 caught only a
+  `ValueError`, so an `ImportError`, a `SyntaxError` or a typo at module level escaped as
+  a bare traceback, which GitHub Actions did not show. Every library is now imported, and
+  each one that raises is reported with its exception and its line (`JP020`); nothing is
+  validated or run. The python path is restored exactly after the run, even when a step
+  raised or changed it.
 - **A malformed justification file no longer runs as an empty justification.** v3 logged
   the problem, carried on with no elements, executed nothing and reported success. A file
   that is not UTF-8 JSON, does not have the compiler's format, has no elements, declares an

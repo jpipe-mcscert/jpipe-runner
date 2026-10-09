@@ -41,7 +41,7 @@ _WILDCARDS = frozenset("*?[")
 
 @dataclass(frozen=True)
 class Artifact:
-    """An artifact an evidence observes: a file, a directory or a glob of files (ADR-0018).
+    """An artifact an evidence observes: a file, or a glob of files (ADR-0018, ADR-0019).
 
     ``path`` is relative to the run's working directory. The runner passes the artifact to
     the step's parameter ``name``: a ``Path``, or the sorted ``list[Path]`` a glob matches.
@@ -54,11 +54,6 @@ class Artifact:
     def is_glob(self) -> bool:
         """Whether ``path`` is a pattern, which may match several files."""
         return not _WILDCARDS.isdisjoint(self.path)
-
-    @property
-    def is_directory(self) -> bool:
-        """Whether ``path`` names a directory, written with a trailing ``/``."""
-        return self.path.endswith("/")
 
 
 @dataclass(frozen=True)
@@ -220,19 +215,28 @@ def _artifacts(kind: Kind, observes: Mapping[str, str]) -> tuple[Artifact, ...]:
             raise TypeError(
                 f"{decorator}(observes=...) takes paths as non-empty strings: {example}"
             )
-        if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
-            raise TypeError(
-                f"{decorator}(observes=...) takes paths relative to the run's working "
-                f"directory, so that the library works on every machine, not {path!r}"
-            )
-        artifact = Artifact(name, path)
-        if artifact.is_glob and artifact.is_directory:
-            raise TypeError(
-                f"{decorator}(observes=...): the glob {path!r} ends with '/', but a glob "
-                f"matches files. Observe the directory without wildcards, or its files."
-            )
-        artifacts.append(artifact)
+        _check_path(decorator, path)
+        artifacts.append(Artifact(name, path))
     return tuple(artifacts)
+
+
+def _check_path(decorator: str, path: str) -> None:
+    """``path`` names files relative to the run's working directory, by name or by glob."""
+    if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
+        raise TypeError(
+            f"{decorator}(observes=...) takes paths relative to the run's working "
+            f"directory, so that the library works on every machine, not {path!r}"
+        )
+    if path.endswith(("/", "\\")):
+        raise TypeError(
+            f"{decorator}(observes=...) takes files, and {path!r} names a directory. "
+            f"Observe the files it holds, with a glob such as {path + '**/*'!r}."
+        )
+    if any("**" in part and part != "**" for part in path.replace("\\", "/").split("/")):
+        raise TypeError(
+            f"{decorator}(observes=...): '**' matches any depth only as a whole part of a "
+            f"path, as in 'build/**/*.xml', not {path!r}"
+        )
 
 
 def _is_name(name: object) -> bool:

@@ -30,6 +30,18 @@ flowchart LR
     rules --> binding
     rules --> model
     rules --> diagnostics
+    artifacts --> steps
+    artifacts --> diagnostics
+    libraries --> diagnostics
+    engine --> artifacts
+    engine --> binding
+    engine --> diagnostics
+    engine --> model
+    engine --> outcomes
+    engine --> rules
+    engine --> steps
+    engine --> validation
+    engine --> values
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -43,13 +55,19 @@ arrow is data.
 | [`binding`](../src/jpipe_runner/binding.py) | Resolves the ids a step names to elements of the model, and binds steps to elements, one to one, in a `BindingTable`. |
 | [`validation`](../src/jpipe_runner/validation.py) | Checks a step library against its model before anything runs: `Rule`, one check; `RuleSet`, which runs rules over a `ValidationContext` and collects what they report in a `ValidationReport`. |
 | [`rules`](../src/jpipe_runner/rules.py) | Every validation rule, one class each, and `RULES`, the rule set every run uses. [`rules.md`](rules.md) is generated from it. |
+| [`engine`](../src/jpipe_runner/engine.py) | Runs a step library against its model: validates it, then calls the steps supporters first, and returns a `RunResult`, each element's `ElementResult` and the verdict. Entry point: `run(justification, registry)`. |
+| [`libraries`](../src/jpipe_runner/libraries.py) | Imports a run's step libraries, each as a module named after its file, with the run's python path, and forgets them after the run. Entry point: `imported(libraries, python_path)`. |
+| [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: whether each can be reached, what it was (path, SHA-256, size), and what the step receives. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
-| [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run. |
+| [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run, and `user_traceback`, an exception's traceback without the runner's frames. |
 | [`framework`](../src/jpipe_runner/framework/__init__.py) | Not a module of v4: the v3 authoring API lived under this name, and importing it raises an `ImportError` that says what replaced it. |
 
 The public API, what a step library imports, is the package itself: `from jpipe_runner
 import evidence, strategy, sub_conclusion, conclusion, Outcome, Pass, Fail, Skip`.
+What runs a justification, the command line from M6, uses three entry points:
+`loader.load(path)`, `libraries.imported(libraries, python_path)`, inside which
+`engine.run(justification, registry)` runs.
 
 ## Classes
 
@@ -106,6 +124,22 @@ classDiagram
         class EvidenceObservesNothing
     }
 
+    namespace engine {
+        class RunResult
+        class ElementResult
+        class Status
+        class Verdict
+    }
+
+    namespace libraries {
+        class LibraryLoadError
+    }
+
+    namespace artifacts {
+        class Observed
+        class Observation
+    }
+
     namespace values {
         class ValueStore
         class ProducedValue
@@ -129,6 +163,8 @@ classDiagram
     <<enumeration>> Kind
     <<enumeration>> Severity
     <<enumeration>> Unset
+    <<enumeration>> Status
+    <<enumeration>> Verdict
 
     Justification "1" *-- "*" Element : elements
     Justification "1" *-- "*" Relation : relations
@@ -170,6 +206,23 @@ classDiagram
     Rule <|-- UnknownBindingTarget
     Rule <|-- IncompatibleKind
     Rule <|-- EvidenceObservesNothing
+    RunResult --> Justification : justification
+    RunResult --> BindingTable : bindings
+    RunResult --> ValidationReport : validation
+    RunResult "1" *-- "*" ElementResult : elements
+    RunResult --> ValueStore : values
+    RunResult ..> Verdict : verdict
+    ElementResult --> Element : element
+    ElementResult --> Status : status
+    ElementResult --> Binding : binding
+    ElementResult ..> Outcome : outcome
+    ElementResult "1" *-- "*" Observation : observed
+    ElementResult "1" o-- "*" Diagnostic : diagnostics
+    Exception <|-- LibraryLoadError
+    LibraryLoadError "1" o-- "1..*" Diagnostic : diagnostics
+    Observed "1" *-- "*" Observation : observations
+    Observed "1" o-- "*" Diagnostic : diagnostics
+    Observation --> Artifact : artifact
     ValueStore "1" *-- "*" ProducedValue : values
     ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
@@ -210,7 +263,9 @@ in the relations (`JP004`), reported once the rest is sound: the compiler never 
 and the steps of a cyclic argument would have no order to run in.
 
 **A diagnostic's `code` is its contract.** The `message` is written for humans and may be
-reworded. A `Severity.ERROR` stops the run; a `WARNING` is reported and the run continues.
+reworded. A `Severity.ERROR` found while loading or validating stops the run before any
+step executes; one found while the steps run fails the element it is about, and the run
+goes on. A `WARNING` is reported and changes nothing else.
 
 **A step library is validated against its model before anything runs.** Each check is a
 `Rule`, reified as a class: its `code`, `severity` and `summary` are class attributes, and
@@ -240,12 +295,12 @@ implements, as positional arguments, and the variables it `consumes` and `produc
 kind's decorator accepts only what the kind can do: evidence consumes nothing, and a
 conclusion produces nothing. Only evidence `observes` artifacts: a mapping from parameter
 name to a path relative to the run's working directory, kept on the `Step` as `Artifact`s.
-A path names a file, a directory (with a trailing `/`), or a glob of files. A decorator attaches a `Step` to the function and returns the
-function unchanged, so a step is still a plain function. A declaration that is wrong on
-its face is a `TypeError` when the library is imported: no id, a variable or parameter name
-that is not a Python identifier, an absolute path, or a parameter list that is not exactly
-the consumed variables, or for evidence the observed artifacts (a parameter with a
-default, or `**kwargs`, is allowed).
+A path names a file or a glob of files, never a directory. A decorator attaches a `Step`
+to the function and returns the function unchanged, so a step is still a plain function.
+A declaration that is wrong on its face is a `TypeError` when the library is imported: no
+id, a variable or parameter name that is not a Python identifier, an absolute path or a
+directory, or a parameter list that is not exactly the consumed variables, or for
+evidence the observed artifacts (a parameter with a default, or `**kwargs`, is allowed).
 
 **A step is bound to an element through the ids it names.** An id designates an element
 if it is the element's id or one of its aliases, then if it is that prefixed with the
@@ -274,3 +329,52 @@ the reason the step declines to judge. Outcomes are frozen, and so are the value
 `Pass`. A step that returns anything else, such as the `bool` a v3 step returned, is
 reported with `JP017` by `as_outcome`, and the diagnostic's `fix` names the outcome to
 return instead.
+
+**An evidence's artifacts are observed just before its step is called.** `observe` takes
+the step's `Artifact`s and the run's root, and returns what was `Observed`: an
+`Observation` of each file, with its path relative to the root, its SHA-256 and its size,
+the arguments the step receives (a `Path`, or for a glob the sorted `list[Path]` it
+matches), and a `JP019` diagnostic for each artifact that cannot be reached. A missing or
+unreadable file, a directory or anything else that is not a regular file (a pipe, a
+device, which could block the run), and a glob that matches nothing are unreachable, and
+are recorded without a digest. Each file is read once, to hash it and measure it, so the
+record is the state the step is about to see.
+
+**A run's step libraries are imported for the run, and forgotten after it.** `imported`
+is a context manager, and the steps run inside it. Each library is a module named after
+its file (`steps.py` is `steps`, so that reports name a step `steps.function`),
+registered in `sys.modules` before it runs, as an import would. A library whose file name
+cannot be its module's name is refused before anything is imported (`JP021`): two
+libraries with one name, a name another module already has, or a name that is not an
+identifier. Every library is then imported, and each one that raises is reported
+(`JP020`) at the line where it failed, with its traceback, which `user_traceback` trims
+to the library's own frames. The `python_path` entries are first on `sys.path` while the
+context lasts, so that a step importing a helper when it runs finds it, and on exit
+`sys.path` is restored to what it was, even after an exception or a step that changed
+it. The libraries leave `sys.modules` on exit, with the modules imported from the
+`python_path` entries; third-party modules stay cached, since a C extension cannot be
+imported twice in a process.
+
+**A run validates, then calls the steps supporters first.** `run` builds the
+`ValidationContext`, runs `RULES`, and executes only if no error was reported; otherwise
+its `RunResult` has no element results and the verdict `INVALID`. Elements are taken in
+`topological_order()`. An element a supporter of which did not pass is skipped, and its
+`blocked_by` names the root causes: the elements upstream that failed, or were skipped,
+on their own account, since every element in between was stopped by them. A failure and
+a skip propagate alike, because what a step that did not pass would have produced does not
+exist. An element whose supporters all passed has its step called, whatever its kind, so
+a cross-check (`JP008`) runs after the argument below it; an unbound claim passes, and
+one that nothing supports is skipped. A step is called with the values it consumes, read
+from the run's `ValueStore`, and the artifacts it observes, observed just before the call.
+Validation makes an unset input impossible: a consumed variable has one producer, which
+supports its consumer (`JP009`, `JP014`), and a `Pass` stores every value its step
+declares or fails (`JP023`). The engine raises a `RuntimeError` rather than pass `UNSET`.
+
+**What a step does wrong fails its element, and the run goes on.** An exception (`JP022`,
+with its traceback, trimmed by `user_traceback`), a value that is not an outcome
+(`JP017`), an unreachable artifact (`JP019`, and the step is not called) and a missing
+declared value (`JP023`) fail the element, with the diagnostic on its `ElementResult`. An
+undeclared value is dropped, with a warning (`JP024`): no step can consume it, so it
+changes nothing. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
+failed, else `SKIP` if one was skipped, else `PASS`. The engine prints nothing: it logs
+to the `jpipe_runner.engine` logger, and the report is built from the `RunResult`.

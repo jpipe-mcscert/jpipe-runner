@@ -2,52 +2,105 @@
 
 The page is the reference of every diagnostic code. Validation rules are rendered from
 their classes: code, name, severity and summary in the table, then each docstring. The
-codes reported outside validation, when a model is loaded or a step returns, are listed
-below from the constants that define them. ``poetry run pytest --update-goldens``
+codes reported outside validation, when a model or a library is loaded or a step runs,
+are listed below from the constants that define them. ``poetry run pytest --update-goldens``
 rewrites the page; ``tests/unit/test_rules_doc.py`` fails when it is out of date.
 """
 
 import inspect
 from pathlib import Path
 
-from jpipe_runner import loader, model, outcomes
+from jpipe_runner import artifacts, engine, libraries, loader, model, outcomes
+from jpipe_runner.diagnostics import Severity
 from jpipe_runner.validation import Rule, RuleSet
 from tests.conftest import REPO_ROOT
 
 PAGE = REPO_ROOT / "docs" / "rules.md"
 UPDATE_HINT = "poetry run pytest --update-goldens"
 
-# The codes reported outside validation: (code, name, when, summary).
+# The codes reported outside validation: (code, name, severity, when, summary).
+_LOADING, _IMPORTING, _RUNNING = "loading the model", "importing the libraries", "running a step"
 OTHER_CODES = (
     (
         loader.SCHEMA_CONFORMANCE,
         "SchemaConformance",
-        "loading the model",
+        Severity.ERROR,
+        _LOADING,
         "The file is not UTF-8 JSON in the compiler's format, or is a template.",
     ),
     (
         model.DUPLICATE_ID,
         "UniqueElementId",
-        "loading the model",
+        Severity.ERROR,
+        _LOADING,
         "An id or alias designates several elements.",
     ),
     (
         model.DANGLING_RELATION,
         "RelationEndpointsExist",
-        "loading the model",
+        Severity.ERROR,
+        _LOADING,
         "A relation names an element that does not exist.",
     ),
     (
         model.CYCLE,
         "Acyclic",
-        "loading the model",
+        Severity.ERROR,
+        _LOADING,
         "The relations form a cycle: an element supports itself, directly or not.",
     ),
     (
         outcomes.NOT_AN_OUTCOME,
         "NotAnOutcome",
-        "running a step",
+        Severity.ERROR,
+        _RUNNING,
         "A step returned something other than `Pass`, `Fail` or `Skip`.",
+    ),
+    (
+        artifacts.UNREACHABLE_ARTIFACT,
+        "UnreachableArtifact",
+        Severity.ERROR,
+        _RUNNING,
+        "An artifact an evidence observes is missing, unreadable or not a regular file, or "
+        "a glob matches no file: the step is not called.",
+    ),
+    (
+        libraries.LIBRARY_IMPORT_FAILED,
+        "LibraryImportFailed",
+        Severity.ERROR,
+        _IMPORTING,
+        "A step library raised an exception when it was imported.",
+    ),
+    (
+        libraries.UNUSABLE_LIBRARY_NAME,
+        "UnusableLibraryName",
+        Severity.ERROR,
+        _IMPORTING,
+        "A library's file name cannot be its module's name: another library or module has "
+        "it, or it is not a Python identifier.",
+    ),
+    (
+        engine.STEP_RAISED,
+        "StepRaised",
+        Severity.ERROR,
+        _RUNNING,
+        "A step raised an exception. The traceback is kept.",
+    ),
+    (
+        engine.DECLARED_VALUE_MISSING,
+        "DeclaredValueMissing",
+        Severity.ERROR,
+        _RUNNING,
+        "A step returned `Pass` without a value it declares it produces: nothing it "
+        "returned is kept.",
+    ),
+    (
+        engine.UNDECLARED_VALUE,
+        "UndeclaredValue",
+        Severity.WARNING,
+        _RUNNING,
+        "A step returned `Pass` with a value it does not declare: the value is dropped, "
+        "and the step keeps its status.",
     ),
 )
 
@@ -98,17 +151,20 @@ def _anchor(rule: Rule) -> str:
 
 def _other_codes() -> str:
     rows = [
-        f"| {code} | `{name}` | {when} | {summary} |" for code, name, when, summary in OTHER_CODES
+        f"| {code} | `{name}` | {severity} | {when} | {summary} |"
+        for code, name, severity, when, summary in sorted(OTHER_CODES)
     ]
     return "\n".join(
         [
             "## Codes reported outside validation",
             "",
-            "These are errors. A model that cannot be loaded is not validated, and a step that",
-            "returns anything other than an outcome fails.",
+            "A model or a step library that cannot be loaded is not validated, and nothing runs.",
+            "While the steps run, an error fails the element it is about, and the run goes on:",
+            "what that element supports is skipped. A warning is reported, and changes nothing",
+            "else.",
             "",
-            "| Code | Name | Reported when | Reports |",
-            "|---|---|---|---|",
+            "| Code | Name | Severity | Reported when | Reports |",
+            "|---|---|---|---|---|",
             *rows,
             "",
         ]

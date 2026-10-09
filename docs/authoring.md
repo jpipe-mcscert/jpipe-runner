@@ -70,7 +70,8 @@ the runner then calls the wrapper.
 ### Mistakes caught when the library is imported
 
 A declaration that cannot be right raises a `TypeError` when the module is imported, before
-any model is read:
+any model is read. The runner reports it as `JP020`, at the line of the declaration, with
+every other library that failed to import, and runs nothing:
 
 | Mistake | Message |
 |---|---|
@@ -82,6 +83,8 @@ any model is read:
 | an observed artifact that is not a parameter | `@evidence the_changelog_is_up_to_date: it observes ['changelog'] but has no parameter for them. …` |
 | a list instead of a mapping | `@evidence(observes=...) maps each parameter to the path it receives: observes={'changelog': 'CHANGELOG.md'}` |
 | an absolute path | `@evidence(observes=...) takes paths relative to the run's working directory, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
+| a directory | `@evidence(observes=...) takes files, and 'src/' names a directory. Observe the files it holds, with a glob such as 'src/**/*'.` |
+| `**` inside a name | `@evidence(observes=...): '**' matches any depth only as a whole part of a path, as in 'build/**/*.xml', not 'build/**.xml'` |
 | two step decorators on one function | `f is already declared as evidence ('release:e1',): one function is one step` |
 
 Whether the ids designate elements of the model, and whether the data flows (every consumed
@@ -103,31 +106,34 @@ from jpipe_runner import Outcome, Pass, evidence
 
 @evidence(
     "release:e3",
-    observes={"reports": "build/reports/*.xml", "sources": "src/"},
+    observes={"reports": "build/reports/*.xml", "sources": "src/**/*.py"},
     produces=["report_count", "source_count"],
 )
-def every_module_has_a_report(reports: list[Path], sources: Path) -> Outcome:
-    return Pass(report_count=len(reports), source_count=len(list(sources.rglob("*.py"))))
+def every_module_has_a_report(reports: list[Path], sources: list[Path]) -> Outcome:
+    return Pass(report_count=len(reports), source_count=len(sources))
 ```
 
 | Path | Names | The parameter receives |
 |---|---|---|
 | `"CHANGELOG.md"` | a file | a `Path` |
-| `"src/"` | a directory, written with a trailing `/` | a `Path` |
-| `"build/reports/*.xml"` | the files a glob matches | their sorted `list[Path]` |
+| `"build/reports/*.xml"` | the files a glob matches (`**` matches any depth) | their sorted `list[Path]` |
 
+- **An evidence observes files.** A directory, written `"src/"`, is refused when the
+  library is imported: observe the files it holds, with a glob such as `"src/**/*"`
+  ([ADR-0019](adr/0019-evidence-observes-files.md)).
 - **Paths are relative** to the directory the runner runs in. An absolute path is refused
   when the library is imported: the library must work on every machine.
 - **An observed artifact is never optional.** When the steps run, an artifact that is not
-  there, or a glob that matches nothing, fails the evidence (M4). A check that a file is
-  *absent* does not declare it.
+  there or cannot be read, or a glob that matches nothing, fails the evidence without
+  calling it (`JP019`). A check that a file is *absent* does not declare it.
 - **Every evidence observes something.** One that observes nothing checks nothing in the
   world, and is an error (`JP018`): a placeholder that returns `Pass()` is fake evidence.
 - **Only evidence observes.** A strategy that needs a file has an evidence inside it:
   split it into an evidence that reads the file, and the strategy that judges what it
   produced.
-- **The runner records what was observed**, and the report lists it, so that a CI
-  pipeline can archive the artifacts with the verdict (M4, M5).
+- **The runner records what was observed**: each file's path, SHA-256 and size, read just
+  before the step is called, so the record is what the step saw. The report will list
+  them, so that a CI pipeline can archive the artifacts with the verdict (M5).
 
 Since the runner passes the artifact, a test passes its own:
 
@@ -176,7 +182,75 @@ JP017 error [release:e1]: the step returned True, which is not an outcome
   fix: Return Pass() instead of True.
 ```
 
-A step that raises an exception will fail, with the exception in the report (M4).
+A step that raises an exception fails, and its traceback is kept: see
+[When the steps run](#when-the-steps-run).
+
+## When the steps run
+
+Once validation passes, the runner calls the steps supporters first, each once, in an
+order that depends only on the model
+([ADR-0021](adr/0021-execution-semantics.md)).
+
+- **A step is called only when everything it is supported by passed.** It receives, by
+  name, the values it consumes, as its supporters produced them, and for evidence the
+  artifacts it observes.
+- **What it returns is its element's status**: `Pass(...)` passes, and the values it
+  carries are kept for the steps it supports; `Fail(reason)` fails; `Skip(reason)` skips.
+- **A failure and a skip stop what they support.** Everything above an element that did
+  not pass is skipped, its step not called, and the report names the element that stopped
+  it, however far below: what a step that did not pass would have produced does not
+  exist. A check meant to be optional should pass with what it found, rather than skip.
+- **A conclusion or sub-conclusion without a step** passes when what supports it passes.
+  One that has a step runs after everything below it, even a step declared as evidence
+  that composition turned into a sub-conclusion (a cross-check, `JP008`).
+- **The justification fails** if an element failed, **is skipped** if none failed and one
+  was skipped, and **passes** when every element passed.
+
+### When a step goes wrong
+
+A mistake in a step fails its element, and the run goes on, so one run reports every
+broken step. What the element supports is skipped.
+
+| Code | The step | |
+|---|---|---|
+| `JP022` | raised an exception | fails; the traceback, from the step's own code, is kept |
+| `JP017` | returned something that is not an outcome, such as `True` | fails |
+| `JP019` | observes an artifact that cannot be reached | fails, without being called |
+| `JP023` | returned `Pass` without a value it declares in `produces` | fails; nothing it returned is kept |
+| `JP024` | returned `Pass` with a value it does not declare | a warning: the value is dropped |
+
+Raise only for what is broken. When the check does not hold, return `Fail(reason)`: an
+exception says the step itself could not do its job.
+
+A `Pass` carries exactly what `produces` declares. Here the evidence declares `tests` but
+forgets to return it:
+
+```python
+from pathlib import Path
+from xml.etree import ElementTree
+
+from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
+
+
+@evidence("release:e1", observes={"report": "build/junit.xml"}, produces=["failures", "tests"])
+def the_test_suite_ran(report: Path) -> Outcome:
+    suite = ElementTree.parse(report).getroot()
+    return Pass(failures=int(suite.get("failures", "0")))
+
+
+@strategy("release:s", consumes=["failures", "tests"])
+def every_test_passed(failures: int, tests: int) -> Outcome:
+    if tests > 0 and failures == 0:
+        return Pass()
+    return Fail(f"{failures} of {tests} tests failed")
+```
+
+The evidence fails, and the strategy, which could not be given `tests`, is skipped:
+
+```
+JP023 error [release:e1]: steps.the_test_suite_ran returned Pass without 'tests', which it declares it produces
+  fix: Return Pass(tests=...), or remove 'tests' from produces=[...].
+```
 
 ## Binding: how an id designates an element
 

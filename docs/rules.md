@@ -231,13 +231,21 @@ that they exist, record them, and archive them with the report
 
 ## Codes reported outside validation
 
-These are errors. A model that cannot be loaded is not validated, and a step that
-returns anything other than an outcome fails.
+A model or a step library that cannot be loaded is not validated, and nothing runs.
+While the steps run, an error fails the element it is about, and the run goes on:
+what that element supports is skipped. A warning is reported, and changes nothing
+else.
 
-| Code | Name | Reported when | Reports |
-|---|---|---|---|
-| JP001 | `SchemaConformance` | loading the model | The file is not UTF-8 JSON in the compiler's format, or is a template. |
-| JP002 | `UniqueElementId` | loading the model | An id or alias designates several elements. |
-| JP003 | `RelationEndpointsExist` | loading the model | A relation names an element that does not exist. |
-| JP004 | `Acyclic` | loading the model | The relations form a cycle: an element supports itself, directly or not. |
-| JP017 | `NotAnOutcome` | running a step | A step returned something other than `Pass`, `Fail` or `Skip`. |
+| Code | Name | Severity | Reported when | Reports |
+|---|---|---|---|---|
+| JP001 | `SchemaConformance` | error | loading the model | The file is not UTF-8 JSON in the compiler's format, or is a template. |
+| JP002 | `UniqueElementId` | error | loading the model | An id or alias designates several elements. |
+| JP003 | `RelationEndpointsExist` | error | loading the model | A relation names an element that does not exist. |
+| JP004 | `Acyclic` | error | loading the model | The relations form a cycle: an element supports itself, directly or not. |
+| JP017 | `NotAnOutcome` | error | running a step | A step returned something other than `Pass`, `Fail` or `Skip`. |
+| JP019 | `UnreachableArtifact` | error | running a step | An artifact an evidence observes is missing, unreadable or not a regular file, or a glob matches no file: the step is not called. |
+| JP020 | `LibraryImportFailed` | error | importing the libraries | A step library raised an exception when it was imported. |
+| JP021 | `UnusableLibraryName` | error | importing the libraries | A library's file name cannot be its module's name: another library or module has it, or it is not a Python identifier. |
+| JP022 | `StepRaised` | error | running a step | A step raised an exception. The traceback is kept. |
+| JP023 | `DeclaredValueMissing` | error | running a step | A step returned `Pass` without a value it declares it produces: nothing it returned is kept. |
+| JP024 | `UndeclaredValue` | warning | running a step | A step returned `Pass` with a value it does not declare: the value is dropped, and the step keeps its status. |

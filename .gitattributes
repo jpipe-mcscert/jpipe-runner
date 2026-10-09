@@ -1,0 +1,3 @@
+# The scenarios' mock files are artifacts whose SHA-256 docs/end-to-end.md quotes: keep
+# their bytes as committed, whatever the checkout's line endings.
+tests/e2e/scenarios/**/mock/** -text
