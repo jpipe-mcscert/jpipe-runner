@@ -85,7 +85,7 @@ def _base(word: str) -> str:
 # External names, spelled as their owners spell them: https://no-color.org, and Graphviz's
 # node, edge and graph attributes, as an attribute (followed by `=`) or a quoted key.
 EXTERNAL_NAMES = re.compile(
-    r"NO_COLOR(?![A-Za-z_])"
+    r"NO_COLOR(?![A-Za-z_])|no-color\.org"
     r'|(?<![A-Za-z])(?:fill|font|bg|pen|label)?color(?=\s*=|"\s*:)'
     r'|"(?:fill|font|bg|pen|label)?color"'
 )

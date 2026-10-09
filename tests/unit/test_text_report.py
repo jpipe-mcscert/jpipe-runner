@@ -220,7 +220,7 @@ class _Stream(io.StringIO):
         pytest.param(True, {"NO_COLOR": ""}, True, id="NO_COLOR empty"),
     ],
 )
-def test_colour_is_for_a_terminal_unless_no_color_is_set(
+def test_colour_is_for_a_terminal_unless_the_environment_refuses_it(
     tty: bool, environ: dict[str, str], coloured: bool
 ) -> None:
     assert use_colour(_Stream(tty), environ) is coloured

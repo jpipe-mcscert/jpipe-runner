@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "jpipe-runner report 1.0",
+  "description": "What a run of jpipe-runner concluded (ADR-0011): every element of the justification, with its status, its step and what that step declares, observed and produced; then every diagnostic. Within a major version, a minor version only adds optional fields: a consumer ignores fields it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/report-schema.md.",
+  "type": "object",
+  "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "justification": {
+      "description": "The justification's name, or null if the model was refused before it could be read.",
+      "type": ["string", "null"]
+    },
+    "verdict": {
+      "description": "fail if an element failed; skip if none failed and one was skipped; pass if every element passed; invalid if nothing ran, because the model was refused, a step library could not be imported, or validation reported an error.",
+      "enum": ["pass", "fail", "skip", "invalid"]
+    },
+    "strict": {
+      "description": "Whether validation counted warnings as errors.",
+      "type": "boolean"
+    },
+    "summary": {"$ref": "#/$defs/summary"},
+    "elements": {
+      "description": "Every element of the justification, in the order the runner takes them: each after the elements that support it. Empty if the model was refused.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/element"}
+    },
+    "diagnostics": {
+      "description": "Every problem found, in the order found: loading the model, importing the libraries or validating them, then running each element.",
+      "type": "array",
+      "items": {"$ref": "#/$defs/diagnostic"}
+    },
+    "diagram": {
+      "description": "The path of the diagram drawn for this run, as it was given to the runner, or null.",
+      "type": ["string", "null"]
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "minLength": 1},
+    "ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "names": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "count": {"type": "integer", "minimum": 0},
+    "summary": {
+      "description": "How many elements ended in each status, and how many diagnostics of each severity. pass + fail + skip + not_run = elements.",
+      "type": "object",
+      "required": ["elements", "pass", "fail", "skip", "not_run", "errors", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "elements": {"$ref": "#/$defs/count"},
+        "pass": {"$ref": "#/$defs/count"},
+        "fail": {"$ref": "#/$defs/count"},
+        "skip": {"$ref": "#/$defs/count"},
+        "not_run": {"$ref": "#/$defs/count"},
+        "errors": {"$ref": "#/$defs/count"},
+        "warnings": {"$ref": "#/$defs/count"}
+      }
+    },
+    "element": {
+      "type": "object",
+      "required": [
+        "id", "label", "kind", "aliases", "supports",
+        "status", "reason", "blocked_by", "ran",
+        "bound_to", "bound_by", "observes", "consumes", "produces",
+        "produced", "artifacts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "label": {"type": "string"},
+        "kind": {"enum": ["evidence", "strategy", "sub-conclusion", "conclusion"]},
+        "aliases": {
+          "description": "The ids of the elements that composition merged into this one.",
+          "$ref": "#/$defs/ids"
+        },
+        "supports": {
+          "description": "The ids of the elements it supports.",
+          "$ref": "#/$defs/ids"
+        },
+        "status": {
+          "description": "null when nothing ran.",
+          "enum": ["pass", "fail", "skip", null]
+        },
+        "reason": {
+          "description": "Why it did not pass: the reason its step gave, the problem found, or the elements that stopped it.",
+          "type": ["string", "null"]
+        },
+        "blocked_by": {
+          "description": "The elements upstream that stopped it, failed or skipped on their own account. Empty unless it was skipped because of them.",
+          "$ref": "#/$defs/ids"
+        },
+        "ran": {
+          "description": "Whether its step was called.",
+          "type": "boolean"
+        },
+        "bound_to": {
+          "description": "The step bound to it, as module.function, or null if it is unbound.",
+          "type": ["string", "null"]
+        },
+        "bound_by": {
+          "description": "The ids, as the step names them, that designate this element.",
+          "$ref": "#/$defs/names"
+        },
+        "observes": {
+          "description": "The paths and globs its step declares it observes, relative to where the runner runs.",
+          "$ref": "#/$defs/names"
+        },
+        "consumes": {
+          "description": "The variables its step declares it consumes.",
+          "$ref": "#/$defs/names"
+        },
+        "produces": {
+          "description": "The variables its step declares it produces.",
+          "$ref": "#/$defs/names"
+        },
+        "produced": {
+          "description": "The values its step produced, by variable.",
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/value"}
+        },
+        "artifacts": {
+          "description": "The files its step observed, recorded just before it was called.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/artifact"}
+        }
+      }
+    },
+    "value": {
+      "description": "A produced value: the value itself if it is JSON, otherwise its Python repr and type.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["value"],
+          "additionalProperties": false,
+          "properties": {"value": true}
+        },
+        {
+          "type": "object",
+          "required": ["repr", "type"],
+          "additionalProperties": false,
+          "properties": {
+            "repr": {"type": "string"},
+            "type": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "artifact": {
+      "description": "A file an evidence observed. A glob that matched nothing is recorded once, under its pattern, as unreachable.",
+      "type": "object",
+      "required": ["path", "reachable", "sha256", "size"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Relative to where the runner runs, with / as separator.",
+          "type": "string",
+          "minLength": 1
+        },
+        "reachable": {"type": "boolean"},
+        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+        "size": {"type": ["integer", "null"], "minimum": 0}
+      },
+      "if": {"properties": {"reachable": {"const": true}}},
+      "then": {"properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}}},
+      "else": {"properties": {"sha256": {"type": "null"}, "size": {"type": "null"}}}
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "element", "message", "fix", "traceback"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "description": "The contract: a code never changes meaning. docs/rules.md lists them.",
+          "type": "string",
+          "pattern": "^JP[0-9]{3}$"
+        },
+        "severity": {"enum": ["error", "warning", "info"]},
+        "element": {
+          "description": "The id of the element it is about, if it is about one.",
+          "type": ["string", "null"]
+        },
+        "message": {
+          "description": "Written for people: it may be reworded in any release.",
+          "type": "string"
+        },
+        "fix": {"type": ["string", "null"]},
+        "traceback": {
+          "description": "The exception behind it, for a step that raised (JP022) or a library that failed to import (JP020).",
+          "oneOf": [{"$ref": "#/$defs/traceback"}, {"type": "null"}]
+        }
+      }
+    },
+    "traceback": {
+      "type": "object",
+      "required": ["exception", "message", "frames", "cause"],
+      "additionalProperties": false,
+      "properties": {
+        "exception": {
+          "description": "The exception's type, qualified by its module unless it is a built-in.",
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {"type": "string"},
+        "frames": {
+          "description": "The frames of the step's or library's own code, from the outermost call to where it was raised.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/frame"}
+        },
+        "cause": {
+          "description": "The exception it was raised from, or while handling.",
+          "oneOf": [{"$ref": "#/$defs/traceback"}, {"type": "null"}]
+        }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "required": ["file", "line", "function", "code"],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "description": "Relative to where the runner runs, with / as separator, when the file is under it.",
+          "type": "string"
+        },
+        "line": {"type": ["integer", "null"]},
+        "function": {"type": "string"},
+        "code": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

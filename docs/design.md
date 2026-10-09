@@ -9,6 +9,7 @@ the plan: update it in the commit that changes the design.
 flowchart LR
     json[/"justification JSON<br>(from the jPipe compiler)"/]
     schema[("justification.schema.json")]
+    reportschema[("report.schema.json")]
 
     json -.->|read by| loader
     loader -.->|validated against| schema
@@ -48,6 +49,10 @@ flowchart LR
     report --> engine
     report --> libraries
     report --> model
+    json_report --> artifacts
+    json_report --> diagnostics
+    json_report --> report
+    json_report -.->|validated against| reportschema
     text_report --> diagnostics
     text_report --> engine
     text_report --> model
@@ -69,6 +74,7 @@ arrow is data.
 | [`libraries`](../src/jpipe_runner/libraries.py) | Imports a run's step libraries, each as a module named after its file, with the run's python path, and forgets them after the run. Entry point: `imported(libraries, python_path)`. |
 | [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: whether each can be reached, what it was (path, SHA-256, size), and what the step receives. |
 | [`report`](../src/jpipe_runner/report.py) | The `RunReport` of a run, built for every way a run ends, even when nothing ran: each element of the model with its status, its step and what that step declares, observed and produced, then every diagnostic. Entry points: `RunReport.of(result)`, `RunReport.refused(error)`, `RunReport.not_imported(justification, error)`. |
+| [`json_report`](../src/jpipe_runner/json_report.py) | Renders a `RunReport` as the JSON report, the machine-readable contract described by `report.schema.json` and [`report-schema.md`](report-schema.md). Entry points: `document(report)`, `dumps(report)`. |
 | [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
@@ -424,5 +430,12 @@ shows as a `Trace`: its frames' files relative to the run's root, and the same o
 Python version. The text renderer, `text_report.render`, lays a report out for a person, in
 the manner of Cucumber: each element with a symbol for its status, its kind, its label and
 its id, why it did not pass, then the diagnostics, the summary and the verdict. Its layout
-is not a contract. Whether to colour it is the caller's decision (`use_colour`: a terminal,
+is not a contract.
+
+**The JSON report is the contract** ([ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)).
+`json_report.document` writes a report as the JSON document that `report.schema.json`,
+shipped in the package, describes, versioned by `schema_version`. It is deterministic: no
+time, relative paths, fields in a fixed order. A produced value is written as itself when
+it is JSON, and as its `repr` and type otherwise. [`report-schema.md`](report-schema.md)
+documents it for readers. Whether to colour it is the caller's decision (`use_colour`: a terminal,
 unless `NO_COLOR` is set).

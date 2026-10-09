@@ -70,6 +70,8 @@ then, `tests/unit/test_scenario_corpus.py` imports each scenario's libraries wit
 runner's loader and runs them with the engine, in process, and pins what validation
 reports, the verdict, the elements that did not pass and the codes reported while the
 steps ran.
+`tests/unit/test_json_report.py` builds each scenario's report in process, whichever way
+its run ends, and checks it against `report.schema.json` (#122).
 
 ### Scenario layout
 

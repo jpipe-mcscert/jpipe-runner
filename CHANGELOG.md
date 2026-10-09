@@ -30,6 +30,18 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   than its immediate supporter. A justification in which nothing failed but something was
   skipped is reported as skipped, not as passed
   ([ADR-0021](docs/adr/0021-execution-semantics.md)).
+- **A JSON report, the machine-readable contract of a run.** It lists every element of the
+  justification with its status, why it did not pass and what stopped it, the step bound
+  to it and the ids that bound it (`bound_to`, `bound_by`, and the element's `aliases`, to
+  explain a binding on a composed model), what that step declares it observes, consumes
+  and produces, the values it produced, and each file it observed with its SHA-256 and
+  size; then every diagnostic, with its traceback for an exception, a summary and the
+  verdict. A run that stopped before any step ran is reported too. The report is
+  deterministic (no time, relative paths), versioned by `schema_version` (`1.0`), and
+  described by a JSON Schema shipped in the package, `jpipe_runner/schema/report.schema.json`;
+  [`docs/report-schema.md`](docs/report-schema.md) documents it. Programs, such as the
+  GitHub Action, should read it rather than the text output
+  ([ADR-0011](docs/adr/0011-json-report-is-the-machine-readable-contract.md)).
 - **A text report of the run, in the manner of Cucumber.** Each element is one line, in the
   order run: a symbol for its status (`✔`, `✘`, `-`), its kind, its label and its id. An
   element that did not pass says why underneath, and a failed evidence names the files it

@@ -23,7 +23,7 @@ and add a row to this table.
 | [0008](0008-drop-external-variable-injection.md) | Drop external variable injection | accepted |
 | [0009](0009-separate-registry-from-value-store.md) | Separate the declaration registry from the per-run value store | accepted |
 | [0010](0010-diagnostics-as-data-rules-as-objects.md) | Diagnostics as data, rules as objects, real severity levels | accepted |
-| 0011 | The JSON report is the machine-readable contract | reserved ([#122](https://github.com/jpipe-mcscert/jpipe-runner/issues/122)) |
+| [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted |
 | 0012 | Extract the GitHub Action to its own repository | reserved ([#130](https://github.com/jpipe-mcscert/jpipe-runner/issues/130)) |
 | [0013](0013-kind-divergence-under-composition.md) | Kind divergence under composition is a warning, not an error | accepted |
 | [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted, amended by [0015](0015-draft-pull-request-per-milestone.md) |
