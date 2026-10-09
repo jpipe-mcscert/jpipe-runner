@@ -1,0 +1,21 @@
+digraph "readiness" {
+  rankdir=BT;
+  label="readiness";
+  "readiness:draft:ready" [label="Version 2.0 is ready to ship", id="readiness:draft:ready", shape=rect, style="filled,rounded", fillcolor=lightgrey];
+  "readiness:draft:gates" [label="All release gates pass", id="readiness:draft:gates", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "readiness:hook" [label="The code is tested", id="readiness:hook", shape=rect, color="#0072B2"];
+  "readiness:draft:documented" [label="The documentation is updated", id="readiness:draft:documented", shape=rect, color="#0072B2"];
+  "readiness:draft:docs" [label="The changelog and API docs are current", id="readiness:draft:docs", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "readiness:draft:changelog" [label="The changelog is up to date", id="readiness:draft:changelog", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "readiness:tested:testing" [label="The test suite passes with high coverage", id="readiness:tested:testing", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "readiness:tested:suite" [label="The test suite passes", id="readiness:tested:suite", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "readiness:tested:coverage" [label="Coverage is above 80%", id="readiness:tested:coverage", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "readiness:draft:gates" -> "readiness:draft:ready";
+  "readiness:tested:testing" -> "readiness:hook";
+  "readiness:draft:docs" -> "readiness:draft:documented";
+  "readiness:hook" -> "readiness:draft:gates";
+  "readiness:draft:documented" -> "readiness:draft:gates";
+  "readiness:draft:changelog" -> "readiness:draft:docs";
+  "readiness:tested:suite" -> "readiness:tested:testing";
+  "readiness:tested:coverage" -> "readiness:tested:testing";
+}

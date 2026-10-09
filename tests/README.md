@@ -70,6 +70,8 @@ then, `tests/unit/test_scenario_corpus.py` imports each scenario's libraries wit
 runner's loader and runs them with the engine, in process, and pins what validation
 reports, the verdict, the elements that did not pass and the codes reported while the
 steps ran.
+`tests/unit/test_json_report.py` builds each scenario's report in process, whichever way
+its run ends, and checks it against `report.schema.json` (#122).
 
 ### Scenario layout
 
@@ -77,6 +79,7 @@ steps ran.
 tests/e2e/scenarios/<name>/
   scenario.toml        how to run it, and what it is for
   justification.json   the model, as the jPipe compiler emits it
+  justification.dot    the compiler's diagram of it, for a scenario written in jPipe
   steps.py             the step library (or several, or a package; see `libraries`)
   expected.json        the golden report (generated)
   mock/ …              anything the steps read
@@ -99,9 +102,10 @@ Step libraries are written against the v4 authoring API (#113, #114):
 `--variable`, no `--config-file`). A step that needs an input reads it from the world,
 which in a scenario means a file under the scenario directory.
 
-`justification.json` is compiler output and is kept **verbatim**, including fields the
-runner ignores (such as `escaped`). The file's format is the interface (ADR-0001), so the
-tests use what the compiler actually emits.
+`justification.json`, and `justification.dot` where there is one, are compiler output and
+are kept **verbatim**, including fields the runner ignores (such as `escaped`). The file's
+format is the interface (ADR-0001), so the tests use what the compiler actually emits. The
+runner's diagram of a model must be the compiler's `justification.dot` (ADR-0022).
 
 ## Layer 3: property tests
 

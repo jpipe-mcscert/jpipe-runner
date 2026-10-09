@@ -1,0 +1,22 @@
+digraph "release" {
+  rankdir=BT;
+  label="release";
+  "release:assembleConclusion" [label="Version 2.0 can be released", id="release:assembleConclusion", shape=rect, style="filled,rounded", fillcolor=lightgrey];
+  "release:checked:ready" [label="Version 2.0 is ready to ship", id="release:checked:ready", shape=rect, color="#0072B2"];
+  "release:checked:gates" [label="All release gates pass", id="release:checked:gates", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "release:unified_0" [label="The code is tested", id="release:unified_0", shape=rect, color="#0072B2"];
+  "release:argued:done" [label="The release is documented", id="release:argued:done", shape=rect, color="#0072B2"];
+  "release:argued:docs" [label="The changelog and API docs are current", id="release:argued:docs", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "release:argued:testing" [label="The test suite passes with high coverage", id="release:argued:testing", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "release:argued:suite" [label="The test suite passes", id="release:argued:suite", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "release:assembleStrategy" [label="Both arguments hold", id="release:assembleStrategy", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "release:assembleStrategy" -> "release:assembleConclusion";
+  "release:checked:gates" -> "release:checked:ready";
+  "release:argued:testing" -> "release:unified_0";
+  "release:argued:docs" -> "release:argued:done";
+  "release:unified_0" -> "release:checked:gates";
+  "release:unified_0" -> "release:argued:docs";
+  "release:argued:suite" -> "release:argued:testing";
+  "release:checked:ready" -> "release:assembleStrategy";
+  "release:argued:done" -> "release:assembleStrategy";
+}

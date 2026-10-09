@@ -30,6 +30,7 @@ from jpipe_runner import (
 )
 from jpipe_runner.engine import Status, Verdict, run
 from jpipe_runner.model import Element, Justification, Kind
+from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry, step_of
 from tests.strategies import FAIL, PASS, RAISE, SKIP, justifications, step_plans
 
@@ -233,3 +234,24 @@ def test_the_verdict_is_the_worst_status(root: Path, drawn: tuple[dict[str, Any]
         assert result.verdict is Verdict.SKIP
     else:
         assert result.verdict is Verdict.PASS
+
+
+@given(planned)
+def test_the_report_lists_every_element_as_run_and_adds_up(
+    root: Path, drawn: tuple[dict[str, Any], Plan]
+) -> None:
+    model, plan = drawn
+    justification = _load(model)
+    result = run(justification, _library(justification, plan, []), root=root)
+
+    report = RunReport.of(result, root)
+
+    assert [e.id for e in report.elements] == [r.element.id for r in result]
+    assert [(e.status, e.blocked_by, e.ran) for e in report.elements] == [
+        (r.status, r.blocked_by, r.ran) for r in result
+    ]
+    summary = report.summary
+    assert summary.elements == len(justification)
+    assert summary.passed + summary.failed + summary.skipped + summary.not_run == len(justification)
+    assert summary.errors == sum(d.severity == "error" for d in result.diagnostics)
+    assert report.verdict is result.verdict

@@ -3,26 +3,38 @@
 Every function of ``tests/e2e/scenarios/release_example/steps.py`` appears in the page,
 character for character, and so does what validation reports on the release and composed
 examples, and what running them does, so the walkthrough cannot drift from the code the
-e2e suite runs.
+e2e suite runs. Runs are quoted as their text report, and step 7 quotes the JSON report and
+shows the diagrams of a run, which ``--update-goldens`` redraws where Graphviz is installed.
 """
 
 import ast
+import json
+import re
 import shutil
 import types
 from collections.abc import Callable
 from pathlib import Path
+from xml.etree import ElementTree
 
 import pytest
 
 from jpipe_runner import loader
 from jpipe_runner.diagnostics import Diagnostic
+from jpipe_runner.diagram import View, write
 from jpipe_runner.engine import RunResult, run
+from jpipe_runner.json_report import document
+from jpipe_runner.report import RunReport
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
+from jpipe_runner.text_report import render
 from jpipe_runner.validation import ValidationContext, ValidationReport
 from tests.conftest import REPO_ROOT
 
 PAGE = (REPO_ROOT / "docs" / "end-to-end.md").read_text(encoding="utf-8")
+IMAGES = REPO_ROOT / "docs" / "images"
+needs_dot = pytest.mark.skipif(
+    shutil.which("dot") is None, reason="Graphviz's dot is not installed"
+)
 SCENARIOS = REPO_ROOT / "tests" / "e2e" / "scenarios"
 LIBRARY = SCENARIOS / "release_example" / "steps.py"
 SOURCE = LIBRARY.read_text(encoding="utf-8")
@@ -99,21 +111,8 @@ def test_the_page_quotes_validation_of_the_refined_model() -> None:
 
 
 def _as_run(result: RunResult) -> str:
-    """A run as the page shows it: each element in the order run, then the verdict."""
-    width = max(len(r.element.id) for r in result)
-    lines = []
-    for r in result:
-        name = r.binding.step.name if r.binding else "(no function)"
-        lines.append(f"{r.status:<4}  {r.element.id:<{width}}  {name}")
-        for o in r.observed:
-            seen = (
-                f"sha256 {(o.sha256 or '')[:12]}…, {o.size} bytes" if o.reachable else "unreachable"
-            )
-            lines.append(f"      observed {o.path} ({seen})")
-        if r.reason:
-            lines.append(f"      {r.reason}")
-    lines.append(f"verdict: {result.verdict}")
-    return "```\n" + "\n".join(lines) + "\n```"
+    """A run as the page shows it: its text report, without colour."""
+    return "```\n" + render(RunReport.of(result)) + "```"
 
 
 def _run(
@@ -164,7 +163,7 @@ def test_the_page_quotes_the_run_without_a_test_report(
     result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, remove_report)
     assert _as_run(result) in PAGE
     assert result.validation.diagnostics == ()
-    assert _as_shown(result.diagnostics) in PAGE
+    assert [d.code for d in result.diagnostics] == ["JP019"]
 
 
 def test_the_page_quotes_the_run_of_the_refined_model(
@@ -174,3 +173,61 @@ def test_the_page_quotes_the_run_of_the_refined_model(
     result = _run("composed", libraries, tmp_path, monkeypatch)
     assert result.verdict == "pass"
     assert _as_run(result) in PAGE
+
+
+def test_the_page_quotes_the_json_report_of_the_failing_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, _two_failures)
+    step_7 = PAGE[PAGE.index("## 7. Reading the verdict") :]
+    (quoted,) = re.findall(r"^```json\n(.*?)^```", step_7, re.MULTILINE | re.DOTALL)
+
+    assert json.loads(quoted) == document(RunReport.of(result))["elements"][0]
+
+
+SVG = "{http://www.w3.org/2000/svg}"
+_SHAPES = {f"{SVG}polygon", f"{SVG}ellipse", f"{SVG}path"}
+
+
+def _drawn(svg: Path) -> dict[str, tuple[set[str], set[str]]]:
+    """Each node of ``svg``, by its DOT name: the fills and strokes of its shapes."""
+    nodes = {}
+    for group in ElementTree.parse(svg).getroot().iter(f"{SVG}g"):
+        if group.get("class") == "node":
+            title = group.findtext(f"{SVG}title") or ""
+            shapes = [s for s in group.iter() if s.tag in _SHAPES]
+            fills = {(s.get("fill") or "").lower() for s in shapes}
+            strokes = {(s.get("stroke") or "").lower() for s in shapes}
+            nodes[title] = (fills, strokes)
+    return nodes
+
+
+def test_the_page_shows_the_diagrams_of_the_failing_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, update_goldens: bool
+) -> None:
+    result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, _two_failures)
+    pictures = {View.JUSTIFICATION: "release-fail.svg", View.DATAFLOW: "release-fail-dataflow.svg"}
+    if update_goldens and shutil.which("dot"):
+        for view, name in pictures.items():
+            write(IMAGES / name, result.justification, RunReport.of(result), view=view)
+
+    for name in pictures.values():
+        assert f"(images/{name})" in PAGE
+        drawn = _drawn(IMAGES / name)
+        assert "#d55e00" in drawn["release:e1"][0], f"redraw {name} with --update-goldens"
+        assert "#009e73" in drawn["release:e2"][1]
+        assert {"#eeeeee"} <= drawn["release:s"][0] & drawn["release:c"][0]
+    dataflow = _drawn(IMAGES / pictures[View.DATAFLOW])
+    assert {"artifact mock/junit.xml", "artifact mock/CHANGELOG.md"} <= set(dataflow)
+    assert "#999999" in dataflow["variable tests_pass"][1]
+    assert "#999999" not in dataflow["variable changelog_ok"][1]
+
+
+@needs_dot
+def test_the_diagrams_on_the_page_are_rendered_from_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, _two_failures)
+    drawn = write(tmp_path / "drawn.svg", result.justification, RunReport.of(result))
+
+    assert _drawn(drawn) == _drawn(IMAGES / "release-fail.svg")

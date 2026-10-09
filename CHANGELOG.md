@@ -30,6 +30,41 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   than its immediate supporter. A justification in which nothing failed but something was
   skipped is reported as skipped, not as passed
   ([ADR-0021](docs/adr/0021-execution-semantics.md)).
+- **Diagrams are drawn as the jPipe compiler draws them, with the run over them.** A
+  justification is drawn exactly as `jpipe process -f SVG` draws it (jPipe 2.5.0): element
+  ids are kept as they are, rather than with `:` turned into `_`, labels are wrapped, and
+  the shapes and colours are the compiler's. A run's statuses are drawn over it in the
+  compiler's colour-blind-safe palette: a green border for a pass, a vermillion fill for a
+  failure, a dashed grey node for a skip, with a thicker border for the element that
+  started a chain of skips; in SVG, hovering a node shows its status and reason. v3's red
+  and `#cccccc` overlay is gone. A new **dataflow view** also draws the files each evidence
+  observes and the variables each step produces and consumes, with any variable that has
+  no producer, no consumer or several producers, and any file that could not be read, in
+  vermillion. Formats are `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png` and `svg`; `dot` is now
+  the DOT text itself, without layout coordinates
+  ([ADR-0022](docs/adr/0022-diagrams-follow-the-compiler.md)).
+- **A JSON report, the machine-readable contract of a run.** It lists every element of the
+  justification with its status, why it did not pass and what stopped it, the step bound
+  to it and the ids that bound it (`bound_to`, `bound_by`, and the element's `aliases`, to
+  explain a binding on a composed model), what that step declares it observes, consumes
+  and produces, the values it produced, and each file it observed with its SHA-256 and
+  size; then every diagnostic, with its traceback for an exception, a summary and the
+  verdict. A run that stopped before any step ran is reported too. The report is
+  deterministic (no time, relative paths), versioned by `schema_version` (`1.0`), and
+  described by a JSON Schema shipped in the package, `jpipe_runner/schema/report.schema.json`;
+  [`docs/report-schema.md`](docs/report-schema.md) documents it. Programs, such as the
+  GitHub Action, should read it rather than the text output
+  ([ADR-0011](docs/adr/0011-json-report-is-the-machine-readable-contract.md)).
+- **A text report of the run, in the manner of Cucumber.** Each element is one line, in the
+  order run: a symbol for its status (`✔`, `✘`, `-`), its kind, its label and its id. An
+  element that did not pass says why underneath, and a failed evidence names the files it
+  observed. The diagnostics follow, each with its fix and, for an exception, its traceback
+  from the step's own code; then the summary and the verdict, last. A run that stopped
+  before any step ran (a refused model, a library that cannot be imported, a validation
+  error) is reported too, with its diagnostics. Colours are used only on a terminal, and
+  never when `NO_COLOR` is set; the symbols fall back to ASCII where the terminal cannot
+  show them. v3's ASCII banners and fixed-width table are gone. The layout is for people,
+  and may change: scripts should read the JSON report.
 - **A reference of every diagnostic code**, [`docs/rules.md`](docs/rules.md): what each
   validation rule checks, why, its severity and how to fix what it reports, and the codes
   reported when a model or a step library is loaded, or a step runs. It is generated from
@@ -105,6 +140,10 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   dependency needs them.
 
 ### Removed
+- **The `graphviz` Python package is no longer a dependency.** Diagrams are drawn by
+  piping their DOT text to Graphviz's `dot` binary, as the jPipe compiler does, so only the
+  binary is needed, as before. The Debian package depends on `graphviz` instead of
+  `python3-graphviz`.
 - **`@skip` and `@contribution`.** A step that should not run returns `Skip(reason)`,
   decided when it runs rather than when its module is imported. `@contribution` had no
   effect.

@@ -1,0 +1,15 @@
+# justification.json is `jpipe process -i assemble.jd -m readiness -f JSON` (jPipe 2.5.0),
+# identical to tests/unit/validation/fixtures/assemble.json.
+# tested_steps.py and documented_steps.py were each written against one standalone source
+# model; readiness_steps.py implements the strategy that `assemble` adds.
+description = "An assembled model bound by step libraries written against its standalone sources, plus the one step that `assemble` requires: the strategy it adds above them."
+origin = "new in v4 (#150)"
+libraries = ["tested_steps.py", "documented_steps.py", "readiness_steps.py"]
+exit_code = 0
+exercises = [
+    "segment-suffix binding of prefixed ids (tested:suite -> readiness:tested:suite)",
+    "source conclusions turned sub-conclusions, left unbound",
+    "a step for assembleStrategy, which no source library implements (JP005 otherwise)",
+    "distinct library file names (JP021) and variable names (JP010) across libraries",
+    "a strategy consuming a value produced in another source's argument",
+]

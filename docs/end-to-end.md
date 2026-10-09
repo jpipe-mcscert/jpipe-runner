@@ -5,8 +5,8 @@ written in jPipe becomes a model the runner reads, how a Python step library is 
 to it, and what the runner does with the two. The test suite runs the same example (and
 others) for coverage. This page is meant to be read.
 
-v4 is still being built ([progress](v4-progress.md)). Steps 1 to 6 work
-today. Step 7 describes what the next milestones build, and is marked as such. This page
+v4 is still being built ([progress](v4-progress.md)). Steps 1 to 7 work
+today, except the command line that step 7 ends with, which is marked as planned. This page
 grows with each milestone.
 
 The example is the release argument of the [jPipe tutorials](https://www.jpipe.org/tutorials/),
@@ -232,17 +232,23 @@ about to read it ([ADR-0019](adr/0019-evidence-observes-files.md)). Then it pass
 function what it observes and consumes, and records what it returns
 ([ADR-0021](adr/0021-execution-semantics.md)).
 
-There is no command line or report yet (step 7), so what follows lists, for each element
-in the order it was run, its status, the function bound to it, the files it observed, and
-why it did not pass, if it did not. With both mock files in place, everything passes:
+What follows is the text report of the run, as a terminal shows it: each element in the
+order it was run, with a symbol for its status (`✔` passed, `✘` failed, `-` skipped), its
+kind, its label and its id; under an element that did not pass, why, and for a failed
+evidence, the files it observed; then the summary and the verdict. The JSON report of
+step 7 records every observed file, with its hash. With both mock files in place,
+everything passes:
 
 ```
-pass  release:e1  steps.the_test_suite_passes
-      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
-pass  release:e2  steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-pass  release:s   steps.all_release_gates_pass
-pass  release:c   (no function)
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✔ Evidence    The test suite passes         # release:e1
+  ✔ Evidence    The changelog is up to date   # release:e2
+  ✔ Strategy    All release gates pass        # release:s
+  ✔ Conclusion  Version 2.0 is ready to ship  # release:c
+
+4 elements (4 passed)
 verdict: pass
 ```
 
@@ -256,15 +262,19 @@ never produced. So `s` and the conclusion are skipped, not called, and each name
 element that stopped it. `e2` does not depend on `e1`, and still runs.
 
 ```
-fail  release:e1  steps.the_test_suite_passes
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✘ Evidence    The test suite passes         # release:e1
+      steps.the_test_suite_passes: mock/junit.xml: 2 tests failed
       observed mock/junit.xml (sha256 f757d068913c…, 187 bytes)
-      mock/junit.xml: 2 tests failed
-pass  release:e2  steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-skip  release:s   steps.all_release_gates_pass
+  ✔ Evidence    The changelog is up to date   # release:e2
+  - Strategy    All release gates pass        # release:s
       not run: release:e1 did not pass
-skip  release:c   (no function)
+  - Conclusion  Version 2.0 is ready to ship  # release:c
       not run: release:e1 did not pass
+
+4 elements (1 failed, 2 skipped, 1 passed)
 verdict: fail
 ```
 
@@ -274,41 +284,107 @@ its verdict is `skip`.
 
 **An artifact that is not there.** If the tests have not run yet, `mock/junit.xml` does
 not exist. The runner does not call `the_test_suite_passes` at all: the evidence fails,
-and the diagnostic says that the check could not look, rather than that it said no.
+and the diagnostic says that the check could not look, rather than that it said no. The
+report lists each diagnostic after the elements, with what to do about it.
 
 ```
-fail  release:e1  steps.the_test_suite_passes
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✘ Evidence    The test suite passes         # release:e1
+      steps.the_test_suite_passes: mock/junit.xml, observed as 'report', does not exist
       observed mock/junit.xml (unreachable)
-      mock/junit.xml, observed as 'report', does not exist
-pass  release:e2  steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-skip  release:s   steps.all_release_gates_pass
+  ✔ Evidence    The changelog is up to date   # release:e2
+  - Strategy    All release gates pass        # release:s
       not run: release:e1 did not pass
-skip  release:c   (no function)
+  - Conclusion  Version 2.0 is ready to ship  # release:c
       not run: release:e1 did not pass
-verdict: fail
-```
 
-```
 JP019 error [release:e1]: mock/junit.xml, observed as 'report', does not exist
   fix: Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.
+
+4 elements (1 failed, 2 skipped, 1 passed)
+1 diagnostic (1 error)
+verdict: fail
 ```
 
 A function that raises an exception fails its element in the same way, with `JP022` and
 the traceback from its own code, and so does one that returns `True` (`JP017`). Each
 broken step fails its element, and the run goes on, so one run reports them all.
 
-## 7. Reading the verdict (planned, M5 and M6)
+## 7. Reading the verdict
 
-The `jpipe-runner` command ([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124))
-will report each element's status and the run's verdict, as text
-([#121](https://github.com/jpipe-mcscert/jpipe-runner/issues/121)) or as JSON
-([#122](https://github.com/jpipe-mcscert/jpipe-runner/issues/122)), and can draw the
-argument as a diagram ([#123](https://github.com/jpipe-mcscert/jpipe-runner/issues/123)).
-The report will list the artifacts each evidence observed, so that a CI pipeline can
-archive them with the verdict ([#145](https://github.com/jpipe-mcscert/jpipe-runner/issues/145)).
-Its exit code tells a CI pipeline whether the justification holds: a skipped
-justification exits 0, unless the run is strict.
+The text report of step 6 is for people. For a program, such as a CI pipeline or the
+GitHub Action, the runner reports the same run as JSON: a versioned contract, described by
+a schema that ships with it ([`report-schema.md`](report-schema.md),
+[ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)). It lists every
+element, then every diagnostic, and the verdict. Here is the first evidence, in the run
+where two tests fail:
+
+```json
+{
+  "id": "release:e1",
+  "label": "The test suite passes",
+  "kind": "evidence",
+  "aliases": [],
+  "supports": [
+    "release:s"
+  ],
+  "status": "fail",
+  "reason": "mock/junit.xml: 2 tests failed",
+  "blocked_by": [],
+  "ran": true,
+  "bound_to": "steps.the_test_suite_passes",
+  "bound_by": [
+    "release:e1"
+  ],
+  "observes": [
+    "mock/junit.xml"
+  ],
+  "consumes": [],
+  "produces": [
+    "tests_pass"
+  ],
+  "produced": {},
+  "artifacts": [
+    {
+      "path": "mock/junit.xml",
+      "reachable": true,
+      "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
+      "size": 187
+    }
+  ]
+}
+```
+
+It says what the run concluded (`status`, `reason`), which function judged it and through
+which of its ids (`bound_to`, `bound_by`), what that function declares (`observes`,
+`consumes`, `produces`), what it produced (nothing, since it failed), and the file it
+observed, with its SHA-256 and size. A CI pipeline can archive the files a report lists
+with its verdict, and check later that they have not changed. The other elements follow,
+each after what supports it; `s` and `c` give `release:e1` as what blocked them. The
+report is the same on every run over the same files: it records no time, and its paths are
+relative to where the runner runs.
+
+The runner can also draw the run. The diagram is the argument as the jPipe compiler draws
+it (`jpipe process -f SVG`), with each element's status over it: here, the failed evidence
+in vermillion, what it blocked dashed and grey, and the evidence that passed with a green
+border ([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)).
+
+![The release argument after the run: e1 failed, e2 passed, s and c were skipped](images/release-fail.svg)
+
+Its dataflow view adds what the functions declare: the file each evidence observes, and
+the variables that flow from the evidence to the strategy. `tests_pass` is dashed: `e1`
+failed, so it was never produced, and `s`, which consumes it, could not run.
+
+![The same run, with the files observed and the variables produced and consumed](images/release-fail-dataflow.svg)
+
+**Planned (M6).** The `jpipe-runner` command
+([#124](https://github.com/jpipe-mcscert/jpipe-runner/issues/124)) will print the text
+report, or the JSON report with `--report json`, and draw the diagram where `--output`
+says. Its exit code will tell a CI pipeline whether the justification holds: 0 when it
+passes, 1 when it fails, and 3 when nothing could run. A skipped justification exits 0,
+unless the run is strict.
 
 ## When something is wrong
 
@@ -392,23 +468,32 @@ JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as
   fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
 ```
 
-The run calls `the_test_suite_passes` of the draft after the argument of `tested` below
-it, and only because that argument passed. Both libraries observe `mock/junit.xml`, and
-both record the same file:
+The run calls `the_test_suite_passes` of the draft, for `readiness:hook`, after the
+argument of `tested` below it, and only because that argument passed:
 
 ```
-pass  readiness:draft:changelog   draft_steps.the_changelog_is_up_to_date
-      observed mock/CHANGELOG.md (sha256 d526eb4e878a…, 4 bytes)
-pass  readiness:draft:docs        draft_steps.the_changelog_and_api_docs_are_current
-pass  readiness:draft:documented  (no function)
-pass  readiness:tested:suite      tested_steps.the_test_suite_passes
-      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
-pass  readiness:tested:coverage   tested_steps.coverage_is_above_80
-      observed mock/coverage.txt (sha256 83a626104926…, 5 bytes)
-pass  readiness:tested:testing    tested_steps.the_test_suite_passes_with_high_coverage
-pass  readiness:hook              draft_steps.the_test_suite_passes
-      observed mock/junit.xml (sha256 8ed0d32aa8de…, 187 bytes)
-pass  readiness:draft:gates       draft_steps.all_release_gates_pass
-pass  readiness:draft:ready       (no function)
+Justification: readiness
+  Version 2.0 is ready to ship
+
+  ✔ Evidence        The changelog is up to date               # readiness:draft:changelog
+  ✔ Strategy        The changelog and API docs are current    # readiness:draft:docs
+  ✔ Sub-conclusion  The documentation is updated              # readiness:draft:documented
+  ✔ Evidence        The test suite passes                     # readiness:tested:suite
+  ✔ Evidence        Coverage is above 80%                     # readiness:tested:coverage
+  ✔ Strategy        The test suite passes with high coverage  # readiness:tested:testing
+  ✔ Sub-conclusion  The code is tested                        # readiness:hook
+  ✔ Strategy        All release gates pass                    # readiness:draft:gates
+  ✔ Conclusion      Version 2.0 is ready to ship              # readiness:draft:ready
+
+JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
+  fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
+
+9 elements (9 passed)
+1 diagnostic (1 warning)
 verdict: pass
 ```
+
+Libraries written against separate models need a little care to run together: variable
+and file names are shared by the whole run, `assemble` adds a strategy that needs a step
+of its own, and a cross-check must stay bound. See
+[Libraries written for separate models](authoring.md#libraries-written-for-separate-models).

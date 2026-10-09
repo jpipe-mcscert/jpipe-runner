@@ -1,5 +1,6 @@
 """The engine: statuses, propagation, run-time diagnostics and the verdict (#120, #144)."""
 
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ from jpipe_runner.engine import (
     Verdict,
     run,
 )
+from jpipe_runner.libraries import imported
 from jpipe_runner.model import Justification
 from jpipe_runner.outcomes import NOT_AN_OUTCOME
 from jpipe_runner.steps import StepRegistry, step_of
@@ -182,6 +184,61 @@ def _divide() -> Outcome:
     return Pass(a=str(1 / 0))
 
 
+def test_what_a_step_produced_is_recorded_as_it_returned_it(release: Release) -> None:
+    received: list[str] = ["one"]
+
+    @strategy("s", consumes=["a", "b"])
+    def mutates(a: list[str], b: int) -> Outcome:
+        a.append("changed by s")
+        return Pass()
+
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["a"])
+    def first(log: Path) -> Outcome:
+        return Pass(a=received)
+
+    @evidence("e2", observes={"logs": "*.txt"}, produces=["b"])
+    def second(logs: list[Path]) -> Outcome:
+        return Pass(b=len(logs))
+
+    result = run(RELEASE, _registry(first, second, mutates), root=release.root)
+
+    assert received == ["one", "changed by s"]
+    assert result.result("e1").produced == {"a": ["one"]}
+
+
+def test_a_value_that_cannot_be_copied_is_recorded_as_it_is(release: Release) -> None:
+    lock = threading.Lock()
+    release.returns["e1"] = lambda: Pass(a=lock)
+
+    result = release.run()
+
+    assert result.result("e1").produced["a"] is lock
+
+
+def test_jp022_names_where_the_step_raised_relative_to_the_root(tmp_path: Path) -> None:
+    (tmp_path / "log.txt").write_text("", encoding="utf-8")
+    library = tmp_path / "broken_steps.py"
+    library.write_text(
+        "from jpipe_runner import evidence, strategy\n"
+        "\n"
+        '@evidence("e", observes={"log": "log.txt"}, produces=["x"])\n'
+        "def broken(log):\n"
+        "    return 1 / 0\n"
+        "\n"
+        '@strategy("s", consumes=["x"])\n'
+        "def judged(x):\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    with imported([library]) as modules:
+        result = run(small, StepRegistry.from_modules(modules), root=tmp_path)
+
+    (raised, *_) = result.diagnostics
+    assert raised.code == STEP_RAISED
+    assert raised.message.endswith(", at broken_steps.py, line 5")
+
+
 def test_an_exception_fails_the_element_with_jp022_and_its_traceback(release: Release) -> None:
     release.returns["e1"] = _divide
 
@@ -192,10 +249,11 @@ def test_an_exception_fails_the_element_with_jp022_and_its_traceback(release: Re
     assert [(d.code, d.severity, d.element) for d in e1.diagnostics] == [
         (STEP_RAISED, Severity.ERROR, "e1")
     ]
-    assert e1.error is not None
-    assert e1.error.exc_type is ZeroDivisionError
-    assert e1.error.stack[-1].name == "_divide"
-    assert [Path(frame.filename).name for frame in e1.error.stack] == ["test_engine.py"] * 3
+    trace = e1.diagnostics[0].traceback
+    assert trace is not None
+    assert trace.exc_type is ZeroDivisionError
+    assert trace.stack[-1].name == "_divide"
+    assert [Path(frame.filename).name for frame in trace.stack] == ["test_engine.py"] * 3
     assert _statuses(result)["s"] == (Status.SKIP, ("e1",))
     assert result.verdict is Verdict.FAIL
 

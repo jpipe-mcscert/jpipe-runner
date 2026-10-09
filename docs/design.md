@@ -9,6 +9,7 @@ the plan: update it in the commit that changes the design.
 flowchart LR
     json[/"justification JSON<br>(from the jPipe compiler)"/]
     schema[("justification.schema.json")]
+    reportschema[("report.schema.json")]
 
     json -.->|read by| loader
     loader -.->|validated against| schema
@@ -42,6 +43,24 @@ flowchart LR
     engine --> steps
     engine --> validation
     engine --> values
+    report --> artifacts
+    report --> binding
+    report --> diagnostics
+    report --> engine
+    report --> libraries
+    report --> model
+    diagram --> engine
+    diagram --> model
+    diagram --> report
+    diagram -.->|piped to| dot[["Graphviz dot"]]
+    json_report --> artifacts
+    json_report --> diagnostics
+    json_report --> report
+    json_report -.->|validated against| reportschema
+    text_report --> diagnostics
+    text_report --> engine
+    text_report --> model
+    text_report --> report
 ```
 
 A solid arrow is an import: the module at its tail uses the module at its head. A dotted
@@ -58,6 +77,10 @@ arrow is data.
 | [`engine`](../src/jpipe_runner/engine.py) | Runs a step library against its model: validates it, then calls the steps supporters first, and returns a `RunResult`, each element's `ElementResult` and the verdict. Entry point: `run(justification, registry)`. |
 | [`libraries`](../src/jpipe_runner/libraries.py) | Imports a run's step libraries, each as a module named after its file, with the run's python path, and forgets them after the run. Entry point: `imported(libraries, python_path)`. |
 | [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: whether each can be reached, what it was (path, SHA-256, size), and what the step receives. |
+| [`report`](../src/jpipe_runner/report.py) | The `RunReport` of a run, built for every way a run ends, even when nothing ran: each element of the model with its status, its step and what that step declares, observed and produced, then every diagnostic. Entry points: `RunReport.of(result)`, `RunReport.refused(error)`, `RunReport.not_imported(justification, error)`. |
+| [`json_report`](../src/jpipe_runner/json_report.py) | Renders a `RunReport` as the JSON report, the machine-readable contract described by `report.schema.json` and [`report-schema.md`](report-schema.md). Entry points: `document(report)`, `dumps(report)`. |
+| [`diagram`](../src/jpipe_runner/diagram.py) | Draws a justification as the jPipe compiler draws it, with a run's statuses over it, and in the dataflow view the files and variables its steps declare. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
+| [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run, and `user_traceback`, an exception's traceback without the runner's frames. |
@@ -67,7 +90,8 @@ The public API, what a step library imports, is the package itself: `from jpipe_
 import evidence, strategy, sub_conclusion, conclusion, Outcome, Pass, Fail, Skip`.
 What runs a justification, the command line from M6, uses three entry points:
 `loader.load(path)`, `libraries.imported(libraries, python_path)`, inside which
-`engine.run(justification, registry)` runs.
+`engine.run(justification, registry)` runs. Whichever way the run ends, it builds a
+`RunReport`, and renders it.
 
 ## Classes
 
@@ -135,6 +159,18 @@ classDiagram
         class LibraryLoadError
     }
 
+    namespace report {
+        class RunReport
+        class ElementReport
+        class Summary
+        class Trace
+        class Frame
+    }
+
+    namespace diagram {
+        class View
+    }
+
     namespace artifacts {
         class Observed
         class Observation
@@ -165,6 +201,7 @@ classDiagram
     <<enumeration>> Unset
     <<enumeration>> Status
     <<enumeration>> Verdict
+    <<enumeration>> View
 
     Justification "1" *-- "*" Element : elements
     Justification "1" *-- "*" Relation : relations
@@ -218,6 +255,18 @@ classDiagram
     ElementResult ..> Outcome : outcome
     ElementResult "1" *-- "*" Observation : observed
     ElementResult "1" o-- "*" Diagnostic : diagnostics
+    Diagnostic ..> TracebackException : traceback
+    RunReport "1" *-- "*" ElementReport : elements
+    RunReport "1" o-- "*" Diagnostic : diagnostics
+    RunReport ..> Verdict : verdict
+    RunReport ..> Summary : summary
+    RunReport ..> Trace : trace
+    RunReport ..> RunResult : of
+    ElementReport --> Kind : kind
+    ElementReport --> Status : status
+    ElementReport "1" *-- "*" Observation : artifacts
+    Trace "1" *-- "*" Frame : frames
+    Trace --> Trace : cause
     Exception <|-- LibraryLoadError
     LibraryLoadError "1" o-- "1..*" Diagnostic : diagnostics
     Observed "1" *-- "*" Observation : observations
@@ -371,10 +420,48 @@ supports its consumer (`JP009`, `JP014`), and a `Pass` stores every value its st
 declares or fails (`JP023`). The engine raises a `RuntimeError` rather than pass `UNSET`.
 
 **What a step does wrong fails its element, and the run goes on.** An exception (`JP022`,
-with its traceback, trimmed by `user_traceback`), a value that is not an outcome
+whose diagnostic carries the traceback, trimmed by `user_traceback`), a value that is not an outcome
 (`JP017`), an unreachable artifact (`JP019`, and the step is not called) and a missing
 declared value (`JP023`) fail the element, with the diagnostic on its `ElementResult`. An
 undeclared value is dropped, with a warning (`JP024`): no step can consume it, so it
-changes nothing. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
+changes nothing. What a step produced is recorded on its `ElementResult` as a deep copy,
+taken when it returned, so that a step that changes a value it consumes does not change
+the record. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
 failed, else `SKIP` if one was skipped, else `PASS`. The engine prints nothing: it logs
 to the `jpipe_runner.engine` logger, and the report is built from the `RunResult`.
+
+**Every way a run ends has a report, and renderers are pure functions of it** (the diagram,
+of it and its model). A
+`RunReport` is built from a `RunResult`, or, when nothing could run, from the
+`InvalidJustificationError` of a refused model or the `LibraryLoadError` of libraries that
+could not be imported. It is plain data: every element of the model, in topological order,
+with its status (`None` when nothing ran), the step bound to it, what that step declares
+(the artifacts it observes, the variables it consumes and produces), and what the run
+observed and produced; then every diagnostic, in the order found, and a `Summary` of both.
+A diagnostic about an exception (`JP020`, `JP022`) carries its traceback, which the report
+shows as a `Trace`: its frames' files relative to the run's root, and the same on every
+Python version. The text renderer, `text_report.render`, lays a report out for a person, in
+the manner of Cucumber: each element with a symbol for its status, its kind, its label and
+its id, why it did not pass, then the diagnostics, the summary and the verdict. Its layout
+is not a contract. Whether to colour it is the caller's decision (`use_colour`: a terminal,
+unless `NO_COLOR` is set).
+
+**The JSON report is the contract** ([ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)).
+`json_report.document` writes a report as the JSON document that `report.schema.json`,
+shipped in the package, describes, versioned by `schema_version`. It is deterministic: no
+time, relative paths, fields in a fixed order. A produced value is written as itself when
+it is JSON, and as its `repr` and type otherwise, a `repr` made canonical: paths under the
+root relative to it, sets sorted, no object addresses. [`report-schema.md`](report-schema.md)
+documents it for readers.
+
+**A diagram is the compiler's drawing, with the run over it**
+([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)). `diagram.source` writes the DOT
+text of a justification as the compiler's `DotExporter` does (jPipe 2.5.0): its quoted ids,
+its labels wrapped at 40 characters, its shapes and Okabe-Ito colours, nodes in model order
+and edges in the order of the model's relations. A report's statuses are drawn over it in
+the same palette: a green border for a pass, a vermillion fill for a failure, a dashed grey
+node for a skip. The dataflow `View` adds, from what the report says the steps declare,
+each observed file and each variable as a node. `write` pipes the text to Graphviz's `dot`;
+only the `dot` format is written without it. Since the compiler's drawing follows the
+model's order, a diagram is drawn from the model and the report together, and a report
+whose elements, or what each supports, differ from the model's is refused.
