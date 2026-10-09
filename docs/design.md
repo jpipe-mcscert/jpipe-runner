@@ -49,6 +49,10 @@ flowchart LR
     report --> engine
     report --> libraries
     report --> model
+    diagram --> engine
+    diagram --> model
+    diagram --> report
+    diagram -.->|piped to| dot[["Graphviz dot"]]
     json_report --> artifacts
     json_report --> diagnostics
     json_report --> report
@@ -75,6 +79,7 @@ arrow is data.
 | [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: whether each can be reached, what it was (path, SHA-256, size), and what the step receives. |
 | [`report`](../src/jpipe_runner/report.py) | The `RunReport` of a run, built for every way a run ends, even when nothing ran: each element of the model with its status, its step and what that step declares, observed and produced, then every diagnostic. Entry points: `RunReport.of(result)`, `RunReport.refused(error)`, `RunReport.not_imported(justification, error)`. |
 | [`json_report`](../src/jpipe_runner/json_report.py) | Renders a `RunReport` as the JSON report, the machine-readable contract described by `report.schema.json` and [`report-schema.md`](report-schema.md). Entry points: `document(report)`, `dumps(report)`. |
+| [`diagram`](../src/jpipe_runner/diagram.py) | Draws a justification as the jPipe compiler draws it, with a run's statuses over it, and in the dataflow view the files and variables its steps declare. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
 | [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
@@ -162,6 +167,10 @@ classDiagram
         class Frame
     }
 
+    namespace diagram {
+        class View
+    }
+
     namespace artifacts {
         class Observed
         class Observation
@@ -192,6 +201,7 @@ classDiagram
     <<enumeration>> Unset
     <<enumeration>> Status
     <<enumeration>> Verdict
+    <<enumeration>> View
 
     Justification "1" *-- "*" Element : elements
     Justification "1" *-- "*" Relation : relations
@@ -437,5 +447,15 @@ is not a contract.
 shipped in the package, describes, versioned by `schema_version`. It is deterministic: no
 time, relative paths, fields in a fixed order. A produced value is written as itself when
 it is JSON, and as its `repr` and type otherwise. [`report-schema.md`](report-schema.md)
-documents it for readers. Whether to colour it is the caller's decision (`use_colour`: a terminal,
+documents it for readers.
+
+**A diagram is the compiler's drawing, with the run over it**
+([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)). `diagram.source` writes the DOT
+text of a justification as the compiler's `DotExporter` does (jPipe 2.5.0): its quoted ids,
+its labels wrapped at 40 characters, its shapes and Okabe-Ito colours, nodes in model order
+and edges in the order of the model's relations. A report's statuses are drawn over it in
+the same palette: a green border for a pass, a vermillion fill for a failure, a dashed grey
+node for a skip. The dataflow `View` adds, from what the report says the steps declare,
+each observed file and each variable as a node. `write` pipes the text to Graphviz's `dot`;
+only the `dot` format is written without it. Whether to colour it is the caller's decision (`use_colour`: a terminal,
 unless `NO_COLOR` is set).

@@ -30,6 +30,19 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   than its immediate supporter. A justification in which nothing failed but something was
   skipped is reported as skipped, not as passed
   ([ADR-0021](docs/adr/0021-execution-semantics.md)).
+- **Diagrams are drawn as the jPipe compiler draws them, with the run over them.** A
+  justification is drawn exactly as `jpipe process -f SVG` draws it (jPipe 2.5.0): element
+  ids are kept as they are, rather than with `:` turned into `_`, labels are wrapped, and
+  the shapes and colours are the compiler's. A run's statuses are drawn over it in the
+  compiler's colour-blind-safe palette: a green border for a pass, a vermillion fill for a
+  failure, a dashed grey node for a skip, with a thicker border for the element that
+  started a chain of skips; in SVG, hovering a node shows its status and reason. v3's red
+  and `#cccccc` overlay is gone. A new **dataflow view** also draws the files each evidence
+  observes and the variables each step produces and consumes, with any variable that has
+  no producer, no consumer or several producers, and any file that could not be read, in
+  vermillion. Formats are `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png` and `svg`; `dot` is now
+  the DOT text itself, without layout coordinates
+  ([ADR-0022](docs/adr/0022-diagrams-follow-the-compiler.md)).
 - **A JSON report, the machine-readable contract of a run.** It lists every element of the
   justification with its status, why it did not pass and what stopped it, the step bound
   to it and the ids that bound it (`bound_to`, `bound_by`, and the element's `aliases`, to
@@ -127,6 +140,10 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   dependency needs them.
 
 ### Removed
+- **The `graphviz` Python package is no longer a dependency.** Diagrams are drawn by
+  piping their DOT text to Graphviz's `dot` binary, as the jPipe compiler does, so only the
+  binary is needed, as before. The Debian package depends on `graphviz` instead of
+  `python3-graphviz`.
 - **`@skip` and `@contribution`.** A step that should not run returns `Skip(reason)`,
   decided when it runs rather than when its module is imported. `@contribution` had no
   effect.

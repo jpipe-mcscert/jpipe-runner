@@ -200,7 +200,7 @@ known-bugs and tech-debt lists were dropped with the v3 code.
   ```
   Homebrew's Poetry leaks system packages (e.g. `tbb`) into its resolver, breaking plugin installs.
 
-- **Graphviz system dependency**: the `graphviz` Python package calls the `dot` binary at runtime — only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
+- **Graphviz system dependency**: diagrams are rendered by piping DOT text to the `dot` binary, as the jPipe compiler does (ADR-0022); there is no Python Graphviz package. Only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
 
 - **Debian packaging** lives in the committed `debian/` directory (`3.0 (native)`
   source format, pybuild via `debian/rules`). `setup.py` is the setuptools shim

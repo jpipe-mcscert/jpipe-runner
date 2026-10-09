@@ -34,3 +34,4 @@ and add a row to this table.
 | [0019](0019-evidence-observes-files.md) | Evidence observes files, recorded just before its step runs | accepted |
 | [0020](0020-importing-step-libraries.md) | Import step libraries as modules named after their files, for one run | accepted |
 | [0021](0021-execution-semantics.md) | Failures and skips propagate as skips; a step's mistakes fail its element | accepted |
+| [0022](0022-diagrams-follow-the-compiler.md) | Diagrams follow the compiler's, with a status overlay and a dataflow view | accepted |

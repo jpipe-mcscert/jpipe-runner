@@ -23,7 +23,6 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.11"
 networkx = "3.5"
-graphviz = ">=0.20"
 jsonschema = ">=4.0"
 
 [tool.poetry.scripts]

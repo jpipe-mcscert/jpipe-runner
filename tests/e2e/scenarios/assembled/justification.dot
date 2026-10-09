@@ -1,0 +1,21 @@
+digraph "readiness" {
+  rankdir=BT;
+  label="readiness";
+  "readiness:assembleConclusion" [label="Version 2.0 is ready to ship", id="readiness:assembleConclusion", shape=rect, style="filled,rounded", fillcolor=lightgrey];
+  "readiness:tested:tested" [label="The code is tested", id="readiness:tested:tested", shape=rect, color="#0072B2"];
+  "readiness:tested:testing" [label="The test suite passes with high coverage", id="readiness:tested:testing", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "readiness:tested:suite" [label="The test suite passes", id="readiness:tested:suite", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "readiness:tested:coverage" [label="Coverage is above 80%", id="readiness:tested:coverage", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "readiness:documented:documented" [label="The documentation is updated", id="readiness:documented:documented", shape=rect, color="#0072B2"];
+  "readiness:documented:docs" [label="The changelog and API docs are current", id="readiness:documented:docs", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "readiness:documented:changelog" [label="The changelog is up to date", id="readiness:documented:changelog", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "readiness:assembleStrategy" [label="All release gates pass", id="readiness:assembleStrategy", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "readiness:assembleStrategy" -> "readiness:assembleConclusion";
+  "readiness:tested:testing" -> "readiness:tested:tested";
+  "readiness:documented:docs" -> "readiness:documented:documented";
+  "readiness:tested:suite" -> "readiness:tested:testing";
+  "readiness:tested:coverage" -> "readiness:tested:testing";
+  "readiness:documented:changelog" -> "readiness:documented:docs";
+  "readiness:tested:tested" -> "readiness:assembleStrategy";
+  "readiness:documented:documented" -> "readiness:assembleStrategy";
+}

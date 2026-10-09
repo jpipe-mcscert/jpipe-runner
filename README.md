@@ -40,7 +40,8 @@ You need:
 * **[pre-commit](https://pre-commit.com)**, to run the linters before each commit:
   `pipx install pre-commit`.
 * **The [Graphviz](https://graphviz.org/download/) `dot` binary**, to render diagrams
-  (`brew install graphviz` or `sudo apt-get install graphviz`). The tests do not need it yet.
+  (`brew install graphviz` or `sudo apt-get install graphviz`). The tests that render an
+  image are skipped without it.
 
 Clone the repository and set up the environment:
 

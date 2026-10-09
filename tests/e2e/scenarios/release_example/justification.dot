@@ -1,0 +1,11 @@
+digraph "release" {
+  rankdir=BT;
+  label="release";
+  "release:c" [label="Version 2.0 is ready to ship", id="release:c", shape=rect, style="filled,rounded", fillcolor=lightgrey];
+  "release:s" [label="All release gates pass", id="release:s", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+  "release:e1" [label="The test suite passes", id="release:e1", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "release:e2" [label="The changelog is up to date", id="release:e2", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "release:s" -> "release:c";
+  "release:e1" -> "release:s";
+  "release:e2" -> "release:s";
+}
