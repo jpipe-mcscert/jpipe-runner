@@ -74,9 +74,9 @@ too, and it already carries everything both questions need: `supports`, `observe
   run from elsewhere.
 - **Both print text, for people.** The Action can quote it in a comment. A JSON form would
   be a second contract to version; it can come when a program needs it.
-- **Running only what a change affects is split out** of #146, into its own issue: a
-  partial run (#153) needs a decision on its verdict and on what its report says of the elements
-  it did not run. So is reusing the outcome of unchanged evidence (`--incremental`).
+- **Running only what a change affects is split out** of #146, into #153: a partial run
+  needs a decision on its verdict and on what its report says of the elements it did not
+  run. So is reusing the outcome of unchanged evidence (`--incremental`).
 
 ### Consequences
 

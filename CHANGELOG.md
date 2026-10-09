@@ -102,6 +102,10 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   never when `NO_COLOR` is set; the symbols fall back to ASCII where the terminal cannot
   show them. v3's ASCII banners and fixed-width table are gone. The layout is for people,
   and may change: scripts should read the JSON report.
+- **A tutorial, from a `.jd` file to a green run**, [`docs/tutorial.md`](docs/tutorial.md):
+  install, write the argument, compile it, write the checks, run them, see one fail, and
+  run a composed argument with the libraries written for its parts. Every file and run it
+  shows is checked by the test suite (old #80).
 - **A reference of the command line**, [`docs/cli.md`](docs/cli.md): every option, every
   exit code, where each output goes, and how a step library finds the packages it
   imports. Its examples are run by the test suite.
