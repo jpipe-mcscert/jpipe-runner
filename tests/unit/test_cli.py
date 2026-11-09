@@ -440,11 +440,15 @@ def test_quiet_still_logs_errors(release: Path, capsys: pytest.CaptureFixture[st
 
 def test_logging_is_restored_after_a_run(release: Path, capsys: pytest.CaptureFixture[str]) -> None:
     logger = logging.getLogger("jpipe_runner")
-    before = (logger.level, logger.propagate, list(logger.handlers))
+    before = _state(logger)
 
     _main(capsys, "-vv", *RELEASE)
 
-    assert (logger.level, logger.propagate, list(logger.handlers)) == before
+    assert _state(logger) == before
+
+
+def _state(logger: logging.Logger) -> tuple[int, bool, list[logging.Handler]]:
+    return logger.level, logger.propagate, list(logger.handlers)
 
 
 @pytest.mark.parametrize(

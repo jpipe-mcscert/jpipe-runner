@@ -22,6 +22,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
+from typing import NoReturn
 
 from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
 from jpipe_runner.diagnostics import shown_path
@@ -64,9 +65,28 @@ def exit_code(verdict: Verdict, *, strict: bool = False) -> ExitCode:
     return ExitCode.OK
 
 
+class _Stop(Exception):
+    """argparse is done before the command runs: it printed the help, the version, or a
+    usage error, and ``status`` is the exit code it asks for."""
+
+    def __init__(self, status: int) -> None:
+        super().__init__(status)
+        self.status = status
+
+
+class _Parser(argparse.ArgumentParser):
+    """A parser that raises ``_Stop`` where argparse would end the process, so that
+    ``main`` returns the exit code instead of exiting."""
+
+    def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
+        if message:
+            self._print_message(message, sys.stderr)
+        raise _Stop(status)
+
+
 def parser() -> argparse.ArgumentParser:
     """The parser of the command that runs a justification."""
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog=_PROGRAM,
         description="Run a jPipe justification against the Python step libraries that "
         "implement its evidence and its reasoning, and report its verdict.",
@@ -123,7 +143,7 @@ def parser() -> argparse.ArgumentParser:
 
 def impact_parser() -> argparse.ArgumentParser:
     """The parser of ``jpipe-runner impact``."""
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog=f"{_PROGRAM} impact",
         description="List the evidence that observes changed files, and every element "
         "above it, from what the step libraries declare. No step is called.",
@@ -148,7 +168,7 @@ def impact_parser() -> argparse.ArgumentParser:
 
 def status_parser() -> argparse.ArgumentParser:
     """The parser of ``jpipe-runner status``."""
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog=f"{_PROGRAM} status",
         description="Compare the files a run observed, as its JSON report recorded them, "
         "with the files now, and list what is stale. No step is called.",
@@ -215,22 +235,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     reader = command.parser()
     try:
         options = reader.parse_args(arguments)
-    except SystemExit as stop:  # argparse exits on --help, --version and usage errors
-        return _usage(stop)
+    except _Stop as stop:  # --help, --version, or a usage error
+        return stop.status
     with _logging(options.verbose, options.quiet):
         try:
             command.check(reader, options)
             return command.run(options)
-        except SystemExit as stop:  # a usage error the command's check found
-            return _usage(stop)
+        except _Stop as stop:  # a usage error the command's check found
+            return stop.status
         except OSError as error:  # the check's too: a path it cannot even look at
-            _LOG.error("%s", _reason(error))
+            # An error is one line on stderr, not a traceback (ADR-0023).
+            _LOG.error("%s", _reason(error))  # NOSONAR
             return ExitCode.IO
-
-
-def _usage(stop: SystemExit) -> int:
-    """The exit code argparse asked for."""
-    return stop.code if isinstance(stop.code, int) else ExitCode.USAGE
 
 
 def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace) -> None:
@@ -355,7 +371,8 @@ def _draw(
         try:
             diagram.write(path, justification, report, view=view)
         except OSError as error:
-            _LOG.error("%s", _reason(error))
+            # An error is one line on stderr, not a traceback (ADR-0023).
+            _LOG.error("%s", _reason(error))  # NOSONAR
             drawn = False
             continue
         _LOG.info("drew the %s view at %s", view, path)
@@ -371,7 +388,8 @@ def _save(path: Path | None, report: RunReport) -> bool:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json_report.dumps(report), encoding="utf-8")
     except OSError as error:
-        _LOG.error("cannot write the report to %s: %s", path, _reason(error))
+        # An error is one line on stderr, not a traceback (ADR-0023).
+        _LOG.error("cannot write the report to %s: %s", path, _reason(error))  # NOSONAR
         return False
     _LOG.info("wrote the JSON report to %s", path)
     return True
@@ -437,7 +455,8 @@ def _status(options: argparse.Namespace) -> int:
     try:
         document = impact.read(options.report)
     except impact.InvalidReportError as error:
-        _LOG.error("%s", error)
+        # An error is one line on stderr, not a traceback (ADR-0023).
+        _LOG.error("%s", error)  # NOSONAR
         return ExitCode.INVALID
     if document["verdict"] in (Verdict.INVALID, Verdict.VALID):
         _LOG.error(
