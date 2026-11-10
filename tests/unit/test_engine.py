@@ -236,7 +236,34 @@ def test_jp022_names_where_the_step_raised_relative_to_the_root(tmp_path: Path) 
 
     (raised, *_) = result.diagnostics
     assert raised.code == STEP_RAISED
-    assert raised.message.endswith(", at broken_steps.py, line 5")
+    assert raised.message == (
+        "the step raised ZeroDivisionError at broken_steps.py, line 5: division by zero"
+    )
+
+
+def test_jp022_of_an_exception_without_a_message_ends_where_it_was_raised(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "log.txt").write_text("", encoding="utf-8")
+    library = tmp_path / "silent_steps.py"
+    library.write_text(
+        "from jpipe_runner import evidence, strategy\n"
+        "\n"
+        '@evidence("e", observes={"log": "log.txt"}, produces=["x"])\n'
+        "def silent(log):\n"
+        "    raise RuntimeError\n"
+        "\n"
+        '@strategy("s", consumes=["x"])\n'
+        "def judged(x):\n"
+        "    return None\n",
+        encoding="utf-8",
+    )
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    with imported([library]) as modules:
+        result = run(small, StepRegistry.from_modules(modules), root=tmp_path)
+
+    raised = next(d for d in result.diagnostics if d.code == STEP_RAISED)
+    assert raised.message == "the step raised RuntimeError at silent_steps.py, line 5"
 
 
 def test_an_exception_fails_the_element_with_jp022_and_its_traceback(release: Release) -> None:

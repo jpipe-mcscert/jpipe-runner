@@ -145,14 +145,16 @@ def _import(file: Path) -> ModuleType:
 
 def _import_failed(file: Path, error: BaseException, trace: TracebackException) -> Diagnostic:
     # A SyntaxError names its file and line itself; anything else is located at the
-    # deepest frame of the library's code, which is where the author can act.
-    where = ""
+    # deepest frame of the library's code, which is where the author can act. Where comes
+    # before the exception's own message, which may end a sentence.
+    raised = type(error).__name__
     if trace.stack and not isinstance(error, SyntaxError):
         frame = trace.stack[-1]
         if Path(frame.filename) == file.resolve():
-            where = f", at line {frame.lineno}"
+            raised += f" at line {frame.lineno}"
         else:
-            where = f", at {frame.filename}, line {frame.lineno}"
+            raised += f" at {frame.filename}, line {frame.lineno}"
+    message = str(error)
     fix = None
     if isinstance(error, ModuleNotFoundError):
         fix = (
@@ -162,7 +164,7 @@ def _import_failed(file: Path, error: BaseException, trace: TracebackException) 
     return Diagnostic(
         LIBRARY_IMPORT_FAILED,
         Severity.ERROR,
-        f"{file} cannot be imported: {type(error).__name__}: {error}{where}",
+        f"{file} cannot be imported: {raised}" + (f": {message}" if message else ""),
         fix=fix,
         traceback=trace,
     )

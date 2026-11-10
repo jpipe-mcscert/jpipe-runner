@@ -315,19 +315,26 @@ def _failed(
 def _raised(
     element: Element, error: BaseException, trace: TracebackException, root: Path
 ) -> Diagnostic:
-    where = ""
+    # Where comes before the exception's own message, which may end a sentence.
+    raised = type(error).__name__
     if trace.stack:
         frame = trace.stack[-1]
-        where = f", at {shown_path(frame.filename, root)}, line {frame.lineno}"
+        raised += f" at {shown_path(frame.filename, root)}, line {frame.lineno}"
     return Diagnostic(
         STEP_RAISED,
         Severity.ERROR,
-        f"the step raised {type(error).__name__}: {error}{where}",
+        f"the step raised {raised}{_said(error)}",
         element=element.id,
         fix="Return Fail(reason) when the check does not hold: an exception says the step "
         "itself is broken.",
         traceback=trace,
     )
+
+
+def _said(error: BaseException) -> str:
+    """``error``'s message, after a colon, if it has one."""
+    message = str(error)
+    return f": {message}" if message else ""
 
 
 def _missing(binding: Binding, names: list[str]) -> Diagnostic:

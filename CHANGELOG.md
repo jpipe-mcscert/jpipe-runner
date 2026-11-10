@@ -116,6 +116,12 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
   validation rule checks, why, its severity and how to fix what it reports, and the codes
   reported when a model or a step library is loaded, or a step runs. It is generated from
   the rules themselves, so it cannot drift from what the runner checks.
+- **The documentation reads as one set**: [`docs/README.md`](docs/README.md) lists the
+  pages in reading order, from the tutorial to the references, and
+  [`docs/concepts.md`](docs/concepts.md) defines once the words they all use
+  (justification, element, step, binding, variable, artifact, outcome, status, verdict),
+  and each page links to it. Every code example and every output quoted is checked by
+  the test suite, and so is every link between the pages.
 
 ### Changed
 - **The command line's options changed** (#124). `-v` is now `--verbose`; it was

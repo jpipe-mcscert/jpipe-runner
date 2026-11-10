@@ -68,6 +68,12 @@ Run the tools through `poetry run`, so that they use the project's environment a
 editable install of `src/`, not another `jpipe-runner` installed elsewhere. Their
 configuration lives in [`pyproject.toml`](pyproject.toml).
 
+## Documentation
+
+[`docs/README.md`](docs/README.md) lists the documentation in reading order, starting with
+[the tutorial](docs/tutorial.md), which takes an argument from its `.jd` file to a green
+run.
+
 ## Contributing
 
 [`docs/contributing.md`](docs/contributing.md) explains how to contribute: branches, pull

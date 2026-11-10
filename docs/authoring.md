@@ -1,8 +1,11 @@
 # Writing a step library
 
-A step library is the Python code behind a justification: one function per element whose
-claim is checked by running something. This page is the reference for writing one. For a
-walk through a complete example, see [`end-to-end.md`](end-to-end.md).
+A [step library](concepts.md#step-library) is the Python code behind a
+[justification](concepts.md#justification): one function per element whose claim is
+checked by running something. This page is the reference for writing one. For a first
+library, start with [`tutorial.md`](tutorial.md); [`end-to-end.md`](end-to-end.md) follows
+a complete example through every stage, and [`concepts.md`](concepts.md) defines the words
+this page uses.
 
 Everything a step library needs is imported from the package itself:
 
@@ -10,7 +13,8 @@ Everything a step library needs is imported from the package itself:
 from jpipe_runner import Fail, Outcome, Pass, Skip, conclusion, evidence, strategy, sub_conclusion
 ```
 
-Nothing else in `jpipe_runner` is meant for step libraries.
+Nothing else in `jpipe_runner` is meant for step libraries, but for
+`jpipe_runner.__version__`, the version installed, as `jpipe-runner --version` prints it.
 
 ## Declaring a step
 
@@ -169,7 +173,17 @@ assert Pass({"coverage": 92.0}) == Pass(coverage=92.0)
 assert Pass({"coverage": 92.0}, tests_pass=True).values == {"coverage": 92.0, "tests_pass": True}
 ```
 
-Outcomes are immutable, and compare by value.
+Outcomes are immutable, and compare by value. `Outcome` is the type of all three, for a
+step's return annotation. A `Pass` keeps its `values`, and a `Fail` or a `Skip` its
+`reason`:
+
+```python
+from jpipe_runner import Fail, Outcome, Skip
+
+assert all(isinstance(outcome, Outcome) for outcome in (Pass(), Fail("why"), Skip()))
+assert Fail("2 tests failed").reason == "2 tests failed"
+assert Skip().reason == ""
+```
 
 ### Why not `True` and `False`
 
@@ -342,7 +356,7 @@ others, the library keeps binding:
 - **`assemble` prefixes the ids** with the composed model's name: `tested:e` becomes
   `ready:tested:e`. The old id is a tail of the new one.
 - **`refine` merges the hook into a sub-conclusion** that keeps the hook's id as an alias.
-  An `@evidence("draft:tests")` written against the draft still binds, now to a node that
+  An `@evidence("draft:tests")` written against the draft still binds, now to an element that
   is argued in full below it. It runs after that sub-argument, as an independent
   cross-check of the same claim, and validation reports the change of kind as a warning
   (`JP008`), not an error ([ADR-0013](adr/0013-kind-divergence-under-composition.md)).

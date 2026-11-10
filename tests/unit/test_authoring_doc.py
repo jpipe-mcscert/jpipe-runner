@@ -3,7 +3,8 @@
 Every ``python`` block of the page is executed, in order, in one namespace, so a later
 example may use what an earlier one declared. A block that stops working with the API it
 documents fails here. The diagnostics the page quotes are recomputed, by running the
-examples' steps, or by validating the libraries of the composed scenarios it describes.
+examples' steps, or by validating the libraries of the composed scenarios it describes, and
+each mistake of its table raises the message the table shows.
 """
 
 import ast
@@ -16,9 +17,10 @@ from typing import Any
 
 import pytest
 
-from jpipe_runner import libraries, loader
+from jpipe_runner import evidence, libraries, loader, strategy
 from jpipe_runner.diagnostics import Diagnostic
 from jpipe_runner.engine import Status, run
+from jpipe_runner.outcomes import NotAnOutcomeError, as_outcome
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry, step_of
 from jpipe_runner.validation import ValidationContext
@@ -145,3 +147,62 @@ def test_the_page_quotes_a_strategy_ignoring_what_a_merged_element_produces() ->
     found = _validated("unified", *(_library(unified / name) for name in names))
     (diagnostic,) = [d for d in found if d.code == "JP013"]
     assert _quoted(diagnostic) in PAGE
+
+
+def test_the_page_quotes_what_a_step_returning_a_boolean_reports() -> None:
+    with pytest.raises(NotAnOutcomeError) as error:
+        as_outcome(True, "release:e1")
+
+    assert _quoted(error.value.diagnostic) in PAGE
+
+
+# --- Mistakes caught when the library is imported -------------------------------------------
+
+MISTAKES = PAGE[
+    PAGE.index("### Mistakes caught when the library is imported") : PAGE.index(
+        "## Observing artifacts"
+    )
+]
+_ROW = re.compile(r"^\| (?P<mistake>[^|]+?) \| `(?P<message>.+)` \|$", re.MULTILINE)
+
+
+# Each row of the page's table, and a declaration that makes that mistake.
+MISTAKE_CASES = {
+    "no id": "evidence()",
+    "`@evidence` without parentheses": "@evidence\ndef e(): ...",
+    "a string instead of a list": 'evidence("x", produces="tests_pass")',
+    "a name that is not an identifier": 'evidence("x", produces=["tests-pass"])',
+    "a parameter that is not consumed": (
+        '@strategy("s", consumes=["tests_pass"])\ndef gates(tests_pass, changelog_ok): ...'
+    ),
+    "an observed artifact that is not a parameter": (
+        '@evidence("e", observes={"changelog": "CHANGELOG.md"})\n'
+        "def the_changelog_is_up_to_date(): ..."
+    ),
+    "a list instead of a mapping": 'evidence("x", observes=["CHANGELOG.md"])',
+    "an absolute path": 'evidence("x", observes={"a": "/home/me/CHANGELOG.md"})',
+    "a directory": 'evidence("x", observes={"a": "src/"})',
+    "`**` inside a name": 'evidence("x", observes={"a": "build/**.xml"})',
+    "`..` after a wildcard": 'evidence("x", observes={"a": "build/*/../x.xml"})',
+    "two step decorators on one function": (
+        '@strategy("release:s")\n'
+        '@evidence("release:e1", observes={"log": "log.txt"})\n'
+        "def f(log): ..."
+    ),
+}
+
+
+def test_the_table_has_a_row_per_mistake() -> None:
+    assert {row["mistake"] for row in _ROW.finditer(MISTAKES)} == set(MISTAKE_CASES)
+
+
+@pytest.mark.parametrize(
+    ("mistake", "message"),
+    [(row["mistake"], row["message"]) for row in _ROW.finditer(MISTAKES)],
+    ids=lambda value: value[:40],
+)
+def test_each_mistake_raises_the_message_the_table_shows(mistake: str, message: str) -> None:
+    with pytest.raises(TypeError) as error:
+        exec(MISTAKE_CASES[mistake], {"evidence": evidence, "strategy": strategy})
+
+    assert str(error.value).startswith(message.removesuffix(" …"))

@@ -4,8 +4,9 @@
 the Python step libraries that implement its evidence and its reasoning, checks that they
 fit the model, calls them, and reports the verdict. This page describes every option and
 every exit code. [`tutorial.md`](tutorial.md) walks through a first run,
-[`end-to-end.md`](end-to-end.md) follows one example from the argument to its verdict, and
-[`authoring.md`](authoring.md) explains how to write a step library.
+[`end-to-end.md`](end-to-end.md) follows one example from the argument to its verdict,
+[`authoring.md`](authoring.md) explains how to write a step library, and
+[`concepts.md`](concepts.md) defines the words these pages use.
 
 ```
 jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...

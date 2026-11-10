@@ -57,7 +57,7 @@
       "code": "JP020",
       "severity": "error",
       "element": null,
-      "message": "steps.py cannot be imported: ModuleNotFoundError: No module named 'this_module_does_not_exist', at line 5",
+      "message": "steps.py cannot be imported: ModuleNotFoundError at line 5: No module named 'this_module_does_not_exist'",
       "fix": "Install the module in the environment jpipe-runner runs in, or pass the directory that holds it as a python path.",
       "traceback": {
         "exception": "ModuleNotFoundError",

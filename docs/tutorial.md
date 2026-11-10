@@ -7,7 +7,8 @@ write a Python function for each check it relies on, and run them with `jpipe-ru
 Every file you need is on this page.
 
 [`end-to-end.md`](end-to-end.md) follows the same example in more depth, stage by stage;
-this page is the short way through.
+this page is the short way through. [`concepts.md`](concepts.md) defines the words it uses:
+justification, element, step, outcome, verdict.
 
 ## 1. Install
 
