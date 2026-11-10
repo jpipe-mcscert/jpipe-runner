@@ -203,11 +203,17 @@ them, with the run's statuses over them.
 ## The GitHub Action
 
 v3's GitHub Action lived at this repository's root, as `jpipe-mcscert/jpipe-runner@v3.x`,
-and ran jpipe-runner 3. It is gone from v4: the action that runs v4 lives in
-[`jpipe-mcscert/jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions),
-and is released there, with version numbers of its own
-([ADR-0012](adr/0012-extract-the-github-action.md)). A workflow that uses a v3 tag keeps
-working, with v3, since a tag never changes: move it when you port its step libraries.
+and ran jpipe-runner 3. It is gone from v4: the action for v4 is built in
+[`jpipe-mcscert/jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions), and released there, with version numbers of its
+own ([ADR-0012](adr/0012-extract-the-github-action.md)).
+
+- **Its first release is not out yet.** Until it is, keep v3's action, and your v3 step
+  libraries, at `jpipe-mcscert/jpipe-runner@v3.6.0`. The mapping below is for that first
+  release.
+- **Only `@v3.6.0` keeps running v3.** The action installs the runner's git ref in its
+  `version` input, and only v3.6.0 sets it to `v3.6.0`: tags v3.0.0 to v3.5.3 install the
+  runner's `main` branch, which is v4 now, and fails on a v3 library. Move such a workflow
+  to `@v3.6.0`, or set `version: v3.6.0` in it.
 
 ```yaml
 - uses: jpipe-mcscert/jpipe-ci-actions@<version>

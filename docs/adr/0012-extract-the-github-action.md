@@ -50,9 +50,12 @@ users lose nothing by it and option 2's first release would be thrown away.
   Its ADR-0002 records how it is built: it runs jpipe-runner 4 only, reads its JSON
   report, and names its inputs in kebab-case.
 - **`action.yml` and `script/action/` are deleted from this repository, without a
-  forwarding shim.** `uses: jpipe-mcscert/jpipe-runner@v3.6.0`, or any v3 tag, keeps
-  working, since a tag is immutable: v3 users are not broken, and move when they port
-  their step libraries to v4. `uses: jpipe-mcscert/jpipe-runner@main` stops working.
+  forwarding shim.** `uses: jpipe-mcscert/jpipe-runner@v3.6.0` keeps working, since a tag
+  is immutable and v3.6.0's `action.yml` installs the runner at `v3.6.0`: v3 users move
+  when they port their step libraries to v4. The tags before it, v3.0.0 to v3.5.3,
+  install the runner's `main` branch by default, which is v4 once this lands: a workflow
+  on one of them moves to `@v3.6.0`, or sets `version: v3.6.0`, and the migration guide
+  says so. `uses: jpipe-mcscert/jpipe-runner@main` stops working.
 - **MB1 is folded into MB0**: there is no release of the action pinned to runner 3.
 
 ### Consequences
