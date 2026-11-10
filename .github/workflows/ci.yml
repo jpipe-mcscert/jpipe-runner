@@ -42,3 +42,22 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Run tests
         run: poetry run pytest
+
+  # The suite on the floor of each runtime dependency, the oldest version a supported
+  # channel installs, on the Python Ubuntu noble ships (ADR-0026). `test` covers the other
+  # end of each range, with what poetry.lock records.
+  test-floor:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: '3.12'
+      - name: Install the floor of each runtime dependency
+        run: |
+          poetry run python -m tests.floors > "$RUNNER_TEMP/floors.txt"
+          cat "$RUNNER_TEMP/floors.txt"
+          poetry run pip install --quiet -r "$RUNNER_TEMP/floors.txt"
+      - name: Run tests
+        run: poetry run pytest --no-cov

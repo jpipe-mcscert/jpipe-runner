@@ -38,8 +38,8 @@ runs:
       shell: bash
       run: sudo apt-get update && sudo apt-get install -y graphviz
 
+    # Exactly what poetry.lock records: `poetry install` fails when the lock file is out
+    # of date with pyproject.toml, rather than resolving afresh (ADR-0026).
     - name: Install project
       shell: bash
-      run: |
-        poetry lock
-        poetry install
+      run: poetry install

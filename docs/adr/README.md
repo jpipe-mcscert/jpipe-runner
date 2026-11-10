@@ -38,3 +38,4 @@ and add a row to this table.
 | [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted |
 | [0024](0024-dry-run-verdict-and-both-diagrams.md) | A dry run validates and is `valid`; the report records both diagrams | accepted |
 | [0025](0025-impact-and-staleness.md) | Impact and staleness are read from the declarations and the report | accepted |
+| [0026](0026-dependency-ranges-and-freshness.md) | Runtime dependencies are tested ranges, and the lock file is kept fresh | accepted |

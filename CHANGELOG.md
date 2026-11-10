@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **networkx and jsonschema are ranges, not pins**: `networkx >=2.8.8,<4` and
+  `jsonschema >=4.10.3,<5`. 4.0.0 required networkx 3.5 exactly, so pip could not install
+  it beside a package that needs another networkx. The floors are the versions Ubuntu
+  24.04 ships, which the Ubuntu package now declares, and the test suite runs on both ends
+  of each range ([ADR-0026](docs/adr/0026-dependency-ranges-and-freshness.md)).
+
 ## [4.0.0] - 2026-11-10
 
 _v4 is a from-scratch rewrite and a breaking release for every v3 user
