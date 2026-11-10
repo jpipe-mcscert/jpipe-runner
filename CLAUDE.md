@@ -2,64 +2,76 @@
 
 ## Project Overview
 
-`jpipe-runner` is a **Python CLI tool and GitHub Action** (v4 in development, `4.0.0.dev0`; v3 frozen at 3.6.0) that orchestrates *justification pipelines* — research workflows where Python functions explicitly declare the variables they produce and consume. It validates dependency graphs, executes them in topological order, and can visualize results.
+`jpipe-runner` checks *jPipe justifications* by running them (v4 in development,
+`4.0.0.dev0`; v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
+argues a claim from evidence and strategies; a **step library** binds a Python function to
+each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The runner
+validates the library against the model, runs the steps supporters first, and reports a
+verdict as text, JSON and diagrams. It is a CLI (`jpipe-runner`, plus `impact` and
+`status`) and an importable authoring API (`from jpipe_runner import …`). The GitHub Action
+still sits at the root (`action.yml`, `script/action/`) until MB0 moves it out (#130, #131).
 
 - **Language**: Python ≥ 3.11
 - **Build tool**: Poetry
 - **Licence**: MIT
 - **Distribution**: PyPI, Ubuntu PPA (Launchpad), Homebrew, GitHub Releases
 - **Upstream**: `jpipe-mcscert/jpipe-runner`
+- **Docs**: Markdown under `docs/`, indexed by [`docs/README.md`](docs/README.md); the
+  words they use are defined in [`docs/concepts.md`](docs/concepts.md).
 
 ## Architecture
 
-> **v3, for reference only.** `src/` and `tests/` were deleted for the v4 rewrite (#107);
-> this section and *Critical Files* describe v3 as it is at the `v3.6.0` tag
-> (`git show v3.6.0:<path>`). They are rewritten for v4 in #129.
->
-> **The v4 design is in [`docs/design.md`](docs/design.md)**: a Mermaid module diagram and
-> a high-level class diagram (no members). Keep it in step with the code, in the same
-> commit: `tests/unit/test_design_doc.py` fails when a module is missing from the module
-> diagram, when its solid arrows are not exactly the imports between modules, or when a
-> module's public classes differ from its `namespace` in the class diagram. The page itself
-> does not mention tests or ADRs.
+**[`docs/design.md`](docs/design.md) is the design**: a Mermaid module diagram and a
+high-level class diagram (no members). Keep it in step with the code, in the same commit:
+`tests/unit/test_design_doc.py` fails when a module is missing from the module diagram,
+when its solid arrows are not exactly the imports between modules, or when a module's
+public classes differ from its `namespace` in the class diagram. The page itself does not
+mention tests or ADRs. Decisions are MADR records in [`docs/adr/`](docs/adr/README.md).
+
+A run, as `cli.main` drives it:
 
 ```
-CLI (runner.py:main)
-  └─► PipelineEngine          (framework/engine.py — 773 LOC)
-        ├─ load_config()       parse JSON workflow + YAML variables
-        ├─ validate()          6 Validator classes (validators.py — 674 LOC)
-        │     ├─ missing producer / consumer
-        │     ├─ circular dependency
-        │     ├─ duplicate declarations
-        │     └─ ordering
-        ├─ RuntimeContext      (context.py — 232 LOC)
-        │     └─ global singleton ctx; tracks PRODUCE/CONSUME vars per function
-        ├─ PythonRuntime       (runtime.py — 142 LOC) — dynamic module loading
-        ├─ Decorators          (framework/decorators/)
-        │     ├─ @jpipe        registers produce/consume + injects args via AST
-        │     ├─ @skip         conditional skip
-        │     └─ @contribution marks contribution nodes
-        └─ Output / Viz        Graphviz export
+cli.main                      argv → run | impact | status; exit codes 0–4 (ADR-0023)
+  ├─ loader.load              compiler JSON → model.Justification; JP001–JP004 (ADR-0001)
+  ├─ libraries.imported       step libraries imported as modules → steps.StepRegistry;
+  │                           JP020, JP021 (ADR-0020)
+  ├─ engine.run               (ADR-0021)
+  │    ├─ validation + rules  binding.BindingTable, then every rule; JP005–JP016, JP018
+  │    ├─ artifacts.observe   files an evidence observes, SHA-256; JP019
+  │    ├─ the step, called    outcomes.as_outcome (JP017), JP022 if it raised
+  │    └─ values.ValueStore   values produced in this run; JP023, JP024
+  └─ report.RunReport         → text_report.render, json_report (report.schema.json),
+                                diagram.write (DOT piped to Graphviz's dot, ADR-0022)
+impact                        affected / stale / changed_since, from a JSON report (ADR-0025)
 ```
 
 Key design choices:
-- **NetworkX DiGraph** for topological sort and cycle detection.
-- **AST-based variable inspection** (`ConsumedVariableChecker`, `ProducedVariableChecker`) validates actual usage vs. declarations.
-- **Global singleton** `ctx` for variable state — simple but not thread-safe.
-- **Dry-run mode** supported natively.
-- **GitHub Actions log grouping** via env-var detection.
+- **Diagnostics are data, rules are objects** (ADR-0010): every problem is a `Diagnostic`
+  with a stable `JPnnn` code; `docs/rules.md` is generated from `rules.py`. The next free
+  code is the one after the highest in `rules.py`/`docs/rules.md`.
+- **A step returns an outcome** (`Pass(values)`, `Fail(reason)`, `Skip(reason)`,
+  ADR-0005); values live in a per-run `ValueStore`, not a global (ADR-0009).
+- **Evidence declares the files it observes** (ADR-0018, ADR-0019); paths are relative to
+  the working directory, the run's root.
+- **The JSON report is the machine-readable contract** (ADR-0011), versioned and checked
+  against `src/jpipe_runner/schema/report.schema.json`; the text report is for people.
+- **The compiler co-owns the authoring API**: it generates step libraries
+  (`PythonExporter.java` in `jpipe-compiler`), still for v3 as of jPipe 2.5.0 (#140).
+  `jpipe_runner.framework` exists only to raise an `ImportError` that tells v3 users what
+  replaced it.
 
 ## Critical Files
 
 | File | Purpose |
 |------|---------|
-| `src/jpipe_runner/runner.py` | CLI entry point, argument parsing, output formatting |
-| `src/jpipe_runner/framework/engine.py` | Core execution engine (`PipelineEngine`) |
-| `src/jpipe_runner/framework/validators.py` | All 6 pipeline validators |
-| `src/jpipe_runner/framework/context.py` | Variable lifecycle (`RuntimeContext` singleton) |
-| `src/jpipe_runner/framework/logger.py` | Logging — **contains a known bug** (see below) |
-| `src/jpipe_runner/framework/decorators/jpipe_decorator.py` | `@jpipe` decorator + AST checks |
-| `src/jpipe_runner/runtime.py` | Dynamic Python module loader |
+| `src/jpipe_runner/__init__.py` | The public API, loaded lazily: outcomes and the four decorators |
+| `src/jpipe_runner/cli.py` | The command line: options, subcommands, outputs, exit codes |
+| `src/jpipe_runner/steps.py` | The decorators, `Step`, `StepRegistry`, `observes` path checks |
+| `src/jpipe_runner/engine.py` | `run()`: validation, then the steps supporters first; `RunResult`, `Verdict` |
+| `src/jpipe_runner/rules.py` | Every validation rule; source of `docs/rules.md` |
+| `src/jpipe_runner/binding.py` | Id resolution (exact, qualified, suffix) and the one-to-one `BindingTable` |
+| `src/jpipe_runner/report.py` | `RunReport`, what every renderer reads |
+| `src/jpipe_runner/schema/` | The JSON schemas of the compiler's justification and of the report |
 | `pyproject.toml` | Dependencies, entry points, tool configuration |
 | `.github/workflows/ci.yml` | CI — lint (ruff, mypy) and pytest on push to every branch, and on PRs to `main` |
 | `.github/workflows/sonar.yml` | SonarCloud scan and quality gate (ADR-0004) |
@@ -81,6 +93,13 @@ poetry run mypy              # --strict, over src/
   is described in [`tests/README.md`](tests/README.md). `--update-goldens` regenerates the
   golden reports of the e2e scenarios and `docs/rules.md`, which is generated from the
   validation rules (`src/jpipe_runner/rules.py`) and checked by a test.
+- **Every documentation page is tested** (`tests/unit/test_*_doc.py`, `test_readme.py`,
+  `test_docs_links.py`): its code runs, its ```` ```console ```` sessions are replayed by
+  `tests/console.py`, its quoted output is recomputed, and every link and anchor resolves
+  (links to this repo's `main` branch are checked against the tree). Quote output the code
+  printed, generated by running it, never typed by hand. `ruff format` also formats the
+  ```` ```python ```` blocks of Markdown: wrap one that must stay verbatim in
+  `<!-- fmt:off -->` / `<!-- fmt:on -->`.
 - The `unit` / `e2e` markers are applied by `tests/conftest.py` from the test's directory.
   A test file outside `tests/unit/` or `tests/e2e/` is a collection error.
 - `pre-commit install` runs ruff and mypy before each commit; CI's `lint` job runs the same.
@@ -188,8 +207,9 @@ Python/Poetry/graphviz setup is a composite action at
 
 ## Backlog
 
-The v4 plan lives in the GitHub issues #107–#133 (milestones M0–M7, MB0, MB1). The v3
-known-bugs and tech-debt lists were dropped with the v3 code.
+The v4 plan lives in the GitHub issues #107–#133 (milestones M0–M7, MB0, MB1). #153,
+running only the evidence a change affects, has no milestone and three design questions
+to settle first. The v3 known-bugs and tech-debt lists were dropped with the v3 code.
 
 ## Notes for Maintainers
 
