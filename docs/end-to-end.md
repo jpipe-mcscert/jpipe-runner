@@ -3,10 +3,12 @@
 This page follows one example from the argument to its verdict: how a justification
 written in jPipe becomes a model the runner reads, how a Python step library is attached
 to it, and what the runner does with the two. The test suite runs the same example (and
-others) for coverage. This page is meant to be read.
+others) for coverage. This page is meant to be read: [`tutorial.md`](tutorial.md) is the
+short way through the same example, and [`concepts.md`](concepts.md) defines the words both
+use.
 
-v4 is still being built ([progress](v4-progress.md)), and every step on this page works
-today: step 7 ends with the command that runs them all.
+Every stage on this page is what the runner does, with its real output: step 7 ends with
+the command that runs them all.
 
 The example is the release argument of the [jPipe tutorials](https://www.jpipe.org/tutorials/),
 whose source lives in
@@ -444,11 +446,16 @@ JP015 error: steps.the_test_suite_passes: 'release:e3' designates no element of 
   fix: Use the id of an element of the model, as the compiler exports it.
 ```
 
-**A parameter that is not consumed** stops the library from loading, at the line that
-declares it:
+**A parameter that is not consumed** (the strategy declares `consumes=["tests_pass"]`,
+and still takes `changelog_ok`) stops the library from being imported, at the line that
+declares it. Nothing runs, and the verdict is `invalid`:
 
 ```
-TypeError: @strategy all_release_gates_pass: its parameters ['changelog_ok'] are not consumed, so nothing would pass them. A step's parameters are the variables it consumes, as declared by consumes=[...].
+JP020 error: steps.py cannot be imported: TypeError at line 35: @strategy all_release_gates_pass: its parameters ['changelog_ok'] are not consumed, so nothing would pass them. A step's parameters are what it consumes, as declared by consumes=[...].
+  Traceback (most recent call last):
+    File "steps.py", line 35, in <module>
+      @strategy("release:s", consumes=["tests_pass"])
+  TypeError: @strategy all_release_gates_pass: its parameters ['changelog_ok'] are not consumed, so nothing would pass them. A step's parameters are what it consumes, as declared by consumes=[...].
 ```
 
 **A v3 habit: returning a boolean.** A function that returns `True` is told what to return
@@ -465,8 +472,9 @@ that names the v4 replacements.
 ## Going further: a refined argument
 
 Arguments grow. A later draft of the release argument, `draft`, adds a sub-argument for
-the documentation, but still treats "the test suite passes" as a black box. A second justification, `tested`, argues the claim "the code is tested" in
-full, and `refine` grafts it onto the draft in place of that evidence
+the documentation, but still treats "the test suite passes" as a black box. A second
+justification, `tested`, argues the claim "the code is tested" in full, and `refine`
+grafts it onto the draft in place of that evidence
 ([`refine.jd`](../tests/e2e/scenarios/composed/refine.jd), the
 [refine tutorial](https://www.jpipe.org/tutorials/refine/)):
 
@@ -501,7 +509,7 @@ Two things happened:
 - **The hook changed kind but kept its id.** `refine` merged the draft's evidence `tests`
   and the conclusion of `tested` into one sub-conclusion, `readiness:hook`, which keeps
   both old ids as aliases. The draft's check for "the test suite passes" therefore still
-  binds, to a node that is now argued in full below it. It runs as an independent
+  binds, to an element that is now argued in full below it. It runs as an independent
   cross-check of that sub-argument.
 
 Validation points the change of kind out, as a warning rather than an error

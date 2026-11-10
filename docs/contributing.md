@@ -1,14 +1,65 @@
 # Contributing
 
-If you are interested in contributing to this project, please contact the Jpipe-runner team at [Dr. Sébastien Mosser](mailto:mossers@mcmaster.ca).
+jPipe Runner is part of the [jPipe](https://www.jpipe.org) project. Bug reports and pull
+requests are welcome: open an [issue](https://github.com/jpipe-mcscert/jpipe-runner/issues)
+first for anything larger than a fix, so that we can agree on the approach before you
+write the code. A pull request from outside the maintainer team goes through
+[review](#other-pull-requests) like any other.
 
 ## Development setup
 
-The prerequisites, the installation steps and the commands CI runs are in the
-[README](../README.md#development-setup).
+You need:
 
-[`tests/README.md`](../tests/README.md) describes the test architecture. Pull requests go
-through a SonarCloud quality gate ([ADR-0004](adr/0004-sonarcloud-quality-gate.md)).
+* **Python 3.11 or later.** CI tests on 3.11.
+* **[Poetry](https://python-poetry.org) 2.x**, installed with [pipx](https://pipx.pypa.io):
+  `pipx install poetry`. Avoid Homebrew's Poetry, which leaks system packages into its
+  resolver.
+* **[pre-commit](https://pre-commit.com)**, to run the linters before each commit:
+  `pipx install pre-commit`.
+* **The [Graphviz](https://graphviz.org/download/) `dot` program**, to render diagrams
+  (`brew install graphviz` or `sudo apt-get install graphviz`). The tests that render an
+  image are skipped without it.
+
+Clone the repository and set up the environment:
+
+```bash
+git clone https://github.com/jpipe-mcscert/jpipe-runner.git
+cd jpipe-runner
+poetry env use python3.11   # only if `python3` on your PATH is older than 3.11
+poetry install              # virtual environment with the runner (editable) and the dev tools
+pre-commit install          # run ruff and mypy before each commit
+```
+
+Check that everything works by running what CI runs:
+
+```bash
+poetry run pytest                  # all tests, with coverage (writes coverage.xml)
+poetry run pytest -m unit          # unit tests only
+poetry run pytest -m e2e           # end-to-end tests only
+poetry run ruff check .            # lint (add --fix to apply the safe fixes)
+poetry run ruff format --check .   # formatting (drop --check to reformat)
+poetry run mypy                    # type-check src/ in strict mode
+```
+
+Run the tools through `poetry run`, so that they use the project's environment and the
+editable install of `src/`, not another `jpipe-runner` installed elsewhere. Their
+configuration lives in [`pyproject.toml`](../pyproject.toml).
+
+[`tests/README.md`](../tests/README.md) describes the test architecture: rule tests,
+golden reports, property tests, and the scenario format. `poetry run pytest
+--update-goldens` regenerates the golden reports and `docs/rules.md`; review the diff
+before committing it. Pull requests go through a SonarCloud quality gate
+([ADR-0004](adr/0004-sonarcloud-quality-gate.md)).
+
+## Documentation
+
+The documentation is Markdown under `docs/`, indexed in reading order by
+[`docs/README.md`](README.md) ([ADR-0003](adr/0003-drop-sphinx-markdown-docs.md)). A
+change that users can see is documented in the same pull request
+([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)), and the
+[CHANGELOG](../CHANGELOG.md) says what it changes for them. Every code example and quoted
+output on a page is checked by a test (`tests/unit/test_*_doc.py`), and so is every link:
+an example that stops matching the code fails the build.
 
 ## Design documentation
 

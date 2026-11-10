@@ -259,7 +259,33 @@ def test_a_failure_in_a_helper_is_located_in_the_helper(tmp_path: Path) -> None:
     ):
         pass
 
-    assert f"at {helper.resolve()}, line 1" in error.value.diagnostics[0].message
+    assert error.value.diagnostics[0].message.endswith(
+        f"ZeroDivisionError at {helper.resolve()}, line 1: division by zero"
+    )
+
+
+def test_where_an_import_failed_comes_before_the_exception_s_own_sentence(
+    tmp_path: Path,
+) -> None:
+    library = _write(tmp_path, "worded.py", "X = 1; raise ValueError('a whole sentence.')\n")
+
+    with pytest.raises(LibraryLoadError) as error, imported([library]):
+        pass
+
+    assert error.value.diagnostics[0].message == (
+        f"{library} cannot be imported: ValueError at line 1: a whole sentence."
+    )
+
+
+def test_an_import_failure_without_a_message_ends_where_it_was_raised(tmp_path: Path) -> None:
+    library = _write(tmp_path, "silent.py", "raise RuntimeError\n")
+
+    with pytest.raises(LibraryLoadError) as error, imported([library]):
+        pass
+
+    assert error.value.diagnostics[0].message == (
+        f"{library} cannot be imported: RuntimeError at line 1"
+    )
 
 
 def test_a_file_that_is_not_python_source_is_jp020(tmp_path: Path) -> None:

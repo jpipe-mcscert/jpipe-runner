@@ -5,10 +5,14 @@ character for character, and so does what validation reports on the release and 
 examples, and what running them does, so the walkthrough cannot drift from the code the
 e2e suite runs. Runs are quoted as their text report, and step 7 quotes the JSON report and
 shows the diagrams of a run, which ``--update-goldens`` redraws where Graphviz is installed.
+The mistakes the page shows are what the command prints for them, the functions answer as
+its ``>>>`` session shows, and its listings of the order and the bindings are the code's.
 """
 
 import ast
+import doctest
 import json
+import re
 import shutil
 import types
 from collections.abc import Callable
@@ -18,6 +22,8 @@ from xml.etree import ElementTree
 import pytest
 
 from jpipe_runner import loader
+from jpipe_runner.binding import Binding
+from jpipe_runner.cli import main
 from jpipe_runner.diagnostics import Diagnostic
 from jpipe_runner.diagram import View, write
 from jpipe_runner.engine import RunResult, run
@@ -271,3 +277,137 @@ def test_the_diagrams_on_the_page_are_rendered_from_the_run(
     drawn = write(tmp_path / "drawn.svg", result.justification, RunReport.of(result))
 
     assert _drawn(drawn) == _drawn(IMAGES / "release-fail.svg")
+
+
+# --- When something is wrong ---------------------------------------------------------------
+
+WRONG = PAGE[PAGE.index("## When something is wrong") : PAGE.index("## Going further")]
+
+
+def _edited(old: str, new: str) -> Callable[[Path], None]:
+    """An edit of the release library that replaces ``old``, which it must hold, by ``new``."""
+
+    def edit(scenario: Path) -> None:
+        steps = scenario / "steps.py"
+        source = steps.read_text(encoding="utf-8")
+        assert source.count(old) == 1
+        steps.write_text(source.replace(old, new), encoding="utf-8")
+
+    return edit
+
+
+def _quoted_blocks(section: str) -> list[str]:
+    """The fenced blocks of ``section`` without a language, as the page shows them."""
+    return re.findall(r"^```\n(.*?)^```", section, re.MULTILINE | re.DOTALL)
+
+
+@pytest.mark.parametrize(
+    ("index", "edit", "code"),
+    [
+        pytest.param(
+            0, _edited('@evidence("release:e1"', '@evidence("release:e3"'), 3, id="id typo"
+        ),
+        pytest.param(
+            1,
+            _edited('consumes=["tests_pass", "changelog_ok"]', 'consumes=["tests_pass"]'),
+            3,
+            id="parameter not consumed",
+        ),
+        pytest.param(2, _edited("return Pass(tests_pass=True)", "return True"), 1, id="boolean"),
+    ],
+)
+def test_each_mistake_the_page_quotes_is_what_the_command_prints(
+    index: int,
+    edit: Callable[[Path], None],
+    code: int,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _copy("release_example", tmp_path, monkeypatch, edit)
+
+    assert main(["--library", "steps.py", "justification.json"]) == code
+    assert _quoted_blocks(WRONG)[index] in capsys.readouterr().out
+
+
+def test_a_v3_library_is_told_what_replaced_its_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    v3 = "from jpipe_runner.framework.decorators.jpipe_decorator import jpipe\n"
+    _copy("release_example", tmp_path, monkeypatch, lambda s: (s / "steps.py").write_text(v3))
+
+    assert main(["--library", "steps.py", "justification.json"]) == 3
+    out = capsys.readouterr().out
+    assert "**A v3 library** stops at its first import, `from jpipe_runner.framework…`" in WRONG
+    assert "JP020" in out
+    assert "Import from jpipe_runner instead: @evidence, @strategy" in out
+
+
+def test_the_functions_answer_as_the_page_shows_when_called_directly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (session,) = re.findall(r"^```python\n(>>> .*?)^```", PAGE, re.MULTILINE | re.DOTALL)
+    monkeypatch.chdir(SCENARIOS / "release_example")
+    namespace = dict(vars(_module(LIBRARY, "steps")))
+    test = doctest.DocTestParser().get_doctest(session, namespace, "end-to-end", None, 0)
+    runner = doctest.DocTestRunner(optionflags=doctest.ELLIPSIS)
+
+    runner.run(test)
+
+    assert runner.summarize(verbose=False) == doctest.TestResults(failed=0, attempted=2)
+
+
+# --- The listings of steps 3 and 4, and of the refined model ---------------------------------
+
+
+def _listing(after: str) -> list[list[str]]:
+    """The first plain block after ``after`` on the page, each line split into its columns."""
+    start = PAGE.index("```\n", PAGE.index(after)) + len("```\n")
+    block = PAGE[start : PAGE.index("```", start)]
+    return [re.split(r"\s*<-\s*|\s{2,}", line.strip()) for line in block.splitlines()]
+
+
+def _bindings(scenario: str, *modules: types.ModuleType) -> dict[str, Binding]:
+    justification = loader.load(SCENARIOS / scenario / "justification.json")
+    context = ValidationContext.of(justification, StepRegistry.from_modules(modules))
+    return {binding.element.id: binding for binding in context.bindings}
+
+
+def test_step_3_lists_the_elements_in_the_order_the_runner_considers_them() -> None:
+    justification = loader.load(SCENARIOS / "release_example" / "justification.json")
+
+    assert _listing("In the order the\nrunner will consider its elements") == [
+        [element.kind, element.id, element.label] for element in justification.topological_order()
+    ]
+
+
+def test_step_4_lists_the_bindings_of_the_release_library() -> None:
+    bound = _bindings("release_example", _module(LIBRARY, "steps"))
+    justification = loader.load(SCENARIOS / "release_example" / "justification.json")
+
+    assert _listing("For the release example, every id is exact") == [
+        [element.id, bound[element.id].step.name if element.id in bound else "(unbound)"]
+        for element in justification
+    ]
+
+
+def _shown(binding: Binding | None) -> str:
+    """A binding of the refined model as the page lists it."""
+    if binding is None:
+        return "(unbound)"
+    declared = binding.step.kind
+    changed = f" (declared {declared})" if declared != binding.element.kind else ""
+    return f"{binding.step.function.__name__} via {binding.designators[0]!r}{changed}"
+
+
+def test_the_refined_model_lists_how_each_element_is_bound() -> None:
+    bound = _bindings(
+        "composed",
+        _module(SCENARIOS / "composed" / "draft_steps.py", "draft_steps"),
+        _module(SCENARIOS / "composed" / "tested_steps.py", "tested_steps"),
+    )
+    justification = loader.load(SCENARIOS / "composed" / "justification.json")
+
+    assert _listing("They need no change to bind to the refined model") == [
+        [element.kind, element.id, _shown(bound.get(element.id))] for element in justification
+    ]

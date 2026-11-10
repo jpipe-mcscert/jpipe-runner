@@ -22,7 +22,7 @@
         "C1"
       ],
       "status": "fail",
-      "reason": "the step raised ZeroDivisionError: division by zero, at steps.py, line 17",
+      "reason": "the step raised ZeroDivisionError at steps.py, line 17: division by zero",
       "blocked_by": [],
       "ran": true,
       "bound_to": "steps.divide_by_number",
@@ -67,7 +67,7 @@
       "code": "JP022",
       "severity": "error",
       "element": "S1",
-      "message": "the step raised ZeroDivisionError: division by zero, at steps.py, line 17",
+      "message": "the step raised ZeroDivisionError at steps.py, line 17: division by zero",
       "fix": "Return Fail(reason) when the check does not hold: an exception says the step itself is broken.",
       "traceback": {
         "exception": "ZeroDivisionError",

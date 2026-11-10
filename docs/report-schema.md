@@ -9,7 +9,10 @@ The `jpipe-runner` command prints it with `--json`, and writes it to a file with
 `--report PATH` ([`cli.md`](cli.md)).
 
 The report is about what was validated: which claims hold, which steps judged them, what
-the steps declared they read and produce, and what they actually observed. The text report
+the steps declared they read and produce, and what they actually observed. Its terms,
+[status](concepts.md#status), [verdict](concepts.md#verdict),
+[diagnostic](concepts.md#diagnostic) and the others, are defined in
+[`concepts.md`](concepts.md). The text report
 a terminal shows is for people, and its layout may change in any release; read this one
 instead.
 
@@ -27,8 +30,8 @@ without documenting it.
 Two runs over the same files give the same report, byte for byte. It holds no time,
 duration or host name; every path is relative to the directory the runner runs in, with `/`
 as separator; and fields come in a fixed order. The one exception is a produced value whose
-own `repr` changes from run to run, such as one that prints the time. A report can be committed, compared with
-`diff`, or archived with the artifacts it lists.
+own `repr` changes from run to run, such as one that prints the time. A report can be
+committed, compared with `diff`, or archived with the artifacts it lists.
 
 ## The report
 
@@ -44,8 +47,9 @@ own `repr` changes from run to run, such as one that prints the time. A report c
 | `diagram` | string or null | the path of the diagram drawn for the run, if one was |
 | `dataflow` | string or null | the path of the dataflow diagram drawn for the run, if one was |
 
-**Every way a run ends has a report.** When nothing ran, the verdict is `invalid` and the
-diagnostics say why:
+**Every way a run ends has a report**, but for a file that cannot be read at all, such
+as a missing justification, which is an error on stderr ([`cli.md`](cli.md#exit-codes)).
+When nothing ran, the verdict is `invalid` and the diagnostics say why:
 
 | What stopped the run | `justification` | `elements` | Codes |
 |---|---|---|---|
@@ -116,8 +120,7 @@ Each file an evidence observed, recorded just before its step was called
 | `size` | integer or null | its size in bytes; null if unreachable |
 
 An unreachable artifact is listed, and the report's diagnostics include its `JP019`, about
-that element. A
-glob that matched nothing is listed once, under its pattern. An element whose step was not
+that element. A glob that matched nothing is listed once, under its pattern. An element whose step was not
 called observed nothing, and its `artifacts` is empty; what its step would have observed
 is in `observes`.
 
@@ -126,7 +129,7 @@ is in `observes`.
 | Field | Type | |
 |---|---|---|
 | `code` | string | `JPnnn`, which never changes meaning: [`rules.md`](rules.md) lists them all |
-| `severity` | `error`, `warning` or `info` | |
+| `severity` | `error`, `warning` or `info` | no code reports `info` yet: it is reserved |
 | `element` | string or null | the id of the element it is about, if it is about one |
 | `message` | string | written for people: it may be reworded in any release |
 | `fix` | string or null | what to do about it |
@@ -326,7 +329,7 @@ A step that raises (the `exception_handling` scenario):
         "C1"
       ],
       "status": "fail",
-      "reason": "the step raised ZeroDivisionError: division by zero, at steps.py, line 17",
+      "reason": "the step raised ZeroDivisionError at steps.py, line 17: division by zero",
       "blocked_by": [],
       "ran": true,
       "bound_to": "steps.divide_by_number",
@@ -371,7 +374,7 @@ A step that raises (the `exception_handling` scenario):
       "code": "JP022",
       "severity": "error",
       "element": "S1",
-      "message": "the step raised ZeroDivisionError: division by zero, at steps.py, line 17",
+      "message": "the step raised ZeroDivisionError at steps.py, line 17: division by zero",
       "fix": "Return Fail(reason) when the check does not hold: an exception says the step itself is broken.",
       "traceback": {
         "exception": "ZeroDivisionError",

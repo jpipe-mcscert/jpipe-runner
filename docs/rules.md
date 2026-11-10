@@ -2,9 +2,9 @@
 
 <!-- Generated from src/jpipe_runner/rules.py by `poetry run pytest --update-goldens`. Do not edit. -->
 
-Every problem the runner reports is a diagnostic with a code, `JPnnn`, which never changes
-meaning. Its message is written for humans and may be reworded, so scripts and tests rely
-on the code.
+Every problem the runner reports is a [diagnostic](concepts.md#diagnostic) with a code,
+`JPnnn`, which never changes meaning. Its message is written for humans and may be
+reworded, so scripts and tests rely on the code.
 
 ## Validation rules
 
