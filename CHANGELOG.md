@@ -35,6 +35,11 @@ line to v4, change by change. The entries below give the details.
   fails a run.
 - **The `graphviz` Python package, `PyYAML`, and the `docs` and `full` extras are no
   longer installed.**
+- **The GitHub Action is no longer in this repository.** `uses: jpipe-mcscert/jpipe-runner`
+  runs v3 only at `@v3.6.0`: older tags install the runner's `main` branch, now v4, unless
+  their `version` input is set to `v3.6.0`. The action for v4 is built in
+  [`jpipe-mcscert/jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions), with inputs of its own, which the migration
+  guide maps; until its first release, keep v3's action at `@v3.6.0`.
 
 ### Added
 - **The `jpipe-runner` command, rebuilt for v4.** `jpipe-runner --library steps.py
@@ -237,6 +242,13 @@ line to v4, change by change. The entries below give the details.
   dependency needs them.
 
 ### Removed
+- **The GitHub Action**, `action.yml` and `script/action/`, without a forwarding shim. A
+  workflow that uses `jpipe-mcscert/jpipe-runner@v3.6.0` keeps working, with v3; one on an
+  older tag installs the runner's `main` branch, now v4, unless it sets `version: v3.6.0`.
+  The action for v4 is built in [`jpipe-mcscert/jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions), to be released
+  on its own and built on the JSON report rather than on the console output;
+  [`docs/migration-v3-v4.md`](docs/migration-v3-v4.md#the-github-action) maps v3's inputs
+  to its ([ADR-0012](docs/adr/0012-extract-the-github-action.md)).
 - **The `graphviz` Python package is no longer a dependency.** Diagrams are drawn by
   piping their DOT text to Graphviz's `dot` binary, as the jPipe compiler does, so only the
   binary is needed, as before. The Debian package depends on `graphviz` instead of

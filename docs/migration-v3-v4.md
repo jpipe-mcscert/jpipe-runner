@@ -2,9 +2,9 @@
 
 v4 is a rewrite of jpipe-runner ([ADR-0002](adr/0002-rewrite-from-scratch.md)), and every
 v3 step library needs changes to run on it. This page says what changed, in the order a
-port meets it: the step library, then the command line, then the packages. The
-[CHANGELOG](../CHANGELOG.md) lists every change; [`concepts.md`](concepts.md) defines the
-words used here.
+port meets it: the step library, then the command line, the packages, and the GitHub
+Action. The [CHANGELOG](../CHANGELOG.md) lists every change; [`concepts.md`](concepts.md)
+defines the words used here.
 
 What does not change: the runner still reads the JSON the jPipe compiler writes
 (`jpipe process -f JSON`), ids still resolve as in v3 (an exact id or alias, the id
@@ -199,6 +199,47 @@ them, with the run's statuses over them.
   `jpipe-runner` in your project's environment, beside the packages your steps import;
   the Homebrew, pipx and Ubuntu packages suit libraries that use only the standard
   library ([`cli.md`](cli.md#step-libraries-that-import-packages)).
+
+## The GitHub Action
+
+v3's GitHub Action lived at this repository's root, as `jpipe-mcscert/jpipe-runner@v3.x`,
+and ran jpipe-runner 3. It is gone from v4: the action for v4 is built in
+[`jpipe-mcscert/jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions), and released there, with version numbers of its
+own ([ADR-0012](adr/0012-extract-the-github-action.md)).
+
+- **Its first release is not out yet.** Until it is, keep v3's action, and your v3 step
+  libraries, at `jpipe-mcscert/jpipe-runner@v3.6.0`. The mapping below is for that first
+  release.
+- **Only `@v3.6.0` keeps running v3.** The action installs the runner's git ref in its
+  `version` input, and only v3.6.0 sets it to `v3.6.0`: tags v3.0.0 to v3.5.3 install the
+  runner's `main` branch, which is v4 now, and fails on a v3 library. Move such a workflow
+  to `@v3.6.0`, or set `version: v3.6.0` in it.
+
+```yaml
+- uses: jpipe-mcscert/jpipe-ci-actions@<version>
+  with:
+    working-directory: release
+    justification: justification.json
+    library: steps.py
+```
+
+| v3 input or output | `jpipe-ci-actions` |
+|---|---|
+| `jd_file` | `justification` |
+| `library`, `github-token`, `github-readonly-token` | the same |
+| `python_path`, `working_directory`, `python_exec_path`, `dry_run` | `python-path`, `working-directory`, `python-executable`, `dry-run` |
+| `version`, a git ref of jpipe-runner | `runner-version`: a release on PyPI, or a git ref |
+| `variable`, `config-file` | removed, with the runner's options |
+| `diagram`, a pattern, and `format` | `diagram-format`, the format of the one diagram, and `dataflow`, to draw the second |
+| `embed_image`, `image_repo`, `image_branch`, `image_path`, `image_commit_message` | `embed-image`, `image-repo`, `image-branch`, `image-path`, `image-commit-message` |
+| output `result`, 1 for every problem | `result`, the runner's exit code (0 to 4), and `verdict` |
+| outputs `diagram_path`, `diagram_dir`, `diagram_count` | `diagram` and `dataflow`, and `report`, the JSON report |
+| output `pr_comment_id` | `comment-id` |
+
+The new action adds `strict`, `comment` (to turn the pull request comment off) and
+`artifact-name`. Its comment is built from the JSON report: the verdict, the elements
+that did not pass and why, each diagnostic with its fix, and the text report. Its
+[README](https://github.com/jpipe-mcscert/jpipe-ci-actions#readme) describes every input.
 
 ## Libraries the compiler generates
 

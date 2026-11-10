@@ -85,8 +85,8 @@ The reasons are recorded in
 | Branch | Role |
 |--------|------|
 | `main` | The trunk and the default branch. Releases are tags on it (`vX.Y.Z`). |
-| `m<N>-<topic>` | One per v4 milestone, cut from `main`: `m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`. MB1 (#132) is done in `jpipe-runner-action`, so it has no branch here. |
-| `jpipe-runner-diagrams` | Written by the GitHub Action (generated diagram images). Not a development branch. |
+| `m<N>-<topic>` | One per v4 milestone, cut from `main`: `m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`. The GitHub Action itself is built in [`jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions) ([ADR-0012](adr/0012-extract-the-github-action.md)). |
+| `jpipe-runner-diagrams` | Written by the v3 GitHub Action's tests (generated diagram images). Not a development branch. |
 
 ### Working on a milestone
 

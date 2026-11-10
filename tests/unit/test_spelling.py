@@ -29,7 +29,6 @@ NOT_OURS = re.compile(
     r"|^LICENSE$"
     r"|^debian/(changelog|copyright)$"
     r"|^\.github/CODE_OF_CONDUCT\.md$"  # the Contributor Covenant, verbatim
-    r"|^action\.yml$"  # GitHub's branding key
     r"|^tests/unit/test_spelling\.py$"  # this test's own counter-examples
 )
 

@@ -1,7 +1,7 @@
 # The JSON report
 
-The JSON report is what a run concluded, for programs: a CI pipeline, the GitHub Action, a
-script. It is a versioned contract
+The JSON report is what a run concluded, for programs: a CI pipeline, the
+[GitHub Action](https://github.com/jpipe-mcscert/jpipe-ci-actions), a script. It is a versioned contract
 ([ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)), described by a JSON
 Schema that ships in the package,
 [`jpipe_runner/schema/report.schema.json`](../src/jpipe_runner/schema/report.schema.json).
