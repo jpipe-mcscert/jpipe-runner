@@ -10,12 +10,12 @@ this repository (`pip install git+https://github.com/jpipe-mcscert/jpipe-runner`
 [latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest) is
 still 3.6.0.
 
-- [`tutorial.md`](tutorial.md) takes an argument from its `.jd` file to a green run (M6).
-- [`cli.md`](cli.md) describes every option and exit code of the command (M6).
-- [`authoring.md`](authoring.md) is the guide to writing a step library (M2).
-- [`end-to-end.md`](end-to-end.md) follows one example through every stage, from the `.jd`
-  file to the verdict, and says which stages work today.
-- [`design.md`](design.md) describes how the code built so far fits together.
+- [`README.md`](README.md) lists every page of the documentation in reading order (M7),
+  starting with [`tutorial.md`](tutorial.md), which takes an argument from its `.jd` file
+  to a green run (M6).
+- [`migration-v3-v4.md`](migration-v3-v4.md) takes a v3 step library and command line to
+  v4 (M7).
+- [`design.md`](design.md) describes how the code fits together.
 - The [CHANGELOG](../CHANGELOG.md) lists what changes for v3 users.
 
 ## Milestones
@@ -29,15 +29,12 @@ still 3.6.0.
 | M4 Execution | done | #120, #144 | [0019](adr/0019-evidence-observes-files.md), [0020](adr/0020-importing-step-libraries.md), [0021](adr/0021-execution-semantics.md) |
 | M5 Reporting | done | #121–#123, #145, #150, #151 | [0011](adr/0011-json-report-is-the-machine-readable-contract.md), [0022](adr/0022-diagrams-follow-the-compiler.md) |
 | M6 CLI | done | #124, #125, #127, #146 | [0023](adr/0023-the-command-line.md), [0024](adr/0024-dry-run-verdict-and-both-diagrams.md), [0025](adr/0025-impact-and-staleness.md) |
-| M7 Docs | planned | #129, #140, #142 | [0017](adr/0017-document-in-the-milestone-that-builds-it.md) |
+| M7 Docs | done | #129, #142 | [0017](adr/0017-document-in-the-milestone-that-builds-it.md) |
 | MB0 Action extraction | planned | #130, #131 | 0012 (reserved) |
 | MB1 Action v1 | planned | #132 (in `jpipe-runner-action`) | |
 
 What each planned milestone will add:
 
-- **M7 Docs:** a consistency review of the documentation each milestone wrote, the README,
-  troubleshooting and the migration guide
-  ([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)).
 - **MB0, MB1:** the GitHub Action, moved to its own repository and rebuilt on the JSON
   report.
 
@@ -229,6 +226,27 @@ jpipe-runner --library steps.py --report report.json --diagram release.svg justi
   run recorded with the files now, and lists what is stale.
 - **Each scenario's whole JSON report is pinned by a golden file**, run through the
   command.
+
+### M7 Docs: reading the documentation as one set
+
+[`README.md`](README.md) lists the pages in reading order.
+
+- **The words are defined once**, in [`concepts.md`](concepts.md): justification,
+  element, step, binding, variable, artifact, outcome, status, verdict and the others.
+  Every page links to it.
+- **A migration guide**, [`migration-v3-v4.md`](migration-v3-v4.md), takes a v3 step
+  library to v4, change by change, with the release example ported side by side, and maps
+  v3's options and exit codes to v4's.
+- **A troubleshooting page**, [`troubleshooting.md`](troubleshooting.md), starts from what
+  goes wrong (no Graphviz, a module a library cannot import, a run from the wrong
+  directory, a `.jd` file passed by mistake) and says what to do.
+- **A README for users**: what the runner does, how to install it, and the release
+  example in 60 seconds.
+- **What the documentation shows is what the runner does**: every code example runs, every
+  session and quoted output is recomputed from the code, and every link resolves, in the
+  test suite.
+- **Clearer import and step errors**: `JP020` and `JP022` say where the exception was
+  raised before its message (`TypeError at line 35: …`).
 
 ## Gone from v3
 
