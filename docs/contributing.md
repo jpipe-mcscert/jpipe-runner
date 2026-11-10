@@ -78,7 +78,7 @@ and the keys of external formats (`license` in `pyproject.toml`) are left as the
 
 ## Branches
 
-There is one long-lived branch, `main`, which holds the v4 rewrite that becomes 4.0.0.
+There is one long-lived branch, `main`, which holds the development of v4.
 The reasons are recorded in
 [ADR-0014](adr/0014-trunk-with-milestone-branches.md).
 
@@ -124,7 +124,7 @@ pushes a release tag.
 
 1. **Set the version** in `pyproject.toml`, the only place it is defined (`setup.py`
    reads it from there). Between releases the trunk carries a development version,
-   `X.Y.Z.devN` (now `4.0.0.dev0`), which the release workflow refuses to tag; replace it
+   `X.Y.Z.devN` (such as `4.1.0.dev0`), which the release workflow refuses to tag; replace it
    with the release's version: `X.Y.Z`, or `X.Y.ZaN` / `X.Y.ZrcN` for a pre-release.
    Follow [SemVer](https://semver.org): patch for fixes, minor for backward-compatible
    features, major for breaking changes.

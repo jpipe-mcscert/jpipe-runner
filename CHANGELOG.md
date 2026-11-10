@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-11-10
+
 _v4 is a from-scratch rewrite and a breaking release for every v3 user
 ([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
 
@@ -291,6 +293,8 @@ line to v4, change by change. The entries below give the details.
   element id twice or relates an element that does not exist now fails, and every problem
   in it is reported, each with its code (`JP001` to `JP003`). A template compiled to JSON
   is refused with a message saying that templates cannot be run.
+
+_Contributors: Sébastien Mosser._
 
 ## [3.6.0] - 2026-10-01
 
@@ -593,7 +597,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
-[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.6.0...HEAD
+[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.6.0...v4.0.0
 [3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
 [3.5.3]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.2...v3.5.3
 [3.5.2]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.1...v3.5.2

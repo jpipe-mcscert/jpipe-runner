@@ -6,18 +6,14 @@ and [`cli.md`](cli.md#exit-codes) every exit code.
 
 ## Installing
 
-### `pip install jpipe-runner` installs version 3
+### Version 3 runs instead of version 4
 
-Until version 4.0.0 is released, PyPI, Homebrew and the Ubuntu PPA install 3.6.0, whose
-API and options are not the ones this documentation describes. Install version 4 from its
-repository, in a virtual environment:
-
-```shell
-pip install git+https://github.com/jpipe-mcscert/jpipe-runner
-```
-
+Version 3's API and options are not the ones this documentation describes.
 `jpipe-runner --version` says which one runs; version 3 has no `--version` option, and
-reports a usage error.
+reports a usage error. Version 3 may still be installed, or pinned (`jpipe-runner<4` in a
+requirements file), or an older `jpipe-runner` may come first on the `PATH`. Upgrade it in
+the environment that runs it (`pip install -U jpipe-runner`, `brew upgrade jpipe-runner`,
+or `sudo apt upgrade jpipe-runner`), and check `which jpipe-runner`.
 
 ### pip refuses to install it
 

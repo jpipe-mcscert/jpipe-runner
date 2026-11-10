@@ -5,10 +5,8 @@ built one [milestone](https://github.com/jpipe-mcscert/jpipe-runner/milestones) 
 This page follows the rewrite: where each milestone stands, and what v4 can do so far. It
 is updated as each milestone lands.
 
-Since M6, v4 runs as the `jpipe-runner` command. It is not released yet: install it from
-this repository (`pip install git+https://github.com/jpipe-mcscert/jpipe-runner`). The
-[latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest) is
-still 3.6.0.
+The rewrite is complete: 4.0.0, released on 2026-11-10, is its first release
+(`pip install jpipe-runner`). v3 stays installable as 3.6.0.
 
 - [`README.md`](README.md) lists every page of the documentation in reading order (M7),
   starting with [`tutorial.md`](tutorial.md), which takes an argument from its `.jd` file

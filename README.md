@@ -7,11 +7,10 @@ each step of reasoning to a Python function, calls them in order, and reports wh
 hold, for a person at a terminal or for a CI pipeline.
 
 > [!NOTE]
-> **Version 4 is not released yet.** This branch holds version 4, a rewrite whose
-> [documentation](https://github.com/jpipe-mcscert/jpipe-runner/tree/main/docs) is under
-> `docs/`. The [latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest)
-> is 3.6.0, documented at the
-> [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0).
+> **Version 4 is a rewrite**, and breaks every v3 step library and command line: the
+> [migration guide](https://github.com/jpipe-mcscert/jpipe-runner/blob/main/docs/migration-v3-v4.md)
+> takes them to v4. Version 3 stays installable as 3.6.0 (`pip install "jpipe-runner<4"`),
+> documented at the [`v3.6.0` tag](https://github.com/jpipe-mcscert/jpipe-runner/tree/v3.6.0).
 
 ## Install
 
@@ -19,14 +18,14 @@ jPipe Runner needs Python 3.11 or later. Install it in your project's virtual en
 beside the packages your checks import:
 
 ```shell
-pip install git+https://github.com/jpipe-mcscert/jpipe-runner
+pip install jpipe-runner
 ```
 
-Once 4.0.0 is released, `pip install jpipe-runner` will install it, and so will Homebrew
-(`brew tap jpipe-mcscert/mcscert && brew install jpipe-runner`) and the Ubuntu PPA
-(`sudo add-apt-repository ppa:mcscert/ppa && sudo apt install jpipe-runner`), for checks
-that only use Python's standard library. Drawing diagrams also needs
-[Graphviz](https://graphviz.org/download/)'s `dot` program.
+Homebrew (`brew tap jpipe-mcscert/mcscert && brew install jpipe-runner`) and the Ubuntu
+PPA (`sudo add-apt-repository ppa:mcscert/ppa && sudo apt install jpipe-runner`) install
+it in an environment of its own, which suits checks that only use Python's standard
+library. Drawing diagrams also needs [Graphviz](https://graphviz.org/download/)'s `dot`
+program.
 
 ## In 60 seconds
 

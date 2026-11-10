@@ -21,10 +21,6 @@ python3 -m venv .venv
 pip install jpipe-runner
 ```
 
-Until version 4.0.0 is released, `pip install jpipe-runner` installs version 3, which this
-page does not describe: install version 4 from its repository instead, with
-`pip install git+https://github.com/jpipe-mcscert/jpipe-runner`.
-
 You will also need the [jPipe compiler](https://www.jpipe.org/) to compile your own
 arguments; for this one, step 3 gives you the result. Drawing diagrams needs
 [Graphviz](https://graphviz.org/download/); this tutorial does not.

@@ -2,8 +2,8 @@
 
 ## Project Overview
 
-`jpipe-runner` checks *jPipe justifications* by running them (v4 in development,
-`4.0.0.dev0`; v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
+`jpipe-runner` checks *jPipe justifications* by running them (v4, released as 4.0.0;
+v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
 argues a claim from evidence and strategies; a **step library** binds a Python function to
 each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The runner
 validates the library against the model, runs the steps supporters first, and reports a
@@ -174,8 +174,8 @@ the `v3.6.0` tag.
 
 1. Set `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
    derive from it). Use SemVer. Between releases it is a PEP 440 dev version
-   (`4.0.0.dev0` during the v4 rewrite) that `validate-version` refuses to tag; a release
-   replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
+   (`X.Y.Z.dev0`; `4.0.0.dev0` during the v4 rewrite) that `validate-version` refuses to
+   tag; a release replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
    version tests compare the installed (normalized) version to the raw string.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
 3. Land both on `main` (last commit of the released milestone, or a maintainer
