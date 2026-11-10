@@ -3,7 +3,8 @@
 ``docs/README.md`` lists the pages of ``docs/`` in reading order, so that a page cannot be
 added without a place in it. Every relative link of the README and of ``docs/``, ADRs
 included, names a file that exists, and an anchor that one of its headings makes, as GitHub
-makes them.
+makes them. So does a link to a file on this repository's ``main`` branch, which the README
+uses so that its links work on PyPI too: it names the file in the working tree.
 """
 
 import re
@@ -18,6 +19,8 @@ INDEX = DOCS / "README.md"
 PAGES = sorted([REPO_ROOT / "README.md", *DOCS.glob("*.md"), *(DOCS / "adr").glob("*.md")])
 
 _LINK = re.compile(r"\]\((?P<target>[^)\s]+)\)")
+# A link to this repository's main branch names a file of the working tree.
+_OWN = re.compile(r"https://github\.com/jpipe-mcscert/jpipe-runner/(?:blob|tree)/main/")
 _HEADING = re.compile(r"^#{1,6} (?P<title>.+)$", re.MULTILINE)
 _FENCE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
 
@@ -34,11 +37,13 @@ def _anchors(page: Path) -> set[str]:
 
 def _links(page: Path) -> list[str]:
     text = _FENCE.sub("", page.read_text(encoding="utf-8"))
-    return [
-        match["target"]
-        for match in _LINK.finditer(text)
-        if not re.match(r"[a-z]+:", match["target"])  # http:, https:, mailto:
-    ]
+    targets = [_OWN.sub(_to_root(page), match["target"]) for match in _LINK.finditer(text)]
+    return [target for target in targets if not re.match(r"[a-z]+:", target)]
+
+
+def _to_root(page: Path) -> str:
+    """The relative path from ``page`` to the root of the repository, ending in ``/``."""
+    return "../" * len(page.parent.relative_to(REPO_ROOT).parts)
 
 
 def test_the_index_lists_every_page_of_docs() -> None:

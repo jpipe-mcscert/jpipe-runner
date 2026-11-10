@@ -15,6 +15,10 @@ Read the pages in this order. Each one links to the next where it needs it.
 7. [`end-to-end.md`](end-to-end.md): one example followed through every stage, from the
    argument to its verdict, with the runner's real output.
 
+Something does not work? [`troubleshooting.md`](troubleshooting.md) starts from what you
+see. Coming from v3? [`migration-v3-v4.md`](migration-v3-v4.md) takes a v3 step library
+and command line to v4.
+
 ## How the runner is built
 
 - [`design.md`](design.md): the modules and classes, and how they fit together.
