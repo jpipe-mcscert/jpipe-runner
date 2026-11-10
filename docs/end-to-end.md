@@ -316,7 +316,7 @@ broken step fails its element, and the run goes on, so one run reports them all.
 ## 7. Reading the verdict
 
 The text report of step 6 is for people. For a program, such as a CI pipeline or the
-GitHub Action, the runner reports the same run as JSON: a versioned contract, described by
+[GitHub Action](https://github.com/jpipe-mcscert/jpipe-ci-actions), the runner reports the same run as JSON: a versioned contract, described by
 a schema that ships with it ([`report-schema.md`](report-schema.md),
 [ADR-0011](adr/0011-json-report-is-the-machine-readable-contract.md)). It lists every
 element, then every diagnostic, and the verdict. Here is the first evidence, in the run

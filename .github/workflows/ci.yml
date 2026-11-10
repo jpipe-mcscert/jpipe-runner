@@ -8,7 +8,7 @@ on:
   # Every branch: milestone branches get CI before their pull request is opened (ADR-0014).
   push:
     branches-ignore:
-      - jpipe-runner-diagrams   # the Action's image output branch, not code
+      - jpipe-runner-diagrams   # where the v3 Action's tests committed images, not code
   # Pull requests from forks, which do not trigger `push` here. A same-repository pull
   # request (every milestone has one, as a draft, ADR-0015) is already covered by `push`,
   # so the jobs skip it rather than run twice per commit.

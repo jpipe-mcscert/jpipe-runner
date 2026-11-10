@@ -268,7 +268,7 @@ no element, a variable consumed but never produced, an evidence that observes no
 ## 9. For CI and for readers
 
 The text report is for people. For a program, `--report report.json` writes the JSON
-report, the contract for scripts and the GitHub Action
+report, the contract for scripts and the [GitHub Action](https://github.com/jpipe-mcscert/jpipe-ci-actions)
 ([`report-schema.md`](report-schema.md)). With Graphviz installed,
 `--diagram release.svg` draws the argument with the run's statuses over it, as the jPipe
 compiler draws it, and `--dataflow release-dataflow.svg` adds the files and values that

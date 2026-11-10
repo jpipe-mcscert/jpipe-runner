@@ -24,7 +24,7 @@ and add a row to this table.
 | [0009](0009-separate-registry-from-value-store.md) | Separate the declaration registry from the per-run value store | accepted |
 | [0010](0010-diagnostics-as-data-rules-as-objects.md) | Diagnostics as data, rules as objects, real severity levels | accepted |
 | [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
-| 0012 | Extract the GitHub Action to its own repository | reserved ([#130](https://github.com/jpipe-mcscert/jpipe-runner/issues/130)) |
+| [0012](0012-extract-the-github-action.md) | The GitHub Action leaves for jpipe-ci-actions, and runs v4 only | accepted |
 | [0013](0013-kind-divergence-under-composition.md) | Kind divergence under composition is a warning, not an error | accepted |
 | [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted, amended by [0015](0015-draft-pull-request-per-milestone.md) |
 | [0015](0015-draft-pull-request-per-milestone.md) | Open each milestone's pull request as a draft when the milestone starts | accepted |

@@ -94,6 +94,9 @@ recorded a failure, the evidence would fail, the strategy and the conclusion abo
 would be skipped, and the exit code would be 1. `--report report.json` writes the same run
 as JSON for programs, and `--diagram release.svg` draws it.
 
+In GitHub Actions, [`jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions) runs a justification on every pull request,
+and comments with what holds and what does not.
+
 ## Documentation
 
 - [Tutorial](https://github.com/jpipe-mcscert/jpipe-runner/blob/main/docs/tutorial.md):

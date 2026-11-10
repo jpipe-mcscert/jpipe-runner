@@ -9,7 +9,8 @@ each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The r
 validates the library against the model, runs the steps supporters first, and reports a
 verdict as text, JSON and diagrams. It is a CLI (`jpipe-runner`, plus `impact` and
 `status`) and an importable authoring API (`from jpipe_runner import …`). The GitHub Action
-still sits at the root (`action.yml`, `script/action/`) until MB0 moves it out (#130, #131).
+lives in the sibling repository `jpipe-mcscert/jpipe-ci-actions` (ADR-0012); it reads the
+JSON report, so a change to its schema or to the exit codes reaches that repository.
 
 - **Language**: Python ≥ 3.11
 - **Build tool**: Poetry
@@ -113,8 +114,8 @@ messages and our own identifiers. That is `-our` (colour, behaviour), `-re` (cen
 `-ize`/`-yze` (organize, analyze, normalize), a doubled `l` (modelled, labelled), `-ence`
 (defence), *licence* as a noun and *license* as a verb, and **artifact**. Not changed:
 third-party text kept verbatim (the Contributor Covenant, quoted messages), the keys and
-names of external formats (`license` in `pyproject.toml`, GitHub's branding key in
-`action.yml`, the `LICENSE` file), compiler output and mock data.
+names of external formats (`license` in `pyproject.toml`, the `LICENSE` file), compiler
+output and mock data.
 `tests/unit/test_spelling.py` flags the British `-ise`/`-yse` and the American
 `-or`/`-er`/single-`l`/`-ense` forms; extend its exceptions rather than misspelling to
 please it. Issue and PR text follows the same rule.
@@ -123,7 +124,7 @@ please it. Issue and PR text follows the same rule.
 
 One long-lived branch, `main` (the default branch), plus one branch per v4 milestone
 (`m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`) cut from `main`.
-MB1 (#132) is done in the `jpipe-runner-action` repository and has no branch here. Rationale:
+MB1 (#132) was folded into MB0, whose action work is done in `jpipe-ci-actions`. Rationale:
 [ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md) and
 [ADR-0015](docs/adr/0015-draft-pull-request-per-milestone.md); workflow:
 [`docs/contributing.md`](docs/contributing.md). There is no `dev` branch any more; v3 is
