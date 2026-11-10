@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "justification": "error_prone",
+  "verdict": "fail",
+  "strict": false,
+  "summary": {
+    "elements": 2,
+    "pass": 0,
+    "fail": 1,
+    "skip": 1,
+    "not_run": 0,
+    "errors": 1,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Divide by number",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": "fail",
+      "reason": "the step raised ZeroDivisionError: division by zero, at steps.py, line 17",
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.divide_by_number",
+      "bound_by": [
+        "S1"
+      ],
+      "observes": [],
+      "consumes": [],
+      "produces": [
+        "result"
+      ],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "C1",
+      "label": "Validate division result",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "skip",
+      "reason": "not run: S1 did not pass",
+      "blocked_by": [
+        "S1"
+      ],
+      "ran": false,
+      "bound_to": "steps.validate_division_result",
+      "bound_by": [
+        "C1"
+      ],
+      "observes": [],
+      "consumes": [
+        "result"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP022",
+      "severity": "error",
+      "element": "S1",
+      "message": "the step raised ZeroDivisionError: division by zero, at steps.py, line 17",
+      "fix": "Return Fail(reason) when the check does not hold: an exception says the step itself is broken.",
+      "traceback": {
+        "exception": "ZeroDivisionError",
+        "message": "division by zero",
+        "frames": [
+          {
+            "file": "steps.py",
+            "line": 17,
+            "function": "divide_by_number",
+            "code": "return Pass(result=NUMERATOR / DENOMINATOR)"
+          }
+        ],
+        "cause": null
+      }
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}

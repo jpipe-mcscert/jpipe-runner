@@ -15,7 +15,7 @@ from xml.etree import ElementTree
 import pytest
 
 from jpipe_runner import Fail, Outcome, Pass, Skip, evidence, loader, strategy
-from jpipe_runner.diagram import FORMATS, View, default_name, source, write
+from jpipe_runner.diagram import FORMATS, View, source, write
 from jpipe_runner.engine import Verdict, run
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.report import RunReport
@@ -231,11 +231,6 @@ def test_a_variable_without_one_producer_and_a_consumer_is_vermillion() -> None:
 
 
 # --- Writing a diagram ----------------------------------------------------------------------
-
-
-def test_the_default_name_is_the_justifications() -> None:
-    assert default_name(RELEASE, "svg") == "m.svg"
-    assert default_name(RELEASE, "png", View.DATAFLOW) == "m-dataflow.png"
 
 
 def test_the_dot_format_is_written_without_graphviz(

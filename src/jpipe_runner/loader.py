@@ -8,6 +8,7 @@ graph, which executed nothing and reported success.
 """
 
 import json
+from dataclasses import replace
 from importlib.resources import files
 from os import PathLike
 from pathlib import Path
@@ -25,6 +26,11 @@ SCHEMA: dict[str, Any] = json.loads(
 )
 _VALIDATOR = Draft202012Validator(SCHEMA)
 
+_SOURCE_FILE = (
+    "This is a jPipe source file: compile it with `jpipe process -f JSON`, "
+    "and pass the JSON file the compiler writes."
+)
+
 _NOT_RUNNABLE = (
     "Templates have abstract supports and cannot be run. "
     "Run a justification that implements the template instead."
@@ -35,15 +41,26 @@ def load(path: str | PathLike[str]) -> Justification:
     """Load the model in the file at ``path``.
 
     Raises ``OSError`` if the file cannot be read, and ``InvalidJustificationError`` if
-    what it holds is not a model that can be run.
+    what it holds is not a model that can be run. A ``.jd`` file is the jPipe source of a
+    model, not the JSON the compiler writes from it, and its diagnostic says so.
     """
     try:
-        text = Path(path).read_text(encoding="utf-8")
+        return loads(_read(path))
+    except InvalidJustificationError as error:
+        if Path(path).suffix != ".jd":
+            raise
+        raise InvalidJustificationError(
+            [replace(d, fix=_SOURCE_FILE) for d in error.diagnostics]
+        ) from None
+
+
+def _read(path: str | PathLike[str]) -> str:
+    try:
+        return Path(path).read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
         raise InvalidJustificationError(
             [_nonconformance(f"not UTF-8 text: {error.reason} at byte {error.start}")]
         ) from None
-    return loads(text)
 
 
 def loads(text: str) -> Justification:

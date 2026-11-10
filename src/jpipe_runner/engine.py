@@ -18,7 +18,8 @@ a ``Pass`` without a value the step declares (``JP023``). A value a ``Pass`` car
 without declaring it is dropped, with a warning (``JP024``).
 
 The verdict is ``FAIL`` if an element failed, ``SKIP`` if one was skipped, and ``PASS``
-otherwise; ``INVALID`` when validation stopped the run.
+otherwise; ``INVALID`` when validation stopped the run. A dry run validates and calls no
+step: its verdict is ``VALID`` when validation passed (ADR-0024).
 """
 
 import copy
@@ -67,6 +68,8 @@ class Verdict(StrEnum):
     """No element failed, and one was skipped: the justification is not established."""
     INVALID = "invalid"
     """Validation reported an error, so nothing ran."""
+    VALID = "valid"
+    """A dry run: validation reported no error, and no step was called."""
 
 
 @dataclass(frozen=True)
@@ -108,11 +111,15 @@ class RunResult:
     values: ValueStore
     strict: bool = False
     """Whether validation counted warnings as errors."""
+    dry_run: bool = False
+    """Whether the run stopped after validation, calling no step."""
 
     @property
     def verdict(self) -> Verdict:
         if not self.validation.passed:
             return Verdict.INVALID
+        if self.dry_run:
+            return Verdict.VALID
         statuses = {result.status for result in self.elements}
         if Status.FAIL in statuses:
             return Verdict.FAIL
@@ -141,12 +148,14 @@ def run(
     *,
     strict: bool = False,
     root: Path = Path(),
+    dry_run: bool = False,
 ) -> RunResult:
     """Validate ``registry`` against ``justification``, then run it if nothing is an error.
 
     ``strict`` counts validation warnings as errors. The paths that evidence observes are
-    relative to ``root``, by default the working directory. The steps run in this process:
-    a run of libraries imported with ``libraries.imported`` happens inside that context.
+    relative to ``root``, by default the working directory. A ``dry_run`` stops after
+    validation, and calls no step. The steps run in this process: a run of libraries
+    imported with ``libraries.imported`` happens inside that context.
     """
     ctx = ValidationContext.of(justification, registry)
     report = RULES.run(ctx, strict=strict)
@@ -154,6 +163,9 @@ def run(
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
         return RunResult(justification, ctx.bindings, report, (), values, strict)
+    if dry_run:
+        _LOG.info("validation passed: a dry run calls no step")
+        return RunResult(justification, ctx.bindings, report, (), values, strict, dry_run=True)
     elements = _Run(ctx, values, root).execute()
     return RunResult(justification, ctx.bindings, report, elements, values, strict)
 

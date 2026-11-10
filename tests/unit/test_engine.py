@@ -365,6 +365,26 @@ def test_an_error_in_validation_runs_nothing(release: Release) -> None:
     assert result.diagnostics == result.validation.diagnostics
 
 
+def test_a_dry_run_validates_and_calls_no_step(release: Release) -> None:
+    result = release.run(dry_run=True)
+
+    assert result.verdict is Verdict.VALID
+    assert result.dry_run
+    assert result.elements == ()
+    assert release.called() == []
+
+
+def test_a_dry_run_of_a_library_that_does_not_validate_is_invalid(release: Release) -> None:
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["a"])
+    def first(log: Path) -> Outcome:
+        return Pass(a="one")
+
+    result = run(RELEASE, _registry(first), root=release.root, dry_run=True)
+
+    assert result.verdict is Verdict.INVALID
+    assert result.validation.errors
+
+
 def test_a_strict_run_stops_on_a_warning(release: Release) -> None:
     @evidence("e1", observes={"log": "e1.txt"}, produces=["a", "unused"])
     def first(log: Path) -> Outcome:

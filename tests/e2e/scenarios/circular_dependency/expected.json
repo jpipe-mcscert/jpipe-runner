@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "justification": null,
+  "verdict": "invalid",
+  "strict": false,
+  "summary": {
+    "elements": 0,
+    "pass": 0,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 1,
+    "warnings": 0
+  },
+  "elements": [],
+  "diagnostics": [
+    {
+      "code": "JP004",
+      "severity": "error",
+      "element": "S1",
+      "message": "the relations form a cycle: 'S1' -> 'S2' -> 'S1'",
+      "fix": "An element cannot support itself, even indirectly: remove one of these relations.",
+      "traceback": null
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}

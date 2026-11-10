@@ -228,6 +228,28 @@ def test_evidence_observes_artifacts_passed_to_its_parameters_by_name() -> None:
     assert checked(Path("CHANGELOG.md"), []) == Pass(ok=True)
 
 
+@pytest.mark.parametrize(
+    ("declared", "recorded"),
+    [
+        pytest.param("mock/../mock/junit.xml", "mock/junit.xml", id="'..' inside"),
+        pytest.param("./CHANGELOG.md", "CHANGELOG.md", id="'.'"),
+        pytest.param("build//reports/*.xml", "build/reports/*.xml", id="'//'"),
+        pytest.param("../VERSION", "../VERSION", id="a leading '..'"),
+        pytest.param("a/../build/**/./*.xml", "build/**/*.xml", id="a glob"),
+    ],
+)
+def test_an_observed_path_is_recorded_as_a_changed_file_is_named(
+    declared: str, recorded: str
+) -> None:
+    @evidence("m:e", observes={"a": declared})
+    def observing(a: Path) -> Outcome:
+        return Pass()
+
+    step = step_of(observing)
+    assert step is not None
+    assert step.observes == (Artifact("a", recorded),)
+
+
 def test_a_step_observes_nothing_unless_declared() -> None:
     @evidence("m:e")
     def unobserved() -> Outcome:
@@ -266,6 +288,9 @@ def test_only_evidence_observes() -> None:
         pytest.param({"a": "build/*/"}, "directory", id="a glob of directories"),
         pytest.param({"a": "build/**.xml"}, "whole part", id="'**' inside a name"),
         pytest.param({"a": "a**/b.xml"}, "whole part", id="'**' ending a name"),
+        pytest.param({"a": "build/*/../x.xml"}, "before the first wildcard", id="'..' in a glob"),
+        pytest.param({"a": "mock/.."}, "directory", id="'..' to a directory"),
+        pytest.param({"a": "."}, "directory", id="the working directory"),
     ],
 )
 def test_a_malformed_observation_is_a_type_error(observes: Any, problem: str) -> None:

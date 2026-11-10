@@ -20,6 +20,7 @@ variables flow, depends on the model, and is checked against it (#115, #119).
 
 import inspect
 import keyword
+import posixpath
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from pathlib import PurePosixPath, PureWindowsPath
@@ -39,6 +40,11 @@ _KEYWORD_ARGUMENT = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.
 _WILDCARDS = frozenset("*?[")
 
 
+def is_glob(path: str) -> bool:
+    """Whether ``path`` is a glob pattern, which may match several files, rather than a path."""
+    return not _WILDCARDS.isdisjoint(path)
+
+
 @dataclass(frozen=True)
 class Artifact:
     """An artifact an evidence observes: a file, or a glob of files (ADR-0018, ADR-0019).
@@ -53,7 +59,7 @@ class Artifact:
     @property
     def is_glob(self) -> bool:
         """Whether ``path`` is a pattern, which may match several files."""
-        return not _WILDCARDS.isdisjoint(self.path)
+        return is_glob(self.path)
 
 
 @dataclass(frozen=True)
@@ -216,7 +222,7 @@ def _artifacts(kind: Kind, observes: Mapping[str, str]) -> tuple[Artifact, ...]:
                 f"{decorator}(observes=...) takes paths as non-empty strings: {example}"
             )
         _check_path(decorator, path)
-        artifacts.append(Artifact(name, path))
+        artifacts.append(Artifact(name, _canonical(decorator, path)))
     return tuple(artifacts)
 
 
@@ -228,15 +234,40 @@ def _check_path(decorator: str, path: str) -> None:
             f"directory, so that the library works on every machine, not {path!r}"
         )
     if path.endswith(("/", "\\")):
-        raise TypeError(
-            f"{decorator}(observes=...) takes files, and {path!r} names a directory. "
-            f"Observe the files it holds, with a glob such as {path + '**/*'!r}."
-        )
+        _directory(decorator, path)
     if any("**" in part and part != "**" for part in path.replace("\\", "/").split("/")):
         raise TypeError(
             f"{decorator}(observes=...): '**' matches any depth only as a whole part of a "
             f"path, as in 'build/**/*.xml', not {path!r}"
         )
+
+
+def _canonical(decorator: str, path: str) -> str:
+    """``path`` with ``.`` and ``..`` resolved as text before its first wildcard, as a
+    changed file is (``mock/../mock/x.xml`` is ``mock/x.xml``), so that impact analysis
+    matches it. A leading ``..`` is kept. One after a wildcard is refused: what it names
+    depends on the directories the glob finds."""
+    parts = path.split("/")
+    first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
+    if ".." in parts[first:]:
+        raise TypeError(
+            f"{decorator}(observes=...) takes '..' only before the first wildcard, as in "
+            f"'../shared/*.yml', not {path!r}"
+        )
+    literal = posixpath.normpath("/".join(parts[:first]) or ".")
+    kept = [] if literal == "." else literal.split("/")
+    kept += [part for part in parts[first:] if part not in ("", ".")]
+    if not kept or kept[-1] == "..":
+        _directory(decorator, path)
+    return "/".join(kept)
+
+
+def _directory(decorator: str, path: str) -> None:
+    glob = path.rstrip("/\\") + "/**/*"
+    raise TypeError(
+        f"{decorator}(observes=...) takes files, and {path!r} names a directory. "
+        f"Observe the files it holds, with a glob such as {glob!r}."
+    )
 
 
 def _is_name(name: object) -> bool:

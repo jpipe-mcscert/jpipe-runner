@@ -1,0 +1,268 @@
+{
+  "schema_version": "1.0",
+  "justification": "release",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 9,
+    "pass": 9,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 2
+  },
+  "elements": [
+    {
+      "id": "release:argued:suite",
+      "label": "The test suite passes",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "release:argued:testing"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "argued_steps.the_test_suite_passes",
+      "bound_by": [
+        "argued:suite"
+      ],
+      "observes": [
+        "mock/junit.xml"
+      ],
+      "consumes": [],
+      "produces": [
+        "suite_failures"
+      ],
+      "produced": {
+        "suite_failures": {
+          "value": 0
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/junit.xml",
+          "reachable": true,
+          "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
+          "size": 187
+        }
+      ]
+    },
+    {
+      "id": "release:argued:testing",
+      "label": "The test suite passes with high coverage",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "release:unified_0"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "argued_steps.the_test_suite_passes_with_high_coverage",
+      "bound_by": [
+        "argued:testing"
+      ],
+      "observes": [],
+      "consumes": [
+        "suite_failures"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "release:unified_0",
+      "label": "The code is tested",
+      "kind": "sub-conclusion",
+      "aliases": [
+        "release:checked:tests",
+        "release:argued:tested"
+      ],
+      "supports": [
+        "release:checked:gates",
+        "release:argued:docs"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "checked_steps.the_code_is_tested",
+      "bound_by": [
+        "checked:tests"
+      ],
+      "observes": [
+        "mock/junit.xml"
+      ],
+      "consumes": [],
+      "produces": [
+        "code_tested"
+      ],
+      "produced": {
+        "code_tested": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/junit.xml",
+          "reachable": true,
+          "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
+          "size": 187
+        }
+      ]
+    },
+    {
+      "id": "release:checked:gates",
+      "label": "All release gates pass",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "release:checked:ready"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "checked_steps.all_release_gates_pass",
+      "bound_by": [
+        "checked:gates"
+      ],
+      "observes": [],
+      "consumes": [
+        "code_tested"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "release:checked:ready",
+      "label": "Version 2.0 is ready to ship",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "release:assembleStrategy"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "release:argued:docs",
+      "label": "The changelog and API docs are current",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "release:argued:done"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "argued_steps.the_changelog_and_api_docs_are_current",
+      "bound_by": [
+        "argued:docs"
+      ],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "release:argued:done",
+      "label": "The release is documented",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "release:assembleStrategy"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "release:assembleStrategy",
+      "label": "Both arguments hold",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "release:assembleConclusion"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "release_steps.both_arguments_hold",
+      "bound_by": [
+        "release:assembleStrategy"
+      ],
+      "observes": [],
+      "consumes": [
+        "code_tested",
+        "suite_failures"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "release:assembleConclusion",
+      "label": "Version 2.0 can be released",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP008",
+      "severity": "warning",
+      "element": "release:unified_0",
+      "message": "checked_steps.the_code_is_tested is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it",
+      "fix": "Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.",
+      "traceback": null
+    },
+    {
+      "code": "JP013",
+      "severity": "warning",
+      "element": "release:argued:docs",
+      "message": "argued_steps.the_changelog_and_api_docs_are_current ignores 'code_tested', which its supporter 'release:unified_0' produces",
+      "fix": "Consume 'code_tested' in this strategy.",
+      "traceback": null
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}

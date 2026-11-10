@@ -1,0 +1,736 @@
+{
+  "schema_version": "1.0",
+  "justification": "vaccination_campaign",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 25,
+    "pass": 25,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "event_calendar",
+      "label": "List of scheduled events with dates and venues",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "community_events"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.list_of_scheduled_events_with_dates_and_venues",
+      "bound_by": [
+        "event_calendar"
+      ],
+      "observes": [
+        "mock/event_calendar.csv"
+      ],
+      "consumes": [],
+      "produces": [
+        "event_count"
+      ],
+      "produced": {
+        "event_count": {
+          "value": 3
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/event_calendar.csv",
+          "reachable": true,
+          "sha256": "8a62c980e2001d4dbaa8bc39d8e17e21021af034a568d379eb7695c4f740c135",
+          "size": 126
+        }
+      ]
+    },
+    {
+      "id": "testimonial_videos",
+      "label": "Recorded testimonials from trusted figures",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "trusted_voices"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.recorded_testimonials_from_trusted_figures",
+      "bound_by": [
+        "testimonial_videos"
+      ],
+      "observes": [
+        "mock/testimonial_videos_list.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "testimonial_count"
+      ],
+      "produced": {
+        "testimonial_count": {
+          "value": 2
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/testimonial_videos_list.txt",
+          "reachable": true,
+          "sha256": "02e126279dfd21b3d6b09f4888da914ac3f1ed212921261cb8915bae206c187d",
+          "size": 34
+        }
+      ]
+    },
+    {
+      "id": "social_posts",
+      "label": "Set of pre-approved social media posts and graphics",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "media_outreach"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.set_of_preapproved_social_media_posts_and_graphics",
+      "bound_by": [
+        "social_posts"
+      ],
+      "observes": [
+        "mock/social_posts.json"
+      ],
+      "consumes": [],
+      "produces": [
+        "social_posts_size"
+      ],
+      "produced": {
+        "social_posts_size": {
+          "value": 285
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/social_posts.json",
+          "reachable": true,
+          "sha256": "56fbf022b74c54baa7ef23a5a9e4bb3b347dcf974c06a224d4a4602b1aa50344",
+          "size": 285
+        }
+      ]
+    },
+    {
+      "id": "trained_staff",
+      "label": "Roster of trained vaccination staff for mobile units",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "mobile_units"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.roster_of_trained_vaccination_staff_for_mobile_units",
+      "bound_by": [
+        "trained_staff"
+      ],
+      "observes": [
+        "mock/staff_roster.csv"
+      ],
+      "consumes": [],
+      "produces": [
+        "staff_count"
+      ],
+      "produced": {
+        "staff_count": {
+          "value": 5
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/staff_roster.csv",
+          "reachable": true,
+          "sha256": "1bacc63261f7cf9c2f0721ed91392e5094e55d4c522b8958d59850e2f341c57c",
+          "size": 132
+        }
+      ]
+    },
+    {
+      "id": "leader_commitments",
+      "label": "Written commitments from local leaders to participate",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "trusted_voices"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.written_commitments_from_local_leaders_to_participate",
+      "bound_by": [
+        "leader_commitments"
+      ],
+      "observes": [
+        "mock/leader_commitments.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "leader_commitments_size"
+      ],
+      "produced": {
+        "leader_commitments_size": {
+          "value": 133
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/leader_commitments.txt",
+          "reachable": true,
+          "sha256": "73ca15440b016035a420c3c516d8cd51bd5fdb1cdec9a8c4c7d602523741816a",
+          "size": 133
+        }
+      ]
+    },
+    {
+      "id": "trusted_voices",
+      "label": "Involve respected local leaders in advocacy",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "trust_leaders"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.involve_respected_local_leaders_in_advocacy",
+      "bound_by": [
+        "trusted_voices"
+      ],
+      "observes": [],
+      "consumes": [
+        "leader_commitments_size",
+        "testimonial_count"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "speakers_list",
+      "label": "List of trained community speakers",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "community_events"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.list_of_trained_community_speakers",
+      "bound_by": [
+        "speakers_list"
+      ],
+      "observes": [
+        "mock/speakers_list.csv"
+      ],
+      "consumes": [],
+      "produces": [
+        "speaker_count"
+      ],
+      "produced": {
+        "speaker_count": {
+          "value": 2
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/speakers_list.csv",
+          "reachable": true,
+          "sha256": "9a18a38a0c27a7001a21df082d006dbd9744854f81bc9fbdfaf7c6cd66bab4a7",
+          "size": 84
+        }
+      ]
+    },
+    {
+      "id": "community_events",
+      "label": "Host informational events in public gathering spaces",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "awareness_events"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.host_informational_events_in_public_gathering_spaces",
+      "bound_by": [
+        "community_events"
+      ],
+      "observes": [],
+      "consumes": [
+        "event_count",
+        "speaker_count"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "schedule_plan",
+      "label": "Approved extended-hours operation schedule",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "extended_hours"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.approved_extendedhours_operation_schedule",
+      "bound_by": [
+        "schedule_plan"
+      ],
+      "observes": [
+        "mock/schedule_plan.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "schedule_plan_size"
+      ],
+      "produced": {
+        "schedule_plan_size": {
+          "value": 115
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/schedule_plan.txt",
+          "reachable": true,
+          "sha256": "b837cdf0b2c478eec59e13740bc1d5ec1f7df719e13c5a9022cda27582b22499",
+          "size": 115
+        }
+      ]
+    },
+    {
+      "id": "fleet_available",
+      "label": "Three operational mobile medical units",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "mobile_units"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.three_operational_mobile_medical_units",
+      "bound_by": [
+        "fleet_available"
+      ],
+      "observes": [
+        "mock/fleet_info.json"
+      ],
+      "consumes": [],
+      "produces": [
+        "fleet_size"
+      ],
+      "produced": {
+        "fleet_size": {
+          "value": 3
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/fleet_info.json",
+          "reachable": true,
+          "sha256": "1669bb2fc117c9ce382e7925766903a02fa2742727c6ee2497aa24106cac8fb0",
+          "size": 373
+        }
+      ]
+    },
+    {
+      "id": "mobile_units",
+      "label": "Deploy mobile vaccination units to remote areas",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "access_mobile_units"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.deploy_mobile_vaccination_units_to_remote_areas",
+      "bound_by": [
+        "mobile_units"
+      ],
+      "observes": [],
+      "consumes": [
+        "fleet_size",
+        "staff_count"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "access_mobile_units",
+      "label": "Vaccination sites accessible via mobile units to remote areas",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "multi_pronged"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "safety_report",
+      "label": "Public safety report approved by health authority",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "transparent_info"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.public_safety_report_approved_by_health_authority",
+      "bound_by": [
+        "safety_report"
+      ],
+      "observes": [
+        "mock/safety_report.*"
+      ],
+      "consumes": [],
+      "produces": [
+        "safety_report_format"
+      ],
+      "produced": {
+        "safety_report_format": {
+          "value": ".pdf"
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/safety_report.pdf",
+          "reachable": true,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        }
+      ]
+    },
+    {
+      "id": "trust_leaders",
+      "label": "Community trusts vaccination due to respected local leaders' advocacy",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "multi_pronged"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "awareness_events",
+      "label": "Target population is aware of the campaign through community events",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "multi_pronged"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "extended_hours",
+      "label": "Keep vaccination centers open during evenings and weekends",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "access_extended_hours"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.keep_vaccination_centres_open_during_evenings_and_weekends",
+      "bound_by": [
+        "extended_hours"
+      ],
+      "observes": [],
+      "consumes": [
+        "schedule_plan_size"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "faq_document",
+      "label": "Frequently Asked Questions document",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "transparent_info"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.frequently_asked_questions_document",
+      "bound_by": [
+        "faq_document"
+      ],
+      "observes": [
+        "mock/faq_document.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "faq_document_size"
+      ],
+      "produced": {
+        "faq_document_size": {
+          "value": 330
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/faq_document.txt",
+          "reachable": true,
+          "sha256": "0d6062f4a81cbbe94ef7bb28414ec0fd4d393ef562331e784861899bf92df946",
+          "size": 330
+        }
+      ]
+    },
+    {
+      "id": "transparent_info",
+      "label": "Publish transparent and accessible safety data",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "trust_transparency"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.publish_transparent_and_accessible_safety_data",
+      "bound_by": [
+        "transparent_info"
+      ],
+      "observes": [],
+      "consumes": [
+        "safety_report_format",
+        "faq_document_size"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "trust_transparency",
+      "label": "Community trusts vaccination due to transparent safety information",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "multi_pronged"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "access_extended_hours",
+      "label": "Vaccination centers accessible through extended hours",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "multi_pronged"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "press_release",
+      "label": "Approved press release document",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "media_outreach"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.approved_press_release_document",
+      "bound_by": [
+        "press_release"
+      ],
+      "observes": [
+        "mock/press_release.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "press_release_size"
+      ],
+      "produced": {
+        "press_release_size": {
+          "value": 413
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/press_release.txt",
+          "reachable": true,
+          "sha256": "c2bf1ab7a7566d181669f4569d2b56fc33b5c96a4803a8cd29a79dd98c80e793",
+          "size": 413
+        }
+      ]
+    },
+    {
+      "id": "media_outreach",
+      "label": "Distribute information through local media and social channels",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "awareness_media"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.distribute_information_through_local_media_and_social_channels",
+      "bound_by": [
+        "media_outreach"
+      ],
+      "observes": [],
+      "consumes": [
+        "press_release_size",
+        "social_posts_size"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "awareness_media",
+      "label": "Target population is aware of the campaign through media",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "multi_pronged"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "multi_pronged",
+      "label": "Use multiple coordinated outreach and delivery approaches",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "main_goal"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.use_multiple_coordinated_outreach_and_delivery_approaches",
+      "bound_by": [
+        "multi_pronged"
+      ],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "main_goal",
+      "label": "Community vaccination rate reaches 85% within 6 months",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null,
+  "dataflow": null
+}

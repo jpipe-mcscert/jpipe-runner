@@ -95,13 +95,6 @@ def _check_reports_on(report: RunReport, model: Justification) -> None:
         )
 
 
-def default_name(justification: Justification, fmt: str, view: View = View.JUSTIFICATION) -> str:
-    """The file name of a diagram: ``<justification>.<format>``, and
-    ``<justification>-dataflow.<format>`` for the dataflow view."""
-    suffix = "" if view is View.JUSTIFICATION else f"-{view}"
-    return f"{justification.name}{suffix}.{fmt}"
-
-
 def write(
     path: Path,
     justification: Justification,

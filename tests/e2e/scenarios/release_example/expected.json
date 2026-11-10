@@ -1,0 +1,137 @@
+{
+  "schema_version": "1.0",
+  "justification": "release",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 4,
+    "pass": 4,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "release:e1",
+      "label": "The test suite passes",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "release:s"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_test_suite_passes",
+      "bound_by": [
+        "release:e1"
+      ],
+      "observes": [
+        "mock/junit.xml"
+      ],
+      "consumes": [],
+      "produces": [
+        "tests_pass"
+      ],
+      "produced": {
+        "tests_pass": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/junit.xml",
+          "reachable": true,
+          "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
+          "size": 187
+        }
+      ]
+    },
+    {
+      "id": "release:e2",
+      "label": "The changelog is up to date",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "release:s"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_changelog_is_up_to_date",
+      "bound_by": [
+        "release:e2"
+      ],
+      "observes": [
+        "mock/CHANGELOG.md"
+      ],
+      "consumes": [],
+      "produces": [
+        "changelog_ok"
+      ],
+      "produced": {
+        "changelog_ok": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/CHANGELOG.md",
+          "reachable": true,
+          "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
+          "size": 4
+        }
+      ]
+    },
+    {
+      "id": "release:s",
+      "label": "All release gates pass",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "release:c"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.all_release_gates_pass",
+      "bound_by": [
+        "release:s"
+      ],
+      "observes": [],
+      "consumes": [
+        "tests_pass",
+        "changelog_ok"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "release:c",
+      "label": "Version 2.0 is ready to ship",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null,
+  "dataflow": null
+}

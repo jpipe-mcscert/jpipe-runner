@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "justification": "conditional",
+  "verdict": "skip",
+  "strict": false,
+  "summary": {
+    "elements": 2,
+    "pass": 0,
+    "fail": 0,
+    "skip": 2,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "S1",
+      "label": "Optional feature",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": "skip",
+      "reason": "the optional feature is disabled",
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.optional_feature",
+      "bound_by": [
+        "S1"
+      ],
+      "observes": [],
+      "consumes": [],
+      "produces": [
+        "feature_result"
+      ],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "C1",
+      "label": "Use feature result",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "skip",
+      "reason": "not run: S1 did not pass",
+      "blocked_by": [
+        "S1"
+      ],
+      "ran": false,
+      "bound_to": "steps.use_feature_result",
+      "bound_by": [
+        "C1"
+      ],
+      "observes": [],
+      "consumes": [
+        "feature_result"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null,
+  "dataflow": null
+}

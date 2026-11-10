@@ -30,6 +30,7 @@ _VERDICT_COLOURS = {
     Verdict.FAIL: _RED,
     Verdict.SKIP: _CYAN,
     Verdict.INVALID: _RED,
+    Verdict.VALID: _GREEN,
 }
 _SEVERITY_COLOURS = {Severity.ERROR: _RED, Severity.WARNING: _YELLOW}
 
@@ -147,8 +148,13 @@ class _Text:
             yield f"{_plural(len(self._report.diagnostics), 'diagnostic')} ({counts})"
         if self._report.strict:
             yield "strict: warnings count as errors"
+        for view, path in (("diagram", self._report.diagram), ("dataflow", self._report.dataflow)):
+            if path is not None:
+                yield f"{view}: {path}"
         verdict = f"verdict: {self._report.verdict}"
-        if not self._report.ran:
+        if self._report.verdict is Verdict.VALID:
+            verdict += " (a dry run: no step was called)"
+        elif not self._report.ran:
             verdict += " (nothing ran)"
         yield self._paint(verdict, _VERDICT_COLOURS[self._report.verdict])
 

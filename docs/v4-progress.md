@@ -5,11 +5,13 @@ built one [milestone](https://github.com/jpipe-mcscert/jpipe-runner/milestones) 
 This page follows the rewrite: where each milestone stands, and what v4 can do so far. It
 is updated as each milestone lands.
 
-There is no command line until M6, so nothing below can be run as `jpipe-runner` yet: it is
-the library the command line will be built on. For a working runner, use the
-[latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest)
-(3.6.0).
+Since M6, v4 runs as the `jpipe-runner` command. It is not released yet: install it from
+this repository (`pip install git+https://github.com/jpipe-mcscert/jpipe-runner`). The
+[latest stable release](https://github.com/jpipe-mcscert/jpipe-runner/releases/latest) is
+still 3.6.0.
 
+- [`tutorial.md`](tutorial.md) takes an argument from its `.jd` file to a green run (M6).
+- [`cli.md`](cli.md) describes every option and exit code of the command (M6).
 - [`authoring.md`](authoring.md) is the guide to writing a step library (M2).
 - [`end-to-end.md`](end-to-end.md) follows one example through every stage, from the `.jd`
   file to the verdict, and says which stages work today.
@@ -26,14 +28,13 @@ the library the command line will be built on. For a working runner, use the
 | M3 Validation | done | #118, #119, #128, #143 | [0010](adr/0010-diagnostics-as-data-rules-as-objects.md), [0013](adr/0013-kind-divergence-under-composition.md), [0018](adr/0018-evidence-declares-observed-artifacts.md) |
 | M4 Execution | done | #120, #144 | [0019](adr/0019-evidence-observes-files.md), [0020](adr/0020-importing-step-libraries.md), [0021](adr/0021-execution-semantics.md) |
 | M5 Reporting | done | #121–#123, #145, #150, #151 | [0011](adr/0011-json-report-is-the-machine-readable-contract.md), [0022](adr/0022-diagrams-follow-the-compiler.md) |
-| M6 CLI | planned | #124, #125, #127 | |
+| M6 CLI | done | #124, #125, #127, #146 | [0023](adr/0023-the-command-line.md), [0024](adr/0024-dry-run-verdict-and-both-diagrams.md), [0025](adr/0025-impact-and-staleness.md) |
 | M7 Docs | planned | #129, #140, #142 | [0017](adr/0017-document-in-the-milestone-that-builds-it.md) |
 | MB0 Action extraction | planned | #130, #131 | 0012 (reserved) |
 | MB1 Action v1 | planned | #132 (in `jpipe-runner-action`) | |
 
 What each planned milestone will add:
 
-- **M6 CLI:** the `jpipe-runner` command and its exit codes.
 - **M7 Docs:** a consistency review of the documentation each milestone wrote, the README,
   troubleshooting and the migration guide
   ([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)).
@@ -147,7 +148,7 @@ run; [`end-to-end.md`](end-to-end.md#6-running-the-steps) runs the release examp
   however far below. v3 let a skipped step's successors run.
 - **The justification's verdict** is `fail` if an element failed, `skip` if none failed
   and one was skipped, and `pass` when everything passed. A skipped justification is not
-  a failure (the command line, in M6, exits 0 for it unless the run is strict).
+  a failure (the command line exits 0 for it unless the run is strict).
 - **Observed artifacts are checked, recorded and passed.** Before an evidence is called,
   each file it observes is recorded with its path, SHA-256 and size. One that is missing
   or unreadable, or a glob that matches nothing, fails the evidence without calling it
@@ -197,6 +198,38 @@ example, its JSON report and its diagrams;
   [`authoring.md`](authoring.md#libraries-written-for-separate-models) says what such
   libraries need when they run together.
 
+### M6 CLI: running a justification
+
+[`tutorial.md`](tutorial.md) walks through a first run; [`cli.md`](cli.md) describes every
+option; [`end-to-end.md`](end-to-end.md#from-the-command-line) ends with the command.
+
+```shell
+jpipe-runner --library steps.py --report report.json --diagram release.svg justification.json
+```
+
+- **One command runs a justification**: it loads the JSON the compiler wrote, imports the
+  step libraries (a file or a glob each), validates them, runs them, and prints the text
+  report. `python -m jpipe_runner` is the same command, and imports the same modules.
+- **Every output is explicit**: stdout carries the report, and nothing else; `--json`
+  prints the JSON report instead of the text one. `--report`, `--diagram` and
+  `--dataflow` write the JSON report and the two diagrams, each in the format its suffix
+  names, all in one run. An output that cannot be written is refused before any step
+  runs.
+- **Exit codes a CI pipeline can act on**: 0 the justification holds (or is skipped), 1
+  it fails, 2 the command line is wrong, 3 nothing could run, 4 a file could not be read
+  or written. `--strict` also fails a skipped justification and counts warnings as
+  errors.
+- **A dry run** (`--dry-run`) checks a library against its argument without calling any
+  step, and reports `valid`.
+- **Logs that can be seen**, on stderr: `-v` for what the run does, `-vv` for details,
+  `-q` for errors only. `--colour` chooses whether the text report is coloured.
+- **What a change reaches**: `jpipe-runner impact --changed PATH` or `--since REF` lists
+  the evidence observing changed files and everything above it, without calling a step.
+- **What has changed since a run**: `jpipe-runner status report.json` compares the files a
+  run recorded with the files now, and lists what is stale.
+- **Each scenario's whole JSON report is pinned by a golden file**, run through the
+  command.
+
 ## Gone from v3
 
 - `@jpipe`, `@jpipe_link`, `@skip`, `@contribution` and the `produce` parameter (M2).
@@ -208,6 +241,12 @@ example, its JSON report and its diagrams;
   for people, and programs read the JSON report (M5).
 - v3's diagram colours, and its rewriting of `:` into `_` in diagram ids (M5); and the
   `graphviz` Python package, which drew them (M5).
+- v3's command-line options that changed meaning or went away (M6): `-v` was
+  `--variable` and is now `--verbose`; `-V` is gone; `-o/--output-path`, a directory, and
+  `-f/--format` gave way to `--diagram PATH` and `--dataflow PATH`; `--diagram PATTERN`,
+  which did nothing, now names the file to draw; `--python-path` no longer defaults to the
+  working directory; and the justification no longer has to end in `.json`.
+- v3's exit code 1 for every problem (M6), and its dry run that reported a pass.
 
 Step libraries generated by jPipe 2.5.0 still target v3
 ([#140](https://github.com/jpipe-mcscert/jpipe-runner/issues/140)).

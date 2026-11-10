@@ -1,6 +1,6 @@
 # v3 used @skip (evaluated at import time) and injected enable_feature from config.yaml;
 # v4 returns Skip(...) from the step and the switch is a constant in steps.py.
-# exit_code 0 assumes a skipped conclusion does not fail the justification (v3 behaviour).
+# exit_code 0: a skipped justification does not fail, unless the run is strict (ADR-0021).
 description = "A strategy returns Skip at run time; its conclusion is skipped in turn and the run still succeeds."
 origin = "v3.6.0:tests/e2e/resources/skip_scenario"
 libraries = ["steps.py"]

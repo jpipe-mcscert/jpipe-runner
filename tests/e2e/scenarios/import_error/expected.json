@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "justification": "file_validation",
+  "verdict": "invalid",
+  "strict": false,
+  "summary": {
+    "elements": 2,
+    "pass": 0,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 2,
+    "errors": 1,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "E1",
+      "label": "Check file exists",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "C1"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    },
+    {
+      "id": "C1",
+      "label": "File is valid",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP020",
+      "severity": "error",
+      "element": null,
+      "message": "steps.py cannot be imported: ModuleNotFoundError: No module named 'this_module_does_not_exist', at line 5",
+      "fix": "Install the module in the environment jpipe-runner runs in, or pass the directory that holds it as a python path.",
+      "traceback": {
+        "exception": "ModuleNotFoundError",
+        "message": "No module named 'this_module_does_not_exist'",
+        "frames": [
+          {
+            "file": "steps.py",
+            "line": 5,
+            "function": "<module>",
+            "code": "import this_module_does_not_exist  # noqa: F401"
+          }
+        ],
+        "cause": null
+      }
+    }
+  ],
+  "diagram": null,
+  "dataflow": null
+}
