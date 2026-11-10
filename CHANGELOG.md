@@ -47,14 +47,16 @@ _v4 is a from-scratch rewrite and a breaking release for every v3 user
 - **Logging that works.** `-v` logs what the run does on stderr (the model loaded, the
   libraries imported, each element's status, the Python that runs the steps), `-vv` adds
   details such as each step called and the python path, and `-q` shows errors only. v3's
-  `--verbose` changed nothing that could be seen. stdout carries only the report.
+  `--verbose` changed nothing that could be seen. stdout carries only the report: what
+  the step libraries print, and the programs their steps start, goes to stderr.
 - **Evidence declares the artifacts it observes.** `@evidence` takes
   `observes={"changelog": "CHANGELOG.md"}`, which maps a parameter of the function to the
   artifact it is to receive: a file, or the files a glob matches
   (`"build/reports/*.xml"`), relative to the directory the runner runs in. Every observed
   name must be a parameter of the function. An absolute path, or a directory (`"src/"`),
   is refused when the library is imported: observe the files a directory holds with a
-  glob (`"src/**/*"`). **Every evidence must observe something**: one that observes
+  glob (`"src/**/*"`). `.` and `..` in a path are resolved when it is declared
+  (`"mock/../mock/junit.xml"` is `"mock/junit.xml"`). **Every evidence must observe something**: one that observes
   nothing checks nothing in the world, and is an error (`JP018`). Existing evidence, and
   the skeletons jPipe 2.5.0 generates, must be given their artifacts. Before an evidence
   is called, each of its artifacts is checked and recorded, as its path, SHA-256 and size;

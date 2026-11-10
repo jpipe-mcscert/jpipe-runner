@@ -18,7 +18,7 @@ import os
 import shutil
 import sys
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
@@ -317,7 +317,7 @@ def _report(options: argparse.Namespace, root: Path) -> tuple[Justification | No
         len(justification),
     )
     try:
-        with imported(libraries, options.python_path) as modules:
+        with _steps_write_on_stderr(), imported(libraries, options.python_path) as modules:
             _LOG.debug("sys.path: %s", sys.path)
             registry = StepRegistry.from_modules(modules)
             _LOG.info("step libraries imported: %d (%d steps)", len(modules), len(registry))
@@ -522,6 +522,38 @@ def _logging(verbosity: int, quiet: bool) -> Iterator[None]:
         logger.removeHandler(handler)
         logger.setLevel(saved_level)
         logger.propagate = saved_propagate
+
+
+@contextmanager
+def _steps_write_on_stderr() -> Iterator[None]:
+    """Send to stderr what the step libraries print, and what the programs they start
+    write, while they are imported and run: stdout carries the report, and nothing else
+    (ADR-0023)."""
+    sys.stdout.flush()
+    saved = _stdout_on_stderr()
+    try:
+        with redirect_stdout(sys.stderr):
+            yield
+    finally:
+        sys.stderr.flush()
+        if saved is not None:
+            os.dup2(saved, 1)
+            os.close(saved)
+
+
+def _stdout_on_stderr() -> int | None:
+    """Point file descriptor 1 at stderr, and return a copy of what it was, or ``None``
+    when there is no stdout or stderr to point it at, and nothing was changed."""
+    try:
+        saved = os.dup(1)
+    except OSError:
+        return None
+    try:
+        os.dup2(2, 1)
+    except OSError:
+        os.close(saved)
+        return None
+    return saved
 
 
 @dataclass(frozen=True)

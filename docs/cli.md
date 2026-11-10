@@ -99,7 +99,8 @@ A diagram that needs Graphviz when it is not installed stops the command before 
 runs, with exit code 4: draw a `.dot` file instead, or install Graphviz.
 
 **stderr carries everything else**: the logs, the errors, and the usage when the command
-line is wrong.
+line is wrong. What the step libraries print, when they are imported and when their steps
+run, goes there too, and so does what the programs a step starts write on their stdout.
 
 **Colour.** `--colour auto` colours the text report only on a terminal, and never when
 the `NO_COLOR` environment variable is set. GitHub Actions shows colours, but is not a
@@ -210,7 +211,7 @@ $ echo $?
 | `-l PATH`, `--library PATH` | A step library, as for a run. |
 | `-p DIR`, `--python-path DIR` | A directory the step libraries import modules from, as for a run. |
 | `--changed PATH` | A changed file, relative to the working directory (or absolute, under it); repeat it for several. |
-| `--since REF` | The files that differ from the git revision `REF` (`origin/main`, a tag, a commit), and those git does not track yet but does not ignore. Needs git. |
+| `--since REF` | The files that differ from the git revision `REF` (`origin/main`, a tag, a commit), and those git does not track yet but does not ignore. A renamed file is changed under both its names. Needs git. |
 | `-v`, `--verbose` | Log what the command does. |
 | `-q`, `--quiet` | Log errors only. |
 | `-h`, `--help` | Print the options. |
@@ -252,7 +253,7 @@ $ echo $?
 | `-h`, `--help` | Print the options. |
 
 A file is `changed` when its SHA-256 differs from the one recorded, `vanished` when the
-run read it and it is gone, `appeared` when the run could not read it and it is there now,
+run read it and it is gone, `appeared` when the run could not read it and it can be now,
 and `added` when a glob an evidence observes matches it and the run did not see it. The
 exit code is 0 when nothing changed, 1 when something is stale, 3 when the file is not a
 report, or is the report of a run in which no step ran (`invalid`, or a dry run), and 4

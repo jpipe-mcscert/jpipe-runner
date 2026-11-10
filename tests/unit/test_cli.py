@@ -7,6 +7,7 @@ report with a golden file; these tests cover the options, the outputs and the ex
 
 import json
 import logging
+import os
 import runpy
 import shutil
 import sys
@@ -134,6 +135,97 @@ def test_report_writes_the_json_report_while_stdout_shows_the_text(
     assert code == ExitCode.OK
     assert out.startswith("Justification: release\n")
     assert json.loads(written)["verdict"] == "pass"
+
+
+def _noisy(release: Path) -> None:
+    """Make the release's steps print, when imported and when run, and start a program
+    that writes on its own stdout."""
+    steps = release / "steps.py"
+    source = steps.read_text(encoding="utf-8")
+    source = source.replace(
+        'RELEASE = "2.0"\n',
+        'RELEASE = "2.0"\nprint("importing the release steps")\n',
+    ).replace(
+        "    suite = ElementTree.parse(report).getroot()\n",
+        "    print('reading', report)\n"
+        "    import subprocess, sys\n"
+        "    subprocess.run([sys.executable, '-c', 'print(\"a program the step started\")'])\n"
+        "    suite = ElementTree.parse(report).getroot()\n",
+    )
+    steps.write_text(source, encoding="utf-8")
+
+
+def test_what_the_steps_write_goes_to_stderr_not_into_the_report(
+    release: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    _noisy(release)
+
+    code = main(["--json", *RELEASE])
+    out, err = capfd.readouterr()
+
+    assert code == ExitCode.OK
+    assert json.loads(out)["verdict"] == "pass"
+    for printed in ("importing the release steps", "reading", "a program the step started"):
+        assert printed in err
+
+
+def test_what_the_steps_print_goes_to_stderr_without_a_stdout_to_redirect(
+    release: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _noisy(release)
+
+    def no_descriptor(fd: int) -> int:
+        raise OSError(9, "Bad file descriptor")
+
+    monkeypatch.setattr(os, "dup", no_descriptor)
+    code, out, err = _main(capsys, "--json", "-l", "steps.py", "justification.json")
+
+    assert code == ExitCode.OK
+    assert json.loads(out)["verdict"] == "pass"
+    assert "importing the release steps" in err
+
+
+def test_stdout_is_left_alone_when_there_is_no_stderr_to_point_it_at(
+    release: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    duplicated: list[int] = []
+    closed: list[int] = []
+    real_dup, real_dup2, real_close = os.dup, os.dup2, os.close
+
+    def dup(fd: int) -> int:
+        duplicated.append(real_dup(fd))
+        return duplicated[-1]
+
+    def no_stderr(fd: int, fd2: int, inheritable: bool = True) -> int:
+        if (fd, fd2) == (2, 1):
+            raise OSError(9, "Bad file descriptor")
+        return real_dup2(fd, fd2, inheritable)
+
+    def close(fd: int) -> None:
+        closed.append(fd)
+        real_close(fd)
+
+    monkeypatch.setattr(os, "dup", dup)
+    monkeypatch.setattr(os, "dup2", no_stderr)
+    monkeypatch.setattr(os, "close", close)
+    code, out, _ = _main(capsys, "--json", *RELEASE)
+
+    assert code == ExitCode.OK
+    assert json.loads(out)["verdict"] == "pass"
+    assert duplicated[0] in closed  # the copy of stdout is not leaked
+
+
+def test_impact_shows_nothing_a_library_prints_when_imported(
+    release: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    _noisy(release)
+
+    code = main(["impact", "--changed", "mock/junit.xml", *RELEASE])
+    out, err = capfd.readouterr()
+
+    assert code == ExitCode.OK
+    assert "importing the release steps" not in out
+    assert "importing the release steps" in err
 
 
 def test_report_and_json_write_the_same_report(

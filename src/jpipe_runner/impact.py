@@ -82,7 +82,7 @@ class ChangeKind(StrEnum):
     VANISHED = "vanished"
     """It was read by the run, and is gone."""
     APPEARED = "appeared"
-    """It could not be read by the run, and is there now."""
+    """It could not be read by the run, and can be now."""
     ADDED = "added"
     """It matches a glob an evidence observes, and the run did not see it."""
 
@@ -209,8 +209,7 @@ def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
     if not artifact["reachable"]:
         # A glob that matched nothing is recorded under its pattern: what it matches now
         # is found as added.
-        appeared = not is_glob(artifact["path"]) and file.is_file()
-        return ChangeKind.APPEARED if appeared else None
+        return ChangeKind.APPEARED if not is_glob(artifact["path"]) and _readable(file) else None
     if not file.is_file():
         return ChangeKind.VANISHED
     try:
@@ -218,6 +217,18 @@ def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
     except OSError:
         return ChangeKind.VANISHED
     return None if sha256 == artifact["sha256"] else ChangeKind.CHANGED
+
+
+def _readable(file: Path) -> bool:
+    """Whether ``file`` is a file that can be read now: one the run could not read may
+    still be there, and still unreadable."""
+    if not file.is_file():
+        return False
+    try:
+        with file.open("rb"):
+            return True
+    except OSError:
+        return False
 
 
 def changed_since(ref: str, root: Path = Path()) -> list[str]:
@@ -230,7 +241,9 @@ def changed_since(ref: str, root: Path = Path()) -> list[str]:
     if ref.startswith("-"):
         raise ValueError(f"{ref!r} is not a git revision")
     # -z: each path as it is, NUL-terminated, rather than quoted when it is not ASCII.
-    diff = _git(["diff", "--name-only", "-z", "--relative", ref, "--"], root)
+    # --no-renames: a renamed file is listed under both names, so that the evidence that
+    # observed the old one is affected.
+    diff = _git(["diff", "--name-only", "--no-renames", "-z", "--relative", ref, "--"], root)
     untracked = _git(["ls-files", "-z", "--others", "--exclude-standard"], root)
     return sorted({*diff, *untracked})
 

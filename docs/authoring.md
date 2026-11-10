@@ -85,6 +85,7 @@ every other library that failed to import, and runs nothing:
 | an absolute path | `@evidence(observes=...) takes paths relative to the run's working directory, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
 | a directory | `@evidence(observes=...) takes files, and 'src/' names a directory. Observe the files it holds, with a glob such as 'src/**/*'.` |
 | `**` inside a name | `@evidence(observes=...): '**' matches any depth only as a whole part of a path, as in 'build/**/*.xml', not 'build/**.xml'` |
+| `..` after a wildcard | `@evidence(observes=...) takes '..' only before the first wildcard, as in '../shared/*.yml', not 'build/*/../x.xml'` |
 | two step decorators on one function | `f is already declared as evidence ('release:e1',): one function is one step` |
 
 Whether the ids designate elements of the model, and whether the data flows (every consumed
@@ -122,7 +123,9 @@ def every_module_has_a_report(reports: list[Path], sources: list[Path]) -> Outco
   library is imported: observe the files it holds, with a glob such as `"src/**/*"`
   ([ADR-0019](adr/0019-evidence-observes-files.md)).
 - **Paths are relative** to the directory the runner runs in. An absolute path is refused
-  when the library is imported: the library must work on every machine.
+  when the library is imported: the library must work on every machine. `.` and `..` are
+  resolved as the decorator reads the path, so `"mock/../mock/junit.xml"` is recorded as
+  `"mock/junit.xml"`, the name a changed file has; a `..` after a wildcard is refused.
 - **An observed artifact is never optional.** When the steps run, an artifact that is not
   there or cannot be read, or a glob that matches nothing, fails the evidence without
   calling it (`JP019`). A check that a file is *absent* does not declare it.

@@ -269,6 +269,30 @@ def test_a_file_that_cannot_be_read_any_more_has_vanished(
     assert stale(document, root) == (Change("e1", "build/tests.log", ChangeKind.VANISHED),)
 
 
+def test_a_file_the_run_could_not_read_has_not_appeared_while_it_is_still_missing(
+    root: Path,
+) -> None:
+    document = _recorded(
+        _element("e1", observes=["build/gone.log"], artifacts=[_artifact("build/gone.log", None)])
+    )
+
+    assert stale(document, root) == ()
+
+
+def test_a_file_the_run_could_not_read_has_not_appeared_while_it_still_cannot_be(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def unreadable(file: Path, *args: Any, **kwargs: Any) -> Any:
+        raise PermissionError(f"{file}: permission denied")
+
+    monkeypatch.setattr(Path, "open", unreadable)
+    document = _recorded(
+        _element("e1", observes=["build/tests.log"], artifacts=[_artifact("build/tests.log", None)])
+    )
+
+    assert stale(document, root) == ()
+
+
 def test_staleness_is_rendered_for_people() -> None:
     changes = [Change("e1", "build/tests.log", ChangeKind.CHANGED)]
 
@@ -394,6 +418,13 @@ def test_a_changed_path_that_is_not_ascii_is_listed_as_it_is(repository: Path) -
     (repository / "délai.txt").write_text("1", encoding="utf-8")
 
     assert "délai.txt" in changed_since("HEAD", repository)
+
+
+@needs_git
+def test_a_renamed_file_is_changed_under_both_its_names(repository: Path) -> None:
+    _git(repository, "mv", "kept.txt", "moved.txt")
+
+    assert {"kept.txt", "moved.txt"} <= set(changed_since("HEAD", repository))
 
 
 @needs_git
