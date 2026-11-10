@@ -22,9 +22,10 @@ def test_the_page_has_a_v3_library_and_its_port() -> None:
 
 def test_the_v3_library_stops_at_its_first_import_as_the_page_quotes() -> None:
     v3, _ = blocks(PAGE, "python")
+    library = compile(v3, "release_lib.py", "exec")
 
     with pytest.raises(ImportError) as error:
-        exec(compile(v3, "release_lib.py", "exec"), {})
+        exec(library, {})
 
     assert f"```\nImportError: {error.value}\n```" in PAGE
 
