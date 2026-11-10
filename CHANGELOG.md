@@ -48,8 +48,8 @@ line to v4, change by change. The entries below give the details.
   diagram whose suffix is not a format, is refused before any step runs, and so is a
   diagram that needs Graphviz when it is not installed. `--colour auto|always|never`
   chooses whether the text report is coloured (`always` suits GitHub Actions, which is
-  not a terminal), and `--strict` counts warnings as errors and fails a skipped
-  justification ([ADR-0023](docs/adr/0023-the-command-line.md)).
+  not a terminal), and `--strict` counts validation's warnings as errors and fails a
+  skipped justification ([ADR-0023](docs/adr/0023-the-command-line.md)).
 - **Exit codes a CI pipeline can act on**: 0 when the justification holds (or is skipped,
   unless `--strict`), 1 when it fails, 2 for a wrong command line, 3 when nothing could
   run (a refused model, a step library that cannot be imported, a validation error), and 4

@@ -113,7 +113,8 @@ consumer. Every problem is reported at once. [`rules.md`](rules.md) describes ea
 A problem the runner reports, with a code, `JPnnn`, that never changes meaning; a severity;
 the element it is about, if any; a message; and, where there is something specific to do, a
 fix. An **error** stops the run, or fails the element it is about; a **warning** changes
-nothing else, unless the run is strict (`--strict`), which counts it as an error.
+nothing else. A strict run (`--strict`) counts validation's warnings as errors, and only
+those: a warning reported while the steps run, such as `JP024`, stays a warning.
 [`rules.md`](rules.md) lists every code.
 
 ### Status

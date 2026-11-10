@@ -144,8 +144,8 @@ their fixes.
 - **Two libraries cannot have the same file name** (`JP021`): each is imported as the
   module named after its file. v3 silently used the first one's functions.
 
-In the other direction, **a warning no longer fails a run**, unless it is `--strict`: v3
-counted every warning as a failure. A strategy that ignores a value its supporters produce
+In the other direction, **a warning no longer fails a run**: v3 counted every warning as
+a failure. Only `--strict` counts validation's warnings as errors. A strategy that ignores a value its supporters produce
 for another step, an error in v3, is now a warning (`JP013`).
 
 ### What behaves differently when the steps run
