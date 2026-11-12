@@ -22,8 +22,10 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.11"
-networkx = "3.5"
-jsonschema = ">=4.0"
+# Ranges, not pins: the floor is the oldest version a supported channel installs (Ubuntu
+# noble), the cap is below the next major (ADR-0026). The floors match debian/control.
+networkx = ">=2.8.8,<4"
+jsonschema = ">=4.10.3,<5"
 
 [tool.poetry.scripts]
 jpipe-runner = "jpipe_runner.cli:main"

@@ -197,8 +197,8 @@ upload no longer blocks PyPI/Homebrew). Job graph:
   most recent LTS plus the current dev series);
   each series builds a signed source package from the committed `debian/` dir and
   `dput`s it to Launchpad. Skipped for pre-releases. (jammy/22.04 is excluded: it
-  ships Python 3.10, but the project requires `>=3.11` — `networkx 3.5` won't even
-  install on 3.10. `debian/control` enforces this via `X-Python3-Version: >= 3.11`.)
+  ships Python 3.10, but the project requires `>=3.11`. `debian/control` enforces this
+  via `X-Python3-Version: >= 3.11`.)
 - `build-homebrew-formula` + `publish-homebrew` → update the `homebrew-mcscert`
   tap. Skipped for pre-releases.
 
@@ -230,4 +230,11 @@ to settle first. The v3 known-bugs and tech-debt lists were dropped with the v3 
   stdeb/`build-deb.sh`/`stdeb.cfg`; runtime Debian deps are declared in
   `debian/control`. To test locally: `dch --newversion X.Y.Z~jammy1 --distribution
   jammy` then `dpkg-buildpackage -S -us -uc` (source) or `-b` (binary).
-- Python version is pinned to `>=3.11` in `pyproject.toml` but CI only tests 3.11 — consider matrix testing.
+- **Runtime dependencies are `>=floor,<cap` ranges** (ADR-0026): the floor is the oldest
+  version a supported Ubuntu series ships, and `debian/control` declares the same floors
+  (`tests/unit/test_dependency_policy.py` checks both). CI's `test` job installs exactly
+  `poetry.lock` (the setup action never runs `poetry lock`: commit the lock file with any
+  change to `pyproject.toml`), and `test-floor` runs the suite on the floors, on Python
+  3.12. Dependabot updates the lock file weekly, never a floor or a cap: a major is a
+  branch of its own. Raise a floor when a supported series stops shipping it.
+- Python is `>=3.11`: `test` runs on 3.11, `test-floor` on 3.12.
