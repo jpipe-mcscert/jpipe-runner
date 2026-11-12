@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `--help` lists the exit codes one per line, each with its meaning, instead of in a
+  paragraph. `jpipe-runner impact --help` now lists them too.
+
 ## [4.0.0] - 2026-11-10
 
 _v4 is a from-scratch rewrite and a breaking release for every v3 user
