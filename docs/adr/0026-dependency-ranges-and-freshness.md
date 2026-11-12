@@ -26,11 +26,11 @@ released, show that it pins nothing anyone tests:
   `poetry install`, so every run resolves the dependencies afresh: `poetry.lock` records
   nothing that CI checks. Nothing proposes updates either.
 
-The other jPipe projects have decided how they keep dependencies: the compiler updates
-every dependency to its latest stable release before each release, and treats a major
-as deliberate work (jpipe-compiler ADR-0007); the VS Code extension installs exactly
-what its lock file says in CI, takes weekly grouped updates from Dependabot with majors
-apart, and holds a pin only with its reason written down (jpipe-vscode ADR-VSC-0013).
+The other jPipe projects have decided how they keep dependencies, and both take weekly,
+grouped updates from Dependabot, with majors apart and a hold only where its reason is
+written down: the compiler for its Maven dependencies and GitHub Actions, treating a major
+as deliberate work (jpipe-compiler ADR-0007); the VS Code extension for its npm packages,
+installing in CI exactly what its lock file says (jpipe-vscode ADR-VSC-0013).
 The runner differs from both in one way: it is a library, installed into environments it
 does not control, so what it publishes is a constraint on someone else's resolver.
 
@@ -65,11 +65,11 @@ only one that is true on every channel and keeps majors deliberate.
   file is out of date. A `test-floor` job installs every runtime dependency at its floor,
   on Python 3.12 as noble does, and runs the whole suite.
 - **No exact pin without a reason written here.** There is none today.
-- **Dependabot keeps the lock file fresh**, weekly, as in jpipe-vscode ADR-VSC-0013: one
-  grouped pull request for Python updates, one for GitHub Actions. It updates the lock
-  file only (`versioning-strategy: lockfile-only`), so it never moves a floor or a cap: a
-  major arrives on a branch, by hand. Before each release, `poetry show --outdated` lists
-  what the caps hold back.
+- **Dependabot keeps the lock file fresh**, weekly, as in jpipe-vscode ADR-VSC-0013 and
+  jpipe-compiler ADR-0007: one grouped pull request for Python updates, one for GitHub
+  Actions. It updates the lock file only (`versioning-strategy: lockfile-only`), so it
+  never moves a floor or a cap: a major arrives on a branch, by hand. Before each release,
+  `poetry show --outdated` lists what the caps hold back.
 
 ### Consequences
 
