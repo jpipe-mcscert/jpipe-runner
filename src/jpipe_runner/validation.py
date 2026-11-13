@@ -17,7 +17,7 @@ not by a rule: a ``Justification`` that exists is valid.
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cached_property
 from typing import ClassVar
 
@@ -183,6 +183,4 @@ def _check_metadata(rule: Rule) -> None:
 def _promoted(diagnostic: Diagnostic) -> Diagnostic:
     if diagnostic.severity is not Severity.WARNING:
         return diagnostic
-    return Diagnostic(
-        diagnostic.code, Severity.ERROR, diagnostic.message, diagnostic.element, diagnostic.fix
-    )
+    return replace(diagnostic, severity=Severity.ERROR)

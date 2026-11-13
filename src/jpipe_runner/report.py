@@ -141,14 +141,10 @@ class RunReport:
         """The report of ``result``, a run whose artifacts were observed under ``root``."""
         bindings = {binding.element.id: binding for binding in result.bindings}
         results = {element.element.id: element for element in result.elements}
-        elements = tuple(
-            _element(result.justification, element, bindings.get(element.id), results)
-            for element in result.justification.topological_order()
-        )
         return cls(
             result.justification.name,
             result.verdict,
-            elements,
+            _elements(result.justification, bindings, results),
             result.diagnostics,
             result.strict,
             root=root,
@@ -170,14 +166,10 @@ class RunReport:
     ) -> "RunReport":
         """The report of a run whose step libraries could not be imported: nothing was
         bound, validated or run."""
-        elements = tuple(
-            _element(justification, element, None, {})
-            for element in justification.topological_order()
-        )
         return cls(
             justification.name,
             Verdict.INVALID,
-            elements,
+            _elements(justification, {}, {}),
             error.diagnostics,
             strict,
             root=root,
@@ -218,11 +210,24 @@ class RunReport:
         return replace(self, dataflow=path)
 
 
+def _elements(
+    model: Justification,
+    bindings: Mapping[str, Binding],
+    results: Mapping[str, ElementResult],
+) -> tuple[ElementReport, ...]:
+    """Every element of ``model``, in topological order, with its binding and its result,
+    by element id, when it has them."""
+    return tuple(
+        _element(model, element, bindings.get(element.id), results.get(element.id))
+        for element in model.topological_order()
+    )
+
+
 def _element(
     model: Justification,
     element: Element,
     binding: Binding | None,
-    results: Mapping[str, ElementResult],
+    result: ElementResult | None,
 ) -> ElementReport:
     report = ElementReport(
         element.id,
@@ -241,7 +246,6 @@ def _element(
             consumes=step.consumes,
             produces=step.produces,
         )
-    result = results.get(element.id)
     if result is not None:
         report = replace(
             report,

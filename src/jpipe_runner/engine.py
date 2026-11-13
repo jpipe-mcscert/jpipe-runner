@@ -24,7 +24,7 @@ step: its verdict is ``VALID`` when validation passed (ADR-0024).
 
 import copy
 import logging
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -291,7 +291,7 @@ def _snapshot(value: Any) -> Any:
 
 def _failed(
     binding: Binding,
-    diagnostics: tuple[Diagnostic, ...] | list[Diagnostic],
+    diagnostics: Sequence[Diagnostic],
     *,
     observed: tuple[Observation, ...],
     outcome: Outcome | None = None,

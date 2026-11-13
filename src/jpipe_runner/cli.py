@@ -244,8 +244,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         except _Stop as stop:  # a usage error the command's check found
             return stop.status
         except OSError as error:  # the check's too: a path it cannot even look at
-            # An error is one line on stderr, not a traceback (ADR-0023).
-            _LOG.error("%s", _reason(error))  # NOSONAR
+            _log_error(error)
             return ExitCode.IO
 
 
@@ -266,9 +265,10 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
         if flag != "--report" and suffix not in diagram.FORMATS:
             formats = ", ".join(diagram.FORMATS)
             command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
-        if (same := seen.get(path.resolve())) is not None:
+        resolved = path.resolve()
+        if (same := seen.get(resolved)) is not None:
             command.error(f"{same} and {flag} both write {path}")
-        seen[path.resolve()] = flag
+        seen[resolved] = flag
 
 
 def _run(options: argparse.Namespace) -> int:
@@ -371,8 +371,7 @@ def _draw(
         try:
             diagram.write(path, justification, report, view=view)
         except OSError as error:
-            # An error is one line on stderr, not a traceback (ADR-0023).
-            _LOG.error("%s", _reason(error))  # NOSONAR
+            _log_error(error)
             drawn = False
             continue
         _LOG.info("drew the %s view at %s", view, path)
@@ -480,6 +479,11 @@ def _colour(choice: str) -> bool:
     if choice == "auto":
         return text_report.use_colour(sys.stdout, os.environ)
     return choice == "always"
+
+
+def _log_error(error: OSError) -> None:
+    """Log ``error`` as one line on stderr, not a traceback (ADR-0023)."""
+    _LOG.error("%s", _reason(error))  # NOSONAR
 
 
 def _reason(error: OSError) -> str:
