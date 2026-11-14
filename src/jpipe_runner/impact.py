@@ -147,21 +147,20 @@ def affected(document: Document, changed: Iterable[str]) -> Impact:
     files = tuple(sorted(set(changed)))
     elements = document["elements"]
     evidence = [
-        element["id"]
-        for element in elements
-        if any(matches(file, pattern) for file in files for pattern in element["observes"])
+        element["id"] for element in elements if any(_observes(element, file) for file in files)
     ]
-    observed = {
-        file
-        for file in files
-        if any(matches(file, pattern) for element in elements for pattern in element["observes"])
-    }
+    observed = {file for file in files if any(_observes(element, file) for element in elements)}
     return Impact(
         files,
         tuple(evidence),
         above(document, evidence),
         tuple(file for file in files if file not in observed),
     )
+
+
+def _observes(element: Mapping[str, Any], file: str) -> bool:
+    """Whether one of the paths ``element``'s step declares it observes matches ``file``."""
+    return any(matches(file, pattern) for pattern in element["observes"])
 
 
 def above(document: Document, ids: Iterable[str]) -> tuple[str, ...]:
@@ -266,11 +265,7 @@ def render_impact(document: Document, impact: Impact) -> str:
     """``impact`` as text, for people: each changed file and what observes it, then the
     elements it reaches."""
     observers = {
-        file: [
-            element["id"]
-            for element in document["elements"]
-            if any(matches(file, pattern) for pattern in element["observes"])
-        ]
+        file: [element["id"] for element in document["elements"] if _observes(element, file)]
         for file in impact.changed
     }
     lines = list(_header(document))

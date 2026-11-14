@@ -184,5 +184,10 @@ def _promoted(diagnostic: Diagnostic) -> Diagnostic:
     if diagnostic.severity is not Severity.WARNING:
         return diagnostic
     return Diagnostic(
-        diagnostic.code, Severity.ERROR, diagnostic.message, diagnostic.element, diagnostic.fix
+        diagnostic.code,
+        Severity.ERROR,
+        diagnostic.message,
+        diagnostic.element,
+        diagnostic.fix,
+        diagnostic.traceback,
     )

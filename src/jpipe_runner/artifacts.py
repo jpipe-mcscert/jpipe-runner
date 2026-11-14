@@ -11,8 +11,8 @@ relative to the run's root. Before calling its step, the runner observes each on
 - **injected**: the step receives a ``Path``, or the sorted ``list[Path]`` a glob matches.
 
 An artifact that cannot be reached, a missing or unreadable file, a directory or anything
-else that is not a regular file, or a glob that matches nothing, is reported with ``JP019``, and the step is not called: an observed
-artifact is never optional.
+else that is not a regular file, or a glob that matches nothing, is reported with
+``JP019``, and the step is not called: an observed artifact is never optional.
 """
 
 import hashlib

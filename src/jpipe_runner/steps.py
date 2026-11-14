@@ -192,7 +192,7 @@ def _declare(
                 f"{function.__qualname__} is already declared as {existing.kind} "
                 f"{existing.ids}: one function is one step"
             )
-        _check_signature(decorator, function, consumed, observes)
+        _check_signature(kind, function, consumed, observes)
         setattr(function, _STEP, Step(kind, ids, function, consumed, produced, observes))
         return function
 
@@ -296,13 +296,14 @@ def _no_repeats(decorator: str, what: str, values: tuple[str, ...]) -> None:
 
 
 def _check_signature(
-    decorator: str,
+    kind: Kind,
     function: Callable[..., Any],
     consumed: tuple[str, ...],
     observed: tuple[Artifact, ...],
 ) -> None:
     """The function takes each consumed variable and observed artifact as a keyword
     argument, and needs no other."""
+    decorator = _decorator(kind)
     parameters = inspect.signature(function).parameters.values()
     by_keyword = {p.name for p in parameters if p.kind in _KEYWORD_ARGUMENT}
     takes_any_keyword = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters)
@@ -314,7 +315,7 @@ def _check_signature(
     }
     # Evidence consumes nothing and other kinds observe nothing: a step's parameters are
     # one or the other.
-    if decorator == _decorator(Kind.EVIDENCE):
+    if kind is Kind.EVIDENCE:
         verb, passed, declaration = "observes", [a.name for a in observed], "observes={...}"
     else:
         verb, passed, declaration = "consumes", list(consumed), "consumes=[...]"

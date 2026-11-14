@@ -146,22 +146,22 @@ class _Diagram:
         self._view = view
 
     def lines(self) -> Iterator[str]:
-        label = (
-            self._model.name
-            if self._view is View.JUSTIFICATION
-            else f"{self._model.name} ({self._view})"
-        )
+        label = self._model.name
+        dataflow = None
+        if self._view is View.DATAFLOW:
+            label = f"{self._model.name} ({self._view})"
+            dataflow = _Dataflow(self._reported)
         yield f"digraph {_quoted(self._model.name)} {{"
         yield f"{_INDENT}rankdir=BT;"
         yield f"{_INDENT}label={_wrapped(label)};"
         for element in self._model:
             yield self._node(element)
-        if self._view is View.DATAFLOW:
-            yield from _Dataflow(self._reported).nodes()
+        if dataflow is not None:
+            yield from dataflow.nodes()
         for relation in self._model.relations:
             yield self._edge(relation.source, relation.target)
-        if self._view is View.DATAFLOW:
-            yield from _Dataflow(self._reported).edges()
+        if dataflow is not None:
+            yield from dataflow.edges()
         yield "}"
 
     def _node(self, element: Element) -> str:
@@ -289,7 +289,12 @@ def _value(value: str) -> str:
 
 def _quoted(value: str) -> str:
     """``value`` in DOT double quotes, as the compiler quotes it (DotLabel.quoted)."""
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    return '"' + _escaped(value) + '"'
+
+
+def _escaped(value: str) -> str:
+    """``value`` with its backslashes and double quotes escaped, for DOT double quotes."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _wrapped(label: str) -> str:
@@ -299,7 +304,7 @@ def _wrapped(label: str) -> str:
     lines: list[str] = []
     current = ""
     for word in label.split():
-        escaped = word.replace("\\", "\\\\").replace('"', '\\"').replace("_", "\\_")
+        escaped = _escaped(word).replace("_", "\\_")
         if current and len(current) + 1 + len(escaped) > _WRAP_WIDTH:
             lines.append(current)
             current = escaped
