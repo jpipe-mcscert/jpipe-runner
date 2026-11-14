@@ -17,7 +17,7 @@ jobs:
       version: ${{ steps.extract.outputs.version }}
       prerelease: ${{ steps.extract.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Extract and validate tag
         id: extract
@@ -54,7 +54,7 @@ jobs:
     needs: validate-version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -66,7 +66,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -85,7 +85,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Download Python distributions
         uses: actions/download-artifact@v8
         with:
@@ -134,7 +134,7 @@ jobs:
         # (networkx 3.5 alone refuses to install on 3.10).
         distro: [ noble, resolute, stonking ]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Debian packaging tools
         # Install the declared Build-Depends explicitly (not just the base
@@ -192,7 +192,7 @@ jobs:
     if: needs.validate-version.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-python-env
         with:
           python-version: ${{ env.PYTHON_VERSION }}
