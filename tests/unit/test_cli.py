@@ -86,6 +86,42 @@ def test_the_exit_codes_are_those_ci_scripts_rely_on() -> None:
     assert [int(code) for code in ExitCode] == [0, 1, 2, 3, 4]
 
 
+def _exit_codes_in_help(help_text: str) -> list[str]:
+    """The lines of the help's exit codes list, from its heading to the end."""
+    return help_text[help_text.index("exit codes:\n") :].splitlines()[1:]
+
+
+@pytest.mark.parametrize(
+    ("command", "codes"),
+    [([], [0, 1, 2, 3, 4]), (["impact"], [0, 2, 3, 4]), (["status"], [0, 1, 2, 3, 4])],
+)
+def test_the_help_lists_the_exit_codes_one_per_line(
+    command: list[str], codes: list[int], capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = _main(capsys, *command, "--help")
+
+    assert code == ExitCode.OK
+    listed = [
+        line.split()[0]
+        for line in _exit_codes_in_help(out)
+        if line.startswith("  ") and line[2] != " "
+    ]
+    assert listed == [str(code) for code in codes]
+
+
+def test_an_exit_code_too_long_for_the_terminal_wraps_under_its_meaning(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("COLUMNS", "60")
+
+    _, out, _ = _main(capsys, "--help")
+
+    lines = _exit_codes_in_help(out)
+    assert all(len(line) <= 60 for line in lines)
+    assert lines[0].startswith("  0  the justification holds")
+    assert lines[1].startswith("     ")  # the rest of 0's meaning, under its first word
+
+
 @pytest.mark.parametrize("case", discover(), ids=lambda case: case.name)
 def test_every_scenario_exits_as_it_expects_with_a_report_that_matches_the_schema(
     case: Scenario, scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]

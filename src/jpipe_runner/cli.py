@@ -15,14 +15,16 @@ import argparse
 import glob
 import logging
 import os
+import re
 import shutil
 import sys
+import textwrap
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
-from typing import NoReturn
+from typing import Any, NoReturn
 
 from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
 from jpipe_runner.diagnostics import shown_path
@@ -74,9 +76,48 @@ class _Stop(Exception):
         self.status = status
 
 
+class _HelpFormatter(argparse.HelpFormatter):
+    """argparse's formatter, except that a text of several lines keeps its lines: the
+    exit codes are a list, one code per line (``_exit_codes``). A code whose meaning is
+    too long for the terminal wraps under the start of its meaning."""
+
+    def _fill_text(self, text: str, width: int, indent: str) -> str:
+        if "\n" not in text:
+            return super()._fill_text(text, width, indent)
+        return "\n".join(_hanging(line, width, indent) for line in text.splitlines())
+
+
+_EXIT_CODE_LINE = re.compile(r"^(?P<code>\s+\d+\s+)(?P<meaning>.+)$")
+
+
+def _hanging(line: str, width: int, indent: str) -> str:
+    """``line`` wrapped to ``width`` if it is an exit code, under the start of its
+    meaning; any other line as it is."""
+    found = _EXIT_CODE_LINE.match(line)
+    if found is None:
+        return indent + line
+    prefix = indent + found["code"]
+    return textwrap.fill(
+        found["meaning"],
+        width,
+        initial_indent=prefix,
+        subsequent_indent=" " * len(prefix),
+        break_on_hyphens=False,
+    )
+
+
+def _exit_codes(*codes: tuple[ExitCode, str]) -> str:
+    """The epilog of a command's help: each exit code it can end with, and what it means."""
+    return "exit codes:\n" + "\n".join(f"  {code.value}  {meaning}" for code, meaning in codes)
+
+
 class _Parser(argparse.ArgumentParser):
     """A parser that raises ``_Stop`` where argparse would end the process, so that
-    ``main`` returns the exit code instead of exiting."""
+    ``main`` returns the exit code instead of exiting. Its help lists the exit codes one
+    per line (``_HelpFormatter``)."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(formatter_class=_HelpFormatter, **kwargs)
 
     def exit(self, status: int = 0, message: str | None = None) -> NoReturn:
         if message:
@@ -90,9 +131,23 @@ def parser() -> argparse.ArgumentParser:
         prog=_PROGRAM,
         description="Run a jPipe justification against the Python step libraries that "
         "implement its evidence and its reasoning, and report its verdict.",
-        epilog="Exit codes: 0 the justification holds (or was skipped, or a dry run found it "
-        "valid); 1 it failed; 2 usage error; 3 nothing ran (refused model, library that "
-        "cannot be imported, validation error); 4 a file could not be read or written.",
+        epilog=_exit_codes(
+            (ExitCode.OK, "the justification holds, was skipped, or a dry run found it valid"),
+            (
+                ExitCode.FAILED,
+                "it does not hold: an element failed, or --strict and one was skipped",
+            ),
+            (ExitCode.USAGE, "the command line is wrong; nothing ran"),
+            (
+                ExitCode.INVALID,
+                "nothing ran: the justification was refused, a step library could not be "
+                "imported, or validation reported an error",
+            ),
+            (
+                ExitCode.IO,
+                "a file could not be read or written, or Graphviz could not draw a diagram",
+            ),
+        ),
     )
     _add_inputs(parser)
     run = parser.add_argument_group("running")
@@ -147,6 +202,16 @@ def impact_parser() -> argparse.ArgumentParser:
         prog=f"{_PROGRAM} impact",
         description="List the evidence that observes changed files, and every element "
         "above it, from what the step libraries declare. No step is called.",
+        epilog=_exit_codes(
+            (ExitCode.OK, "the analysis is listed, whatever the changes reach"),
+            (ExitCode.USAGE, "the command line is wrong"),
+            (
+                ExitCode.INVALID,
+                "the step libraries declare nothing to analyze: the justification was "
+                "refused, or a step library could not be imported",
+            ),
+            (ExitCode.IO, "a file could not be read, or git could not list the changes"),
+        ),
     )
     _add_inputs(parser)
     changes = parser.add_mutually_exclusive_group(required=True)
@@ -172,8 +237,13 @@ def status_parser() -> argparse.ArgumentParser:
         prog=f"{_PROGRAM} status",
         description="Compare the files a run observed, as its JSON report recorded them, "
         "with the files now, and list what is stale. No step is called.",
-        epilog="Exit codes: 0 nothing changed; 1 something is stale; 3 the file is not a "
-        "report of a run that observed files; 4 it cannot be read.",
+        epilog=_exit_codes(
+            (ExitCode.OK, "nothing changed"),
+            (ExitCode.FAILED, "something is stale"),
+            (ExitCode.USAGE, "the command line is wrong"),
+            (ExitCode.INVALID, "the file is not the report of a run that observed files"),
+            (ExitCode.IO, "the report cannot be read"),
+        ),
     )
     parser.add_argument(
         "report",

@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it beside a package that needs another networkx. The floors are the versions Ubuntu
   24.04 ships, which the Ubuntu package now declares, and the test suite runs on both ends
   of each range ([ADR-0026](docs/adr/0026-dependency-ranges-and-freshness.md)).
+- `--help` lists the exit codes one per line, each with its meaning, instead of in a
+  paragraph. `jpipe-runner impact --help` now lists them too.
 
 ## [4.0.0] - 2026-11-10
 
