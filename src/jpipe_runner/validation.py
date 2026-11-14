@@ -183,4 +183,5 @@ def _check_metadata(rule: Rule) -> None:
 def _promoted(diagnostic: Diagnostic) -> Diagnostic:
     if diagnostic.severity is not Severity.WARNING:
         return diagnostic
-    return replace(diagnostic, severity=Severity.ERROR)
+    promoted: Diagnostic = replace(diagnostic, severity=Severity.ERROR)
+    return promoted
