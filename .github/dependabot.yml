@@ -1,0 +1,22 @@
+# Dependency freshness (ADR-0026, after jpipe-vscode ADR-VSC-0013): weekly, grouped.
+version: 2
+updates:
+  # Python, through poetry.lock. lockfile-only: Dependabot moves what the lock file records
+  # within the ranges of pyproject.toml, and never a floor or a cap, so a major of a
+  # dependency is taken on a branch, by hand.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    versioning-strategy: lockfile-only
+    groups:
+      python:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

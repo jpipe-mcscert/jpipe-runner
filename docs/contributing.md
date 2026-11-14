@@ -129,7 +129,10 @@ pushes a release tag.
    Follow [SemVer](https://semver.org): patch for fixes, minor for backward-compatible
    features, major for breaking changes.
 2. **Update `CHANGELOG.md`**: move the `[Unreleased]` notes under a new
-   `## [x.y.z] - YYYY-MM-DD` heading.
+   `## [x.y.z] - YYYY-MM-DD` heading. Check what the dependency caps hold back with
+   `poetry show --outdated`: Dependabot keeps `poetry.lock` fresh within the ranges, and a
+   major is taken on a branch of its own
+   ([ADR-0026](adr/0026-dependency-ranges-and-freshness.md)).
 3. **Land both on `main`**, as the last commit of the milestone being released or as a
    maintainer commit on `main`, and wait for CI to pass.
 4. **Tag that commit** and push the tag:
