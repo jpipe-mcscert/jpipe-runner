@@ -30,4 +30,3 @@ and command line to v4.
 
 - [`contributing.md`](contributing.md): branches, pull requests and releases.
 - [`../tests/README.md`](../tests/README.md): the test architecture.
-- [`v4-progress.md`](v4-progress.md): the v4 rewrite, milestone by milestone.

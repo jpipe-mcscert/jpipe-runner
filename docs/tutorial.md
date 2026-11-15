@@ -112,10 +112,11 @@ Without the compiler, save this as `justification.json`: it is what the compiler
 Each element's `id` is its name in the `.jd` file, qualified by the justification's:
 `e1` is `release:e1`. Your checks will name the elements by these ids.
 
-The compiler can also write the skeleton of a step library (`-f PYTHON`), but as of jPipe
-2.5.0 that skeleton targets `jpipe-runner` 3
-([#140](https://github.com/jpipe-mcscert/jpipe-runner/issues/140)): write it by hand, as
-below.
+The compiler can also write the skeleton of a step library
+(`jpipe process -i release.jd -m release -f PYTHON -o steps.py`): one function per element,
+already bound to its id, that raises `NotImplementedError` until you fill it in. It takes
+jPipe 3.0.0 or later; earlier versions write a skeleton for `jpipe-runner` 3. This tutorial
+writes the library by hand, to explain each part.
 
 ## 4. The artifacts the evidence checks
 
