@@ -60,7 +60,8 @@ def _sighted(artifact: Artifact, context: Context) -> Sighting:
     declared = described(artifact.observable, context)
     try:
         sighting = artifact.observable.observe(context)
-    except Exception as error:  # NOSONAR: whatever a library's observable raises
+    # Whatever a library's observable raises.
+    except Exception as error:  # NOSONAR
         problem = f"could not be observed: it raised {type(error).__name__}: {error}"
         return Sighting.unreachable(declared, f"a {what}", problem, _BROKEN_FIX)
     if not isinstance(sighting, Sighting):

@@ -35,7 +35,7 @@ from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any, Final
 
 _CHUNK = 1 << 16
-_INDEX = re.compile(r"0|[1-9][0-9]*")
+_INDEX = re.compile(r"0|[1-9]\d*", re.ASCII)
 """An array index in a JSON Pointer (RFC 6901): no sign, no leading zero."""
 _EVIDENCE = "@evidence(observes=...)"
 _RECURSIVE = "**"
@@ -278,7 +278,8 @@ def described(observable: Observable, context: Context) -> str:
     named after its class, and observing it fails with the error it raises."""
     try:
         return observable.describe(context)
-    except Exception:  # NOSONAR: whatever a library's observable raises
+    # Whatever a library's observable raises.
+    except Exception:  # NOSONAR
         return type(observable).__name__
 
 
@@ -286,7 +287,8 @@ def dependencies(observable: Observable, context: Context) -> tuple[str, ...]:
     """What ``observable`` depends on, or nothing if it raises: one of a step library may."""
     try:
         return tuple(observable.depends_on(context))
-    except Exception:  # NOSONAR: whatever a library's observable raises
+    # Whatever a library's observable raises.
+    except Exception:  # NOSONAR
         return ()
 
 

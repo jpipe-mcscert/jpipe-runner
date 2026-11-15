@@ -221,15 +221,17 @@ def _variables(element: Mapping[str, Any], environment: Mapping[str, str]) -> It
         name = observation["variable"]
         if name is None or observation["hidden"]:
             continue
-        value = environment.get(name)
-        if not observation["reachable"]:
-            kind = None if value is None else ChangeKind.APPEARED
-        elif value is None:
-            kind = ChangeKind.VANISHED
-        else:
-            kind = None if fingerprint(value) == observation["sha256"] else ChangeKind.CHANGED
-        if kind is not None:
+        if (kind := _variable(observation, environment.get(name))) is not None:
             yield Change(element["id"], observation["declared"], kind)
+
+
+def _variable(observation: Mapping[str, Any], value: str | None) -> ChangeKind | None:
+    """How a variable, now set to ``value`` or unset, differs from what was recorded."""
+    if not observation["reachable"]:
+        return None if value is None else ChangeKind.APPEARED
+    if value is None:
+        return ChangeKind.VANISHED
+    return None if fingerprint(value) == observation["sha256"] else ChangeKind.CHANGED
 
 
 def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
