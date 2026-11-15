@@ -19,7 +19,7 @@ list still asks to document "one function → many elements" as a capability. Th
 were fresh in M2, recorded in its ADRs, and would have had to be reconstructed five
 milestones later from those ADRs and the code. Meanwhile, the only description of the
 authoring API a reader could find was scattered across ADRs and the
-[progress page](../v4-progress.md).
+progress page (`docs/v4-progress.md`, removed once v4 was released).
 
 When should user documentation be written (#141 review)?
 
@@ -47,7 +47,7 @@ option where the documentation is written when the decisions are known, and chec
 same review as the code.
 
 - **A milestone that adds or changes something a user sees documents it under `docs/`**,
-  in its own pull request, like the CHANGELOG and [`v4-progress.md`](../v4-progress.md).
+  in its own pull request, like the CHANGELOG and `v4-progress.md`.
   Examples in those pages are executed by the test suite where they are code.
 - **The documentation issues move to the milestone that builds what they describe:**
 

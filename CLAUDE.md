@@ -122,9 +122,8 @@ please it. Issue and PR text follows the same rule.
 
 ## Branching
 
-One long-lived branch, `main` (the default branch), plus one branch per v4 milestone
-(`m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`) cut from `main`.
-MB1 (#132) was folded into MB0, whose action work is done in `jpipe-ci-actions`. Rationale:
+One long-lived branch, `main` (the default branch), plus one branch per milestone, cut
+from `main`. Rationale:
 [ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md) and
 [ADR-0015](docs/adr/0015-draft-pull-request-per-milestone.md); workflow:
 [`docs/contributing.md`](docs/contributing.md). There is no `dev` branch any more; v3 is
@@ -135,20 +134,13 @@ the `v3.6.0` tag.
 - Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
   pushed (SonarCloud only analyzes `main` and PRs on this plan). An assistant opens it only
   when the maintainer asks; otherwise it pushes the branch and stops.
-- **Before a milestone is complete, update [`docs/v4-progress.md`](docs/v4-progress.md)**
-  on its branch: set the milestone's row to done (with its issues and ADRs), add a
-  subsection under *What v4 can do so far* listing the user-visible features it added
-  (what a user can now do, not the modules built), and extend *Gone from v3* if it removed
-  anything. This is part of the milestone's work, like the CHANGELOG, and lands in its PR.
-  The README only points to that page.
 - **Document what the milestone adds, in the milestone** ([ADR-0017](docs/adr/0017-document-in-the-milestone-that-builds-it.md)):
-  a user-visible feature gets its page under `docs/` in the milestone's PR (M2:
-  `docs/authoring.md`), with its code examples executed by a test. Documentation issues sit
-  on the milestone that builds what they describe; M7 only reviews the whole for
-  consistency and writes the README, troubleshooting and migration guide.
+  a user-visible feature gets its page under `docs/` in the milestone's PR, with its code
+  examples executed by a test. Documentation issues sit on the milestone that builds what
+  they describe.
 - **In the same way, bring [`docs/end-to-end.md`](docs/end-to-end.md) up to date.** It
   walks the release example from `.jd` to verdict for human readers (the e2e scenarios are
-  for coverage). Turn each stage the milestone built from *planned* into what actually
+  for coverage). Describe each stage the milestone changed as it now
   happens, quoting output produced by running the code, never written by hand.
   `tests/unit/test_end_to_end_doc.py` keeps its step library, and the validation output it
   quotes, in step with the scenario's.
@@ -174,7 +166,7 @@ the `v3.6.0` tag.
 
 1. Set `version` in `pyproject.toml` (only place it's defined; `setup.py` + docs
    derive from it). Use SemVer. Between releases it is a PEP 440 dev version
-   (`X.Y.Z.dev0`; `4.0.0.dev0` during the v4 rewrite) that `validate-version` refuses to
+   (`X.Y.Z.dev0`) that `validate-version` refuses to
    tag; a release replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
    version tests compare the installed (normalized) version to the raw string.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
@@ -208,9 +200,8 @@ Python/Poetry/graphviz setup is a composite action at
 
 ## Backlog
 
-The v4 plan lives in the GitHub issues #107–#133 (milestones M0–M7, MB0, MB1). #153,
-running only the evidence a change affects, has no milestone and three design questions
-to settle first. The v3 known-bugs and tech-debt lists were dropped with the v3 code.
+The backlog is the GitHub issues. #153, running only the evidence a change affects, has
+no milestone and three design questions to settle first.
 
 ## Notes for Maintainers
 
