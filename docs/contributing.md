@@ -45,6 +45,38 @@ Run the tools through `poetry run`, so that they use the project's environment a
 editable install of `src/`, not another `jpipe-runner` installed elsewhere. Their
 configuration lives in [`pyproject.toml`](../pyproject.toml).
 
+## Running your working copy
+
+`poetry install` installs the runner in *editable* mode: the `jpipe-runner` command of the
+project's environment runs the code under `src/` as it is on disk, so a change is live on
+the next run, with nothing to reinstall. Start it with `poetry run`, from any directory
+inside the repository:
+
+```bash
+poetry run jpipe-runner --version
+poetry run python -m jpipe_runner --version   # the same command
+```
+
+A bare `jpipe-runner` is whichever one comes first on your `PATH`, often a released version
+installed by Homebrew or pipx, which ignores your changes. `poetry run which jpipe-runner`
+shows the one `poetry run` starts: it is in the project's virtual environment.
+
+To try a change on a real justification, run one of the end-to-end scenarios, each a
+directory with a compiled model (`justification.json`) and its step library (`steps.py`).
+Run it from the scenario's directory, because the files the evidence observes are relative
+to the working directory:
+
+```bash
+cd tests/e2e/scenarios/release_example
+poetry run jpipe-runner --library steps.py justification.json
+```
+
+[`cli.md`](cli.md) describes the options. To work in a shell where `jpipe-runner` is the
+development version, without the `poetry run` prefix, activate the environment:
+`eval "$(poetry env activate)"`.
+
+## Tests and checks
+
 [`tests/README.md`](../tests/README.md) describes the test architecture: rule tests,
 golden reports, property tests, and the scenario format. `poetry run pytest
 --update-goldens` regenerates the golden reports and `docs/rules.md`; review the diff
