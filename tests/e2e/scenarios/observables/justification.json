@@ -1,0 +1,40 @@
+{
+  "elements": [
+    {
+      "id": "version",
+      "label": "The package announces version 2.0",
+      "type": "evidence"
+    },
+    {
+      "id": "environment",
+      "label": "The release runs where commands are found",
+      "type": "evidence"
+    },
+    {
+      "id": "gates",
+      "label": "Every release gate passes",
+      "type": "strategy"
+    },
+    {
+      "id": "ready",
+      "label": "Version 2.0 is ready to ship",
+      "type": "conclusion"
+    }
+  ],
+  "name": "observables",
+  "relations": [
+    {
+      "source": "version",
+      "target": "gates"
+    },
+    {
+      "source": "environment",
+      "target": "gates"
+    },
+    {
+      "source": "gates",
+      "target": "ready"
+    }
+  ],
+  "type": "justification"
+}

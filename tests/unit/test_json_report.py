@@ -17,12 +17,14 @@ from jsonschema import Draft202012Validator, ValidationError
 
 from jpipe_runner import Pass, evidence, json_report, loader, strategy
 from jpipe_runner.diagnostics import Diagnostic, Severity, user_traceback
-from jpipe_runner.engine import Verdict, run
+from jpipe_runner.engine import Verdict
 from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION, document, dumps, encoded
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
+from jpipe_runner.observables import Observation, Obstacle
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.steps import StepRegistry, step_of
+from tests.anchored import run
 from tests.scenarios import Scenario, discover
 from tests.unit.validation.builders import EVIDENCE, STRATEGY, element, model
 
@@ -90,6 +92,56 @@ def test_the_schema_refuses_an_undocumented_field() -> None:
         VALIDATOR.validate(report)
 
 
+def test_what_was_observed_that_is_no_file_is_an_observation_shown_or_not() -> None:
+    seen = (
+        Observation("env:STAGE", sha256="0" * 64, value="prod", variable="STAGE"),
+        Observation("env:TOKEN", variable="TOKEN", hidden=True),
+        Observation("host:example.org", sha256="1" * 64, value="192.0.2.1"),
+        Observation("env:CI", obstacle=Obstacle("the environment variable 'CI'", "is not set")),
+    )
+    element = ElementReport("e", "e", EVIDENCE, sources=("env:STAGE",), artifacts=seen)
+    report = document(RunReport("m", Verdict.PASS, (element,)))
+
+    VALIDATOR.validate(report)
+    (written,) = report["elements"]
+    assert written["artifacts"] == []
+    assert written["sources"] == ["env:STAGE"]
+    assert written["observations"] == [
+        {
+            "declared": "env:STAGE",
+            "variable": "STAGE",
+            "reachable": True,
+            "hidden": False,
+            "sha256": "0" * 64,
+            "value": {"value": "prod"},
+        },
+        {
+            "declared": "env:TOKEN",
+            "variable": "TOKEN",
+            "reachable": True,
+            "hidden": True,
+            "sha256": None,
+            "value": None,
+        },
+        {
+            "declared": "host:example.org",
+            "variable": None,
+            "reachable": True,
+            "hidden": False,
+            "sha256": "1" * 64,
+            "value": {"value": "192.0.2.1"},
+        },
+        {
+            "declared": "env:CI",
+            "variable": None,
+            "reachable": False,
+            "hidden": False,
+            "sha256": None,
+            "value": None,
+        },
+    ]
+
+
 def test_the_schema_refuses_a_reachable_artifact_without_its_digest() -> None:
     report = document(RunReport("m", Verdict.PASS))
     artifact = {"path": "a.txt", "reachable": True, "sha256": None, "size": None}
@@ -148,6 +200,7 @@ def test_an_element_lists_what_it_observed_and_produced(
     assert element_document["artifacts"] == [
         {
             "path": "log.txt",
+            "declared": "log.txt",
             "reachable": True,
             "sha256": hashlib.sha256(b"one\ntwo\n").hexdigest(),
             "size": 8,

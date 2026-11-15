@@ -28,10 +28,11 @@ from jpipe_runner import (
     strategy,
     sub_conclusion,
 )
-from jpipe_runner.engine import Status, Verdict, run
+from jpipe_runner.engine import Status, Verdict
 from jpipe_runner.model import Element, Justification, Kind
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry, step_of
+from tests.anchored import run
 from tests.strategies import FAIL, PASS, RAISE, SKIP, justifications, step_plans
 
 Plan = dict[str, str | None]

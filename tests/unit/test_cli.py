@@ -21,6 +21,7 @@ from jpipe_runner import __version__, diagram, impact, json_report, loader
 from jpipe_runner.cli import ExitCode, exit_code, main
 from jpipe_runner.engine import Verdict, run
 from jpipe_runner.libraries import imported
+from jpipe_runner.observables import fingerprint
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry
 from tests.scenarios import GOLDEN_FILE, SCENARIOS_ROOT, Scenario, discover
@@ -722,6 +723,21 @@ def test_status_of_unchanged_files_is_0(recorded: Path, capsys: pytest.CaptureFi
     assert out.endswith("its report still holds.\n")
 
 
+def test_status_of_a_report_that_hides_what_was_observed_asks_for_a_new_run_and_is_1(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario("observables")  # it observes PATH, which its report does not show
+    library = ["--library", "checks/steps.py", "justification.json"]
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.OK
+
+    code, out, _ = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.FAILED
+    assert "Information was hidden from the report, so it needs a new run:\n" in out
+    assert "  env:PATH  environment\n" in out
+    assert "still holds" not in out
+
+
 def test_status_of_a_changed_file_lists_what_is_stale_and_is_1(
     recorded: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -743,6 +759,38 @@ def test_status_from_another_directory_warns(
 
     assert code == ExitCode.FAILED
     assert "run status from the directory the run ran in" in err
+
+
+def test_status_warns_of_missing_files_only_for_files(
+    recorded: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A variable no longer set is a change, not a sign that status runs from the wrong
+    directory: one file still there, one variable gone, and no warning."""
+    document = json.loads((recorded / "report.json").read_text(encoding="utf-8"))
+    kept = False
+    for element in document["elements"]:
+        if element["artifacts"] and not kept:
+            element["artifacts"], kept = element["artifacts"][:1], True
+            element["observations"] = [
+                {
+                    "declared": "env:JPIPE_RELEASE",
+                    "variable": "JPIPE_RELEASE",
+                    "reachable": True,
+                    "hidden": False,
+                    "sha256": fingerprint("1"),
+                    "value": {"value": "1"},
+                }
+            ]
+        else:
+            element["artifacts"] = []
+    (recorded / "report.json").write_text(json.dumps(document), encoding="utf-8")
+    monkeypatch.delenv("JPIPE_RELEASE", raising=False)
+
+    code, out, err = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.FAILED
+    assert "env:JPIPE_RELEASE" in out
+    assert "run status from the directory the run ran in" not in err
 
 
 def test_status_of_a_dry_run_is_3(release: Path, capsys: pytest.CaptureFixture[str]) -> None:

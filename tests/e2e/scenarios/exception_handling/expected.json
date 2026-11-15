@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "error_prone",
   "verdict": "fail",
   "strict": false,
@@ -30,12 +30,14 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [
         "result"
       ],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -54,12 +56,14 @@
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "result"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [

@@ -14,12 +14,13 @@ from xml.etree import ElementTree
 
 import pytest
 
-from jpipe_runner import Fail, Outcome, Pass, Skip, evidence, loader, strategy
+from jpipe_runner import Env, Fail, Outcome, Pass, Skip, evidence, loader, strategy
 from jpipe_runner.diagram import FORMATS, View, source, write
-from jpipe_runner.engine import Verdict, run
+from jpipe_runner.engine import Verdict
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry, step_of
+from tests.anchored import run
 from tests.scenarios import discover
 from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY, element, model
 
@@ -197,6 +198,52 @@ def test_a_file_that_could_not_be_reached_is_vermillion(tmp_path: Path) -> None:
 
     assert drawn['"artifact *.log"'].endswith('shape=folder, color="#D55E00", penwidth=2];')
     assert "color" not in drawn['"artifact e1.txt"']
+
+
+def test_a_glob_is_not_unreachable_for_a_file_another_path_declares(tmp_path: Path) -> None:
+    @evidence("e", observes={"logs": "*.log", "old": "old/b.log"}, produces=["a"])
+    def reads(logs: list[Path], old: Path) -> Outcome:
+        return Pass(a="a")
+
+    @strategy("s", consumes=["a"])
+    def judges(a: str) -> Outcome:
+        return Pass()
+
+    (tmp_path / "a.log").write_text("a", encoding="utf-8")  # old/b.log is missing
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (reads, judges)) if s is not None)
+    report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
+
+    drawn = source(small, report, view=View.DATAFLOW)
+
+    (glob,) = [line for line in drawn.splitlines() if line.strip().startswith('"artifact *.log" [')]
+    (file,) = [line for line in drawn.splitlines() if '"artifact old/b.log" [' in line]
+    assert "color" not in glob
+    assert 'color="#D55E00"' in file
+
+
+def test_the_dataflow_view_draws_what_is_observed_that_is_no_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("JPIPE_STAGE", raising=False)
+
+    @evidence("e", observes={"stage": Env("JPIPE_STAGE")}, produces=["a"])
+    def reads(stage: str) -> Outcome:
+        return Pass(a=stage)
+
+    @strategy("s", consumes=["a"])
+    def judges(a: str) -> Outcome:
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (reads, judges)) if s is not None)
+    report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
+
+    drawn = source(small, report, view=View.DATAFLOW)
+
+    (node,) = [line for line in drawn.splitlines() if '"artifact env:JPIPE_STAGE" [' in line]
+    assert 'color="#D55E00"' in node  # it is not set
+    assert '"artifact env:JPIPE_STAGE" -> "e"' in drawn
 
 
 def test_a_variable_that_was_not_produced_is_dashed(tmp_path: Path) -> None:

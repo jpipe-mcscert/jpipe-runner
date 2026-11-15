@@ -218,7 +218,7 @@ $ echo $?
 | `-h`, `--help` | Print the options. |
 
 One of `--changed` and `--since` is required. A file matches what an evidence declares as
-`Path.glob` matches it: a glob such as `docs/**/*.md` matches every Markdown file under
+a run observes it: a glob such as `docs/**/*.md` matches every Markdown file under
 `docs/`. A changed file no evidence observes is listed, with "(no evidence)": a change
 the argument does not cover. The exit code is 0 whatever the change reaches, 3 when the
 step libraries declare nothing to analyze (a refused justification, a library that cannot
@@ -226,9 +226,9 @@ be imported), and 4 when git cannot list the changes.
 
 ## Staleness
 
-`jpipe-runner status` reads the JSON report of a run (`--report`), and compares the files
-the run observed with the files as they are now: what it lists no longer holds as the
-report says. Run it from the directory the run ran in, where the report's paths start. If
+`jpipe-runner status` reads the JSON report of a run (`--report`), and compares what the
+run observed, files and environment variables, with what they are now: what it lists no
+longer holds as the report says. Run it from the directory the run ran in, where the report's paths start. If
 the changelog changed since a run of the release example:
 
 ```console
@@ -255,8 +255,17 @@ $ echo $?
 
 A file is `changed` when its SHA-256 differs from the one recorded, `vanished` when the
 run read it and it is gone, `appeared` when the run could not read it and it can be now,
-and `added` when a glob an evidence observes matches it and the run did not see it. The
-exit code is 0 when nothing changed, 1 when something is stale, 3 when the file is not a
+and `added` when a glob an evidence observes matches it and the run did not see it. An
+environment variable is `changed`, `vanished` or `appeared` in the same way.
+
+`status` answers for everything the run observed, or does not answer. What the report
+hides, such as a variable observed without `display=True`, cannot be compared: the command
+says that information was hidden and that a new run is needed, and never that the report
+holds. The same goes for what an observable of the step library reached that is neither a
+file nor a variable: only that library can observe it again.
+
+The exit code is 0 when everything the run observed is as it was, 1 when something is
+stale or needs a new run to be checked, 3 when the file is not a
 report, or is the report of a run in which no step ran (`invalid`, or a dry run), and 4
 when it cannot be read. Nothing runs: to judge the stale elements again, run the
 justification.

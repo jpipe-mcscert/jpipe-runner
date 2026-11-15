@@ -1,0 +1,13 @@
+# The library is in checks/, not beside the files it observes: its paths start from its own
+# directory, whatever directory the runner runs in, and the report shows them from there.
+# PATH is set wherever a command runs, and is not shown: the report is the same everywhere.
+description = "An evidence observes a value in a JSON file and an environment variable, from a library in a subdirectory."
+origin = "new in v4"
+libraries = ["checks/steps.py"]
+exit_code = 0
+exercises = [
+    "paths relative to the step library's file",
+    "JsonValue",
+    "Env, not shown",
+    "sources and observations in the report",
+]

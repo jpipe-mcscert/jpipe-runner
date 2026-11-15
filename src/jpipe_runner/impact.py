@@ -6,8 +6,10 @@ elements it ``supports``, the paths its step declares it ``observes``, and the
 
 - ``affected(document, changed)``: the evidence whose declared paths match a changed file,
   and every element above it. The report of a dry run (ADR-0024) is enough.
-- ``stale(document, root)``: the files a run observed that have changed since, compared
-  with the files under ``root`` now, by their SHA-256.
+- ``stale(document, root)``: what a run observed that has changed since, compared with
+  the files under ``root`` and the environment now, by SHA-256;
+- ``unverified(document)``: what a run observed that the report cannot confirm, because
+  it is hidden, or because only the step library can observe it again.
 
 Both are only as good as the declarations: a file a step reads without declaring it is
 invisible to them.
@@ -19,16 +21,14 @@ import subprocess
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from fnmatch import fnmatchcase
 from os import PathLike
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from jpipe_runner.artifacts import digest
 from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION
-from jpipe_runner.steps import is_glob
+from jpipe_runner.observables import digest, files, fingerprint, is_glob, matches, readable
 
 Document = Mapping[str, Any]
 
@@ -53,7 +53,6 @@ _VALIDATOR = Draft202012Validator(SCHEMA)
 _LATER = _compatible(SCHEMA)
 _LATER["properties"]["schema_version"] = {"type": "string", "pattern": f"^{_MAJOR}\\.[0-9]+$"}
 _LATER_VALIDATOR = Draft202012Validator(_LATER)
-_RECURSIVE = "**"
 
 
 class InvalidReportError(ValueError):
@@ -75,7 +74,8 @@ class Impact:
 
 
 class ChangeKind(StrEnum):
-    """How an observed file differs from what a run recorded."""
+    """How what was observed, a file or an environment variable, differs from what a run
+    recorded."""
 
     CHANGED = "changed"
     """Its content differs: its SHA-256 is not the one recorded."""
@@ -89,21 +89,43 @@ class ChangeKind(StrEnum):
 
 @dataclass(frozen=True)
 class Change:
-    """One observed file that differs from what a run recorded."""
+    """One thing observed that differs from what a run recorded."""
 
     element: str
     """The id of the evidence that observes it."""
     path: str
-    """The file, relative to the root, as the report shows it."""
+    """The file, relative to the root, as the report shows it; or what was declared, such
+    as ``env:CI``."""
     kind: ChangeKind
+
+
+class Unchecked(StrEnum):
+    """Why something a run observed cannot be compared with what it is now."""
+
+    HIDDEN = "hidden"
+    """The report holds neither its value nor its SHA-256."""
+    UNREADABLE = "library"
+    """It is neither a file nor an environment variable: only the step library that
+    observed it can observe it again."""
+
+
+@dataclass(frozen=True)
+class Unverified:
+    """One thing a run observed that a report alone cannot confirm: it takes a new run."""
+
+    element: str
+    """The id of the evidence that observes it."""
+    declared: str
+    """What was declared, as the report shows it."""
+    why: Unchecked
 
 
 def read(path: str | PathLike[str]) -> dict[str, Any]:
     """The JSON report in the file at ``path``.
 
     Raises ``OSError`` if the file cannot be read, and ``InvalidReportError`` if it is not
-    a report of the schema's major version. A report of a later minor version is read: the
-    fields it adds are ignored.
+    a report of the schema's major version. A report of another minor version is read: the
+    fields a later one adds are ignored, and those an earlier one lacks are optional.
     """
     try:
         document = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -114,7 +136,7 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
         raise InvalidReportError(
             f"{path} is not a JSON report of version {_MAJOR}.x: its schema_version is {version!r}"
         )
-    # A report of this version is checked against its schema; one of a later minor version
+    # A report of this version is checked against its schema; one of another minor version
     # only for the fields this version knows.
     validator = _VALIDATOR if version == SCHEMA_VERSION else _LATER_VALIDATOR
     problem = next(iter(validator.iter_errors(document)), None)
@@ -123,22 +145,6 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
             f"{path} is not a JSON report: {problem.json_path}: {problem.message}"
         )
     return dict(document)
-
-
-def matches(path: str, pattern: str) -> bool:
-    """Whether the file at ``path`` is one that ``pattern`` designates, both relative to
-    the root, as ``Path.glob`` matches them: each segment as ``fnmatch`` does, and ``**``
-    for any number of segments, none included."""
-    return _matches(PurePosixPath(path).parts, PurePosixPath(pattern).parts)
-
-
-def _matches(parts: Sequence[str], pattern: Sequence[str]) -> bool:
-    if not pattern:
-        return not parts
-    head, rest = pattern[0], pattern[1:]
-    if head == _RECURSIVE:
-        return any(_matches(parts[skipped:], rest) for skipped in range(len(parts) + 1))
-    return bool(parts) and fnmatchcase(parts[0], head) and _matches(parts[1:], rest)
 
 
 def affected(document: Document, changed: Iterable[str]) -> Impact:
@@ -177,16 +183,65 @@ def above(document: Document, ids: Iterable[str]) -> tuple[str, ...]:
     return tuple(element["id"] for element in document["elements"] if element["id"] in reached)
 
 
-def stale(document: Document, root: Path = Path()) -> tuple[Change, ...]:
-    """The files the run of ``document`` observed that differ now, under ``root``, from
-    what it recorded, in report order."""
-    return tuple(change for element in document["elements"] for change in _changes(element, root))
+def stale(
+    document: Document, root: Path = Path(), environment: Mapping[str, str] | None = None
+) -> tuple[Change, ...]:
+    """What the run of ``document`` observed that differs now from what it recorded, in
+    report order: the files under ``root``, and the variables of ``environment``, by
+    default the process's."""
+    variables = os.environ if environment is None else environment
+    return tuple(
+        change
+        for element in document["elements"]
+        for change in (*_changes(element, root), *_variables(element, variables))
+    )
+
+
+def unverified(document: Document) -> tuple[Unverified, ...]:
+    """What the run of ``document`` observed that cannot be compared with what it is now:
+    what the report hides, and what only a step library can observe again. While there is
+    any, the report cannot be said to hold."""
+    return tuple(
+        Unverified(element["id"], observation["declared"], why)
+        for element in document["elements"]
+        for observation in element.get("observations", ())
+        if (why := _unchecked(observation)) is not None
+    )
+
+
+def _unchecked(observation: Mapping[str, Any]) -> Unchecked | None:
+    if observation["hidden"]:
+        return Unchecked.HIDDEN
+    return None if observation["variable"] is not None else Unchecked.UNREADABLE
+
+
+def _variables(element: Mapping[str, Any], environment: Mapping[str, str]) -> Iterator[Change]:
+    """Each environment variable of ``element`` whose value differs from the one recorded."""
+    for observation in element.get("observations", ()):
+        name = observation["variable"]
+        if name is None or observation["hidden"]:
+            continue
+        if (kind := _variable(observation, environment.get(name))) is not None:
+            yield Change(element["id"], observation["declared"], kind)
+
+
+def _variable(observation: Mapping[str, Any], value: str | None) -> ChangeKind | None:
+    """How a variable, now set to ``value`` or unset, differs from what was recorded."""
+    if not observation["reachable"]:
+        return None if value is None else ChangeKind.APPEARED
+    if value is None:
+        return ChangeKind.VANISHED
+    return None if fingerprint(value) == observation["sha256"] else ChangeKind.CHANGED
 
 
 def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
-    """Each file of ``element`` that differs, once, even when its declared paths overlap
-    and the run recorded the file under several of them."""
+    """Each file of ``element`` that differs, once: a file that several of its declared
+    paths designate is recorded under each of them."""
     recorded = {artifact["path"] for artifact in element["artifacts"]}
+    # The globs files were recorded under. One a library's observable depends on, without
+    # recording files under it, says nothing of the files the run saw. A report of
+    # version 1.0 records no `declared`: every glob there is a File's.
+    declared = {artifact.get("declared") for artifact in element["artifacts"]}
     found = [
         Change(element["id"], artifact["path"], kind)
         for artifact in element["artifacts"]
@@ -195,7 +250,9 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
     for pattern in element["observes"]:
         if not is_glob(pattern) or not element["artifacts"]:
             continue
-        for file in sorted(path for path in root.glob(pattern) if path.is_file()):
+        if None not in declared and pattern not in declared:
+            continue
+        for file in files(pattern, root):
             shown = file.relative_to(root).as_posix()
             if shown not in recorded:
                 found.append(Change(element["id"], shown, ChangeKind.ADDED))
@@ -208,7 +265,7 @@ def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
     if not artifact["reachable"]:
         # A glob that matched nothing is recorded under its pattern: what it matches now
         # is found as added.
-        return ChangeKind.APPEARED if not is_glob(artifact["path"]) and _readable(file) else None
+        return None if _matched_nothing(artifact) or not readable(file) else ChangeKind.APPEARED
     if not file.is_file():
         return ChangeKind.VANISHED
     try:
@@ -218,16 +275,12 @@ def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
     return None if sha256 == artifact["sha256"] else ChangeKind.CHANGED
 
 
-def _readable(file: Path) -> bool:
-    """Whether ``file`` is a file that can be read now: one the run could not read may
-    still be there, and still unreadable."""
-    if not file.is_file():
-        return False
-    try:
-        with file.open("rb"):
-            return True
-    except OSError:
-        return False
+def _matched_nothing(artifact: Mapping[str, Any]) -> bool:
+    """Whether ``artifact`` records a glob that matched no file, rather than a file."""
+    path = artifact["path"]
+    # A report of version 1.0 does not say what a file was declared as: its path is all
+    # there is to go by, and a file whose name holds a wildcard is taken for a glob.
+    return is_glob(path) and artifact.get("declared", path) == path
 
 
 def changed_since(ref: str, root: Path = Path()) -> list[str]:
@@ -286,23 +339,52 @@ def render_impact(document: Document, impact: Impact) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_stale(document: Document, changes: Sequence[Change]) -> str:
-    """``changes`` as text, for people: each file that changed, then the elements above
-    the evidence that observes it."""
+def render_stale(
+    document: Document, changes: Sequence[Change], unchecked: Sequence[Unverified] = ()
+) -> str:
+    """``changes`` and ``unchecked`` as text, for people: what changed, and the elements
+    above the evidence that observes it; then what could not be checked, and the elements
+    that only a new run confirms."""
     lines = list(_header(document))
-    if not changes:
-        lines.append("Every file the run observed is as it was: its report still holds.")
+    if not changes and not unchecked:
+        lines.append("Everything the run observed is as it was: its report still holds.")
         return "\n".join(lines) + "\n"
-    kinds = max(len(change.kind) for change in changes)
-    paths = max(len(change.path) for change in changes)
-    lines.append("Changed since the run:")
-    for change in changes:
-        lines.append(f"  {change.kind:<{kinds}}  {change.path:<{paths}}  {change.element}")
-    lines.append("")
-    stale_ids = above(document, (change.element for change in changes))
-    lines.append(f"Stale ({len(stale_ids)} elements):")
-    lines.extend(_elements(document, stale_ids))
+    if changes:
+        kinds = max(len(change.kind) for change in changes)
+        paths = max(len(change.path) for change in changes)
+        lines.append("Changed since the run:")
+        for change in changes:
+            lines.append(f"  {change.kind:<{kinds}}  {change.path:<{paths}}  {change.element}")
+        lines.append("")
+        stale_ids = above(document, (change.element for change in changes))
+        lines.append(f"Stale ({len(stale_ids)} elements):")
+        lines.extend(_elements(document, stale_ids))
+    if unchecked:
+        if changes:
+            lines.append("")
+        lines.extend(_rerun(document, unchecked))
     return "\n".join(lines) + "\n"
+
+
+_RERUN = {
+    Unchecked.HIDDEN: "Information was hidden from the report, so it needs a new run:",
+    Unchecked.UNREADABLE: "Only its step library can observe it again, so it needs a new run:",
+}
+
+
+def _rerun(document: Document, unchecked: Sequence[Unverified]) -> Iterator[str]:
+    """What could not be checked, by reason, then the elements a new run must judge."""
+    width = max(len(item.declared) for item in unchecked)
+    for why, title in _RERUN.items():
+        items = [item for item in unchecked if item.why is why]
+        if items:
+            yield title
+            for item in items:
+                yield f"  {item.declared:<{width}}  {item.element}"
+            yield ""
+    ids = above(document, (item.element for item in unchecked))
+    yield f"Not confirmed ({len(ids)} elements):"
+    yield from _elements(document, ids)
 
 
 def _printable(path: str) -> str:

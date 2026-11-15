@@ -78,10 +78,11 @@ exists when the consumer runs.
 
 ### Artifact
 
-A file an evidence **observes**: declared with `observes`, as a path or a glob, relative to
-the [working directory](#working-directory), and passed to the step as a parameter. The
-runner records each file it observed, with its SHA-256 and size, just before the step is
-called. See [Observing artifacts](authoring.md#observing-artifacts).
+What an evidence **observes**: a file or a glob of files, a value in a JSON file, an
+environment variable, or what an observable of the step library reaches. It is declared
+with `observes` and passed to the step as a parameter. A path is relative to the file that
+declares the step. The runner records what it observed, a file with its SHA-256 and size,
+just before the step is called. See [`observables.md`](observables.md).
 
 ### Outcome
 
@@ -99,8 +100,9 @@ passed, as an independent check of the same claim; validation points it out with
 
 ### Working directory
 
-The directory the runner runs in, and the root of the run: the paths an evidence observes,
-and the paths a report shows, are relative to it.
+The directory the runner runs in, and the root of the run: the paths a report shows are
+relative to it. The paths an evidence observes are not: they are relative to the file that
+declares its step, so that a library observes the same files wherever the runner runs.
 
 ### Validation
 

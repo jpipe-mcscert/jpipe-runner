@@ -85,8 +85,8 @@ every other library that failed to import, and runs nothing:
 | a name that is not an identifier | `@evidence(produces=...) takes variable names that are Python identifiers, not 'tests-pass'` |
 | a parameter that is not consumed | `@strategy gates: its parameters ['changelog_ok'] are not consumed, so nothing would pass them. …` |
 | an observed artifact that is not a parameter | `@evidence the_changelog_is_up_to_date: it observes ['changelog'] but has no parameter for them. …` |
-| a list instead of a mapping | `@evidence(observes=...) maps each parameter to the path it receives: observes={'changelog': 'CHANGELOG.md'}` |
-| an absolute path | `@evidence(observes=...) takes paths relative to the run's working directory, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
+| a list instead of a mapping | `@evidence(observes=...) maps each parameter to what it receives: observes={'changelog': 'CHANGELOG.md'}` |
+| an absolute path | `@evidence(observes=...) takes paths relative to the file that declares the step, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
 | a directory | `@evidence(observes=...) takes files, and 'src/' names a directory. Observe the files it holds, with a glob such as 'src/**/*'.` |
 | `**` inside a name | `@evidence(observes=...): '**' matches any depth only as a whole part of a path, as in 'build/**/*.xml', not 'build/**.xml'` |
 | `..` after a wildcard | `@evidence(observes=...) takes '..' only before the first wildcard, as in '../shared/*.yml', not 'build/*/../x.xml'` |
@@ -126,10 +126,13 @@ def every_module_has_a_report(reports: list[Path], sources: list[Path]) -> Outco
 - **An evidence observes files.** A directory, written `"src/"`, is refused when the
   library is imported: observe the files it holds, with a glob such as `"src/**/*"`
   ([ADR-0019](adr/0019-evidence-observes-files.md)).
-- **Paths are relative** to the directory the runner runs in. An absolute path is refused
-  when the library is imported: the library must work on every machine. `.` and `..` are
-  resolved as the decorator reads the path, so `"mock/../mock/junit.xml"` is recorded as
-  `"mock/junit.xml"`, the name a changed file has; a `..` after a wildcard is refused.
+- **Paths are relative to the file that declares the step**, as a link in a Markdown
+  page is relative to the page: `"CHANGELOG.md"` is the file beside the library, and a
+  library in `justifications/` reaches the one at the root of the repository with
+  `"../CHANGELOG.md"`. The library therefore observes the same files wherever the runner
+  is started. The report shows each file relative to the directory the runner runs in,
+  the name a changed file has. An absolute path is refused when the library is imported:
+  the library must work on every machine. A `..` after a wildcard is refused.
 - **An observed artifact is never optional.** When the steps run, an artifact that is not
   there or cannot be read, or a glob that matches nothing, fails the evidence without
   calling it (`JP019`). A check that a file is *absent* does not declare it.
@@ -153,6 +156,31 @@ with tempfile.TemporaryDirectory() as directory:
     log.write_text("42 passed\n", encoding="utf-8")
     assert the_test_suite_passes(log) == Pass(tests_pass=True)
 ```
+
+### More than files
+
+A string in `observes` is a file. An evidence also observes a value in a JSON file, an
+environment variable, or anything an observable of your own reaches:
+
+```python
+from jpipe_runner import Env, JsonValue
+
+
+@evidence(
+    "release:e4",
+    observes={
+        "version": JsonValue("package.json", "/version"),
+        "stage": Env("DEPLOY_STAGE", display=True),
+    },
+    produces=["releasable"],
+)
+def the_release_is_configured(version: str, stage: str) -> Outcome:
+    return Pass(releasable=version == "2.0" and stage == "production")
+```
+
+[`observables.md`](observables.md) is the reference: each built-in observable, what a path
+is relative to, what the report records, what `jpipe-runner status` can check later, and
+how to write an observable.
 
 ## Returning an outcome
 

@@ -31,8 +31,9 @@ from jpipe_runner.diagnostics import shown_path
 from jpipe_runner.engine import Verdict
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
+from jpipe_runner.observables import is_glob
 from jpipe_runner.report import RunReport
-from jpipe_runner.steps import StepRegistry, is_glob
+from jpipe_runner.steps import StepRegistry
 
 _LOG = logging.getLogger(__name__)
 
@@ -235,11 +236,11 @@ def status_parser() -> argparse.ArgumentParser:
     """The parser of ``jpipe-runner status``."""
     parser = _Parser(
         prog=f"{_PROGRAM} status",
-        description="Compare the files a run observed, as its JSON report recorded them, "
-        "with the files now, and list what is stale. No step is called.",
+        description="Compare what a run observed, as its JSON report recorded it, with "
+        "what it is now, and list what is stale. No step is called.",
         epilog=_exit_codes(
             (ExitCode.OK, "nothing changed"),
-            (ExitCode.FAILED, "something is stale"),
+            (ExitCode.FAILED, "something is stale, or needs a new run to be checked"),
             (ExitCode.USAGE, "the command line is wrong"),
             (ExitCode.INVALID, "the file is not the report of a run that observed files"),
             (ExitCode.IO, "the report cannot be read"),
@@ -344,7 +345,7 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
 def _run(options: argparse.Namespace) -> int:
     _check_graphviz(options.diagram, options.dataflow)
     # The working directory, as a relative path: a step receives the files it observes
-    # relative to it, as its author wrote them, and a reason that names one reads the same
+    # relative to it, as the report shows them, and a reason that names one reads the same
     # on every machine.
     root = Path()
     _LOG.info("steps run with Python %s, in %s", sys.executable, Path.cwd())
@@ -533,15 +534,23 @@ def _status(options: argparse.Namespace) -> int:
         )
         return ExitCode.INVALID
     changes = impact.stale(document)
-    reached = [a for e in document["elements"] for a in e["artifacts"] if a["reachable"]]
-    vanished = [change for change in changes if change.kind is impact.ChangeKind.VANISHED]
-    if reached and len(vanished) == len(reached):
+    reached = {
+        (e["id"], a["path"]) for e in document["elements"] for a in e["artifacts"] if a["reachable"]
+    }
+    vanished = {
+        (change.element, change.path)
+        for change in changes
+        if change.kind is impact.ChangeKind.VANISHED
+    }
+    # Files only: an environment variable that is no longer set is no sign of a wrong root.
+    if reached and reached <= vanished:
         _LOG.warning(
             "every file the run observed is missing: run status from the directory the run "
             "ran in, where the report's paths start"
         )
-    sys.stdout.write(impact.render_stale(document, changes))
-    return ExitCode.FAILED if changes else ExitCode.OK
+    unchecked = impact.unverified(document)
+    sys.stdout.write(impact.render_stale(document, changes, unchecked))
+    return ExitCode.FAILED if changes or unchecked else ExitCode.OK
 
 
 def _colour(choice: str) -> bool:

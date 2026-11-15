@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠️ Breaking
+- **A path an evidence observes is relative to the file that declares its step**, no
+  longer to the directory `jpipe-runner` runs in, so a library observes the same files
+  wherever the command is typed. This corrects 4.0.0
+  ([ADR-0028](docs/adr/0028-observables-and-file-relative-paths.md)). A library that sits
+  beside the files it observes and is run from its own directory is unaffected. **One in
+  a subdirectory, run from elsewhere, must have its paths rewritten from its own
+  directory**: `observes={"changelog": "CHANGELOG.md"}` in `justifications/steps.py`
+  becomes `"../CHANGELOG.md"`. Until then its evidence fails with `JP019`, which names
+  where the file was looked for. The report still shows every file relative to the
+  directory the command runs in, so `impact` and `status` work as before.
+
+### Added
+- **An evidence observes more than files.** Beside a path, `observes` takes
+  `JsonValue("package.json", "/version")`, a value in a JSON file, and `Env("CI")`, an
+  environment variable; the step receives the value. Both are imported from
+  `jpipe_runner`, with `File`, which a path stands for. An environment variable is not
+  shown in the report unless its step says `Env("CI", display=True)`
+  ([`docs/observables.md`](docs/observables.md)).
+- **A step library defines what else to observe**, by deriving `Observable`: how the
+  report names it, what it is now, and the files a change to which reaches it
+  ([`docs/observables.md`](docs/observables.md#writing-your-own-observable)).
+- **The JSON report says more about what was observed**, in `schema_version` `1.1`. An
+  element has `sources`, everything its step declares it observes, and `observations`,
+  what it observed that is not a file. Each of its `artifacts` has `declared`, the source
+  that designates the file, so a reader no longer matches files to globs itself, and the
+  `value` observed in it, if one was. Every field is added: `observes` still lists paths
+  and globs, and `jpipe-runner status` still reads the `1.0` reports of 4.0.0
+  ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
+- **`jpipe-runner status` compares environment variables too**, and answers for
+  everything a run observed or not at all. A report that hides a value (an `Env` without
+  `display=True`), or holds what only an observable of the step library can observe
+  again, cannot be confirmed: `status` says that a new run is needed, and exits 1.
+
+### Fixed
+- **A glob that ends with `**`, such as `observes={"sources": "src/**"}`, observes the
+  files below it on every version of Python.** On Python 3.11 and 3.12 it matched
+  directories only, so the evidence failed with `JP019` while `jpipe-runner impact`
+  reported it as affected by changes to those files.
+- The dataflow diagram no longer draws a glob as unreachable when its evidence also
+  observes a file, in a directory below, that could not be reached: `build/*.xml` took
+  `build/old/a.xml` for one of its files.
+- `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
+  read then and can be now, when its name holds `*`, `?` or `[`.
+
 ### Changed
 - **networkx and jsonschema are ranges, not pins**: `networkx >=2.8.8,<4` and
   `jsonschema >=4.10.3,<5`. 4.0.0 required networkx 3.5 exactly, so pip could not install

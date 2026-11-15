@@ -13,7 +13,11 @@ import pytest
 import jpipe_runner
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence, strategy, sub_conclusion
 from jpipe_runner.model import Kind
+from jpipe_runner.observables import Context, Env, File, Observable, Sighting
 from jpipe_runner.steps import Artifact, Step, StepRegistry, step_of
+
+HERE = Path(__file__).parent
+"""Where the steps of these tests are declared: what their paths are relative to."""
 
 
 def test_the_package_exports_the_authoring_api() -> None:
@@ -26,6 +30,12 @@ def test_the_package_exports_the_authoring_api() -> None:
         "Pass",
         "Fail",
         "Skip",
+        "Observable",
+        "Context",
+        "Sighting",
+        "File",
+        "JsonValue",
+        "Env",
         "__version__",
     }
 
@@ -71,7 +81,9 @@ def test_the_decorator_is_the_kind(
     def function(a: int = 0) -> Outcome:
         return Pass()
 
-    assert step_of(decorator(function)) == Step(kind, ("m:x",), function, consumes, produces)
+    assert step_of(decorator(function)) == Step(
+        kind, ("m:x",), function, consumes, produces, directory=HERE
+    )
 
 
 def test_evidence_consumes_nothing_and_a_conclusion_produces_nothing() -> None:
@@ -221,10 +233,10 @@ def test_evidence_observes_artifacts_passed_to_its_parameters_by_name() -> None:
     step = step_of(checked)
     assert step is not None
     assert step.observes == (
-        Artifact("changelog", "CHANGELOG.md"),
-        Artifact("reports", "build/*.xml"),
+        Artifact("changelog", File("CHANGELOG.md")),
+        Artifact("reports", File("build/*.xml")),
     )
-    assert [a.is_glob for a in step.observes] == [False, True]
+    assert step.directory == HERE
     assert checked(Path("CHANGELOG.md"), []) == Pass(ok=True)
 
 
@@ -247,7 +259,8 @@ def test_an_observed_path_is_recorded_as_a_changed_file_is_named(
 
     step = step_of(observing)
     assert step is not None
-    assert step.observes == (Artifact("a", recorded),)
+    assert step.observes == (Artifact("a", File(recorded)),)
+    assert File(declared).path == recorded
 
 
 def test_a_step_observes_nothing_unless_declared() -> None:
@@ -265,6 +278,35 @@ def test_a_step_observes_nothing_unless_declared() -> None:
         assert step.observes == ()
 
 
+def test_evidence_observes_any_observable_and_a_string_is_a_file() -> None:
+    @evidence("m:e", observes={"ci": Env("CI"), "log": "build/tests.log"})
+    def observing(ci: str, log: Path) -> Outcome:
+        return Pass()
+
+    step = step_of(observing)
+    assert step is not None
+    assert step.observes == (Artifact("ci", Env("CI")), Artifact("log", File("build/tests.log")))
+
+
+def test_a_step_typed_at_a_prompt_is_declared_in_the_working_directory() -> None:
+    namespace: dict[str, Any] = {"evidence": evidence, "Pass": Pass}
+    exec('@evidence("m:e", observes={"a": "a.txt"})\ndef typed(a): return Pass()', namespace)
+
+    step = step_of(namespace["typed"])
+    assert step is not None
+    assert step.directory == Path()
+
+
+class Unhashable(Observable):
+    __hash__ = None  # type: ignore[assignment]
+
+    def describe(self, context: Context) -> str:
+        return "unhashable"
+
+    def observe(self, context: Context) -> Sighting:
+        return Sighting.of("unhashable", 1)
+
+
 def test_only_evidence_observes() -> None:
     with pytest.raises(TypeError):
         strategy("m:s", observes={"a": "a.txt"})  # type: ignore[call-arg]
@@ -280,6 +322,7 @@ def test_only_evidence_observes() -> None:
         pytest.param({1: "x"}, "identifiers", id="not a string name"),
         pytest.param({"a": ""}, "non-empty", id="empty path"),
         pytest.param({"a": 1}, "non-empty", id="not a string path"),
+        pytest.param({"a": Unhashable()}, "hashed", id="an observable that cannot be hashed"),
         pytest.param({"a": "/etc/hosts"}, "relative", id="absolute"),
         pytest.param({"a": "C:\\reports\\x.xml"}, "relative", id="absolute on Windows"),
         pytest.param({"a": "\\\\server\\share\\x"}, "relative", id="a UNC path"),
@@ -327,7 +370,7 @@ def test_a_wrapper_of_a_step_is_the_step() -> None:
     def logged() -> Outcome:
         return inner()
 
-    assert step_of(logged) == Step(Kind.EVIDENCE, ("m:e",), logged)
+    assert step_of(logged) == Step(Kind.EVIDENCE, ("m:e",), logged, directory=HERE)
 
 
 @pytest.mark.parametrize("candidate", [None, 1, "m:e", print, _no_parameters], ids=repr)

@@ -6,17 +6,15 @@ from typing import Any
 
 import pytest
 
-from jpipe_runner.artifacts import Observation
 from jpipe_runner.diagnostics import Diagnostic, Severity, user_traceback
 from jpipe_runner.engine import Status, Verdict
 from jpipe_runner.model import Kind
+from jpipe_runner.observables import Observation, Obstacle
 from jpipe_runner.report import ElementReport, RunReport
-from jpipe_runner.steps import Artifact
 from jpipe_runner.text_report import render, use_colour, use_unicode
 from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY
 
 HERE = Path(__file__).parent
-JUNIT = Artifact("report", "mock/junit.xml")
 
 
 def _element(element_id: str, kind: Kind, label: str, **fields: Any) -> ElementReport:
@@ -31,7 +29,7 @@ E1_FAILED = _element(
     reason="mock/junit.xml: 2 tests failed",
     ran=True,
     step="steps.the_test_suite_passes",
-    artifacts=(Observation(JUNIT, "mock/junit.xml", "f757d068913c" + "0" * 52, 187),),
+    artifacts=(Observation("mock/junit.xml", "mock/junit.xml", "f757d068913c" + "0" * 52, 187),),
 )
 E2_PASSED = _element(
     "release:e2",
@@ -99,8 +97,24 @@ def test_colour_paints_each_element_and_the_verdict_by_status() -> None:
     assert "\033[" not in render(FAILED)
 
 
+def test_what_a_failed_evidence_observed_that_is_no_file_is_named_with_its_value_if_shown() -> None:
+    seen = (
+        Observation("env:STAGE", sha256="0" * 64, value="prod"),
+        Observation("env:TOKEN", hidden=True),
+        Observation("env:CI", obstacle=Obstacle("the environment variable 'CI'", "is not set")),
+    )
+    failed = _element("e1", EVIDENCE, "Tests pass", status=Status.FAIL, reason="no", artifacts=seen)
+
+    text = render(RunReport("m", Verdict.FAIL, (failed,)))
+
+    assert "      observed env:STAGE = 'prod'\n" in text
+    assert "      observed env:TOKEN (hidden)\n" in text
+    assert "      observed env:CI (unreachable)\n" in text
+
+
 def test_an_unreachable_artifact_of_a_failed_evidence_is_named() -> None:
-    unreachable = Observation(JUNIT, "mock/junit.xml")
+    missing = Obstacle("mock/junit.xml", "does not exist")
+    unreachable = Observation("mock/junit.xml", "mock/junit.xml", obstacle=missing)
     failed = _element(
         "e1", EVIDENCE, "Tests pass", status=Status.FAIL, reason="missing", artifacts=(unreachable,)
     )

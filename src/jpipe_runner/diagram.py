@@ -23,7 +23,6 @@ Rendering pipes the DOT text to Graphviz's ``dot``, as the compiler does: only t
 is needed. The ``dot`` format is the text itself, written without it.
 """
 
-import fnmatch
 import re
 import subprocess
 from collections.abc import Iterable, Iterator
@@ -192,7 +191,7 @@ class _Dataflow:
         self._ran = any(element.status is not None for element in self._elements)
 
     def nodes(self) -> Iterator[str]:
-        for path in _unique(p for e in self._elements for p in e.observes):
+        for path in _unique(p for e in self._elements for p in e.sources):
             attributes = dict(_DATA, shape="folder")
             if self._unreachable(path):
                 attributes.update(color=_VERMILLION, penwidth="2")
@@ -202,7 +201,7 @@ class _Dataflow:
 
     def edges(self) -> Iterator[str]:
         for element in self._elements:
-            for path in element.observes:
+            for path in element.sources:
                 yield _data_edge(f"artifact {path}", element.id, "observes", dotted=True)
             for name in element.produces:
                 yield _data_edge(element.id, f"variable {name}", "produces")
@@ -224,11 +223,9 @@ class _Dataflow:
 
     def _unreachable(self, declared: str) -> bool:
         return any(
-            not artifact.reachable
-            and (artifact.path == declared or fnmatch.fnmatch(artifact.path, declared))
+            not observation.reachable and observation.declared == declared
             for element in self._elements
-            if declared in element.observes
-            for artifact in element.artifacts
+            for observation in element.artifacts
         )
 
 

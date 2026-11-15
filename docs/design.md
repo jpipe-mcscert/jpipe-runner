@@ -18,6 +18,7 @@ flowchart LR
     model --> diagnostics
     outcomes --> diagnostics
     steps --> model
+    steps --> observables
     steps --> outcomes
     values[values]
     binding --> model
@@ -32,18 +33,20 @@ flowchart LR
     rules --> model
     rules --> diagnostics
     artifacts --> steps
+    artifacts --> observables
     artifacts --> diagnostics
     libraries --> diagnostics
     engine --> artifacts
     engine --> binding
     engine --> diagnostics
     engine --> model
+    engine --> observables
     engine --> outcomes
     engine --> rules
     engine --> steps
     engine --> validation
     engine --> values
-    report --> artifacts
+    report --> observables
     report --> binding
     report --> diagnostics
     report --> engine
@@ -53,17 +56,17 @@ flowchart LR
     diagram --> model
     diagram --> report
     diagram -.->|piped to| dot[["Graphviz dot"]]
-    json_report --> artifacts
+    json_report --> observables
     json_report --> diagnostics
     json_report --> report
     json_report -.->|validated against| reportschema
     text_report --> diagnostics
     text_report --> engine
     text_report --> model
+    text_report --> observables
     text_report --> report
-    impact --> artifacts
+    impact --> observables
     impact --> json_report
-    impact --> steps
     cli --> diagnostics
     cli --> diagram
     cli --> impact
@@ -72,6 +75,7 @@ flowchart LR
     cli --> libraries
     cli --> loader
     cli --> model
+    cli --> observables
     cli --> report
     cli --> steps
     cli --> text_report
@@ -94,7 +98,8 @@ arrow is data.
 | [`rules`](../src/jpipe_runner/rules.py) | Every validation rule, one class each, and `RULES`, the rule set every run uses. [`rules.md`](rules.md) is generated from it. |
 | [`engine`](../src/jpipe_runner/engine.py) | Runs a step library against its model: validates it, then calls the steps supporters first, and returns a `RunResult`, each element's `ElementResult` and the verdict. Entry point: `run(justification, registry)`. |
 | [`libraries`](../src/jpipe_runner/libraries.py) | Imports a run's step libraries, each as a module named after its file, with the run's python path, and forgets them after the run. Entry point: `imported(libraries, python_path)`. |
-| [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: whether each can be reached, what it was (path, SHA-256, size), and what the step receives. |
+| [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: what each was, what the step receives, and a `JP019` for each that could not be reached. |
+| [`observables`](../src/jpipe_runner/observables.py) | What an evidence can observe: the `Observable` a step library derives, the built-in `File`, `JsonValue` and `Env`, the `Context` that anchors a path to the file that declares its step, and what a glob designates. |
 | [`report`](../src/jpipe_runner/report.py) | The `RunReport` of a run, built for every way a run ends, even when nothing ran: each element of the model with its status, its step and what that step declares, observed and produced, then every diagnostic. Entry points: `RunReport.of(result)`, `RunReport.refused(error)`, `RunReport.not_imported(justification, error)`. |
 | [`json_report`](../src/jpipe_runner/json_report.py) | Renders a `RunReport` as the JSON report, the machine-readable contract described by `report.schema.json` and [`report-schema.md`](report-schema.md). Entry points: `document(report)`, `dumps(report)`. |
 | [`diagram`](../src/jpipe_runner/diagram.py) | Draws a justification as the jPipe compiler draws it, with a run's statuses over it, and in the dataflow view the files and variables its steps declare. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
@@ -131,6 +136,8 @@ classDiagram
         class Impact
         class Change
         class ChangeKind
+        class Unverified
+        class Unchecked
         class InvalidReportError
     }
 
@@ -203,7 +210,17 @@ classDiagram
 
     namespace artifacts {
         class Observed
+    }
+
+    namespace observables {
+        class Observable
+        class File
+        class JsonValue
+        class Env
+        class Context
+        class Sighting
         class Observation
+        class Obstacle
     }
 
     namespace values {
@@ -234,6 +251,7 @@ classDiagram
     <<enumeration>> View
     <<enumeration>> ExitCode
     <<enumeration>> ChangeKind
+    <<enumeration>> Unchecked
 
     Justification "1" *-- "*" Element : elements
     Justification "1" *-- "*" Relation : relations
@@ -303,7 +321,14 @@ classDiagram
     LibraryLoadError "1" o-- "1..*" Diagnostic : diagnostics
     Observed "1" *-- "*" Observation : observations
     Observed "1" o-- "*" Diagnostic : diagnostics
-    Observation --> Artifact : artifact
+    Artifact --> Observable : observable
+    Observable <|-- File
+    Observable <|-- JsonValue
+    Observable <|-- Env
+    Observable ..> Context : observed from
+    Observable ..> Sighting : observe
+    Sighting "1" *-- "*" Observation : observations
+    Observation --> Obstacle : obstacle
     ValueStore "1" *-- "*" ProducedValue : values
     ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
@@ -313,6 +338,7 @@ classDiagram
     NotAnOutcomeError "1" o-- "1" Diagnostic : diagnostic
     ExitCode ..> Verdict : from
     Change --> ChangeKind : kind
+    Unverified --> Unchecked : why
     ValueError <|-- InvalidReportError
 ```
 
@@ -378,8 +404,8 @@ committed page differs.
 implements, as positional arguments, and the variables it `consumes` and `produces`. Each
 kind's decorator accepts only what the kind can do: evidence consumes nothing, and a
 conclusion produces nothing. Only evidence `observes` artifacts: a mapping from parameter
-name to a path relative to the run's working directory, kept on the `Step` as `Artifact`s.
-A path names a file or a glob of files, never a directory. A decorator attaches a `Step`
+name to an observable, or to a path, which stands for a `File`, kept on the `Step` as
+`Artifact`s. A path names a file or a glob of files, never a directory. A decorator attaches a `Step`
 to the function and returns the function unchanged, so a step is still a plain function.
 A declaration that is wrong on its face is a `TypeError` when the library is imported: no
 id, a variable or parameter name that is not a Python identifier, an absolute path or a
@@ -414,15 +440,39 @@ the reason the step declines to judge. Outcomes are frozen, and so are the value
 reported with `JP017` by `as_outcome`, and the diagnostic's `fix` names the outcome to
 return instead.
 
-**An evidence's artifacts are observed just before its step is called.** `observe` takes
-the step's `Artifact`s and the run's root, and returns what was `Observed`: an
-`Observation` of each file, with its path relative to the root, its SHA-256 and its size,
-the arguments the step receives (a `Path`, or for a glob the sorted `list[Path]` it
-matches), and a `JP019` diagnostic for each artifact that cannot be reached. A missing or
-unreadable file, a directory or anything else that is not a regular file (a pipe, a
-device, which could block the run), and a glob that matches nothing are unreachable, and
-are recorded without a digest. Each file is read once, to hash it and measure it, so the
-record is the state the step is about to see.
+**What an evidence observes is an `Observable`**
+([ADR-0028](adr/0028-observables-and-file-relative-paths.md)). It says how the report
+names it (`describe`), what it is now (`observe`), and which files a change to reaches it
+(`depends_on`). `File`, a file or a glob of files, is what a string in `observes` stands
+for; `JsonValue` is a value in a JSON file, and `Env` an environment variable; a step
+library derives `Observable` for anything else. `observe` returns a `Sighting`: the value
+the step receives, and an `Observation` of each thing seen. A file's observation has its
+path relative to the run's root, its SHA-256 and its size, read once, so the record is the
+state the step is about to see; a value's has the value and its SHA-256, or says that it
+is hidden. There is no observation without one or the other, and no sighting without an
+observation: nothing a verdict rests on stays off the record. What could not be reached
+has an `Obstacle` instead: a missing or unreadable
+file, a directory or anything else that is not a regular file (a pipe, a device, which
+could block the run), a glob that matches nothing, a variable that is not set.
+
+**A path is relative to the file that declares the step**, not to the directory the runner
+runs in, so a library observes the same files wherever it is run from. The decorator keeps
+the directory of the function's file on the `Step`; an observable receives it in a
+`Context`, with the run's root, and `Context.shown` turns a path relative to the first
+into one relative to the second: the path the report shows, the one a changed file has.
+
+**An evidence's artifacts are observed just before its step is called.**
+`artifacts.observe` asks each observable of the step for its sighting, and returns what
+was `Observed`: the observations, the arguments of the step, and a `JP019` diagnostic for
+each obstacle. An observable is code of the step library: one that raises, or answers
+anything but a sighting, is an obstacle too.
+
+**What a glob designates is defined once**, beside what observes it. `files` lists the
+regular files a glob matches under a root, and `matches` says whether it would match a
+path, one segment at a time, without the file system and without a regular expression: a
+run, `stale` and `affected` therefore agree on every glob, and a property test checks one
+function against the other. A trailing `**` designates the files below it, on every
+version of Python.
 
 **A run's step libraries are imported for the run, and forgotten after it.** `imported`
 is a context manager, and the steps run inside it. Each library is a module named after
@@ -526,9 +576,14 @@ that a library imports the same modules whichever way the runner is started.
 says what each element supports, what its step declares it observes, and what the run
 observed, with each file's SHA-256. `affected` takes the report of a dry run and the
 changed files, and returns the evidence whose declared paths match one, then everything
-above it (`above`). `matches` matches a path as `Path.glob` does, one segment at a time,
-without a regular expression; a property test checks it against `Path.glob`. `stale`
-takes the report of an earlier run and compares each file it observed with the file now.
+above it (`above`), matching each file as a run would (`observables.matches`). `stale`
+takes the report of an earlier run and compares each file it observed with the file now,
+and lists what its globs designate now (`observables.files`). Each recorded file names
+what it was `declared` as, so that neither a reader of the report nor the diagram matches
+files to globs again. An environment variable is compared too, by the SHA-256 of its
+value. `unverified` lists what the report cannot confirm: what it hides, and what is
+neither a file nor a variable, which only its step library can observe again. While there
+is any, `status` does not say that the report holds: it says that a new run is needed.
 The command line's `impact` and `status` subcommands render what they return; `impact`
 asks git for the changed files (`changed_since`) before importing anything, since an
 import writes files of its own.
