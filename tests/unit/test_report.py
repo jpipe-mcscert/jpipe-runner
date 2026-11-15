@@ -7,11 +7,12 @@ import pytest
 
 from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
-from jpipe_runner.engine import STEP_RAISED, Status, Verdict, run
+from jpipe_runner.engine import STEP_RAISED, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
 from jpipe_runner.report import ElementReport, Frame, RunReport, Summary, Trace
 from jpipe_runner.steps import StepRegistry, step_of
+from tests.anchored import run
 from tests.unit.validation.builders import (
     CONCLUSION,
     EVIDENCE,

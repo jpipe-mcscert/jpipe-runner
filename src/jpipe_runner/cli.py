@@ -31,8 +31,9 @@ from jpipe_runner.diagnostics import shown_path
 from jpipe_runner.engine import Verdict
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
+from jpipe_runner.observables import is_glob
 from jpipe_runner.report import RunReport
-from jpipe_runner.steps import StepRegistry, is_glob
+from jpipe_runner.steps import StepRegistry
 
 _LOG = logging.getLogger(__name__)
 
@@ -344,7 +345,7 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
 def _run(options: argparse.Namespace) -> int:
     _check_graphviz(options.diagram, options.dataflow)
     # The working directory, as a relative path: a step receives the files it observes
-    # relative to it, as its author wrote them, and a reason that names one reads the same
+    # relative to it, as the report shows them, and a reason that names one reads the same
     # on every machine.
     root = Path()
     _LOG.info("steps run with Python %s, in %s", sys.executable, Path.cwd())

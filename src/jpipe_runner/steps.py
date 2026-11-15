@@ -4,7 +4,8 @@
 the step implementing the elements whose ids they are given, and the variables it consumes
 and produces. The kind is the decorator, so its signature allows only what that kind can
 do: evidence observes artifacts of the world (``observes``) and consumes nothing, a
-conclusion is terminal and produces nothing.
+conclusion is terminal and produces nothing. What can be observed is an ``Observable``
+(ADR-0028); a path is relative to the file that declares the step.
 
 A decorator registers nothing. It attaches a ``Step`` to the function and returns the
 function unchanged, so a step stays a plain function that a test can call. A
@@ -20,14 +21,14 @@ variables flow, depends on the model, and is checked against it (#115, #119).
 
 import inspect
 import keyword
-import posixpath
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
-from pathlib import PurePosixPath, PureWindowsPath
+from pathlib import Path
 from types import ModuleType
 from typing import Any, TypeVar
 
 from jpipe_runner.model import Kind
+from jpipe_runner.observables import File, Observable
 from jpipe_runner.outcomes import Outcome
 
 StepFunction = TypeVar("StepFunction", bound=Callable[..., Outcome])
@@ -37,29 +38,14 @@ _STEP = "__jpipe_step__"
 
 _KEYWORD_ARGUMENT = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
 
-_WILDCARDS = frozenset("*?[")
-
-
-def is_glob(path: str) -> bool:
-    """Whether ``path`` is a glob pattern, which may match several files, rather than a path."""
-    return not _WILDCARDS.isdisjoint(path)
-
 
 @dataclass(frozen=True)
 class Artifact:
-    """An artifact an evidence observes: a file, or a glob of files (ADR-0018, ADR-0019).
-
-    ``path`` is relative to the run's working directory. The runner passes the artifact to
-    the step's parameter ``name``: a ``Path``, or the sorted ``list[Path]`` a glob matches.
-    """
+    """An artifact an evidence observes (ADR-0018): what is observed, and the step's
+    parameter ``name`` that receives what the ``observable`` sights."""
 
     name: str
-    path: str
-
-    @property
-    def is_glob(self) -> bool:
-        """Whether ``path`` is a pattern, which may match several files."""
-        return is_glob(self.path)
+    observable: Observable
 
 
 @dataclass(frozen=True)
@@ -76,6 +62,8 @@ class Step:
     """The variables it produces, returned in ``Pass``."""
     observes: tuple[Artifact, ...] = ()
     """The artifacts it observes, passed to the function by name. Only evidence observes."""
+    directory: Path = Path()
+    """The directory of the file that declares it: what the paths it observes are relative to."""
 
     @property
     def name(self) -> str:
@@ -84,11 +72,14 @@ class Step:
 
 
 def evidence(
-    *ids: str, observes: Mapping[str, str] | None = None, produces: Iterable[str] = ()
+    *ids: str,
+    observes: Mapping[str, str | Observable] | None = None,
+    produces: Iterable[str] = (),
 ) -> Callable[[StepFunction], StepFunction]:
     """Declare the step for the evidence ``ids``. Evidence observes the world: ``observes``
-    maps each of the function's parameters to the artifact passed to it, a path relative to
-    the run's working directory. It consumes nothing, and produces what it observed."""
+    maps each of the function's parameters to what is passed to it. A string is the path of
+    a file, or a glob of files, relative to the file that declares the step; anything else
+    is an ``Observable``. It consumes nothing, and produces what it observed."""
     artifacts = _artifacts(Kind.EVIDENCE, {} if observes is None else observes)
     return _declare(Kind.EVIDENCE, ids, consumes=(), produces=produces, observes=artifacts)
 
@@ -193,7 +184,8 @@ def _declare(
                 f"{existing.ids}: one function is one step"
             )
         _check_signature(kind, function, consumed, observes)
-        setattr(function, _STEP, Step(kind, ids, function, consumed, produced, observes))
+        step = Step(kind, ids, function, consumed, produced, observes, _declared_in(function))
+        setattr(function, _STEP, step)
         return function
 
     return declare
@@ -203,71 +195,39 @@ def _decorator(kind: Kind) -> str:
     return f"@{kind.value.replace('-', '_')}"
 
 
-def _artifacts(kind: Kind, observes: Mapping[str, str]) -> tuple[Artifact, ...]:
+def _artifacts(kind: Kind, observes: Mapping[str, str | Observable]) -> tuple[Artifact, ...]:
     decorator = _decorator(kind)
     example = "observes={'changelog': 'CHANGELOG.md'}"
     if not isinstance(observes, Mapping):
         raise TypeError(
-            f"{decorator}(observes=...) maps each parameter to the path it receives: {example}"
+            f"{decorator}(observes=...) maps each parameter to what it receives: {example}"
         )
     artifacts = []
-    for name, path in observes.items():
+    for name, observed in observes.items():
         if not _is_name(name):
             raise TypeError(
                 f"{decorator}(observes=...) takes parameter names that are Python "
                 f"identifiers, not {name!r}"
             )
-        if not isinstance(path, str) or not path.strip():
+        # A bare string is a file, or a glob of files: File refuses what is not a path.
+        observable = observed if isinstance(observed, Observable) else File(observed)
+        try:
+            hash(observable)
+        except TypeError:
             raise TypeError(
-                f"{decorator}(observes=...) takes paths as non-empty strings: {example}"
-            )
-        _check_path(decorator, path)
-        artifacts.append(Artifact(name, _canonical(decorator, path)))
+                f"{decorator}(observes=...) takes observables that can be hashed, as a "
+                f"frozen dataclass is, not {observable!r}"
+            ) from None
+        artifacts.append(Artifact(name, observable))
     return tuple(artifacts)
 
 
-def _check_path(decorator: str, path: str) -> None:
-    """``path`` names files relative to the run's working directory, by name or by glob."""
-    if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
-        raise TypeError(
-            f"{decorator}(observes=...) takes paths relative to the run's working "
-            f"directory, so that the library works on every machine, not {path!r}"
-        )
-    if path.endswith(("/", "\\")):
-        _directory(decorator, path)
-    if any("**" in part and part != "**" for part in path.replace("\\", "/").split("/")):
-        raise TypeError(
-            f"{decorator}(observes=...): '**' matches any depth only as a whole part of a "
-            f"path, as in 'build/**/*.xml', not {path!r}"
-        )
-
-
-def _canonical(decorator: str, path: str) -> str:
-    """``path`` with ``.`` and ``..`` resolved as text before its first wildcard, as a
-    changed file is (``mock/../mock/x.xml`` is ``mock/x.xml``), so that impact analysis
-    matches it. A leading ``..`` is kept. One after a wildcard is refused: what it names
-    depends on the directories the glob finds."""
-    parts = path.split("/")
-    first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
-    if ".." in parts[first:]:
-        raise TypeError(
-            f"{decorator}(observes=...) takes '..' only before the first wildcard, as in "
-            f"'../shared/*.yml', not {path!r}"
-        )
-    literal = posixpath.normpath("/".join(parts[:first]) or ".")
-    kept = [] if literal == "." else literal.split("/")
-    kept += [part for part in parts[first:] if part not in ("", ".")]
-    if not kept or kept[-1] == "..":
-        _directory(decorator, path)
-    return "/".join(kept)
-
-
-def _directory(decorator: str, path: str) -> None:
-    glob = path.rstrip("/\\") + "/**/*"
-    raise TypeError(
-        f"{decorator}(observes=...) takes files, and {path!r} names a directory. "
-        f"Observe the files it holds, with a glob such as {glob!r}."
-    )
+def _declared_in(function: Callable[..., Any]) -> Path:
+    """The directory of the file that defines ``function``: what its paths are relative
+    to. A function defined nowhere, such as one typed at a prompt, is in the working
+    directory."""
+    filename = inspect.unwrap(function).__code__.co_filename
+    return Path() if filename.startswith("<") else Path(filename).parent
 
 
 def _is_name(name: object) -> bool:

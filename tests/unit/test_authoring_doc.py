@@ -19,11 +19,12 @@ import pytest
 
 from jpipe_runner import evidence, libraries, loader, strategy
 from jpipe_runner.diagnostics import Diagnostic
-from jpipe_runner.engine import Status, run
+from jpipe_runner.engine import Status
 from jpipe_runner.outcomes import NotAnOutcomeError, as_outcome
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry, step_of
 from jpipe_runner.validation import ValidationContext
+from tests.anchored import run
 from tests.conftest import REPO_ROOT
 
 PAGE = (REPO_ROOT / "docs" / "authoring.md").read_text(encoding="utf-8")

@@ -32,6 +32,9 @@
       "observes": [
         "mock/number_a.txt"
       ],
+      "sources": [
+        "mock/number_a.txt"
+      ],
       "consumes": [],
       "produces": [
         "number_a"
@@ -49,7 +52,8 @@
           "sha256": "917df3320d778ddbaa5c5c7742bc4046bf803c36ed2b050f30844ed206783469",
           "size": 3
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "E2",
@@ -70,6 +74,9 @@
       "observes": [
         "mock/number_b.txt"
       ],
+      "sources": [
+        "mock/number_b.txt"
+      ],
       "consumes": [],
       "produces": [
         "number_b"
@@ -87,7 +94,8 @@
           "sha256": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
           "size": 2
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "S1",
@@ -106,6 +114,7 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "number_a",
         "number_b"
@@ -118,7 +127,8 @@
           "value": 15
         }
       },
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -133,10 +143,12 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [

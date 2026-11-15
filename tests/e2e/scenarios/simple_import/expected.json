@@ -32,6 +32,9 @@
       "observes": [
         "root_utils.py"
       ],
+      "sources": [
+        "root_utils.py"
+      ],
       "consumes": [],
       "produces": [
         "number_a"
@@ -49,7 +52,8 @@
           "sha256": "a51fcd27b82192a8c0c03280e46c9e6cf0701bc69f910c88d7b408ff2bb63da6",
           "size": 203
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "E2",
@@ -70,6 +74,9 @@
       "observes": [
         "steps/step_utils.py"
       ],
+      "sources": [
+        "steps/step_utils.py"
+      ],
       "consumes": [],
       "produces": [
         "number_b"
@@ -87,7 +94,8 @@
           "sha256": "b50c09d7cfabdc8ed52d3c8147b16c1fa88414363e29a8cec71764bb5e161849",
           "size": 197
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "E3",
@@ -108,6 +116,9 @@
       "observes": [
         "root_runtime_utils.py"
       ],
+      "sources": [
+        "root_runtime_utils.py"
+      ],
       "consumes": [],
       "produces": [
         "number_c"
@@ -125,7 +136,8 @@
           "sha256": "312200dc7b071ae2d8111d45f20c5d35c1048708b5c8b0054a160cd6561e99d2",
           "size": 331
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "E4",
@@ -146,6 +158,9 @@
       "observes": [
         "steps/step_runtime_utils.py"
       ],
+      "sources": [
+        "steps/step_runtime_utils.py"
+      ],
       "consumes": [],
       "produces": [
         "number_d"
@@ -163,7 +178,8 @@
           "sha256": "9cba705b20c7504b159457f77377bfd492c6c5649ea7b92744ceddcde6eaf471",
           "size": 325
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "S1",
@@ -182,6 +198,7 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "number_a",
         "number_b",
@@ -190,7 +207,8 @@
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -205,10 +223,12 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [],

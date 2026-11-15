@@ -21,12 +21,12 @@ from traceback import FrameSummary, TracebackException
 from types import MappingProxyType
 from typing import Any
 
-from jpipe_runner.artifacts import Observation
 from jpipe_runner.binding import Binding
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind
+from jpipe_runner.observables import Context, Observation
 
 _NOTHING: Mapping[str, Any] = MappingProxyType({})
 
@@ -53,7 +53,10 @@ class ElementReport:
     designators: tuple[str, ...] = ()
     """The step's ids that designate it."""
     observes: tuple[str, ...] = ()
-    """The paths and globs its step declares it observes."""
+    """The files, as paths and globs relative to the root, that what its step observes
+    depends on."""
+    sources: tuple[str, ...] = ()
+    """Everything its step declares it observes, as each observable describes itself."""
     consumes: tuple[str, ...] = ()
     """The variables its step declares it consumes."""
     produces: tuple[str, ...] = ()
@@ -61,7 +64,7 @@ class ElementReport:
     produced: Mapping[str, Any] = field(default_factory=lambda: _NOTHING)
     """The values its step produced, by variable."""
     artifacts: tuple[Observation, ...] = ()
-    """The files its step observed, recorded just before the call."""
+    """What its step observed, files and others, recorded just before the call."""
 
 
 @dataclass(frozen=True)
@@ -144,7 +147,7 @@ class RunReport:
         return cls(
             result.justification.name,
             result.verdict,
-            _elements(result.justification, bindings, results),
+            _elements(result.justification, bindings, results, root),
             result.diagnostics,
             result.strict,
             root=root,
@@ -169,7 +172,7 @@ class RunReport:
         return cls(
             justification.name,
             Verdict.INVALID,
-            _elements(justification, {}, {}),
+            _elements(justification, {}, {}, root),
             error.diagnostics,
             strict,
             root=root,
@@ -214,11 +217,12 @@ def _elements(
     model: Justification,
     bindings: Mapping[str, Binding],
     results: Mapping[str, ElementResult],
+    root: Path,
 ) -> tuple[ElementReport, ...]:
     """Every element of ``model``, in topological order, with its binding and its result,
     by element id, when it has them."""
     return tuple(
-        _element(model, element, bindings.get(element.id), results.get(element.id))
+        _element(model, element, bindings.get(element.id), results.get(element.id), root)
         for element in model.topological_order()
     )
 
@@ -228,6 +232,7 @@ def _element(
     element: Element,
     binding: Binding | None,
     result: ElementResult | None,
+    root: Path,
 ) -> ElementReport:
     report = ElementReport(
         element.id,
@@ -238,11 +243,15 @@ def _element(
     )
     if binding is not None:
         step = binding.step
+        context = Context(step.directory, root)
+        observed = [artifact.observable for artifact in step.observes]
+        files = (path for observable in observed for path in observable.depends_on(context))
         report = replace(
             report,
             step=step.name,
             designators=binding.designators,
-            observes=tuple(artifact.path for artifact in step.observes),
+            observes=tuple(dict.fromkeys(files)),
+            sources=tuple(observable.describe(context) for observable in observed),
             consumes=step.consumes,
             produces=step.produces,
         )

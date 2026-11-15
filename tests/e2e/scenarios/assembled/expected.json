@@ -32,6 +32,9 @@
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
       "produces": [
         "suite_passes"
@@ -49,7 +52,8 @@
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "readiness:tested:coverage",
@@ -70,6 +74,9 @@
       "observes": [
         "mock/coverage.txt"
       ],
+      "sources": [
+        "mock/coverage.txt"
+      ],
       "consumes": [],
       "produces": [
         "coverage"
@@ -87,7 +94,8 @@
           "sha256": "83a6261049265dba411398dbfdd2117e86e1f8ead030f979074be9c8839f4e74",
           "size": 5
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "readiness:tested:testing",
@@ -106,13 +114,15 @@
         "tested:testing"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "suite_passes",
         "coverage"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:tested:tested",
@@ -129,10 +139,12 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:documented:changelog",
@@ -153,6 +165,9 @@
       "observes": [
         "mock/CHANGELOG.md"
       ],
+      "sources": [
+        "mock/CHANGELOG.md"
+      ],
       "consumes": [],
       "produces": [
         "documented_release"
@@ -170,7 +185,8 @@
           "sha256": "8497d30f2b5aec4c9d91a1b8f5289e8c1991035488e34eda7539c8312877a72a",
           "size": 35
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "readiness:documented:docs",
@@ -189,12 +205,14 @@
         "documented:docs"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "documented_release"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:documented:documented",
@@ -211,10 +229,12 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:assembleStrategy",
@@ -233,12 +253,14 @@
         "readiness:assembleStrategy"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "documented_release"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:assembleConclusion",
@@ -253,10 +275,12 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [],

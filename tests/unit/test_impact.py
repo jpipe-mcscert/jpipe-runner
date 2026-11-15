@@ -354,6 +354,21 @@ def test_a_glob_recorded_as_matching_nothing_never_appears(root: Path) -> None:
     assert stale(document, root) == (Change("e2", "docs/a.md", ChangeKind.ADDED),)
 
 
+def test_what_was_observed_that_is_not_a_file_is_listed_as_not_checked(root: Path) -> None:
+    element = _element(
+        "e1", observes=["build/tests.log"], artifacts=[_artifact("build/tests.log", "ok")]
+    )
+    seen = {"declared": "env:CI", "reachable": True, "sha256": None, "value": None}
+    document = _recorded(element | {"observations": [seen]})
+
+    assert stale(document, root) == ()
+    assert render_stale(document, ()).splitlines()[-3:] == [
+        "",
+        "Not checked, as they are not files:",
+        "  env:CI  e1",
+    ]
+
+
 # --- Changes since a revision --------------------------------------------------------------
 
 

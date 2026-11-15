@@ -12,9 +12,11 @@ from pathlib import Path
 import pytest
 
 from jpipe_runner import loader
+from jpipe_runner.artifacts import observe
 from jpipe_runner.engine import run
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
+from jpipe_runner.observables import Context
 from jpipe_runner.steps import StepRegistry
 from tests.scenarios import REFUSED_LIBRARIES, REFUSED_MODELS, Scenario, discover
 
@@ -32,6 +34,12 @@ PUBLIC_API = {
     "Pass",
     "Fail",
     "Skip",
+    "Observable",
+    "Context",
+    "Sighting",
+    "File",
+    "JsonValue",
+    "Env",
 }
 DECORATORS = {"evidence", "strategy", "sub_conclusion", "conclusion"}
 EXPECTED_SCENARIOS = {
@@ -55,6 +63,7 @@ EXPECTED_SCENARIOS = {
     "unreachable_artifact",
     "assembled",
     "unified",
+    "observables",
 }
 
 
@@ -142,9 +151,9 @@ def test_every_observed_artifact_is_in_the_scenario(scenario: Scenario) -> None:
     with scenario.imported_libraries() as modules:
         registry = StepRegistry.from_modules(modules)
     for step in registry:
-        for artifact in step.observes:
-            found = list(scenario.directory.glob(artifact.path))
-            assert found, f"{scenario.name}: {step.name} observes {artifact.path}, not found"
+        observed = observe(step.observes, Context(step.directory, scenario.directory), "")
+        missing = [diagnostic.message for diagnostic in observed.diagnostics]
+        assert not missing, f"{scenario.name}: {step.name} observes what is not there: {missing}"
 
 
 @pytest.mark.parametrize(

@@ -105,7 +105,11 @@
           "$ref": "#/$defs/names"
         },
         "observes": {
-          "description": "The paths and globs its step declares it observes, relative to where the runner runs.",
+          "description": "The files, as paths and globs relative to where the runner runs, that what its step observes depends on: a change to one of them reaches the element.",
+          "$ref": "#/$defs/names"
+        },
+        "sources": {
+          "description": "Everything its step declares it observes, as each describes itself: a path or a glob relative to where the runner runs, a file and a JSON Pointer (package.json#/version), an environment variable (env:CI), or what an observable of the step library answers. Since 1.1.",
           "$ref": "#/$defs/names"
         },
         "consumes": {
@@ -125,6 +129,11 @@
           "description": "The files its step observed, recorded just before it was called.",
           "type": "array",
           "items": {"$ref": "#/$defs/artifact"}
+        },
+        "observations": {
+          "description": "What its step observed that is not a file, recorded just before it was called. Since 1.1.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/observation"}
         }
       }
     },
@@ -160,9 +169,13 @@
           "minLength": 1
         },
         "declared": {
-          "description": "The path or glob of the element's observes that designates it. Since 1.1.",
+          "description": "The one of the element's sources that designates it. Since 1.1.",
           "type": "string",
           "minLength": 1
+        },
+        "value": {
+          "description": "The value observed in the file, when what was observed is a value in it. Since 1.1.",
+          "$ref": "#/$defs/value"
         },
         "reachable": {"type": "boolean"},
         "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
@@ -171,6 +184,29 @@
       "if": {"properties": {"reachable": {"const": true}}},
       "then": {"properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}}},
       "else": {"properties": {"sha256": {"type": "null"}, "size": {"type": "null"}}}
+    },
+    "observation": {
+      "description": "Something an evidence observed that is not a file, such as an environment variable.",
+      "type": "object",
+      "required": ["declared", "reachable", "sha256", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "declared": {
+          "description": "The one of the element's sources that designates it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "reachable": {"type": "boolean"},
+        "sha256": {
+          "description": "The SHA-256 of the value written as JSON, or null if it could not be reached or is not shown.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "value": {
+          "description": "The value observed, or null if it could not be reached or is not shown.",
+          "oneOf": [{"$ref": "#/$defs/value"}, {"type": "null"}]
+        }
+      }
     },
     "diagnostic": {
       "type": "object",

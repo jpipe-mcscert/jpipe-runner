@@ -38,7 +38,7 @@ cli.main                      argv → run | impact | status; exit codes 0–4 (
   │                           JP020, JP021 (ADR-0020)
   ├─ engine.run               (ADR-0021)
   │    ├─ validation + rules  binding.BindingTable, then every rule; JP005–JP016, JP018
-  │    ├─ artifacts.observe   files an evidence observes, SHA-256; JP019
+  │    ├─ artifacts.observe   what an evidence observes (observables.py), SHA-256; JP019
   │    ├─ the step, called    outcomes.as_outcome (JP017), JP022 if it raised
   │    └─ values.ValueStore   values produced in this run; JP023, JP024
   └─ report.RunReport         → text_report.render, json_report (report.schema.json),
@@ -52,8 +52,9 @@ Key design choices:
   code is the one after the highest in `rules.py`/`docs/rules.md`.
 - **A step returns an outcome** (`Pass(values)`, `Fail(reason)`, `Skip(reason)`,
   ADR-0005); values live in a per-run `ValueStore`, not a global (ADR-0009).
-- **Evidence declares the files it observes** (ADR-0018, ADR-0019); paths are relative to
-  the working directory, the run's root.
+- **Evidence declares what it observes** (ADR-0018, ADR-0028): each an `Observable`
+  (`File`, `JsonValue`, `Env`, or a library's own). A path is relative to the file that
+  declares the step; the report shows it relative to the working directory, the run's root.
 - **The JSON report is the machine-readable contract** (ADR-0011), versioned and checked
   against `src/jpipe_runner/schema/report.schema.json`; the text report is for people.
 - **The compiler co-owns the authoring API**: it generates step libraries
@@ -67,7 +68,8 @@ Key design choices:
 |------|---------|
 | `src/jpipe_runner/__init__.py` | The public API, loaded lazily: outcomes and the four decorators |
 | `src/jpipe_runner/cli.py` | The command line: options, subcommands, outputs, exit codes |
-| `src/jpipe_runner/steps.py` | The decorators, `Step`, `StepRegistry`, `observes` path checks |
+| `src/jpipe_runner/steps.py` | The decorators, `Step`, `StepRegistry` |
+| `src/jpipe_runner/observables.py` | `Observable` and the built-in `File`, `JsonValue`, `Env`; path checks, anchoring (`Context`), what a glob designates |
 | `src/jpipe_runner/engine.py` | `run()`: validation, then the steps supporters first; `RunResult`, `Verdict` |
 | `src/jpipe_runner/rules.py` | Every validation rule; source of `docs/rules.md` |
 | `src/jpipe_runner/binding.py` | Id resolution (exact, qualified, suffix) and the one-to-one `BindingTable` |

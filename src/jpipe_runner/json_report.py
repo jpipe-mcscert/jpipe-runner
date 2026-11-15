@@ -21,8 +21,8 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from jpipe_runner.artifacts import Observation
 from jpipe_runner.diagnostics import Diagnostic, shown_path
+from jpipe_runner.observables import HIDDEN, Observation
 from jpipe_runner.report import ElementReport, RunReport, Trace
 
 SCHEMA_VERSION = "1.1"
@@ -90,20 +90,37 @@ def _element(element: ElementReport, root: Path) -> dict[str, Any]:
         "bound_to": element.step,
         "bound_by": list(element.designators),
         "observes": list(element.observes),
+        "sources": list(element.sources),
         "consumes": list(element.consumes),
         "produces": list(element.produces),
         "produced": {name: encoded(value, root) for name, value in element.produced.items()},
-        "artifacts": [_artifact(artifact) for artifact in element.artifacts],
+        "artifacts": [_artifact(seen, root) for seen in element.artifacts if seen.path],
+        "observations": [_observation(seen, root) for seen in element.artifacts if not seen.path],
     }
 
 
-def _artifact(artifact: Observation) -> dict[str, Any]:
-    return {
+def _artifact(artifact: Observation, root: Path) -> dict[str, Any]:
+    """A file that was observed. It carries a value when what was observed is one in it."""
+    written: dict[str, Any] = {
         "path": artifact.path,
-        "declared": artifact.artifact.path,
+        "declared": artifact.declared,
         "reachable": artifact.reachable,
         "sha256": artifact.sha256,
         "size": artifact.size,
+    }
+    if artifact.value is not HIDDEN:
+        written["value"] = encoded(artifact.value, root)
+    return written
+
+
+def _observation(observation: Observation, root: Path) -> dict[str, Any]:
+    """Something observed that is not a file."""
+    shown = observation.value is not HIDDEN
+    return {
+        "declared": observation.declared,
+        "reachable": observation.reachable,
+        "sha256": observation.sha256,
+        "value": encoded(observation.value, root) if shown else None,
     }
 
 

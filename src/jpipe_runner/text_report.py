@@ -17,6 +17,7 @@ from typing import TextIO
 from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.engine import Status, Verdict
 from jpipe_runner.model import Kind
+from jpipe_runner.observables import HIDDEN, Observation
 from jpipe_runner.report import ElementReport, RunReport, Trace
 
 _SYMBOLS = {Status.PASS: "✔", Status.FAIL: "✘", Status.SKIP: "-"}
@@ -112,11 +113,18 @@ class _Text:
         yield f"{element.step}: {reason}" if element.step and not element.blocked_by else reason
         if element.status is Status.FAIL:
             for artifact in element.artifacts:
-                if artifact.reachable:
-                    digest = f"sha256 {(artifact.sha256 or '')[:12]}{self._ellipsis}"
-                    yield f"observed {artifact.path} ({digest}, {artifact.size} bytes)"
-                else:
-                    yield f"observed {artifact.path} (unreachable)"
+                yield f"observed {self._observed(artifact)}"
+
+    def _observed(self, seen: Observation) -> str:
+        """What was observed: a file by its path, its digest and its size; anything else
+        as it was declared, with its value when the report shows it."""
+        named = seen.path or seen.declared
+        if not seen.reachable:
+            return f"{named} (unreachable)"
+        if seen.path:
+            digest = f"sha256 {(seen.sha256 or '')[:12]}{self._ellipsis}"
+            return f"{named} ({digest}, {seen.size} bytes)"
+        return named if seen.value is HIDDEN else f"{named} = {seen.value!r}"
 
     def _diagnostics(self) -> Iterator[str]:
         for diagnostic in self._report.diagnostics:

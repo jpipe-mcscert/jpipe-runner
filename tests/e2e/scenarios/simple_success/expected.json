@@ -32,6 +32,9 @@
       "observes": [
         "mock/test_file.txt"
       ],
+      "sources": [
+        "mock/test_file.txt"
+      ],
       "consumes": [],
       "produces": [
         "file_exists"
@@ -49,7 +52,8 @@
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "size": 0
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "C1",
@@ -66,12 +70,14 @@
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "file_exists"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [],

@@ -30,10 +30,12 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -50,12 +52,14 @@
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "processed_string"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [

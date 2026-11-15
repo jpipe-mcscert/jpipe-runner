@@ -25,9 +25,8 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from jpipe_runner.artifacts import digest, files, matches, readable
 from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION
-from jpipe_runner.steps import is_glob
+from jpipe_runner.observables import digest, files, is_glob, matches, readable
 
 Document = Mapping[str, Any]
 
@@ -270,6 +269,7 @@ def render_stale(document: Document, changes: Sequence[Change]) -> str:
     lines = list(_header(document))
     if not changes:
         lines.append("Every file the run observed is as it was: its report still holds.")
+        lines.extend(_not_checked(document))
         return "\n".join(lines) + "\n"
     kinds = max(len(change.kind) for change in changes)
     paths = max(len(change.path) for change in changes)
@@ -280,7 +280,24 @@ def render_stale(document: Document, changes: Sequence[Change]) -> str:
     stale_ids = above(document, (change.element for change in changes))
     lines.append(f"Stale ({len(stale_ids)} elements):")
     lines.extend(_elements(document, stale_ids))
+    lines.extend(_not_checked(document))
     return "\n".join(lines) + "\n"
+
+
+def _not_checked(document: Document) -> Iterator[str]:
+    """What the run observed that is not a file, such as an environment variable: only
+    the code that observed it can observe it again, and no step library is imported here."""
+    others = [
+        (observation["declared"], element["id"])
+        for element in document["elements"]
+        for observation in element.get("observations", ())
+    ]
+    if others:
+        width = max(len(declared) for declared, _ in others)
+        yield ""
+        yield "Not checked, as they are not files:"
+        for declared, element in others:
+            yield f"  {declared:<{width}}  {element}"
 
 
 def _printable(path: str) -> str:

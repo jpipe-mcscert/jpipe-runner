@@ -32,6 +32,9 @@
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
       "produces": [
         "tests_pass"
@@ -45,7 +48,8 @@
           "sha256": null,
           "size": null
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:e2",
@@ -66,6 +70,9 @@
       "observes": [
         "mock/CHANGELOG.md"
       ],
+      "sources": [
+        "mock/CHANGELOG.md"
+      ],
       "consumes": [],
       "produces": [
         "changelog_ok"
@@ -83,7 +90,8 @@
           "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
           "size": 4
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:s",
@@ -104,13 +112,15 @@
         "release:s"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "tests_pass",
         "changelog_ok"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:c",
@@ -127,10 +137,12 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -139,7 +151,7 @@
       "severity": "error",
       "element": "release:e1",
       "message": "mock/junit.xml, observed as 'report', does not exist",
-      "fix": "Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.",
+      "fix": "Make sure it exists when the runner runs. A path in observes={...} is relative to the file that declares the step.",
       "traceback": null
     }
   ],

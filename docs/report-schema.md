@@ -26,7 +26,7 @@ is a new major version.
 | Version | Runner | Added |
 |---|---|---|
 | 1.0 | 4.0.0 | |
-| 1.1 | 4.1.0 | `declared`, on each of an element's [artifacts](#artifacts) |
+| 1.1 | 4.1.0 | an element's `sources` and `observations`; `declared` and `value`, on each of its [artifacts](#artifacts) |
 
 The schema is strict: it lists every field the runner writes, so the runner cannot add one
 without documenting it.
@@ -86,10 +86,12 @@ when the diagram was drawn under it.
 | `ran` | boolean | whether its step was called |
 | `bound_to` | string or null | its step, `module.function`; null if it has none |
 | `bound_by` | array of strings | the step's ids that designate this element, as the step names them |
-| `observes` | array of strings | the paths and globs its step declares it observes |
+| `observes` | array of strings | the files, as paths and globs, that what its step observes depends on: a change to one reaches the element |
+| `sources` | array of strings | everything its step declares it observes: a path or a glob, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
 | `consumes`, `produces` | arrays of strings | the variables its step declares |
 | `produced` | object | the values its step produced, by variable; see [Produced values](#produced-values) |
 | `artifacts` | array | the files its step observed; see [Artifacts](#artifacts) |
+| `observations` | array | what its step observed that is not a file; see [Observations](#observations) |
 
 On a composed model, `aliases` and `bound_by` answer the first question a surprising
 binding raises: where did this element come from, and which of its ids did my step name?
@@ -121,16 +123,33 @@ Each file an evidence observed, recorded just before its step was called
 | Field | Type | |
 |---|---|---|
 | `path` | string | the file; for a glob, one entry per file it matched |
-| `declared` | string | the path or glob of the element's `observes` that designates the file; absent before 1.1 |
+| `declared` | string | the one of the element's `sources` that designates the file; absent before 1.1 |
+| `value` | [value](#produced-values) | the value observed in the file, when what was observed is a value in it (`JsonValue`); absent otherwise |
 | `reachable` | boolean | whether the file could be read |
 | `sha256` | string or null | the SHA-256 of its content, as `sha256sum` prints it; null if unreachable |
 | `size` | integer or null | its size in bytes; null if unreachable |
 
 An unreachable artifact is listed, and the report's diagnostics include its `JP019`, about
 that element. A glob that matched nothing is listed once, under its pattern: its `path` is its
-`declared`. A file that several paths of `observes` designate is listed once under each. An element whose step was not
+`declared`. A file that several of the `sources` designate is listed once under each. An element whose step was not
 called observed nothing, and its `artifacts` is empty; what its step would have observed
 is in `observes`.
+
+## Observations
+
+What an evidence observed that is not a file, such as an environment variable, recorded
+just before its step was called
+([ADR-0028](adr/0028-observables-and-file-relative-paths.md)):
+
+| Field | Type | |
+|---|---|---|
+| `declared` | string | the one of the element's `sources` that designates it, such as `env:CI` |
+| `reachable` | boolean | whether it could be observed |
+| `sha256` | string or null | the SHA-256 of the value written as JSON; null if it was not reached, or is not shown |
+| `value` | [value](#produced-values) or null | the value observed; null if it was not reached, or is not shown |
+
+An environment variable is not shown unless its step says it may be, `Env("CI",
+display=True)`: the report then says only that it was observed.
 
 ## Diagnostics
 
@@ -205,6 +224,9 @@ failures:
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
       "produces": [
         "tests_pass"
@@ -218,7 +240,8 @@ failures:
           "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
           "size": 187
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:e2",
@@ -239,6 +262,9 @@ failures:
       "observes": [
         "mock/CHANGELOG.md"
       ],
+      "sources": [
+        "mock/CHANGELOG.md"
+      ],
       "consumes": [],
       "produces": [
         "changelog_ok"
@@ -256,7 +282,8 @@ failures:
           "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
           "size": 4
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:s",
@@ -277,13 +304,15 @@ failures:
         "release:s"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "tests_pass",
         "changelog_ok"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:c",
@@ -300,10 +329,12 @@ failures:
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [],
@@ -347,12 +378,14 @@ A step that raises (the `exception_handling` scenario):
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
       "produces": [
         "result"
       ],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -371,12 +404,14 @@ A step that raises (the `exception_handling` scenario):
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "result"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [

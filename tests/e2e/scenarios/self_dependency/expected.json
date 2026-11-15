@@ -31,6 +31,7 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "var_a"
       ],
@@ -38,7 +39,8 @@
         "var_a"
       ],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "S2",
@@ -57,6 +59,7 @@
         "S2"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "var_a"
       ],
@@ -64,7 +67,8 @@
         "var_b"
       ],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -81,13 +85,15 @@
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "var_a",
         "var_b"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [

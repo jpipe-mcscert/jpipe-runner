@@ -32,10 +32,11 @@ from traceback import TracebackException
 from types import MappingProxyType
 from typing import Any
 
-from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, Observation, observe
+from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, observe
 from jpipe_runner.binding import Binding, BindingTable
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
 from jpipe_runner.model import Element, Justification
+from jpipe_runner.observables import Context, Observation
 from jpipe_runner.outcomes import Fail, NotAnOutcomeError, Outcome, Pass, Skip, as_outcome
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
@@ -93,7 +94,7 @@ class ElementResult:
     """The values it produced, as they were when it returned: a copy, so that a step it
     supports cannot change the record by changing the value it receives."""
     observed: tuple[Observation, ...] = ()
-    """The files its step observed, recorded just before the call."""
+    """What its step observed, recorded just before the call."""
     diagnostics: tuple[Diagnostic, ...] = ()
     """What went wrong while running it. A step that raised is reported with ``JP022``,
     which carries the traceback."""
@@ -152,8 +153,9 @@ def run(
 ) -> RunResult:
     """Validate ``registry`` against ``justification``, then run it if nothing is an error.
 
-    ``strict`` counts validation warnings as errors. The paths that evidence observes are
-    relative to ``root``, by default the working directory. A ``dry_run`` stops after
+    ``strict`` counts validation warnings as errors. ``root``, by default the working
+    directory, is what the paths of the report are relative to; the paths an evidence
+    observes are relative to the file that declares its step. A ``dry_run`` stops after
     validation, and calls no step. The steps run in this process: a run of libraries
     imported with ``libraries.imported`` happens inside that context.
     """
@@ -212,7 +214,7 @@ class _Run:
 
     def _call(self, binding: Binding) -> ElementResult:
         element, step = binding.element, binding.step
-        observed = observe(step.observes, self._root, element.id)
+        observed = observe(step.observes, Context(step.directory, self._root), element.id)
         if not observed.reachable:
             return _failed(binding, observed.diagnostics, observed=observed.observations)
         arguments = {name: self._consumed(name, element) for name in step.consumes}

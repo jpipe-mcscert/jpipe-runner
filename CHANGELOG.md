@@ -7,12 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ⚠️ Changed: what a path in `observes` is relative to
+- **A path an evidence observes is relative to the file that declares its step**, no
+  longer to the directory `jpipe-runner` runs in, so a library observes the same files
+  wherever the command is typed. This corrects 4.0.0
+  ([ADR-0028](docs/adr/0028-observables-and-file-relative-paths.md)). A library that sits
+  beside the files it observes and is run from its own directory is unaffected. **One in
+  a subdirectory, run from elsewhere, must have its paths rewritten from its own
+  directory**: `observes={"changelog": "CHANGELOG.md"}` in `justifications/steps.py`
+  becomes `"../CHANGELOG.md"`. Until then its evidence fails with `JP019`, which names
+  where the file was looked for. The report still shows every file relative to the
+  directory the command runs in, so `impact` and `status` work as before.
+
 ### Added
-- **Each observed file in the JSON report says what it was declared as**: an artifact has
-  a `declared` field, the path or glob of its element's `observes` that designates it, so
-  a reader no longer matches files to globs itself. The report's `schema_version` is now
-  `1.1`; the field is optional, and `jpipe-runner status` still reads the `1.0` reports
-  of 4.0.0 ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
+- **An evidence observes more than files.** Beside a path, `observes` takes
+  `JsonValue("package.json", "/version")`, a value in a JSON file, and `Env("CI")`, an
+  environment variable; the step receives the value. Both are imported from
+  `jpipe_runner`, with `File`, which a path stands for. An environment variable is not
+  shown in the report unless its step says `Env("CI", display=True)`
+  ([`docs/authoring.md`](docs/authoring.md#more-than-files)).
+- **A step library defines what else to observe**, by deriving `Observable`: how the
+  report names it, what it is now, and the files a change to which reaches it.
+- **The JSON report says more about what was observed**, in `schema_version` `1.1`. An
+  element has `sources`, everything its step declares it observes, and `observations`,
+  what it observed that is not a file. Each of its `artifacts` has `declared`, the source
+  that designates the file, so a reader no longer matches files to globs itself, and the
+  `value` observed in it, if one was. Every field is added: `observes` still lists paths
+  and globs, and `jpipe-runner status` still reads the `1.0` reports of 4.0.0
+  ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
+- `jpipe-runner status` lists what a run observed that is not a file as not checked.
 
 ### Fixed
 - **A glob that ends with `**`, such as `observes={"sources": "src/**"}`, observes the

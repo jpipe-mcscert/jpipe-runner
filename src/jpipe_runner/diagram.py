@@ -191,7 +191,7 @@ class _Dataflow:
         self._ran = any(element.status is not None for element in self._elements)
 
     def nodes(self) -> Iterator[str]:
-        for path in _unique(p for e in self._elements for p in e.observes):
+        for path in _unique(p for e in self._elements for p in e.sources):
             attributes = dict(_DATA, shape="folder")
             if self._unreachable(path):
                 attributes.update(color=_VERMILLION, penwidth="2")
@@ -201,7 +201,7 @@ class _Dataflow:
 
     def edges(self) -> Iterator[str]:
         for element in self._elements:
-            for path in element.observes:
+            for path in element.sources:
                 yield _data_edge(f"artifact {path}", element.id, "observes", dotted=True)
             for name in element.produces:
                 yield _data_edge(element.id, f"variable {name}", "produces")
@@ -223,7 +223,7 @@ class _Dataflow:
 
     def _unreachable(self, declared: str) -> bool:
         return any(
-            not observation.reachable and observation.artifact.path == declared
+            not observation.reachable and observation.declared == declared
             for element in self._elements
             for observation in element.artifacts
         )

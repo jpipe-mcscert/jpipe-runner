@@ -27,13 +27,13 @@ from jpipe_runner.engine import (
     RunResult,
     Status,
     Verdict,
-    run,
 )
 from jpipe_runner.libraries import imported
 from jpipe_runner.model import Justification
 from jpipe_runner.outcomes import NOT_AN_OUTCOME
 from jpipe_runner.steps import StepRegistry, step_of
 from jpipe_runner.validation import RuleSet
+from tests.anchored import run
 from tests.unit.validation.builders import (
     CONCLUSION,
     EVIDENCE,

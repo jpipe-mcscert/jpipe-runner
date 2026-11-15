@@ -35,6 +35,9 @@
       "observes": [
         "mock/metrics.csv"
       ],
+      "sources": [
+        "mock/metrics.csv"
+      ],
       "consumes": [],
       "produces": [
         "metrics_reported"
@@ -52,7 +55,8 @@
           "sha256": "f6033ee80d960144dd047371eae2fb060eedfc5344bbb5fd8718a8f5901f3946",
           "size": 32
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "C1",
@@ -69,12 +73,14 @@
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "metrics_reported"
       ],
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [],

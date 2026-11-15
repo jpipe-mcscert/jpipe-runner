@@ -150,7 +150,7 @@ What each part says:
   strategy; there are also `@sub_conclusion` and `@conclusion`. Its first arguments are the
   ids of the element the function implements, here as the compiler exported them.
 - **`observes` declares the artifacts an evidence reads.** It maps each of the function's
-  parameters to a path, relative to where the runner runs; the runner passes the
+  parameters to a path, relative to the step library's file; the runner passes the
   `Path`. An evidence must observe something: one that observes nothing checks nothing in
   the world (`JP018`).
 - **`produces` and `consumes` declare the data that flows along the argument.** Each
@@ -302,7 +302,7 @@ Justification: release
       not run: release:e1 did not pass
 
 JP019 error [release:e1]: mock/junit.xml, observed as 'report', does not exist
-  fix: Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.
+  fix: Make sure it exists when the runner runs. A path in observes={...} is relative to the file that declares the step.
 
 4 elements (1 failed, 2 skipped, 1 passed)
 1 diagnostic (1 error)
@@ -342,6 +342,9 @@ where two tests fail:
   "observes": [
     "mock/junit.xml"
   ],
+  "sources": [
+    "mock/junit.xml"
+  ],
   "consumes": [],
   "produces": [
     "tests_pass"
@@ -355,7 +358,8 @@ where two tests fail:
       "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
       "size": 187
     }
-  ]
+  ],
+  "observations": []
 }
 ```
 
@@ -383,8 +387,8 @@ failed, so it was never produced, and `s`, which consumes it, could not run.
 
 ### From the command line
 
-Everything this page has done, from reading the model to the verdict, is one command. It
-runs in the directory the evidence observes its files from, here the example's own:
+Everything this page has done, from reading the model to the verdict, is one command,
+here run in the example's own directory:
 
 ```console
 $ jpipe-runner --library steps.py justification.json

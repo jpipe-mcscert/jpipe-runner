@@ -11,6 +11,7 @@ from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from jpipe_runner.observables import Context, Env, File, JsonValue, Observable, Sighting
     from jpipe_runner.outcomes import Fail, Outcome, Pass, Skip
     from jpipe_runner.steps import conclusion, evidence, strategy, sub_conclusion
 
@@ -20,9 +21,15 @@ except PackageNotFoundError:  # running from a source tree that was never instal
     __version__ = "0+unknown"
 
 _PUBLIC = {
+    "Context": "observables",
+    "Env": "observables",
     "Fail": "outcomes",
+    "File": "observables",
+    "JsonValue": "observables",
+    "Observable": "observables",
     "Outcome": "outcomes",
     "Pass": "outcomes",
+    "Sighting": "observables",
     "Skip": "outcomes",
     "conclusion": "steps",
     "evidence": "steps",
@@ -31,9 +38,15 @@ _PUBLIC = {
 }
 
 __all__ = [
+    "Context",
+    "Env",
     "Fail",
+    "File",
+    "JsonValue",
+    "Observable",
     "Outcome",
     "Pass",
+    "Sighting",
     "Skip",
     "__version__",
     "conclusion",

@@ -85,8 +85,8 @@ every other library that failed to import, and runs nothing:
 | a name that is not an identifier | `@evidence(produces=...) takes variable names that are Python identifiers, not 'tests-pass'` |
 | a parameter that is not consumed | `@strategy gates: its parameters ['changelog_ok'] are not consumed, so nothing would pass them. …` |
 | an observed artifact that is not a parameter | `@evidence the_changelog_is_up_to_date: it observes ['changelog'] but has no parameter for them. …` |
-| a list instead of a mapping | `@evidence(observes=...) maps each parameter to the path it receives: observes={'changelog': 'CHANGELOG.md'}` |
-| an absolute path | `@evidence(observes=...) takes paths relative to the run's working directory, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
+| a list instead of a mapping | `@evidence(observes=...) maps each parameter to what it receives: observes={'changelog': 'CHANGELOG.md'}` |
+| an absolute path | `@evidence(observes=...) takes paths relative to the file that declares the step, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
 | a directory | `@evidence(observes=...) takes files, and 'src/' names a directory. Observe the files it holds, with a glob such as 'src/**/*'.` |
 | `**` inside a name | `@evidence(observes=...): '**' matches any depth only as a whole part of a path, as in 'build/**/*.xml', not 'build/**.xml'` |
 | `..` after a wildcard | `@evidence(observes=...) takes '..' only before the first wildcard, as in '../shared/*.yml', not 'build/*/../x.xml'` |
@@ -126,10 +126,13 @@ def every_module_has_a_report(reports: list[Path], sources: list[Path]) -> Outco
 - **An evidence observes files.** A directory, written `"src/"`, is refused when the
   library is imported: observe the files it holds, with a glob such as `"src/**/*"`
   ([ADR-0019](adr/0019-evidence-observes-files.md)).
-- **Paths are relative** to the directory the runner runs in. An absolute path is refused
-  when the library is imported: the library must work on every machine. `.` and `..` are
-  resolved as the decorator reads the path, so `"mock/../mock/junit.xml"` is recorded as
-  `"mock/junit.xml"`, the name a changed file has; a `..` after a wildcard is refused.
+- **Paths are relative to the file that declares the step**, as a link in a Markdown
+  page is relative to the page: `"CHANGELOG.md"` is the file beside the library, and a
+  library in `justifications/` reaches the one at the root of the repository with
+  `"../CHANGELOG.md"`. The library therefore observes the same files wherever the runner
+  is started. The report shows each file relative to the directory the runner runs in,
+  the name a changed file has. An absolute path is refused when the library is imported:
+  the library must work on every machine. A `..` after a wildcard is refused.
 - **An observed artifact is never optional.** When the steps run, an artifact that is not
   there or cannot be read, or a glob that matches nothing, fails the evidence without
   calling it (`JP019`). A check that a file is *absent* does not declare it.
@@ -153,6 +156,81 @@ with tempfile.TemporaryDirectory() as directory:
     log.write_text("42 passed\n", encoding="utf-8")
     assert the_test_suite_passes(log) == Pass(tests_pass=True)
 ```
+
+### More than files
+
+A string in `observes` is a file. What else an evidence observes is written as an
+**observable** ([ADR-0028](adr/0028-observables-and-file-relative-paths.md)):
+
+```python
+from jpipe_runner import Env, JsonValue
+
+
+@evidence(
+    "release:e4",
+    observes={
+        "version": JsonValue("package.json", "/version"),
+        "stage": Env("DEPLOY_STAGE", display=True),
+        "token": Env("RELEASE_TOKEN"),
+    },
+    produces=["releasable"],
+)
+def the_release_is_configured(version: str, stage: str, token: str) -> Outcome:
+    return Pass(releasable=version == "2.0" and stage == "production" and bool(token))
+```
+
+| Observable | Observes | The parameter receives |
+|---|---|---|
+| `File("build/*.xml")`, or the string alone | a file, or the files a glob matches | a `Path`, or their sorted `list[Path]` |
+| `JsonValue("package.json", "/version")` | the value a [JSON Pointer](https://www.rfc-editor.org/rfc/rfc6901) designates in a file; the whole document without a pointer | the value |
+| `Env("DEPLOY_STAGE")` | an environment variable | its value, a string |
+
+- **Nothing observed is optional**, as for a file: a variable that is not set, a file that
+  is not JSON, a pointer that designates nothing fail the evidence without calling it
+  (`JP019`).
+- **An environment variable is not shown** in the report, which says only that it was
+  observed: it may hold a secret. `display=True` shows its value and its SHA-256.
+- **A change to `package.json` reaches the evidence** in `jpipe-runner impact`, and
+  `jpipe-runner status` compares the file; neither can see an environment variable.
+
+To observe something else, derive `Observable`. It says how the report names it, what it
+is now, as a `Sighting`, and, if it reads files, which ones:
+
+```python
+import socket
+from dataclasses import dataclass
+
+from jpipe_runner import Context, Observable, Sighting
+
+
+@dataclass(frozen=True)
+class Host(Observable):
+    """The address a host name resolves to."""
+
+    name: str
+
+    def describe(self, context: Context) -> str:
+        return f"host:{self.name}"
+
+    def observe(self, context: Context) -> Sighting:
+        try:
+            address = socket.gethostbyname(self.name)
+        except OSError as error:
+            return Sighting.unreachable(
+                self.describe(context), f"the host {self.name!r}", f"does not resolve: {error}"
+            )
+        return Sighting.of(self.describe(context), address)
+
+
+assert Host("localhost").observe(Context(Path(), Path())).value.startswith("127.")
+```
+
+An observable holds what designates the thing, never the thing, and can be hashed, as a
+frozen dataclass can. `Sighting.of(declared, value)` records the value and its SHA-256
+(`display=False` records neither); `Sighting.unreachable` says what could not be reached
+and why, and the step is not called. A `Context` gives the directory of the declaring file
+and the run's root: `context.shown(path)` turns a path relative to the first into the one
+the report shows, and `depends_on` returns such paths for `jpipe-runner impact`.
 
 ## Returning an outcome
 
