@@ -148,6 +148,7 @@ def test_an_element_lists_what_it_observed_and_produced(
     assert element_document["artifacts"] == [
         {
             "path": "log.txt",
+            "declared": "log.txt",
             "reachable": True,
             "sha256": hashlib.sha256(b"one\ntwo\n").hexdigest(),
             "size": 8,

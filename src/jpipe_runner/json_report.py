@@ -25,7 +25,7 @@ from jpipe_runner.artifacts import Observation
 from jpipe_runner.diagnostics import Diagnostic, shown_path
 from jpipe_runner.report import ElementReport, RunReport, Trace
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 SCHEMA: dict[str, Any] = json.loads(
     files("jpipe_runner").joinpath("schema/report.schema.json").read_text(encoding="utf-8")
@@ -100,6 +100,7 @@ def _element(element: ElementReport, root: Path) -> dict[str, Any]:
 def _artifact(artifact: Observation) -> dict[str, Any]:
     return {
         "path": artifact.path,
+        "declared": artifact.artifact.path,
         "reachable": artifact.reachable,
         "sha256": artifact.sha256,
         "size": artifact.size,

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Each observed file in the JSON report says what it was declared as**: an artifact has
+  a `declared` field, the path or glob of its element's `observes` that designates it, so
+  a reader no longer matches files to globs itself. The report's `schema_version` is now
+  `1.1`; the field is optional, and `jpipe-runner status` still reads the `1.0` reports
+  of 4.0.0 ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
+
+### Fixed
+- **A glob that ends with `**`, such as `observes={"sources": "src/**"}`, observes the
+  files below it on every version of Python.** On Python 3.11 and 3.12 it matched
+  directories only, so the evidence failed with `JP019` while `jpipe-runner impact`
+  reported it as affected by changes to those files.
+- The dataflow diagram no longer draws a glob as unreachable when its evidence also
+  observes a file, in a directory below, that could not be reached: `build/*.xml` took
+  `build/old/a.xml` for one of its files.
+- `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
+  read then and can be now, when its name holds `*`, `?` or `[`.
+
 ### Changed
 - **networkx and jsonschema are ranges, not pins**: `networkx >=2.8.8,<4` and
   `jsonschema >=4.10.3,<5`. 4.0.0 required networkx 3.5 exactly, so pip could not install

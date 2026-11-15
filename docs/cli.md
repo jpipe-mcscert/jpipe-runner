@@ -218,7 +218,7 @@ $ echo $?
 | `-h`, `--help` | Print the options. |
 
 One of `--changed` and `--since` is required. A file matches what an evidence declares as
-`Path.glob` matches it: a glob such as `docs/**/*.md` matches every Markdown file under
+a run observes it: a glob such as `docs/**/*.md` matches every Markdown file under
 `docs/`. A changed file no evidence observes is listed, with "(no evidence)": a change
 the argument does not cover. The exit code is 0 whatever the change reaches, 3 when the
 step libraries declare nothing to analyze (a refused justification, a library that cannot

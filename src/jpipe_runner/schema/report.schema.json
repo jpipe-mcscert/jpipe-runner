@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "jpipe-runner report 1.0",
+  "title": "jpipe-runner report 1.1",
   "description": "What a run of jpipe-runner concluded (ADR-0011): every element of the justification, with its status, its step and what that step declares, observed and produced; then every diagnostic. Within a major version, a minor version only adds optional fields: a consumer ignores fields it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/report-schema.md.",
   "type": "object",
   "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram", "dataflow"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "1.1"},
     "justification": {
       "description": "The justification's name, or null if the model was refused before it could be read.",
       "type": ["string", "null"]
@@ -156,6 +156,11 @@
       "properties": {
         "path": {
           "description": "Relative to where the runner runs, with / as separator.",
+          "type": "string",
+          "minLength": 1
+        },
+        "declared": {
+          "description": "The path or glob of the element's observes that designates it. Since 1.1.",
           "type": "string",
           "minLength": 1
         },

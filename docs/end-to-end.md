@@ -350,6 +350,7 @@ where two tests fail:
   "artifacts": [
     {
       "path": "mock/junit.xml",
+      "declared": "mock/junit.xml",
       "reachable": true,
       "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
       "size": 187

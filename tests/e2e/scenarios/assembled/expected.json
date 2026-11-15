@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "readiness",
   "verdict": "pass",
   "strict": false,
@@ -44,6 +44,7 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187
@@ -81,6 +82,7 @@
       "artifacts": [
         {
           "path": "mock/coverage.txt",
+          "declared": "mock/coverage.txt",
           "reachable": true,
           "sha256": "83a6261049265dba411398dbfdd2117e86e1f8ead030f979074be9c8839f4e74",
           "size": 5
@@ -163,6 +165,7 @@
       "artifacts": [
         {
           "path": "mock/CHANGELOG.md",
+          "declared": "mock/CHANGELOG.md",
           "reachable": true,
           "sha256": "8497d30f2b5aec4c9d91a1b8f5289e8c1991035488e34eda7539c8312877a72a",
           "size": 35

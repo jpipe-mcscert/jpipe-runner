@@ -23,7 +23,6 @@ Rendering pipes the DOT text to Graphviz's ``dot``, as the compiler does: only t
 is needed. The ``dot`` format is the text itself, written without it.
 """
 
-import fnmatch
 import re
 import subprocess
 from collections.abc import Iterable, Iterator
@@ -224,11 +223,9 @@ class _Dataflow:
 
     def _unreachable(self, declared: str) -> bool:
         return any(
-            not artifact.reachable
-            and (artifact.path == declared or fnmatch.fnmatch(artifact.path, declared))
+            not observation.reachable and observation.artifact.path == declared
             for element in self._elements
-            if declared in element.observes
-            for artifact in element.artifacts
+            for observation in element.artifacts
         )
 
 

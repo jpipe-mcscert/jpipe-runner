@@ -18,9 +18,15 @@ instead.
 
 ## Versioning
 
-`schema_version` is the first field, `"1.0"`. Within a major version, a minor version only
-adds optional fields: **ignore the fields you do not know**. Renaming or removing a field,
-or changing what one means, is a new major version.
+`schema_version` is the first field, `"1.1"`. Within a major version, a minor version only
+adds optional fields: **ignore the fields you do not know**, and do not count on one that
+an earlier minor version lacks. Renaming or removing a field, or changing what one means,
+is a new major version.
+
+| Version | Runner | Added |
+|---|---|---|
+| 1.0 | 4.0.0 | |
+| 1.1 | 4.1.0 | `declared`, on each of an element's [artifacts](#artifacts) |
 
 The schema is strict: it lists every field the runner writes, so the runner cannot add one
 without documenting it.
@@ -37,7 +43,7 @@ committed, compared with `diff`, or archived with the artifacts it lists.
 
 | Field | Type | |
 |---|---|---|
-| `schema_version` | string | `"1.0"` |
+| `schema_version` | string | `"1.1"` |
 | `justification` | string or null | the justification's name; null if the model was refused before it could be read |
 | `verdict` | `pass`, `fail`, `skip`, `invalid` or `valid` | `fail` if an element failed; `skip` if none failed and one was skipped; `pass` if every element passed; `invalid` if nothing ran; `valid` if a dry run found nothing wrong |
 | `strict` | boolean | whether the run was strict: validation counted warnings as errors, and the command line failed a skipped verdict (`--strict`) |
@@ -115,12 +121,14 @@ Each file an evidence observed, recorded just before its step was called
 | Field | Type | |
 |---|---|---|
 | `path` | string | the file; for a glob, one entry per file it matched |
+| `declared` | string | the path or glob of the element's `observes` that designates the file; absent before 1.1 |
 | `reachable` | boolean | whether the file could be read |
 | `sha256` | string or null | the SHA-256 of its content, as `sha256sum` prints it; null if unreachable |
 | `size` | integer or null | its size in bytes; null if unreachable |
 
 An unreachable artifact is listed, and the report's diagnostics include its `JP019`, about
-that element. A glob that matched nothing is listed once, under its pattern. An element whose step was not
+that element. A glob that matched nothing is listed once, under its pattern: its `path` is its
+`declared`. A file that several paths of `observes` designate is listed once under each. An element whose step was not
 called observed nothing, and its `artifacts` is empty; what its step would have observed
 is in `observes`.
 
@@ -164,7 +172,7 @@ failures:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "release",
   "verdict": "fail",
   "strict": false,
@@ -205,6 +213,7 @@ failures:
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
           "size": 187
@@ -242,6 +251,7 @@ failures:
       "artifacts": [
         {
           "path": "mock/CHANGELOG.md",
+          "declared": "mock/CHANGELOG.md",
           "reachable": true,
           "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
           "size": 4
@@ -306,7 +316,7 @@ A step that raises (the `exception_handling` scenario):
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "error_prone",
   "verdict": "fail",
   "strict": false,
@@ -400,7 +410,7 @@ A model the loader refuses (the `circular_dependency` scenario):
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": null,
   "verdict": "invalid",
   "strict": false,

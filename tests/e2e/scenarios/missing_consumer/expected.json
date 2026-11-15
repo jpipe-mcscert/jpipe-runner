@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "math_operations",
   "verdict": "pass",
   "strict": false,
@@ -44,6 +44,7 @@
       "artifacts": [
         {
           "path": "mock/number_a.txt",
+          "declared": "mock/number_a.txt",
           "reachable": true,
           "sha256": "917df3320d778ddbaa5c5c7742bc4046bf803c36ed2b050f30844ed206783469",
           "size": 3
@@ -81,6 +82,7 @@
       "artifacts": [
         {
           "path": "mock/number_b.txt",
+          "declared": "mock/number_b.txt",
           "reachable": true,
           "sha256": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
           "size": 2

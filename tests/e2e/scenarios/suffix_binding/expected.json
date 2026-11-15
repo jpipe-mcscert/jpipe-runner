@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "suffix_binding",
   "verdict": "pass",
   "strict": false,
@@ -44,6 +44,7 @@
       "artifacts": [
         {
           "path": "mock/metrics.csv",
+          "declared": "mock/metrics.csv",
           "reachable": true,
           "sha256": "f6033ee80d960144dd047371eae2fb060eedfc5344bbb5fd8718a8f5901f3946",
           "size": 32

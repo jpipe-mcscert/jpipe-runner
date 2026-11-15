@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "release",
   "verdict": "pass",
   "strict": false,
@@ -44,6 +44,7 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187
@@ -109,6 +110,7 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187

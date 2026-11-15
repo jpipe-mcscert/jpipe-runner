@@ -204,6 +204,8 @@ classDiagram
     namespace artifacts {
         class Observed
         class Observation
+        class Located
+        class Obstacle
     }
 
     namespace values {
@@ -304,6 +306,8 @@ classDiagram
     Observed "1" *-- "*" Observation : observations
     Observed "1" o-- "*" Diagnostic : diagnostics
     Observation --> Artifact : artifact
+    Observation --> Obstacle : obstacle
+    Located --> Artifact : artifact
     ValueStore "1" *-- "*" ProducedValue : values
     ProducedValue ..> Element : produced_by
     Outcome <|-- Pass
@@ -414,15 +418,25 @@ the reason the step declines to judge. Outcomes are frozen, and so are the value
 reported with `JP017` by `as_outcome`, and the diagnostic's `fix` names the outcome to
 return instead.
 
-**An evidence's artifacts are observed just before its step is called.** `observe` takes
-the step's `Artifact`s and the run's root, and returns what was `Observed`: an
-`Observation` of each file, with its path relative to the root, its SHA-256 and its size,
-the arguments the step receives (a `Path`, or for a glob the sorted `list[Path]` it
-matches), and a `JP019` diagnostic for each artifact that cannot be reached. A missing or
-unreadable file, a directory or anything else that is not a regular file (a pipe, a
-device, which could block the run), and a glob that matches nothing are unreachable, and
-are recorded without a digest. Each file is read once, to hash it and measure it, so the
-record is the state the step is about to see.
+**An evidence's artifacts are observed just before its step is called**, in three steps
+that can be taken one at a time ([ADR-0027](adr/0027-one-pipeline-for-observed-artifacts.md)).
+`locate` finds the files an `Artifact` designates under the run's root, reading none: an
+artifact so `Located` knows what the step receives, a `Path`, or for a glob the sorted
+`list[Path]` it matches. `record` makes an `Observation` of each file, with its path
+relative to the root, its SHA-256 and its size, or the `Obstacle` that kept it from being
+read. `unreachable` turns each obstacle into a `JP019` diagnostic. `observe` does the
+three, and returns what was `Observed`. A missing or unreadable file, a directory or
+anything else that is not a regular file (a pipe, a device, which could block the run),
+and a glob that matches nothing are unreachable, and are recorded without a digest. Each
+file is read once, to hash it and measure it, so the record is the state the step is
+about to see.
+
+**What a glob designates is defined once**, beside what observes it. `files` lists the
+regular files a glob matches under a root, and `matches` says whether it would match a
+path, one segment at a time, without the file system and without a regular expression: a
+run, `stale` and `affected` therefore agree on every glob, and a property test checks one
+function against the other. A trailing `**` designates the files below it, on every
+version of Python.
 
 **A run's step libraries are imported for the run, and forgotten after it.** `imported`
 is a context manager, and the steps run inside it. Each library is a module named after
@@ -526,9 +540,11 @@ that a library imports the same modules whichever way the runner is started.
 says what each element supports, what its step declares it observes, and what the run
 observed, with each file's SHA-256. `affected` takes the report of a dry run and the
 changed files, and returns the evidence whose declared paths match one, then everything
-above it (`above`). `matches` matches a path as `Path.glob` does, one segment at a time,
-without a regular expression; a property test checks it against `Path.glob`. `stale`
-takes the report of an earlier run and compares each file it observed with the file now.
+above it (`above`), matching each file as a run would (`artifacts.matches`). `stale`
+takes the report of an earlier run and compares each file it observed with the file now,
+and lists what its globs designate now (`artifacts.files`). Each recorded file names the
+path or glob it was `declared` as, so that neither a reader of the report nor the diagram
+matches files to globs again.
 The command line's `impact` and `status` subcommands render what they return; `impact`
 asks git for the changed files (`changed_since`) before importing anything, since an
 import writes files of its own.

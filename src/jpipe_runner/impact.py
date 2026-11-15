@@ -19,14 +19,13 @@ import subprocess
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from fnmatch import fnmatchcase
 from os import PathLike
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from jpipe_runner.artifacts import digest
+from jpipe_runner.artifacts import digest, files, matches, readable
 from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION
 from jpipe_runner.steps import is_glob
 
@@ -53,7 +52,6 @@ _VALIDATOR = Draft202012Validator(SCHEMA)
 _LATER = _compatible(SCHEMA)
 _LATER["properties"]["schema_version"] = {"type": "string", "pattern": f"^{_MAJOR}\\.[0-9]+$"}
 _LATER_VALIDATOR = Draft202012Validator(_LATER)
-_RECURSIVE = "**"
 
 
 class InvalidReportError(ValueError):
@@ -102,8 +100,8 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
     """The JSON report in the file at ``path``.
 
     Raises ``OSError`` if the file cannot be read, and ``InvalidReportError`` if it is not
-    a report of the schema's major version. A report of a later minor version is read: the
-    fields it adds are ignored.
+    a report of the schema's major version. A report of another minor version is read: the
+    fields a later one adds are ignored, and those an earlier one lacks are optional.
     """
     try:
         document = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -114,7 +112,7 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
         raise InvalidReportError(
             f"{path} is not a JSON report of version {_MAJOR}.x: its schema_version is {version!r}"
         )
-    # A report of this version is checked against its schema; one of a later minor version
+    # A report of this version is checked against its schema; one of another minor version
     # only for the fields this version knows.
     validator = _VALIDATOR if version == SCHEMA_VERSION else _LATER_VALIDATOR
     problem = next(iter(validator.iter_errors(document)), None)
@@ -123,22 +121,6 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
             f"{path} is not a JSON report: {problem.json_path}: {problem.message}"
         )
     return dict(document)
-
-
-def matches(path: str, pattern: str) -> bool:
-    """Whether the file at ``path`` is one that ``pattern`` designates, both relative to
-    the root, as ``Path.glob`` matches them: each segment as ``fnmatch`` does, and ``**``
-    for any number of segments, none included."""
-    return _matches(PurePosixPath(path).parts, PurePosixPath(pattern).parts)
-
-
-def _matches(parts: Sequence[str], pattern: Sequence[str]) -> bool:
-    if not pattern:
-        return not parts
-    head, rest = pattern[0], pattern[1:]
-    if head == _RECURSIVE:
-        return any(_matches(parts[skipped:], rest) for skipped in range(len(parts) + 1))
-    return bool(parts) and fnmatchcase(parts[0], head) and _matches(parts[1:], rest)
 
 
 def affected(document: Document, changed: Iterable[str]) -> Impact:
@@ -184,8 +166,8 @@ def stale(document: Document, root: Path = Path()) -> tuple[Change, ...]:
 
 
 def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
-    """Each file of ``element`` that differs, once, even when its declared paths overlap
-    and the run recorded the file under several of them."""
+    """Each file of ``element`` that differs, once: a file that several of its declared
+    paths designate is recorded under each of them."""
     recorded = {artifact["path"] for artifact in element["artifacts"]}
     found = [
         Change(element["id"], artifact["path"], kind)
@@ -195,7 +177,7 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
     for pattern in element["observes"]:
         if not is_glob(pattern) or not element["artifacts"]:
             continue
-        for file in sorted(path for path in root.glob(pattern) if path.is_file()):
+        for file in files(pattern, root):
             shown = file.relative_to(root).as_posix()
             if shown not in recorded:
                 found.append(Change(element["id"], shown, ChangeKind.ADDED))
@@ -208,7 +190,7 @@ def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
     if not artifact["reachable"]:
         # A glob that matched nothing is recorded under its pattern: what it matches now
         # is found as added.
-        return ChangeKind.APPEARED if not is_glob(artifact["path"]) and _readable(file) else None
+        return None if _matched_nothing(artifact) or not readable(file) else ChangeKind.APPEARED
     if not file.is_file():
         return ChangeKind.VANISHED
     try:
@@ -218,16 +200,12 @@ def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
     return None if sha256 == artifact["sha256"] else ChangeKind.CHANGED
 
 
-def _readable(file: Path) -> bool:
-    """Whether ``file`` is a file that can be read now: one the run could not read may
-    still be there, and still unreadable."""
-    if not file.is_file():
-        return False
-    try:
-        with file.open("rb"):
-            return True
-    except OSError:
-        return False
+def _matched_nothing(artifact: Mapping[str, Any]) -> bool:
+    """Whether ``artifact`` records a glob that matched no file, rather than a file."""
+    path = artifact["path"]
+    # A report of version 1.0 does not say what a file was declared as: its path is all
+    # there is to go by, and a file whose name holds a wildcard is taken for a glob.
+    return is_glob(path) and artifact.get("declared", path) == path
 
 
 def changed_since(ref: str, root: Path = Path()) -> list[str]:

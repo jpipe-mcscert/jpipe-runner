@@ -4,14 +4,11 @@ import hashlib
 import json
 import shutil
 import subprocess
-import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
-from hypothesis import assume, given, settings
-from hypothesis import strategies as st
 
 from jpipe_runner import impact, json_report
 from jpipe_runner.engine import Verdict
@@ -23,13 +20,13 @@ from jpipe_runner.impact import (
     above,
     affected,
     changed_since,
-    matches,
     read,
     render_impact,
     render_stale,
     stale,
 )
-from jpipe_runner.report import RunReport
+from jpipe_runner.model import Kind
+from jpipe_runner.report import ElementReport, RunReport
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
@@ -75,65 +72,6 @@ RELEASE: dict[str, Any] = {
         _element("c", "conclusion"),
     ],
 }
-
-
-# --- Matching ------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("path", "pattern", "expected"),
-    [
-        ("a.txt", "a.txt", True),
-        ("a.txt", "b.txt", False),
-        ("a.txt", "*.txt", True),
-        ("d/a.txt", "*.txt", False),
-        ("d/a.txt", "*/a.txt", True),
-        ("d/a.txt", "d/?.txt", True),
-        ("a.txt", "**/a.txt", True),
-        ("d/e/a.txt", "**/a.txt", True),
-        ("d/a.txt", "d/**/*.txt", True),
-        ("d/e/f/a.txt", "d/**/*.txt", True),
-        ("e/a.txt", "d/**/*.txt", False),
-        ("b.txt", "[ab].txt", True),
-        ("c.txt", "[ab].txt", False),
-        ("a.TXT", "*.txt", False),
-        (".hidden", "*", True),
-        ("d/a.txt", "./d/a.txt", True),
-        ("d/e/a.txt", "d/**", True),  # a trailing ** reaches everything below
-    ],
-)
-def test_a_path_matches_as_path_glob_matches_it(path: str, pattern: str, expected: bool) -> None:
-    assert matches(path, pattern) is expected
-
-
-_SEGMENTS = st.sampled_from(["a", "b", ".c", "a.txt", "b.md"])
-_PATTERN_SEGMENTS = st.sampled_from(["*", "**", "a", "a.txt", "*.txt", "?", "[ab]", ".*"])
-
-
-@settings(deadline=None)
-@given(
-    files=st.lists(st.lists(_SEGMENTS, min_size=1, max_size=3), min_size=1, max_size=6),
-    pattern=st.lists(_PATTERN_SEGMENTS, min_size=1, max_size=3),
-)
-def test_matches_agrees_with_path_glob(files: list[list[str]], pattern: list[str]) -> None:
-    # Python 3.11's Path.glob takes a trailing ** for directories only, where 3.13 adds the
-    # files: matches() takes the files, which only ever reports more.
-    assume(pattern[-1] != "**")
-    paths = {"/".join(parts) for parts in files}
-    # A path cannot be both a file and a directory.
-    assume(not any(other.startswith(f"{path}/") for path in paths for other in paths))
-    with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
-        for path in paths:
-            (root / path).parent.mkdir(parents=True, exist_ok=True)
-            (root / path).write_text("x", encoding="utf-8")
-        globbed = {
-            found.relative_to(root).as_posix()
-            for found in root.glob("/".join(pattern))
-            if found.is_file()
-        }
-
-    assert {path for path in paths if matches(path, "/".join(pattern))} == globbed
 
 
 # --- Impact --------------------------------------------------------------------------------
@@ -357,7 +295,7 @@ def test_a_report_of_a_later_minor_version_is_read_and_its_new_fields_ignored(
     tmp_path: Path,
 ) -> None:
     document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
-    document |= {"schema_version": "1.1", "duration": 3.5}
+    document |= {"schema_version": "1.2", "duration": 3.5}
     path = tmp_path / "report.json"
     path.write_text(json.dumps(document), encoding="utf-8")
 
@@ -378,9 +316,42 @@ def test_a_report_of_this_version_with_a_field_it_does_not_define_is_refused(
 def test_the_stale_files_of_a_later_minor_version_are_found(root: Path) -> None:
     artifact = _artifact("build/tests.log", "was ok") | {"modified": "2026-10-09"}
     element = _element("e1", observes=["build/tests.log"], artifacts=[artifact])
-    document = {"schema_version": "1.1", "justification": "release", "elements": [element]}
+    document = {"schema_version": "1.2", "justification": "release", "elements": [element]}
 
     assert stale(document, root) == (Change("e1", "build/tests.log", ChangeKind.CHANGED),)
+
+
+def test_a_report_of_an_earlier_minor_version_is_read_without_the_fields_added_since(
+    tmp_path: Path,
+) -> None:
+    report = RunReport("m", Verdict.PASS, (ElementReport("e", "e", Kind.EVIDENCE),))
+    document = json.loads(json_report.dumps(report))
+    document["schema_version"] = "1.0"
+    document["elements"][0]["artifacts"] = [
+        {"path": "a.txt", "reachable": True, "sha256": "0" * 64, "size": 1}
+    ]
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    assert read(path)["elements"][0]["artifacts"][0]["path"] == "a.txt"
+
+
+def test_an_unreadable_file_a_glob_matched_appears_even_if_its_name_holds_a_wildcard(
+    root: Path,
+) -> None:
+    (root / "docs" / "a[1].md").write_text("A", encoding="utf-8")
+    recorded = _artifact("docs/a[1].md", None) | {"declared": "docs/*.md"}
+    seen = _artifact("docs/a.md", "A") | {"declared": "docs/*.md"}
+    document = _recorded(_element("e2", observes=["docs/*.md"], artifacts=[recorded, seen]))
+
+    assert stale(document, root) == (Change("e2", "docs/a[1].md", ChangeKind.APPEARED),)
+
+
+def test_a_glob_recorded_as_matching_nothing_never_appears(root: Path) -> None:
+    recorded = _artifact("docs/*.md", None) | {"declared": "docs/*.md"}
+    document = _recorded(_element("e2", observes=["docs/*.md"], artifacts=[recorded]))
+
+    assert stale(document, root) == (Change("e2", "docs/a.md", ChangeKind.ADDED),)
 
 
 # --- Changes since a revision --------------------------------------------------------------

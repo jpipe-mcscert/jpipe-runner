@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "justification": "math_operation",
   "verdict": "pass",
   "strict": false,
@@ -44,6 +44,7 @@
       "artifacts": [
         {
           "path": "root_utils.py",
+          "declared": "root_utils.py",
           "reachable": true,
           "sha256": "a51fcd27b82192a8c0c03280e46c9e6cf0701bc69f910c88d7b408ff2bb63da6",
           "size": 203
@@ -81,6 +82,7 @@
       "artifacts": [
         {
           "path": "steps/step_utils.py",
+          "declared": "steps/step_utils.py",
           "reachable": true,
           "sha256": "b50c09d7cfabdc8ed52d3c8147b16c1fa88414363e29a8cec71764bb5e161849",
           "size": 197
@@ -118,6 +120,7 @@
       "artifacts": [
         {
           "path": "root_runtime_utils.py",
+          "declared": "root_runtime_utils.py",
           "reachable": true,
           "sha256": "312200dc7b071ae2d8111d45f20c5d35c1048708b5c8b0054a160cd6561e99d2",
           "size": 331
@@ -155,6 +158,7 @@
       "artifacts": [
         {
           "path": "steps/step_runtime_utils.py",
+          "declared": "steps/step_runtime_utils.py",
           "reachable": true,
           "sha256": "9cba705b20c7504b159457f77377bfd492c6c5649ea7b92744ceddcde6eaf471",
           "size": 325
