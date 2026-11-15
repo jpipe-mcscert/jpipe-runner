@@ -244,5 +244,7 @@ that did not pass and why, each diagnostic with its fix, and the text report. It
 ## Libraries the compiler generates
 
 The jPipe compiler can generate the skeleton of a step library (`jpipe process -f PYTHON`).
-As of jPipe 2.5.0, that skeleton is written for v3, as in the example above: port it by
-hand ([#140](https://github.com/jpipe-mcscert/jpipe-runner/issues/140)).
+Since jPipe 3.0.0, that skeleton is written for v4: a new library starts from it. Up to
+jPipe 2.5.0 it is written for v3, as in the example above. A library generated then and
+filled in since is ported by hand, like any v3 library: generating it again gives the v4
+skeleton, without the bodies you wrote.
