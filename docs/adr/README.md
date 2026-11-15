@@ -2,7 +2,8 @@
 
 Decisions about jpipe-runner's design and the way it is built, in
 [MADR](https://adr.github.io/madr/) format. Records are numbered and immutable once
-accepted. Reversing a decision means writing a new ADR that supersedes the old one.
+accepted. Reversing a decision means writing a new ADR that supersedes the old one. The
+one exception is the retirement of the v3-to-v4 records below.
 
 A new decision takes the next number after the highest one ever used, including the
 retired numbers below.

@@ -111,49 +111,42 @@ and the keys of external formats (`license` in `pyproject.toml`) are left as the
 
 ## Branches and pull requests
 
-The repository follows the
+Branches, pull requests, releases and hotfixes follow the
 [jPipe workflow](https://github.com/jpipe-mcscert/.github/blob/main/CONTRIBUTING.md),
-shared by every repository of the organization:
+shared by every repository of the organization: work branches are cut from `dev` and come
+back through a pull request into `dev`, and a release is a pull request from `dev` into
+`main`. This section adds only what is specific to jpipe-runner.
 
-| Branch | Role |
-|--------|------|
-| `main` | Released code. Releases are tags on it (`vX.Y.Z`). |
-| `dev` | The integration branch, and the default branch on GitHub. |
-| a work branch | One per piece of work, cut from `dev`: `feat/…`, `fix/…`, `chore/…`, `docs/…`. |
-
-1. Cut a work branch from `dev`, and keep the whole change on it, as one or more commits.
-   End the message of a commit that resolves an issue with `Closes #N`.
-2. Push often. CI (`ci.yml`: lint, types, tests) runs on every push to every branch.
-3. Open a pull request into `dev`, as a draft. The SonarCloud quality gate
-   ([ADR-0004](adr/0004-sonarcloud-quality-gate.md)) runs on every push to it: the
-   organization's plan analyzes pull requests and `main`, not other branches.
-4. Pass the gate, request one Copilot review, and answer every comment on GitHub, then
-   mark the pull request ready for review. A maintainer merges it.
+- **CI** (`ci.yml`: lint, types, tests) runs on every push to every branch.
+- **The quality gate** is SonarCloud ([ADR-0004](adr/0004-sonarcloud-quality-gate.md)).
+  The organization's plan analyzes pull requests and `main`, not other branches, so the
+  `SonarQube` check appears once the draft pull request is open. A pull request from a
+  fork gets no check, because it has no access to the token; a maintainer reviews its
+  quality by hand.
 
 ### Releases
 
-A release is a pull request from `dev` into `main`, followed by a tag on `main`. Only a
-maintainer merges into `main` and pushes a release tag.
-
-1. **Set the version**, on a work branch from `dev`, in `pyproject.toml`, the only place it is defined (`setup.py`
-   reads it from there). Between releases `dev` carries a development version,
-   `X.Y.Z.devN` (such as `4.1.0.dev0`), which the release workflow refuses to tag; replace it
-   with the release's version: `X.Y.Z`, or `X.Y.ZaN` / `X.Y.ZrcN` for a pre-release.
-   Follow [SemVer](https://semver.org): patch for fixes, minor for backward-compatible
-   features, major for breaking changes.
+1. **Set the version** in `pyproject.toml`, the only place it is defined (`setup.py` reads
+   it from there). Between releases `dev` carries a development version, `X.Y.Z.devN`
+   (such as `4.1.0.dev0`), which the release workflow refuses to tag; replace it with the
+   release's version: `X.Y.Z`, or `X.Y.ZaN` / `X.Y.ZrcN` for a pre-release. Follow
+   [SemVer](https://semver.org): patch for fixes, minor for backward-compatible features,
+   major for breaking changes.
 2. **Update `CHANGELOG.md`**: move the `[Unreleased]` notes under a new
    `## [x.y.z] - YYYY-MM-DD` heading. Check what the dependency caps hold back with
    `poetry show --outdated`: Dependabot keeps `poetry.lock` fresh within the ranges, and a
    major is taken on a branch of its own
    ([ADR-0026](adr/0026-dependency-ranges-and-freshness.md)).
-3. **Land both on `dev`** through that branch's pull request, then open the release pull
-   request from `dev` into `main`. A maintainer merges it once CI and the quality gate pass.
+3. **Land both on `dev`**, then take the release pull request from `dev` into `main`
+   through the workflow. A maintainer merges it.
 4. **Tag the merge commit on `main`** and push the tag:
    ```bash
    git checkout main && git pull
    git tag vX.Y.Z          # must equal the pyproject.toml version
    git push origin vX.Y.Z
    ```
+5. **Merge `main` back into `dev`**, and set `dev` to the next development version
+   (`X.Y.Z.dev0`), so that a build of `dev` never reports itself as the release.
 
 The tag triggers [`release.yml`](../.github/workflows/release.yml). It checks that the
 tag matches `pyproject.toml` (and fails at `validate-version` if not), runs the tests,

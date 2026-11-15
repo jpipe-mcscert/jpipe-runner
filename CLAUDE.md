@@ -128,7 +128,18 @@ The repository follows the
 branches are cut from `dev` and come back through a pull request into `dev`, and a release
 is a pull request from `dev` into `main`. The assistant's role (stay on the session's
 branch, ask before creating one, open a PR only when asked and then follow the PR steps,
-never merge or tag) is in the org guide's *For AI assistants* section.
+never merge or tag) is in the org guide's *For AI assistants* section, and repeated here
+because a session may not have it:
+
+- Stay on the session's branch. Never create a branch without the maintainer's approval:
+  name it, say what it is for, and wait. If the session is on `main` or `dev`, ask for a
+  work branch before committing anything.
+- Never commit to `main` or `dev`, merge a pull request, or push a tag, without an explicit
+  request. A release or hotfix merge into `main`, and every tag, stay with the maintainer.
+- Open a pull request only when asked, then follow the org guide's steps in order: local
+  review, draft, SonarCloud gate, one Copilot review, answer every comment (resolve what is
+  addressed, leave the rest open), ready for review.
+
 [`docs/contributing.md`](docs/contributing.md) gives the details for this repository.
 v3 is the `v3.6.0` tag.
 
@@ -170,6 +181,7 @@ What is specific here:
 3. Land both on `dev` (PR from a work branch), then merge the release PR `dev` → `main`
    once CI and the quality gate pass.
 4. Tag the merge commit on `main` `vX.Y.Z` (must match `pyproject.toml`) and push it.
+5. Merge `main` back into `dev`, and set `dev` to the next `X.Y.Z.dev0`.
 
 Pushing the tag triggers `.github/workflows/release.yml` — the tag's version must
 match `pyproject.toml`. The pipeline is modelled on the sibling `jpipe-compiler`:

@@ -22,8 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.0.0] - 2026-11-10
 
-_v4 is a from-scratch rewrite and a breaking release for every v3 user. v3 stays
-installable as 3.6.0._
+_v4 is a from-scratch rewrite and a breaking release for every v3 user
+([ADR-0002](https://github.com/jpipe-mcscert/jpipe-runner/blob/v4.0.0/docs/adr/0002-rewrite-from-scratch.md)).
+v3 stays installable as 3.6.0._
 
 ### ⚠️ Breaking
 [`docs/migration-v3-v4.md`](docs/migration-v3-v4.md) takes a v3 step library and command
