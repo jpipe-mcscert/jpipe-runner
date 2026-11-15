@@ -19,6 +19,7 @@ from jpipe_runner.observables import (
     File,
     JsonValue,
     Observation,
+    Obstacle,
     Sighting,
     files,
     matches,
@@ -261,6 +262,11 @@ def test_a_json_value_depends_on_its_file(tmp_path: Path) -> None:
         ),
         pytest.param(b"[1]", "/3", "package.json#/3", "designates no value", id="no index"),
         pytest.param(b"[1]", "/x", "package.json#/x", "designates no value", id="not an index"),
+        # RFC 6901: an index has no sign and no leading zero, and '-' is past the end.
+        pytest.param(b"[1, 2]", "/-1", "package.json#/-1", "designates no value", id="negative"),
+        pytest.param(b"[1, 2]", "/01", "package.json#/01", "designates no value", id="zero-led"),
+        pytest.param(b"[1, 2]", "/+1", "package.json#/+1", "designates no value", id="signed"),
+        pytest.param(b"[1, 2]", "/-", "package.json#/-", "designates no value", id="past the end"),
         pytest.param(b'"a"', "/x", "package.json#/x", "designates no value", id="a scalar"),
     ],
 )
@@ -292,6 +298,12 @@ def test_a_json_value_that_cannot_be_reached_says_why(
 def test_a_malformed_json_value_is_a_type_error(path: str, pointer: str, problem: str) -> None:
     with pytest.raises(TypeError, match=problem):
         JsonValue(path, pointer)
+
+
+@pytest.mark.parametrize("path", [123, "", "/etc/package.json", "config/", "a/**b/c.json"])
+def test_a_malformed_json_value_path_is_blamed_on_json_value(path: object) -> None:
+    with pytest.raises(TypeError, match=r"^JsonValue\(\)"):
+        JsonValue(path, "/version")  # type: ignore[arg-type]
 
 
 # --- Env -----------------------------------------------------------------------------------
@@ -353,6 +365,18 @@ def test_whatever_is_observed_is_recorded_or_said_to_be_hidden() -> None:
         Observation("clock", sha256="0" * 64, hidden=True)
     with pytest.raises(ValueError, match="shows a value"):
         Observation("clock", hidden=True, value=12)
+
+
+def test_a_file_is_recorded_with_its_sha256_and_size_exactly_when_it_was_reached() -> None:
+    """As the report's schema requires: a library's observable builds its own."""
+    sha256 = _sha256(b"x")
+    assert Observation("x", "x.bin", sha256, 1).reachable
+    with pytest.raises(ValueError, match="is a file, and is hidden"):
+        Observation("x", "x.bin", hidden=True)
+    with pytest.raises(ValueError, match="SHA-256 and size"):
+        Observation("x", "x.bin", sha256=sha256)
+    with pytest.raises(ValueError, match="SHA-256 and size"):
+        Observation("x", "x.bin", sha256, 1, obstacle=Obstacle("x.bin", "does not exist"))
 
 
 def test_a_sighting_of_a_value_that_is_not_json_is_fingerprinted_by_its_repr() -> None:

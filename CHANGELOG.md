@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### ⚠️ Changed: what a path in `observes` is relative to
+### ⚠️ Breaking
 - **A path an evidence observes is relative to the file that declares its step**, no
   longer to the directory `jpipe-runner` runs in, so a library observes the same files
   wherever the command is typed. This corrects 4.0.0

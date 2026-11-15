@@ -10,6 +10,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_trac
 from jpipe_runner.engine import STEP_RAISED, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
+from jpipe_runner.observables import Context, Observable, Sighting
 from jpipe_runner.report import ElementReport, Frame, RunReport, Summary, Trace
 from jpipe_runner.steps import StepRegistry, step_of
 from tests.anchored import run
@@ -293,3 +294,32 @@ def test_a_diagnostics_traceback_does_not_make_it_different() -> None:
 )
 def test_a_path_is_shown_relative_to_the_root(filename: str, shown: str) -> None:
     assert shown_path(filename, HERE) == shown
+
+
+class Broken(Observable):
+    """An observable of a step library that cannot say what it is, or depends on."""
+
+    def describe(self, context: Context) -> str:
+        raise KeyError("config")
+
+    def depends_on(self, context: Context) -> tuple[str, ...]:
+        raise KeyError("config")
+
+    def observe(self, context: Context) -> Sighting:
+        raise KeyError("config")
+
+
+@evidence("e1", observes={"db": Broken()}, produces=["a"])
+def unobservable(db: object) -> Outcome:
+    return Pass(a="never")
+
+
+@pytest.mark.parametrize("dry_run", [False, True], ids=["run", "dry run"])
+def test_an_observable_that_raises_is_reported_under_its_class_name(
+    root: Path, dry_run: bool
+) -> None:
+    """The run reports JP019; building the report must not raise in its turn."""
+    report = _report(root, unobservable, second, gates, dry_run=dry_run)
+
+    (e1,) = (element for element in report.elements if element.id == "e1")
+    assert (e1.sources, e1.observes) == (("Broken",), ())

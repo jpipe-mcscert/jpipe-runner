@@ -221,6 +221,29 @@ def test_an_observable_that_raises_is_unreachable(tmp_path: Path) -> None:
     ]
 
 
+def test_an_observable_that_raises_is_recorded_under_what_it_describes_itself_as(
+    tmp_path: Path,
+) -> None:
+    """So that the observation is one of the element's sources, as the report says."""
+    observed = observe([Artifact("a", Raises())], Context(tmp_path, tmp_path), ELEMENT)
+
+    assert [seen.declared for seen in observed.observations] == ["raises"]
+
+
+class Nameless(Raises):
+    def describe(self, context: Context) -> str:
+        raise KeyError("name")
+
+
+def test_an_observable_that_cannot_describe_itself_is_named_after_its_class(
+    tmp_path: Path,
+) -> None:
+    observed = observe([Artifact("a", Nameless())], Context(tmp_path, tmp_path), ELEMENT)
+
+    assert [seen.declared for seen in observed.observations] == ["Nameless"]
+    assert len(observed.diagnostics) == 1
+
+
 def test_an_observable_that_answers_no_sighting_is_unreachable(tmp_path: Path) -> None:
     observed = observe([Artifact("a", Answers())], Context(tmp_path, tmp_path), ELEMENT)
 

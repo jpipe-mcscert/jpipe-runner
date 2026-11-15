@@ -26,6 +26,7 @@ import hashlib
 import json
 import os
 import posixpath
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -34,6 +35,9 @@ from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any, Final
 
 _CHUNK = 1 << 16
+_INDEX = re.compile(r"0|[1-9][0-9]*")
+"""An array index in a JSON Pointer (RFC 6901): no sign, no leading zero."""
+_EVIDENCE = "@evidence(observes=...)"
 _RECURSIVE = "**"
 _WILDCARDS = frozenset("*?[")
 
@@ -187,6 +191,21 @@ class Observation:
             )
         if self.hidden and self.value is not HIDDEN:
             raise ValueError(f"the observation of {self.declared!r} is hidden, and shows a value")
+        if self.path is not None:
+            self._check_file()
+
+    def _check_file(self) -> None:
+        """A file is never hidden, and is recorded with its SHA-256 and size exactly when
+        it was reached, as the report's schema requires."""
+        if self.hidden:
+            raise ValueError(f"the observation of {self.declared!r} is a file, and is hidden")
+        recorded = self.sha256 is not None and self.size is not None
+        unrecorded = self.sha256 is None and self.size is None
+        if not (recorded if self.obstacle is None else unrecorded):
+            raise ValueError(
+                f"the observation of the file {self.path!r} records its SHA-256 and size "
+                "when it was reached, and neither when it was not"
+            )
 
     @property
     def reachable(self) -> bool:
@@ -254,6 +273,23 @@ class Observable(ABC):
         return ()
 
 
+def described(observable: Observable, context: Context) -> str:
+    """How the report names ``observable``. One of a step library may raise: it is then
+    named after its class, and observing it fails with the error it raises."""
+    try:
+        return observable.describe(context)
+    except Exception:  # NOSONAR: whatever a library's observable raises
+        return type(observable).__name__
+
+
+def dependencies(observable: Observable, context: Context) -> tuple[str, ...]:
+    """What ``observable`` depends on, or nothing if it raises: one of a step library may."""
+    try:
+        return tuple(observable.depends_on(context))
+    except Exception:  # NOSONAR: whatever a library's observable raises
+        return ()
+
+
 @dataclass(frozen=True)
 class File(Observable):
     """A file, or the files a glob matches. A bare string in ``observes`` stands for one.
@@ -303,7 +339,7 @@ class JsonValue(Observable):
     pointer: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "path", _checked(self.path))
+        object.__setattr__(self, "path", _checked(self.path, "JsonValue()"))
         if is_glob(self.path):
             raise TypeError(f"JsonValue() takes the path of one file, not the glob {self.path!r}")
         if not isinstance(self.pointer, str) or (self.pointer and self.pointer[0] != "/"):
@@ -319,12 +355,11 @@ class JsonValue(Observable):
 
     def observe(self, context: Context) -> Sighting:
         declared, shown = self.describe(context), context.shown(self.path)
-        file = context.file(shown)
-        seen = _record(declared, file, context.root)
-        if seen.obstacle is not None:
+        seen, content = _read(declared, context.file(shown), context.root)
+        if content is None:
             return Sighting(None, (seen,))
         try:
-            value = self._designated(json.loads(file.read_bytes()))
+            value = self._designated(json.loads(content))
         except (OSError, ValueError, LookupError) as error:
             problem = Obstacle(declared, _json_problem(error), "Correct the file, or the pointer.")
             return Sighting(None, (Observation(declared, shown, obstacle=problem),))
@@ -335,6 +370,8 @@ class JsonValue(Observable):
         for token in self.pointer.split("/")[1:]:
             key = token.replace("~1", "/").replace("~0", "~")
             if isinstance(value, list):
+                if not _INDEX.fullmatch(key):
+                    raise LookupError(key)
                 value = value[int(key)]
             elif isinstance(value, dict):
                 value = value[key]
@@ -393,11 +430,31 @@ def _record(declared: str, file: Path, root: Path) -> Observation:
         try:
             sha256, size = digest(file)
         except OSError as error:
-            problem = f"cannot be read: {error.strerror or error}"
-            obstacle = Obstacle(path, problem, "Make it readable by the user the runner runs as.")
+            obstacle = _unreadable(path, error)
         else:
             return Observation(declared, path, sha256, size)
     return Observation(declared, path, obstacle=obstacle)
+
+
+def _read(declared: str, file: Path, root: Path) -> tuple[Observation, bytes | None]:
+    """The observation of ``file`` and its content, from one read, so that the SHA-256
+    recorded is that of the bytes the caller uses. ``None`` when it could not be read."""
+    path = file.relative_to(root).as_posix()
+    obstacle = _obstacle(file, path)
+    if obstacle is None:
+        try:
+            content = file.read_bytes()
+        except OSError as error:
+            obstacle = _unreadable(path, error)
+        else:
+            sha256 = hashlib.sha256(content).hexdigest()
+            return Observation(declared, path, sha256, len(content)), content
+    return Observation(declared, path, obstacle=obstacle), None
+
+
+def _unreadable(path: str, error: OSError) -> Obstacle:
+    problem = f"cannot be read: {error.strerror or error}"
+    return Obstacle(path, problem, "Make it readable by the user the runner runs as.")
 
 
 def _obstacle(file: Path, path: str) -> Obstacle | None:
@@ -415,30 +472,30 @@ def _obstacle(file: Path, path: str) -> Obstacle | None:
     return None
 
 
-def _checked(path: object) -> str:
+def _checked(path: object, owner: str = _EVIDENCE) -> str:
     """``path``, checked and in canonical form: it names files relative to the file that
-    declares the step, by name or by glob."""
+    declares the step, by name or by glob. Errors name ``owner``, what took it."""
     if not isinstance(path, str) or not path.strip():
-        raise TypeError(
-            "@evidence(observes=...) takes paths as non-empty strings: "
-            "observes={'changelog': 'CHANGELOG.md'}"
-        )
+        example = "observes={'changelog': 'CHANGELOG.md'}"
+        if owner != _EVIDENCE:
+            example = "JsonValue('package.json', '/version')"
+        raise TypeError(f"{owner} takes paths as non-empty strings: {example}")
     if PurePosixPath(path).is_absolute() or PureWindowsPath(path).anchor:
         raise TypeError(
-            "@evidence(observes=...) takes paths relative to the file that declares the "
+            f"{owner} takes paths relative to the file that declares the "
             f"step, so that the library works on every machine, not {path!r}"
         )
     if path.endswith(("/", "\\")):
-        _directory(path)
+        _directory(path, owner)
     if any("**" in part and part != "**" for part in path.replace("\\", "/").split("/")):
         raise TypeError(
-            "@evidence(observes=...): '**' matches any depth only as a whole part of a "
+            f"{owner}: '**' matches any depth only as a whole part of a "
             f"path, as in 'build/**/*.xml', not {path!r}"
         )
-    return _canonical(path)
+    return _canonical(path, owner)
 
 
-def _canonical(path: str) -> str:
+def _canonical(path: str, owner: str = _EVIDENCE) -> str:
     """``path`` with ``.`` and ``..`` resolved as text before its first wildcard. A leading
     ``..`` is kept. One after a wildcard is refused: what it names depends on the
     directories the glob finds."""
@@ -446,20 +503,20 @@ def _canonical(path: str) -> str:
     first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
     if ".." in parts[first:]:
         raise TypeError(
-            "@evidence(observes=...) takes '..' only before the first wildcard, as in "
+            f"{owner} takes '..' only before the first wildcard, as in "
             f"'../shared/*.yml', not {path!r}"
         )
     literal = posixpath.normpath("/".join(parts[:first]) or ".")
     kept = [] if literal == "." else literal.split("/")
     kept += [part for part in parts[first:] if part not in ("", ".")]
     if not kept or kept[-1] == "..":
-        _directory(path)
+        _directory(path, owner)
     return "/".join(kept)
 
 
-def _directory(path: str) -> None:
+def _directory(path: str, owner: str = _EVIDENCE) -> None:
     glob = path.rstrip("/\\") + "/**/*"
     raise TypeError(
-        f"@evidence(observes=...) takes files, and {path!r} names a directory. "
+        f"{owner} takes files, and {path!r} names a directory. "
         f"Observe the files it holds, with a glob such as {glob!r}."
     )

@@ -26,7 +26,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind
-from jpipe_runner.observables import Context, Observation
+from jpipe_runner.observables import Context, Observation, dependencies, described
 
 _NOTHING: Mapping[str, Any] = MappingProxyType({})
 
@@ -245,13 +245,13 @@ def _element(
         step = binding.step
         context = Context(step.directory, root)
         observed = [artifact.observable for artifact in step.observes]
-        files = (path for observable in observed for path in observable.depends_on(context))
+        files = (path for observable in observed for path in dependencies(observable, context))
         report = replace(
             report,
             step=step.name,
             designators=binding.designators,
             observes=tuple(dict.fromkeys(files)),
-            sources=tuple(observable.describe(context) for observable in observed),
+            sources=tuple(described(observable, context) for observable in observed),
             consumes=step.consumes,
             produces=step.produces,
         )

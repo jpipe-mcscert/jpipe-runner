@@ -183,6 +183,18 @@ def test_a_file_a_glob_matches_now_and_the_run_did_not_see_is_added(root: Path) 
     assert stale(document, root) == (Change("e2", "docs/b.md", ChangeKind.ADDED),)
 
 
+def test_a_glob_no_file_was_recorded_under_finds_nothing_added(root: Path) -> None:
+    """A library's observable may depend on a glob, for impact, and record no file under it:
+    the files it matches were never the run's to see."""
+    (root / "docs" / "b.md").write_text("B", encoding="utf-8")
+    seen = {**_artifact("build/tests.log", "ok"), "declared": "build/tests.log"}
+    document = _recorded(
+        _element("e1", observes=["build/tests.log", "docs/*.md"], artifacts=[seen])
+    )
+
+    assert stale(document, root) == ()
+
+
 def test_a_glob_that_matched_nothing_finds_what_it_matches_now(root: Path) -> None:
     document = _recorded(
         _element("e2", observes=["docs/*.md"], artifacts=[_artifact("docs/*.md", None)])

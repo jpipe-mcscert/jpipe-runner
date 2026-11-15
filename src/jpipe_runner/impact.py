@@ -236,6 +236,10 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
     """Each file of ``element`` that differs, once: a file that several of its declared
     paths designate is recorded under each of them."""
     recorded = {artifact["path"] for artifact in element["artifacts"]}
+    # The globs files were recorded under. One a library's observable depends on, without
+    # recording files under it, says nothing of the files the run saw. A report of
+    # version 1.0 records no `declared`: every glob there is a File's.
+    declared = {artifact.get("declared") for artifact in element["artifacts"]}
     found = [
         Change(element["id"], artifact["path"], kind)
         for artifact in element["artifacts"]
@@ -243,6 +247,8 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
     ]
     for pattern in element["observes"]:
         if not is_glob(pattern) or not element["artifacts"]:
+            continue
+        if None not in declared and pattern not in declared:
             continue
         for file in files(pattern, root):
             shown = file.relative_to(root).as_posix()

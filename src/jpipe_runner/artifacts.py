@@ -16,7 +16,7 @@ from types import MappingProxyType
 from typing import Any
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
-from jpipe_runner.observables import Context, Observation, Sighting
+from jpipe_runner.observables import Context, Observation, Sighting, described
 from jpipe_runner.steps import Artifact
 
 UNREACHABLE_ARTIFACT = "JP019"
@@ -57,12 +57,12 @@ def _sighted(artifact: Artifact, context: Context) -> Sighting:
     """What ``artifact`` is now. An observable is code of the step library: one that
     raises, or answers anything but a sighting, could not be observed."""
     what = f"{type(artifact.observable).__name__}"
+    declared = described(artifact.observable, context)
     try:
-        declared = artifact.observable.describe(context)
         sighting = artifact.observable.observe(context)
     except Exception as error:  # NOSONAR: whatever a library's observable raises
         problem = f"could not be observed: it raised {type(error).__name__}: {error}"
-        return Sighting.unreachable(what, f"a {what}", problem, _BROKEN_FIX)
+        return Sighting.unreachable(declared, f"a {what}", problem, _BROKEN_FIX)
     if not isinstance(sighting, Sighting):
         problem = f"could not be observed: it returned {type(sighting).__name__}, not a Sighting"
         return Sighting.unreachable(declared, declared, problem, _BROKEN_FIX)
