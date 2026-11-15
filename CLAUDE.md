@@ -146,6 +146,10 @@ the `v3.6.0` tag.
   quotes, in step with the scenario's.
 - The maintainer marks the PR ready for review when the milestone is complete, and merges it.
 - Never commit or push to `main` directly.
+- **An assistant asks before creating a branch.** It names the branch and what it is for,
+  and waits for the maintainer's answer. Without one, it keeps working on the branch the
+  session started on, or stops if that branch is `main`. Several open branches that touch
+  the same pages are a cost for the maintainer, who has to order and merge them.
 
 ## Release Process
 
