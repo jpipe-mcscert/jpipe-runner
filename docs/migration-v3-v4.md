@@ -1,7 +1,6 @@
 # Migrating from v3 to v4
 
-v4 is a rewrite of jpipe-runner ([ADR-0002](adr/0002-rewrite-from-scratch.md)), and every
-v3 step library needs changes to run on it. This page says what changed, in the order a
+v4 is a rewrite of jpipe-runner, and every v3 step library needs changes to run on it. This page says what changed, in the order a
 port meets it: the step library, then the command line, the packages, and the GitHub
 Action. The [CHANGELOG](../CHANGELOG.md) lists every change; [`concepts.md`](concepts.md)
 defines the words used here.

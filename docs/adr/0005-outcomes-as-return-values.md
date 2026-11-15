@@ -84,7 +84,7 @@ Skip(reason: str = "")
   decorator factory or in a compiled module work.
 - Bad, because every v3 step changes: its signature (no `produce`), its body (no
   `produce(…)` calls) and its returns. The JP017 fix messages and the migration guide (#129)
-  carry that cost; v4 is a breaking release in any case (ADR-0002).
+  carry that cost; v4 is a breaking release in any case.
 - Bad, because the compiler's generated skeletons must change in step (#140).
 - Neutral, because a step that raises still fails: the engine reports the exception as a
   FAIL of that step, with its traceback (#120).

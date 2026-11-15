@@ -4,9 +4,13 @@ Decisions about jpipe-runner's design and the way it is built, in
 [MADR](https://adr.github.io/madr/) format. Records are numbered and immutable once
 accepted. Reversing a decision means writing a new ADR that supersedes the old one.
 
-The v4 issues reserved ADR-0001 to ADR-0013 in advance. Each one is written when its
-issue lands. A new decision takes the next number after the highest one in this table,
-reserved or not.
+A new decision takes the next number after the highest one ever used, including the
+retired numbers below.
+
+Numbers 0002, 0014, 0015 and 0017 are retired. They recorded how v3 became v4 (the
+rewrite, and the milestone branches it was built on), not decisions about the runner, and
+were removed once v4 was released. They can still be read at the `v4.0.0` tag, for
+instance `git show v4.0.0:docs/adr/0014-trunk-with-milestone-branches.md`.
 
 To write one, copy [`template.md`](template.md) to `NNNN-short-title.md`, fill it in,
 and add a row to this table.
@@ -14,7 +18,6 @@ and add a row to this table.
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0001](0001-consume-compiler-json.md) | Consume compiler-produced JSON rather than parse `.jd` | accepted |
-| [0002](0002-rewrite-from-scratch.md) | Rewrite from scratch on a branch rather than port v3 | accepted |
 | [0003](0003-drop-sphinx-markdown-docs.md) | Drop Sphinx; docs are task-oriented Markdown | accepted |
 | [0004](0004-sonarcloud-quality-gate.md) | SonarCloud as the quality gate | accepted |
 | [0005](0005-outcomes-as-return-values.md) | Outcomes as return values instead of a `produce` callable | accepted |
@@ -26,10 +29,7 @@ and add a row to this table.
 | [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
 | [0012](0012-extract-the-github-action.md) | The GitHub Action leaves for jpipe-ci-actions, and runs v4 only | accepted |
 | [0013](0013-kind-divergence-under-composition.md) | Kind divergence under composition is a warning, not an error | accepted |
-| [0014](0014-trunk-with-milestone-branches.md) | A single `main` trunk, one pull request per milestone | accepted, amended by [0015](0015-draft-pull-request-per-milestone.md) |
-| [0015](0015-draft-pull-request-per-milestone.md) | Open each milestone's pull request as a draft when the milestone starts | accepted |
 | [0016](0016-hide-the-graph-inside-justification.md) | Hide the graph inside `Justification`; no NetworkX type in the public API | accepted, amended by [0010](0010-diagnostics-as-data-rules-as-objects.md) |
-| [0017](0017-document-in-the-milestone-that-builds-it.md) | Document a feature in the milestone that builds it; M7 reviews the whole | accepted |
 | [0018](0018-evidence-declares-observed-artifacts.md) | Evidence declares the artifacts it observes | accepted, amended by [0019](0019-evidence-observes-files.md) |
 | [0019](0019-evidence-observes-files.md) | Evidence observes files, recorded just before its step runs | accepted |
 | [0020](0020-importing-step-libraries.md) | Import step libraries as modules named after their files, for one run | accepted |
