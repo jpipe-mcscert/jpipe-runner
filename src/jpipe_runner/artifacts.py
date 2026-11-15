@@ -58,7 +58,8 @@ def _recorded(observation: Observation) -> Observation:
     what it does to it must not change what the report records."""
     if observation.value is HIDDEN:
         return observation
-    return replace(observation, value=snapshot(observation.value))
+    recorded: Observation = replace(observation, value=snapshot(observation.value))
+    return recorded
 
 
 def _sighted(artifact: Artifact, context: Context) -> Sighting:
