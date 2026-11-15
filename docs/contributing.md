@@ -117,7 +117,6 @@ There is one long-lived branch, `main`. The reasons are recorded in
 |--------|------|
 | `main` | The trunk and the default branch. Releases are tags on it (`vX.Y.Z`). |
 | a milestone's branch | One per milestone, cut from `main` and named after it. |
-| `jpipe-runner-diagrams` | Written by the v3 GitHub Action's tests (generated diagram images). Not a development branch. |
 
 ### Working on a milestone
 

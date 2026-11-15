@@ -98,8 +98,7 @@ each milestone, the unit the v4 plan is already organized around.
 
 ### Confirmation
 
-- The remote has `main`, `jpipe-runner-diagrams` (the GitHub Action's image output branch)
-  and at most one or two milestone branches.
+- The remote has `main` and at most one or two milestone branches.
 - The repository's default branch is `main`.
 - A merged milestone pull request closes that milestone's issues automatically.
 
