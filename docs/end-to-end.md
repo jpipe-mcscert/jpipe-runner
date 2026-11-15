@@ -84,9 +84,10 @@ lists the elements and the relations between them:
 id is qualified by the name of the justification: `e1` in the source is `release:e1` here.
 These ids are how the step library will refer to the elements.
 
-The compiler can also write the skeleton of a step library (`-f PYTHON`). As of jPipe
-2.5.0 that skeleton targets jpipe-runner 3, so for v4 it is written by hand, as below
-([#140](https://github.com/jpipe-mcscert/jpipe-runner/issues/140)).
+The compiler can also write the skeleton of a step library (`-f PYTHON`): one function per
+element, already bound to its id, that raises `NotImplementedError` until it is filled in.
+Since jPipe 3.0.0 that skeleton is written for jpipe-runner 4. The library below is
+written in full, to show what goes into each step.
 
 ## 3. Reading the model
 

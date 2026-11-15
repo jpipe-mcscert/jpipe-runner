@@ -45,6 +45,38 @@ Run the tools through `poetry run`, so that they use the project's environment a
 editable install of `src/`, not another `jpipe-runner` installed elsewhere. Their
 configuration lives in [`pyproject.toml`](../pyproject.toml).
 
+## Running your working copy
+
+`poetry install` installs the runner in *editable* mode: the `jpipe-runner` command of the
+project's environment runs the code under `src/` as it is on disk, so a change is live on
+the next run, with nothing to reinstall. Start it with `poetry run`, from any directory
+inside the repository:
+
+```bash
+poetry run jpipe-runner --version
+poetry run python -m jpipe_runner --version   # the same command
+```
+
+A bare `jpipe-runner` is whichever one comes first on your `PATH`, often a released version
+installed by Homebrew or pipx, which ignores your changes. `poetry run which jpipe-runner`
+shows the one `poetry run` starts: it is in the project's virtual environment.
+
+To try a change on a real justification, run one of the end-to-end scenarios, each a
+directory with a compiled model (`justification.json`) and its step library (`steps.py`).
+Run it from the scenario's directory, because the files the evidence observes are relative
+to the working directory:
+
+```bash
+cd tests/e2e/scenarios/release_example
+poetry run jpipe-runner --library steps.py justification.json
+```
+
+[`cli.md`](cli.md) describes the options. To work in a shell where `jpipe-runner` is the
+development version, without the `poetry run` prefix, activate the environment:
+`eval "$(poetry env activate)"`.
+
+## Tests and checks
+
 [`tests/README.md`](../tests/README.md) describes the test architecture: rule tests,
 golden reports, property tests, and the scenario format. `poetry run pytest
 --update-goldens` regenerates the golden reports and `docs/rules.md`; review the diff
@@ -78,14 +110,13 @@ and the keys of external formats (`license` in `pyproject.toml`) are left as the
 
 ## Branches
 
-There is one long-lived branch, `main`, which holds the development of v4.
-The reasons are recorded in
+There is one long-lived branch, `main`. The reasons are recorded in
 [ADR-0014](adr/0014-trunk-with-milestone-branches.md).
 
 | Branch | Role |
 |--------|------|
 | `main` | The trunk and the default branch. Releases are tags on it (`vX.Y.Z`). |
-| `m<N>-<topic>` | One per v4 milestone, cut from `main`: `m0-foundation`, `m1-model`, …, `m7-docs`, `mb0-action-extraction`. The GitHub Action itself is built in [`jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions) ([ADR-0012](adr/0012-extract-the-github-action.md)). |
+| a milestone's branch | One per milestone, cut from `main` and named after it. |
 | `jpipe-runner-diagrams` | Written by the v3 GitHub Action's tests (generated diagram images). Not a development branch. |
 
 ### Working on a milestone
@@ -100,10 +131,8 @@ The reasons are recorded in
    a branch with an open pull request.
 4. Document what the milestone adds for users, in the milestone: a page under `docs/` for
    each new feature ([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)).
-   Then update [`v4-progress.md`](v4-progress.md): mark the milestone done, and list the
-   features it added for users. Then
-   update [`end-to-end.md`](end-to-end.md), which follows one example through every stage:
-   describe the stages the milestone built as they now work, with real output.
+   Then update [`end-to-end.md`](end-to-end.md), which follows one example through every
+   stage: describe the stages the milestone changed as they now work, with real output.
 5. When the milestone is complete, mark its pull request **ready for review**. The maintainer
    merges it with a merge commit, which keeps the per-ticket commits and closes their issues.
 
