@@ -138,8 +138,8 @@ is in `observes`.
 ## Observations
 
 What an evidence observed that is not a file, such as an environment variable, recorded
-just before its step was called
-([ADR-0028](adr/0028-observables-and-file-relative-paths.md)):
+just before its step was called ([`observables.md`](observables.md),
+[ADR-0028](adr/0028-observables-and-file-relative-paths.md)):
 
 | Field | Type | |
 |---|---|---|

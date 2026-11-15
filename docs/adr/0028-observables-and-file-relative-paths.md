@@ -151,7 +151,8 @@ def the_release_is_configured(changelog: Path, version: str, branch: str) -> Out
 - `tests/unit/test_steps.py` checks that a step keeps the directory of its file.
 - The `simple_import` scenario has its library in a subdirectory, and observes files
   beside it and above it; `observables` is a scenario with a `JsonValue` and an `Env`.
-- `tests/unit/test_authoring_doc.py` runs the page's observable.
+- `tests/unit/test_observables_doc.py` runs `docs/observables.md` on that scenario: its
+  observables, its console sessions and the report it quotes.
 
 ## Pros and Cons of the Options
 

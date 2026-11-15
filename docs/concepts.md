@@ -82,7 +82,7 @@ What an evidence **observes**: a file or a glob of files, a value in a JSON file
 environment variable, or what an observable of the step library reaches. It is declared
 with `observes` and passed to the step as a parameter. A path is relative to the file that
 declares the step. The runner records what it observed, a file with its SHA-256 and size,
-just before the step is called. See [Observing artifacts](authoring.md#observing-artifacts).
+just before the step is called. See [`observables.md`](observables.md).
 
 ### Outcome
 

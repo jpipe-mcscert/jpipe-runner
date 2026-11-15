@@ -25,9 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   environment variable; the step receives the value. Both are imported from
   `jpipe_runner`, with `File`, which a path stands for. An environment variable is not
   shown in the report unless its step says `Env("CI", display=True)`
-  ([`docs/authoring.md`](docs/authoring.md#more-than-files)).
+  ([`docs/observables.md`](docs/observables.md)).
 - **A step library defines what else to observe**, by deriving `Observable`: how the
-  report names it, what it is now, and the files a change to which reaches it.
+  report names it, what it is now, and the files a change to which reaches it
+  ([`docs/observables.md`](docs/observables.md#writing-your-own-observable)).
 - **The JSON report says more about what was observed**, in `schema_version` `1.1`. An
   element has `sources`, everything its step declares it observes, and `observations`,
   what it observed that is not a file. Each of its `artifacts` has `declared`, the source

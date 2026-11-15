@@ -159,8 +159,8 @@ with tempfile.TemporaryDirectory() as directory:
 
 ### More than files
 
-A string in `observes` is a file. What else an evidence observes is written as an
-**observable** ([ADR-0028](adr/0028-observables-and-file-relative-paths.md)):
+A string in `observes` is a file. An evidence also observes a value in a JSON file, an
+environment variable, or anything an observable of your own reaches:
 
 ```python
 from jpipe_runner import Env, JsonValue
@@ -171,74 +171,16 @@ from jpipe_runner import Env, JsonValue
     observes={
         "version": JsonValue("package.json", "/version"),
         "stage": Env("DEPLOY_STAGE", display=True),
-        "token": Env("RELEASE_TOKEN"),
     },
     produces=["releasable"],
 )
-def the_release_is_configured(version: str, stage: str, token: str) -> Outcome:
-    return Pass(releasable=version == "2.0" and stage == "production" and bool(token))
+def the_release_is_configured(version: str, stage: str) -> Outcome:
+    return Pass(releasable=version == "2.0" and stage == "production")
 ```
 
-| Observable | Observes | The parameter receives |
-|---|---|---|
-| `File("build/*.xml")`, or the string alone | a file, or the files a glob matches | a `Path`, or their sorted `list[Path]` |
-| `JsonValue("package.json", "/version")` | the value a [JSON Pointer](https://www.rfc-editor.org/rfc/rfc6901) designates in a file; the whole document without a pointer | the value |
-| `Env("DEPLOY_STAGE")` | an environment variable | its value, a string |
-
-- **Nothing observed is optional**, as for a file: a variable that is not set, a file that
-  is not JSON, a pointer that designates nothing fail the evidence without calling it
-  (`JP019`).
-- **An environment variable is hidden** from the report, which says only that it was
-  observed: it may hold a secret, and a short one is guessed from its SHA-256.
-  `display=True` records its value and its SHA-256.
-- **Hiding has a price.** `jpipe-runner status` compares what a report records with what
-  it is now. It cannot compare what the report hides: for a run that observed a hidden
-  variable it answers that a new run is needed, never that the report still holds.
-- **A change to `package.json` reaches the evidence** in `jpipe-runner impact`, which
-  follows files and does not see an environment variable.
-
-To observe something else, derive `Observable`. It says how the report names it, what it
-is now, as a `Sighting`, and, if it reads files, which ones:
-
-```python
-import socket
-from dataclasses import dataclass
-
-from jpipe_runner import Context, Observable, Sighting
-
-
-@dataclass(frozen=True)
-class Host(Observable):
-    """The address a host name resolves to."""
-
-    name: str
-
-    def describe(self, context: Context) -> str:
-        return f"host:{self.name}"
-
-    def observe(self, context: Context) -> Sighting:
-        try:
-            address = socket.gethostbyname(self.name)
-        except OSError as error:
-            return Sighting.unreachable(
-                self.describe(context), f"the host {self.name!r}", f"does not resolve: {error}"
-            )
-        return Sighting.of(self.describe(context), address)
-
-
-assert Host("localhost").observe(Context(Path(), Path())).value.startswith("127.")
-```
-
-An observable holds what designates the thing, never the thing, and can be hashed, as a
-frozen dataclass can. Whatever it observes is recorded: a `Sighting` has at least one
-observation, and an observation has the SHA-256 of what was seen, or says that it is
-hidden. `Sighting.of(declared, value)` records the value and its SHA-256, and
-`display=False` hides both; `Sighting.unreachable` says what could not be reached and why,
-and the step is not called. `jpipe-runner status` reads a file or an environment variable
-again; what `Host` observes, only `Host` can, so a report that holds it needs a new run to
-be confirmed. A `Context` gives the directory of the declaring file
-and the run's root: `context.shown(path)` turns a path relative to the first into the one
-the report shows, and `depends_on` returns such paths for `jpipe-runner impact`.
+[`observables.md`](observables.md) is the reference: each built-in observable, what a path
+is relative to, what the report records, what `jpipe-runner status` can check later, and
+how to write an observable.
 
 ## Returning an outcome
 
