@@ -136,6 +136,8 @@ classDiagram
         class Impact
         class Change
         class ChangeKind
+        class Unverified
+        class Unchecked
         class InvalidReportError
     }
 
@@ -249,6 +251,7 @@ classDiagram
     <<enumeration>> View
     <<enumeration>> ExitCode
     <<enumeration>> ChangeKind
+    <<enumeration>> Unchecked
 
     Justification "1" *-- "*" Element : elements
     Justification "1" *-- "*" Relation : relations
@@ -335,6 +338,7 @@ classDiagram
     NotAnOutcomeError "1" o-- "1" Diagnostic : diagnostic
     ExitCode ..> Verdict : from
     Change --> ChangeKind : kind
+    Unverified --> Unchecked : why
     ValueError <|-- InvalidReportError
 ```
 
@@ -444,8 +448,10 @@ for; `JsonValue` is a value in a JSON file, and `Env` an environment variable; a
 library derives `Observable` for anything else. `observe` returns a `Sighting`: the value
 the step receives, and an `Observation` of each thing seen. A file's observation has its
 path relative to the run's root, its SHA-256 and its size, read once, so the record is the
-state the step is about to see; a value's has the value and its SHA-256, unless it is not
-to be shown. What could not be reached has an `Obstacle` instead: a missing or unreadable
+state the step is about to see; a value's has the value and its SHA-256, or says that it
+is hidden. There is no observation without one or the other, and no sighting without an
+observation: nothing a verdict rests on stays off the record. What could not be reached
+has an `Obstacle` instead: a missing or unreadable
 file, a directory or anything else that is not a regular file (a pipe, a device, which
 could block the run), a glob that matches nothing, a variable that is not set.
 
@@ -574,9 +580,10 @@ above it (`above`), matching each file as a run would (`observables.matches`). `
 takes the report of an earlier run and compares each file it observed with the file now,
 and lists what its globs designate now (`observables.files`). Each recorded file names
 what it was `declared` as, so that neither a reader of the report nor the diagram matches
-files to globs again. What a run observed that is not a file, such as an environment
-variable, is listed as not checked: only its observable can observe it again, and
-`status` imports no step library.
+files to globs again. An environment variable is compared too, by the SHA-256 of its
+value. `unverified` lists what the report cannot confirm: what it hides, and what is
+neither a file nor a variable, which only its step library can observe again. While there
+is any, `status` does not say that the report holds: it says that a new run is needed.
 The command line's `impact` and `status` subcommands render what they return; `impact`
 asks git for the changed files (`changed_since`) before importing anything, since an
 import writes files of its own.

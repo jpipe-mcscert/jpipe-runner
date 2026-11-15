@@ -188,7 +188,7 @@
     "observation": {
       "description": "Something an evidence observed that is not a file, such as an environment variable.",
       "type": "object",
-      "required": ["declared", "reachable", "sha256", "value"],
+      "required": ["declared", "variable", "reachable", "hidden", "sha256", "value"],
       "additionalProperties": false,
       "properties": {
         "declared": {
@@ -196,14 +196,22 @@
           "type": "string",
           "minLength": 1
         },
+        "variable": {
+          "description": "The environment variable it is the value of, or null if it is not one. jpipe-runner status reads it again; anything else that is not a file needs a new run.",
+          "type": ["string", "null"]
+        },
         "reachable": {"type": "boolean"},
+        "hidden": {
+          "description": "Whether what was observed is kept out of the report: neither its value nor its SHA-256 is recorded, and only a new run can tell whether it changed.",
+          "type": "boolean"
+        },
         "sha256": {
-          "description": "The SHA-256 of the value written as JSON, or null if it could not be reached or is not shown.",
+          "description": "The SHA-256 of the value written as JSON, or null if it could not be reached or is hidden.",
           "type": ["string", "null"],
           "pattern": "^[0-9a-f]{64}$"
         },
         "value": {
-          "description": "The value observed, or null if it could not be reached or is not shown.",
+          "description": "The value observed, or null if it could not be reached or is hidden.",
           "oneOf": [{"$ref": "#/$defs/value"}, {"type": "null"}]
         }
       }

@@ -124,7 +124,7 @@ class _Text:
         if seen.path:
             digest = f"sha256 {(seen.sha256 or '')[:12]}{self._ellipsis}"
             return f"{named} ({digest}, {seen.size} bytes)"
-        return named if seen.value is HIDDEN else f"{named} = {seen.value!r}"
+        return f"{named} (hidden)" if seen.value is HIDDEN else f"{named} = {seen.value!r}"
 
     def _diagnostics(self) -> Iterator[str]:
         for diagnostic in self._report.diagnostics:

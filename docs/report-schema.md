@@ -144,12 +144,17 @@ just before its step was called
 | Field | Type | |
 |---|---|---|
 | `declared` | string | the one of the element's `sources` that designates it, such as `env:CI` |
+| `variable` | string or null | the environment variable it is the value of; null if it is not one |
 | `reachable` | boolean | whether it could be observed |
-| `sha256` | string or null | the SHA-256 of the value written as JSON; null if it was not reached, or is not shown |
-| `value` | [value](#produced-values) or null | the value observed; null if it was not reached, or is not shown |
+| `hidden` | boolean | whether what was observed is kept out of the report |
+| `sha256` | string or null | the SHA-256 of the value written as JSON; null if it was not reached, or is hidden |
+| `value` | [value](#produced-values) or null | the value observed; null if it was not reached, or is hidden |
 
-An environment variable is not shown unless its step says it may be, `Env("CI",
-display=True)`: the report then says only that it was observed.
+Everything observed is recorded: a reachable observation has a `sha256`, or is `hidden`.
+An environment variable is hidden unless its step says `Env("CI", display=True)`: the
+report then says only that it was observed. `jpipe-runner status` reads a `variable`
+again and compares it; it cannot confirm a report that holds a hidden observation, or one
+that is neither a file nor a variable, and says that a new run is needed.
 
 ## Diagnostics
 

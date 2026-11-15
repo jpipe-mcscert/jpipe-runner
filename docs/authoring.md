@@ -188,10 +188,14 @@ def the_release_is_configured(version: str, stage: str, token: str) -> Outcome:
 - **Nothing observed is optional**, as for a file: a variable that is not set, a file that
   is not JSON, a pointer that designates nothing fail the evidence without calling it
   (`JP019`).
-- **An environment variable is not shown** in the report, which says only that it was
-  observed: it may hold a secret. `display=True` shows its value and its SHA-256.
-- **A change to `package.json` reaches the evidence** in `jpipe-runner impact`, and
-  `jpipe-runner status` compares the file; neither can see an environment variable.
+- **An environment variable is hidden** from the report, which says only that it was
+  observed: it may hold a secret, and a short one is guessed from its SHA-256.
+  `display=True` records its value and its SHA-256.
+- **Hiding has a price.** `jpipe-runner status` compares what a report records with what
+  it is now. It cannot compare what the report hides: for a run that observed a hidden
+  variable it answers that a new run is needed, never that the report still holds.
+- **A change to `package.json` reaches the evidence** in `jpipe-runner impact`, which
+  follows files and does not see an environment variable.
 
 To observe something else, derive `Observable`. It says how the report names it, what it
 is now, as a `Sighting`, and, if it reads files, which ones:
@@ -226,9 +230,13 @@ assert Host("localhost").observe(Context(Path(), Path())).value.startswith("127.
 ```
 
 An observable holds what designates the thing, never the thing, and can be hashed, as a
-frozen dataclass can. `Sighting.of(declared, value)` records the value and its SHA-256
-(`display=False` records neither); `Sighting.unreachable` says what could not be reached
-and why, and the step is not called. A `Context` gives the directory of the declaring file
+frozen dataclass can. Whatever it observes is recorded: a `Sighting` has at least one
+observation, and an observation has the SHA-256 of what was seen, or says that it is
+hidden. `Sighting.of(declared, value)` records the value and its SHA-256, and
+`display=False` hides both; `Sighting.unreachable` says what could not be reached and why,
+and the step is not called. `jpipe-runner status` reads a file or an environment variable
+again; what `Host` observes, only `Host` can, so a report that holds it needs a new run to
+be confirmed. A `Context` gives the directory of the declaring file
 and the run's root: `context.shown(path)` turns a path relative to the first into the one
 the report shows, and `depends_on` returns such paths for `jpipe-runner impact`.
 

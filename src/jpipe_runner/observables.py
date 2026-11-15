@@ -154,10 +154,15 @@ class Obstacle:
 class Observation:
     """One thing an evidence observed, as it was just before its step was called.
 
-    A file has a ``path``, relative to the run's root, a SHA-256 and a size. Anything else
-    has no path; its ``sha256`` is that of its value, when the value may be shown. When it
-    could not be reached, ``obstacle`` says why. A glob that matches nothing is recorded
-    once, under its pattern.
+    Whatever was observed is recorded: an observation holds the SHA-256 of what was seen,
+    or says that it is ``hidden``, or holds the ``obstacle`` that kept it from being seen.
+    There is no fourth case, so that a report never passes over something a verdict rests
+    on.
+
+    A file has a ``path``, relative to the run's root, a SHA-256 and a size. An environment
+    variable has its name, ``variable``. With one or the other, ``jpipe-runner status`` can
+    look again without the step library; with neither, or when it is hidden, only a new
+    run can. A glob that matches nothing is recorded once, under its pattern.
     """
 
     declared: str
@@ -168,6 +173,20 @@ class Observation:
     obstacle: Obstacle | None = None
     value: Any = HIDDEN
     """What was observed there, or ``HIDDEN``: a file's content is never shown."""
+    variable: str | None = None
+    """The environment variable it is the value of, if it is one."""
+    hidden: bool = False
+    """Whether what was seen is kept out of the report, its SHA-256 included."""
+
+    def __post_init__(self) -> None:
+        recorded = self.sha256 is not None
+        if self.obstacle is None and recorded == self.hidden:
+            raise ValueError(
+                f"the observation of {self.declared!r} records the SHA-256 of what was "
+                "seen, or says that it is hidden: one of the two"
+            )
+        if self.hidden and self.value is not HIDDEN:
+            raise ValueError(f"the observation of {self.declared!r} is hidden, and shows a value")
 
     @property
     def reachable(self) -> bool:
@@ -181,14 +200,20 @@ class Sighting:
     value: Any
     """What the step receives. Unused when an observation has an obstacle."""
     observations: tuple[Observation, ...]
+    """What the report records: at least one, since nothing is observed off the record."""
+
+    def __post_init__(self) -> None:
+        if not self.observations:
+            raise ValueError("a sighting records at least one observation")
 
     @classmethod
     def of(cls, declared: str, value: Any, *, display: bool = True) -> "Sighting":
-        """A value that was observed, and is no file. Unless ``display``, the report says
-        only that it was observed: neither the value nor its SHA-256."""
+        """A value that was observed, and is no file. Unless ``display``, it is hidden:
+        the report says only that it was observed, neither the value nor its SHA-256, and
+        only a new run can tell whether it changed."""
         if not display:
-            return cls(value, (Observation(declared),))
-        return cls(value, (Observation(declared, sha256=_fingerprint(value), value=value),))
+            return cls(value, (Observation(declared, hidden=True),))
+        return cls(value, (Observation(declared, sha256=fingerprint(value), value=value),))
 
     @classmethod
     def unreachable(
@@ -199,7 +224,7 @@ class Sighting:
         return cls(None, (Observation(declared, obstacle=Obstacle(what, problem, fix)),))
 
 
-def _fingerprint(value: Any) -> str:
+def fingerprint(value: Any) -> str:
     """The SHA-256 of ``value`` written as JSON, or as its ``repr`` if it is not JSON."""
     try:
         text = json.dumps(value, sort_keys=True, ensure_ascii=False)
@@ -328,8 +353,11 @@ def _json_problem(error: Exception) -> str:
 class Env(Observable):
     """An environment variable. The step receives its value, a string.
 
-    A variable that is not set is unreachable. Unless ``display``, the report says only
-    that it was observed, neither its value nor its SHA-256: a variable may hold a secret.
+    A variable that is not set is unreachable. Unless ``display``, it is hidden: the
+    report says only that it was observed, neither its value nor its SHA-256, since a
+    variable may hold a secret, and a short one is guessed from its SHA-256. A report with
+    a hidden variable cannot be checked by ``jpipe-runner status``: only a new run tells
+    whether it changed.
     """
 
     name: str
@@ -347,9 +375,14 @@ class Env(Observable):
         value = os.environ.get(self.name)
         if value is None:
             what = f"the environment variable {self.name!r}"
-            fix = "Set it where the runner runs, or stop observing it."
-            return Sighting.unreachable(declared, what, "is not set", fix)
-        return Sighting.of(declared, value, display=self.display)
+            unset = Obstacle(
+                what, "is not set", "Set it where the runner runs, or stop observing it."
+            )
+            return Sighting(None, (Observation(declared, obstacle=unset, variable=self.name),))
+        if not self.display:
+            return Sighting(value, (Observation(declared, variable=self.name, hidden=True),))
+        seen = Observation(declared, sha256=fingerprint(value), value=value, variable=self.name)
+        return Sighting(value, (seen,))
 
 
 def _record(declared: str, file: Path, root: Path) -> Observation:

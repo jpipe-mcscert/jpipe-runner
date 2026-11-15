@@ -100,7 +100,7 @@ def test_colour_paints_each_element_and_the_verdict_by_status() -> None:
 def test_what_a_failed_evidence_observed_that_is_no_file_is_named_with_its_value_if_shown() -> None:
     seen = (
         Observation("env:STAGE", sha256="0" * 64, value="prod"),
-        Observation("env:TOKEN"),
+        Observation("env:TOKEN", hidden=True),
         Observation("env:CI", obstacle=Obstacle("the environment variable 'CI'", "is not set")),
     )
     failed = _element("e1", EVIDENCE, "Tests pass", status=Status.FAIL, reason="no", artifacts=seen)
@@ -108,7 +108,7 @@ def test_what_a_failed_evidence_observed_that_is_no_file_is_named_with_its_value
     text = render(RunReport("m", Verdict.FAIL, (failed,)))
 
     assert "      observed env:STAGE = 'prod'\n" in text
-    assert "      observed env:TOKEN\n" in text
+    assert "      observed env:TOKEN (hidden)\n" in text
     assert "      observed env:CI (unreachable)\n" in text
 
 

@@ -17,6 +17,8 @@ from jpipe_runner.impact import (
     ChangeKind,
     Impact,
     InvalidReportError,
+    Unchecked,
+    Unverified,
     above,
     affected,
     changed_since,
@@ -24,8 +26,10 @@ from jpipe_runner.impact import (
     render_impact,
     render_stale,
     stale,
+    unverified,
 )
 from jpipe_runner.model import Kind
+from jpipe_runner.observables import fingerprint
 from jpipe_runner.report import ElementReport, RunReport
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
@@ -354,19 +358,104 @@ def test_a_glob_recorded_as_matching_nothing_never_appears(root: Path) -> None:
     assert stale(document, root) == (Change("e2", "docs/a.md", ChangeKind.ADDED),)
 
 
-def test_what_was_observed_that_is_not_a_file_is_listed_as_not_checked(root: Path) -> None:
-    element = _element(
-        "e1", observes=["build/tests.log"], artifacts=[_artifact("build/tests.log", "ok")]
-    )
-    seen = {"declared": "env:CI", "reachable": True, "sha256": None, "value": None}
-    document = _recorded(element | {"observations": [seen]})
+def _variable(name: str, value: str | None, *, hidden: bool = False) -> dict[str, Any]:
+    """An environment variable as a run recorded it: ``value`` is None if it was not set."""
+    shown = value is not None and not hidden
+    return {
+        "declared": f"env:{name}",
+        "variable": name,
+        "reachable": value is not None,
+        "hidden": hidden,
+        "sha256": fingerprint(value) if shown else None,
+        "value": {"value": value} if shown else None,
+    }
 
-    assert stale(document, root) == ()
-    assert render_stale(document, ()).splitlines()[-3:] == [
-        "",
-        "Not checked, as they are not files:",
-        "  env:CI  e1",
-    ]
+
+@pytest.mark.parametrize(
+    ("recorded", "now", "kind"),
+    [
+        pytest.param("prod", "prod", None, id="as it was"),
+        pytest.param("prod", "staging", ChangeKind.CHANGED, id="changed"),
+        pytest.param("prod", None, ChangeKind.VANISHED, id="no longer set"),
+        pytest.param(None, "prod", ChangeKind.APPEARED, id="set since"),
+        pytest.param(None, None, None, id="still not set"),
+    ],
+)
+def test_a_recorded_variable_is_compared_with_the_environment(
+    root: Path, recorded: str | None, now: str | None, kind: ChangeKind | None
+) -> None:
+    document = _recorded(_element("e1") | {"observations": [_variable("STAGE", recorded)]})
+    environment = {} if now is None else {"STAGE": now}
+
+    expected = () if kind is None else (Change("e1", "env:STAGE", kind),)
+    assert stale(document, root, environment) == expected
+    assert unverified(document) == ()
+
+
+def test_the_environment_is_the_process_s_by_default(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("STAGE", "staging")
+    document = _recorded(_element("e1") | {"observations": [_variable("STAGE", "prod")]})
+
+    assert stale(document, root) == (Change("e1", "env:STAGE", ChangeKind.CHANGED),)
+
+
+def test_what_is_hidden_or_only_a_library_can_observe_needs_a_new_run(root: Path) -> None:
+    host = {
+        "declared": "host:example.org",
+        "variable": None,
+        "reachable": True,
+        "hidden": False,
+        "sha256": "0" * 64,
+        "value": {"value": "192.0.2.1"},
+    }
+    observations = [_variable("TOKEN", "s3cret", hidden=True), host, _variable("STAGE", "prod")]
+    document = _recorded(
+        _element("e1", supports=["c"]) | {"observations": observations},
+        _element("c", "conclusion"),
+    )
+
+    # A hidden variable is never compared, whatever it is now.
+    assert stale(document, root, {"STAGE": "prod", "TOKEN": "another"}) == ()
+    unchecked = unverified(document)
+    assert unchecked == (
+        Unverified("e1", "env:TOKEN", Unchecked.HIDDEN),
+        Unverified("e1", "host:example.org", Unchecked.UNREADABLE),
+    )
+    assert render_stale(document, (), unchecked) == (
+        "Justification: release\n"
+        "\n"
+        "Information was hidden from the report, so it needs a new run:\n"
+        "  env:TOKEN         e1\n"
+        "\n"
+        "Only its step library can observe it again, so it needs a new run:\n"
+        "  host:example.org  e1\n"
+        "\n"
+        "Not confirmed (2 elements):\n"
+        "  Evidence    The e1  # e1\n"
+        "  Conclusion  The c   # c\n"
+    )
+
+
+def test_what_changed_is_listed_before_what_needs_a_new_run(root: Path) -> None:
+    observations = [_variable("TOKEN", "s3cret", hidden=True)]
+    document = _recorded(
+        _element(
+            "e1", observes=["build/tests.log"], artifacts=[_artifact("build/tests.log", "was")]
+        )
+        | {"observations": observations}
+    )
+
+    text = render_stale(document, stale(document, root), unverified(document))
+
+    assert text.index("Changed since the run:") < text.index("Stale (1 elements):")
+    assert text.index("Stale (1 elements):") < text.index("Information was hidden")
+    assert "still holds" not in text
+
+
+def test_a_report_of_version_1_0_has_nothing_that_cannot_be_checked() -> None:
+    assert unverified(RELEASE) == ()
 
 
 # --- Changes since a revision --------------------------------------------------------------

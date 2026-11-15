@@ -236,11 +236,11 @@ def status_parser() -> argparse.ArgumentParser:
     """The parser of ``jpipe-runner status``."""
     parser = _Parser(
         prog=f"{_PROGRAM} status",
-        description="Compare the files a run observed, as its JSON report recorded them, "
-        "with the files now, and list what is stale. No step is called.",
+        description="Compare what a run observed, as its JSON report recorded it, with "
+        "what it is now, and list what is stale. No step is called.",
         epilog=_exit_codes(
             (ExitCode.OK, "nothing changed"),
-            (ExitCode.FAILED, "something is stale"),
+            (ExitCode.FAILED, "something is stale, or needs a new run to be checked"),
             (ExitCode.USAGE, "the command line is wrong"),
             (ExitCode.INVALID, "the file is not the report of a run that observed files"),
             (ExitCode.IO, "the report cannot be read"),
@@ -541,8 +541,9 @@ def _status(options: argparse.Namespace) -> int:
             "every file the run observed is missing: run status from the directory the run "
             "ran in, where the report's paths start"
         )
-    sys.stdout.write(impact.render_stale(document, changes))
-    return ExitCode.FAILED if changes else ExitCode.OK
+    unchecked = impact.unverified(document)
+    sys.stdout.write(impact.render_stale(document, changes, unchecked))
+    return ExitCode.FAILED if changes or unchecked else ExitCode.OK
 
 
 def _colour(choice: str) -> bool:

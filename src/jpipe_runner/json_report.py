@@ -118,7 +118,9 @@ def _observation(observation: Observation, root: Path) -> dict[str, Any]:
     shown = observation.value is not HIDDEN
     return {
         "declared": observation.declared,
+        "variable": observation.variable,
         "reachable": observation.reachable,
+        "hidden": observation.hidden,
         "sha256": observation.sha256,
         "value": encoded(observation.value, root) if shown else None,
     }

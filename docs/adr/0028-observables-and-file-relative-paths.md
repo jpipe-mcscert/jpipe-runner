@@ -96,17 +96,28 @@ def the_release_is_configured(changelog: Path, version: str, branch: str) -> Out
   the step receives the value; the file is recorded as a file, with the value, and a
   change to it reaches the evidence. `Env(name, display=False)`: an environment variable;
   the step receives its value.
-- **A variable is not shown unless its step says so.** By default the report records that
+- **Everything observed is recorded, and the abstraction enforces it.** A `Sighting`
+  holds at least one observation, and a reachable `Observation` holds the SHA-256 of what
+  was seen or says that it is `hidden`: constructing one with neither, or with both, is
+  an error. An observable of a step library therefore cannot observe off the record.
+- **A variable is hidden unless its step says so.** By default the report records that
   it was observed, and neither its value nor its SHA-256, which would let a short secret
   be guessed. `display=True` records both.
 - **The report grows, in schema 1.1** (ADR-0027, not released). An element gains
   `sources`, everything its step declares, as each describes itself, and `observations`,
-  what it observed that is not a file. `observes` keeps its meaning for a reader of 1.0,
+  what it observed that is not a file, each with its `variable`, if it is one, and
+  whether it is `hidden`. `observes` keeps its meaning for a reader of 1.0,
   paths and globs: it is now the files the sources depend on. An artifact may carry the
   `value` observed in it.
-- **`status` checks files.** It reads a report and imports no library (ADR-0025), so it
-  cannot observe an environment variable, or what a library's own observable reaches,
-  again. It lists them as not checked. A `JsonValue` is checked through its file.
+- **`status` answers for everything a run observed, or does not answer.** It reads a
+  report and imports no library (ADR-0025). A file is compared by its SHA-256, a
+  `JsonValue` through its file, and an environment variable by the SHA-256 of its value:
+  an observation names its `variable`, so the report is enough to read it again. What the
+  report hides cannot be compared: `status` then says that information was hidden and
+  that a new run is needed, exits 1, and never says that the report holds. Hiding a value
+  is choosing to run again. What is neither a file nor a variable, reached by an
+  observable of a step library, gets the same answer: only that library can observe it
+  again.
 - **`observe` is no longer three functions.** ADR-0027 took it apart into `locate`,
   `record` and `unreachable`; each observable now does the first two for what it
   observes, and `artifacts.observe` only collects. What a glob designates moves to
@@ -126,7 +137,9 @@ def the_release_is_configured(changelog: Path, version: str, branch: str) -> Out
 - Bad, because a library installed as a package cannot observe the files of the project
   it is run on: its paths start in `site-packages`. An explicit anchor on `File` can
   come with the first such library.
-- Bad, because `status` and `impact` do not see what is not a file.
+- Bad, because a report that hides a value, or holds what only a library can observe, is
+  never confirmed by `status`: it takes a run.
+- Bad, because `impact` follows files only: a change to a variable reaches no evidence.
 - Neutral, because the compiler's exporter writes `observes={}`, which means what it did.
 
 ### Confirmation

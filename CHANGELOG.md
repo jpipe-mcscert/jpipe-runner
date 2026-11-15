@@ -35,7 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `value` observed in it, if one was. Every field is added: `observes` still lists paths
   and globs, and `jpipe-runner status` still reads the `1.0` reports of 4.0.0
   ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
-- `jpipe-runner status` lists what a run observed that is not a file as not checked.
+- **`jpipe-runner status` compares environment variables too**, and answers for
+  everything a run observed or not at all. A report that hides a value (an `Env` without
+  `display=True`), or holds what only an observable of the step library can observe
+  again, cannot be confirmed: `status` says that a new run is needed, and exits 1.
 
 ### Fixed
 - **A glob that ends with `**`, such as `observes={"sources": "src/**"}`, observes the

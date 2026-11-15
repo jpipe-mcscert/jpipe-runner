@@ -307,11 +307,11 @@ def test_a_variable_is_not_shown_unless_it_may_be(
     shown = Env("TOKEN", display=True).observe(context)
 
     assert (hidden.value, shown.value) == ("s3cret", "s3cret")
-    assert hidden.observations == (Observation("env:TOKEN"),)
+    assert hidden.observations == (Observation("env:TOKEN", variable="TOKEN", hidden=True),)
     assert hidden.observations[0].value is HIDDEN
     assert repr(HIDDEN) == "HIDDEN"
     assert shown.observations == (
-        Observation("env:TOKEN", sha256=_sha256(b'"s3cret"'), value="s3cret"),
+        Observation("env:TOKEN", sha256=_sha256(b'"s3cret"'), value="s3cret", variable="TOKEN"),
     )
 
 
@@ -325,6 +325,7 @@ def test_a_variable_that_is_not_set_is_unreachable(
     assert not observation.reachable
     assert observation.obstacle is not None
     assert observation.obstacle.what == "the environment variable 'TOKEN'"
+    assert observation.variable == "TOKEN"
     assert Env("TOKEN").depends_on(Context(tmp_path, tmp_path)) == ()
 
 
@@ -335,6 +336,23 @@ def test_a_malformed_variable_name_is_a_type_error(name: object) -> None:
 
 
 # --- Sighting ------------------------------------------------------------------------------
+
+
+def test_whatever_is_observed_is_recorded_or_said_to_be_hidden() -> None:
+    assert Sighting.of("clock", 12).observations == (
+        Observation("clock", sha256=_sha256(b"12"), value=12),
+    )
+    assert Sighting.of("clock", 12, display=False).observations == (
+        Observation("clock", hidden=True),
+    )
+    with pytest.raises(ValueError, match="at least one observation"):
+        Sighting(12, ())
+    with pytest.raises(ValueError, match="one of the two"):
+        Observation("clock")
+    with pytest.raises(ValueError, match="one of the two"):
+        Observation("clock", sha256="0" * 64, hidden=True)
+    with pytest.raises(ValueError, match="shows a value"):
+        Observation("clock", hidden=True, value=12)
 
 
 def test_a_sighting_of_a_value_that_is_not_json_is_fingerprinted_by_its_repr() -> None:

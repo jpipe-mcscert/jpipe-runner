@@ -6,8 +6,10 @@ elements it ``supports``, the paths its step declares it ``observes``, and the
 
 - ``affected(document, changed)``: the evidence whose declared paths match a changed file,
   and every element above it. The report of a dry run (ADR-0024) is enough.
-- ``stale(document, root)``: the files a run observed that have changed since, compared
-  with the files under ``root`` now, by their SHA-256.
+- ``stale(document, root)``: what a run observed that has changed since, compared with
+  the files under ``root`` and the environment now, by SHA-256;
+- ``unverified(document)``: what a run observed that the report cannot confirm, because
+  it is hidden, or because only the step library can observe it again.
 
 Both are only as good as the declarations: a file a step reads without declaring it is
 invisible to them.
@@ -26,7 +28,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION
-from jpipe_runner.observables import digest, files, is_glob, matches, readable
+from jpipe_runner.observables import digest, files, fingerprint, is_glob, matches, readable
 
 Document = Mapping[str, Any]
 
@@ -72,7 +74,8 @@ class Impact:
 
 
 class ChangeKind(StrEnum):
-    """How an observed file differs from what a run recorded."""
+    """How what was observed, a file or an environment variable, differs from what a run
+    recorded."""
 
     CHANGED = "changed"
     """Its content differs: its SHA-256 is not the one recorded."""
@@ -86,13 +89,35 @@ class ChangeKind(StrEnum):
 
 @dataclass(frozen=True)
 class Change:
-    """One observed file that differs from what a run recorded."""
+    """One thing observed that differs from what a run recorded."""
 
     element: str
     """The id of the evidence that observes it."""
     path: str
-    """The file, relative to the root, as the report shows it."""
+    """The file, relative to the root, as the report shows it; or what was declared, such
+    as ``env:CI``."""
     kind: ChangeKind
+
+
+class Unchecked(StrEnum):
+    """Why something a run observed cannot be compared with what it is now."""
+
+    HIDDEN = "hidden"
+    """The report holds neither its value nor its SHA-256."""
+    UNREADABLE = "library"
+    """It is neither a file nor an environment variable: only the step library that
+    observed it can observe it again."""
+
+
+@dataclass(frozen=True)
+class Unverified:
+    """One thing a run observed that a report alone cannot confirm: it takes a new run."""
+
+    element: str
+    """The id of the evidence that observes it."""
+    declared: str
+    """What was declared, as the report shows it."""
+    why: Unchecked
 
 
 def read(path: str | PathLike[str]) -> dict[str, Any]:
@@ -158,10 +183,53 @@ def above(document: Document, ids: Iterable[str]) -> tuple[str, ...]:
     return tuple(element["id"] for element in document["elements"] if element["id"] in reached)
 
 
-def stale(document: Document, root: Path = Path()) -> tuple[Change, ...]:
-    """The files the run of ``document`` observed that differ now, under ``root``, from
-    what it recorded, in report order."""
-    return tuple(change for element in document["elements"] for change in _changes(element, root))
+def stale(
+    document: Document, root: Path = Path(), environment: Mapping[str, str] | None = None
+) -> tuple[Change, ...]:
+    """What the run of ``document`` observed that differs now from what it recorded, in
+    report order: the files under ``root``, and the variables of ``environment``, by
+    default the process's."""
+    variables = os.environ if environment is None else environment
+    return tuple(
+        change
+        for element in document["elements"]
+        for change in (*_changes(element, root), *_variables(element, variables))
+    )
+
+
+def unverified(document: Document) -> tuple[Unverified, ...]:
+    """What the run of ``document`` observed that cannot be compared with what it is now:
+    what the report hides, and what only a step library can observe again. While there is
+    any, the report cannot be said to hold."""
+    return tuple(
+        Unverified(element["id"], observation["declared"], why)
+        for element in document["elements"]
+        for observation in element.get("observations", ())
+        if (why := _unchecked(observation)) is not None
+    )
+
+
+def _unchecked(observation: Mapping[str, Any]) -> Unchecked | None:
+    if observation["hidden"]:
+        return Unchecked.HIDDEN
+    return None if observation["variable"] is not None else Unchecked.UNREADABLE
+
+
+def _variables(element: Mapping[str, Any], environment: Mapping[str, str]) -> Iterator[Change]:
+    """Each environment variable of ``element`` whose value differs from the one recorded."""
+    for observation in element.get("observations", ()):
+        name = observation["variable"]
+        if name is None or observation["hidden"]:
+            continue
+        value = environment.get(name)
+        if not observation["reachable"]:
+            kind = None if value is None else ChangeKind.APPEARED
+        elif value is None:
+            kind = ChangeKind.VANISHED
+        else:
+            kind = None if fingerprint(value) == observation["sha256"] else ChangeKind.CHANGED
+        if kind is not None:
+            yield Change(element["id"], observation["declared"], kind)
 
 
 def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
@@ -263,41 +331,52 @@ def render_impact(document: Document, impact: Impact) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_stale(document: Document, changes: Sequence[Change]) -> str:
-    """``changes`` as text, for people: each file that changed, then the elements above
-    the evidence that observes it."""
+def render_stale(
+    document: Document, changes: Sequence[Change], unchecked: Sequence[Unverified] = ()
+) -> str:
+    """``changes`` and ``unchecked`` as text, for people: what changed, and the elements
+    above the evidence that observes it; then what could not be checked, and the elements
+    that only a new run confirms."""
     lines = list(_header(document))
-    if not changes:
-        lines.append("Every file the run observed is as it was: its report still holds.")
-        lines.extend(_not_checked(document))
+    if not changes and not unchecked:
+        lines.append("Everything the run observed is as it was: its report still holds.")
         return "\n".join(lines) + "\n"
-    kinds = max(len(change.kind) for change in changes)
-    paths = max(len(change.path) for change in changes)
-    lines.append("Changed since the run:")
-    for change in changes:
-        lines.append(f"  {change.kind:<{kinds}}  {change.path:<{paths}}  {change.element}")
-    lines.append("")
-    stale_ids = above(document, (change.element for change in changes))
-    lines.append(f"Stale ({len(stale_ids)} elements):")
-    lines.extend(_elements(document, stale_ids))
-    lines.extend(_not_checked(document))
+    if changes:
+        kinds = max(len(change.kind) for change in changes)
+        paths = max(len(change.path) for change in changes)
+        lines.append("Changed since the run:")
+        for change in changes:
+            lines.append(f"  {change.kind:<{kinds}}  {change.path:<{paths}}  {change.element}")
+        lines.append("")
+        stale_ids = above(document, (change.element for change in changes))
+        lines.append(f"Stale ({len(stale_ids)} elements):")
+        lines.extend(_elements(document, stale_ids))
+    if unchecked:
+        if changes:
+            lines.append("")
+        lines.extend(_rerun(document, unchecked))
     return "\n".join(lines) + "\n"
 
 
-def _not_checked(document: Document) -> Iterator[str]:
-    """What the run observed that is not a file, such as an environment variable: only
-    the code that observed it can observe it again, and no step library is imported here."""
-    others = [
-        (observation["declared"], element["id"])
-        for element in document["elements"]
-        for observation in element.get("observations", ())
-    ]
-    if others:
-        width = max(len(declared) for declared, _ in others)
-        yield ""
-        yield "Not checked, as they are not files:"
-        for declared, element in others:
-            yield f"  {declared:<{width}}  {element}"
+_RERUN = {
+    Unchecked.HIDDEN: "Information was hidden from the report, so it needs a new run:",
+    Unchecked.UNREADABLE: "Only its step library can observe it again, so it needs a new run:",
+}
+
+
+def _rerun(document: Document, unchecked: Sequence[Unverified]) -> Iterator[str]:
+    """What could not be checked, by reason, then the elements a new run must judge."""
+    width = max(len(item.declared) for item in unchecked)
+    for why, title in _RERUN.items():
+        items = [item for item in unchecked if item.why is why]
+        if items:
+            yield title
+            for item in items:
+                yield f"  {item.declared:<{width}}  {item.element}"
+            yield ""
+    ids = above(document, (item.element for item in unchecked))
+    yield f"Not confirmed ({len(ids)} elements):"
+    yield from _elements(document, ids)
 
 
 def _printable(path: str) -> str:

@@ -100,7 +100,9 @@
       "observations": [
         {
           "declared": "env:PATH",
+          "variable": "PATH",
           "reachable": true,
+          "hidden": true,
           "sha256": null,
           "value": null
         }

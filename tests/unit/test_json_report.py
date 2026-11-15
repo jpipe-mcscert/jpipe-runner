@@ -94,8 +94,9 @@ def test_the_schema_refuses_an_undocumented_field() -> None:
 
 def test_what_was_observed_that_is_no_file_is_an_observation_shown_or_not() -> None:
     seen = (
-        Observation("env:STAGE", sha256="0" * 64, value="prod"),
-        Observation("env:TOKEN"),
+        Observation("env:STAGE", sha256="0" * 64, value="prod", variable="STAGE"),
+        Observation("env:TOKEN", variable="TOKEN", hidden=True),
+        Observation("host:example.org", sha256="1" * 64, value="192.0.2.1"),
         Observation("env:CI", obstacle=Obstacle("the environment variable 'CI'", "is not set")),
     )
     element = ElementReport("e", "e", EVIDENCE, sources=("env:STAGE",), artifacts=seen)
@@ -108,12 +109,36 @@ def test_what_was_observed_that_is_no_file_is_an_observation_shown_or_not() -> N
     assert written["observations"] == [
         {
             "declared": "env:STAGE",
+            "variable": "STAGE",
             "reachable": True,
+            "hidden": False,
             "sha256": "0" * 64,
             "value": {"value": "prod"},
         },
-        {"declared": "env:TOKEN", "reachable": True, "sha256": None, "value": None},
-        {"declared": "env:CI", "reachable": False, "sha256": None, "value": None},
+        {
+            "declared": "env:TOKEN",
+            "variable": "TOKEN",
+            "reachable": True,
+            "hidden": True,
+            "sha256": None,
+            "value": None,
+        },
+        {
+            "declared": "host:example.org",
+            "variable": None,
+            "reachable": True,
+            "hidden": False,
+            "sha256": "1" * 64,
+            "value": {"value": "192.0.2.1"},
+        },
+        {
+            "declared": "env:CI",
+            "variable": None,
+            "reachable": False,
+            "hidden": False,
+            "sha256": None,
+            "value": None,
+        },
     ]
 
 

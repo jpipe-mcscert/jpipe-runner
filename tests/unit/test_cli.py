@@ -722,6 +722,21 @@ def test_status_of_unchanged_files_is_0(recorded: Path, capsys: pytest.CaptureFi
     assert out.endswith("its report still holds.\n")
 
 
+def test_status_of_a_report_that_hides_what_was_observed_asks_for_a_new_run_and_is_1(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario("observables")  # it observes PATH, which its report does not show
+    library = ["--library", "checks/steps.py", "justification.json"]
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.OK
+
+    code, out, _ = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.FAILED
+    assert "Information was hidden from the report, so it needs a new run:\n" in out
+    assert "  env:PATH  environment\n" in out
+    assert "still holds" not in out
+
+
 def test_status_of_a_changed_file_lists_what_is_stale_and_is_1(
     recorded: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
