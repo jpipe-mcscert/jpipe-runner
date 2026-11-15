@@ -534,9 +534,16 @@ def _status(options: argparse.Namespace) -> int:
         )
         return ExitCode.INVALID
     changes = impact.stale(document)
-    reached = [a for e in document["elements"] for a in e["artifacts"] if a["reachable"]]
-    vanished = [change for change in changes if change.kind is impact.ChangeKind.VANISHED]
-    if reached and len(vanished) == len(reached):
+    reached = {
+        (e["id"], a["path"]) for e in document["elements"] for a in e["artifacts"] if a["reachable"]
+    }
+    vanished = {
+        (change.element, change.path)
+        for change in changes
+        if change.kind is impact.ChangeKind.VANISHED
+    }
+    # Files only: an environment variable that is no longer set is no sign of a wrong root.
+    if reached and reached <= vanished:
         _LOG.warning(
             "every file the run observed is missing: run status from the directory the run "
             "ran in, where the report's paths start"

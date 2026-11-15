@@ -9,7 +9,15 @@ import pytest
 
 from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, observe
 from jpipe_runner.diagnostics import Severity
-from jpipe_runner.observables import Context, Env, File, Observable, Observation, Sighting
+from jpipe_runner.observables import (
+    Context,
+    Env,
+    File,
+    JsonValue,
+    Observable,
+    Observation,
+    Sighting,
+)
 from jpipe_runner.steps import Artifact
 
 ELEMENT = "m:e"
@@ -228,6 +236,32 @@ def test_an_observable_that_raises_is_recorded_under_what_it_describes_itself_as
     observed = observe([Artifact("a", Raises())], Context(tmp_path, tmp_path), ELEMENT)
 
     assert [seen.declared for seen in observed.observations] == ["raises"]
+
+
+class Exits(Raises):
+    def observe(self, context: Context) -> Sighting:
+        raise SystemExit(0)
+
+
+def test_an_observable_that_exits_is_unreachable_and_the_run_goes_on(tmp_path: Path) -> None:
+    """sys.exit() in a library's observable must not end the run without a verdict."""
+    observed = observe([Artifact("a", Exits())], Context(tmp_path, tmp_path), ELEMENT)
+
+    assert [d.message for d in observed.diagnostics] == [
+        "a Exits, observed as 'a', could not be observed: it raised SystemExit: 0"
+    ]
+
+
+def test_what_the_step_does_to_a_value_does_not_change_what_was_recorded(
+    tmp_path: Path,
+) -> None:
+    _write(tmp_path, "package.json", b'{"authors": ["ada"]}')
+    artifact = Artifact("authors", JsonValue("package.json", "/authors"))
+
+    observed = observe([artifact], Context(tmp_path, tmp_path), ELEMENT)
+    observed.arguments["authors"].append("mallory")
+
+    assert [seen.value for seen in observed.observations] == [["ada"]]
 
 
 class Nameless(Raises):

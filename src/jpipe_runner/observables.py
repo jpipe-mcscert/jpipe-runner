@@ -22,6 +22,7 @@ matches under a root, and ``matches`` says whether it would match a path, withou
 system. A property test holds them to the same answer.
 """
 
+import copy
 import hashlib
 import json
 import os
@@ -273,13 +274,22 @@ class Observable(ABC):
         return ()
 
 
+def snapshot(value: Any) -> Any:
+    """A deep copy of ``value``, or ``value`` itself if it cannot be copied (a lock, an open
+    file): what the report records stays as it was, whatever a step then does to it."""
+    try:
+        return copy.deepcopy(value)
+    except Exception:  # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does
+        return value
+
+
 def described(observable: Observable, context: Context) -> str:
     """How the report names ``observable``. One of a step library may raise: it is then
     named after its class, and observing it fails with the error it raises."""
     try:
         return observable.describe(context)
-    # Whatever a library's observable raises.
-    except Exception:  # NOSONAR
+    # Whatever a library's observable raises, even SystemExit.
+    except (Exception, SystemExit):  # NOSONAR
         return type(observable).__name__
 
 
@@ -287,8 +297,8 @@ def dependencies(observable: Observable, context: Context) -> tuple[str, ...]:
     """What ``observable`` depends on, or nothing if it raises: one of a step library may."""
     try:
         return tuple(observable.depends_on(context))
-    # Whatever a library's observable raises.
-    except Exception:  # NOSONAR
+    # Whatever a library's observable raises, even SystemExit.
+    except (Exception, SystemExit):  # NOSONAR
         return ()
 
 

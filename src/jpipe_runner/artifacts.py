@@ -11,12 +11,12 @@ and the step is not called: an observed artifact is never optional.
 """
 
 from collections.abc import Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Any
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
-from jpipe_runner.observables import Context, Observation, Sighting, described
+from jpipe_runner.observables import HIDDEN, Context, Observation, Sighting, described, snapshot
 from jpipe_runner.steps import Artifact
 
 UNREACHABLE_ARTIFACT = "JP019"
@@ -48,9 +48,17 @@ def observe(artifacts: Iterable[Artifact], context: Context, element: str) -> Ob
     for artifact in artifacts:
         sighting = _sighted(artifact, context)
         arguments[artifact.name] = sighting.value
-        observations.extend(sighting.observations)
+        observations.extend(map(_recorded, sighting.observations))
         diagnostics.extend(_unreachable(artifact, sighting, element))
     return Observed(tuple(observations), MappingProxyType(arguments), tuple(diagnostics))
+
+
+def _recorded(observation: Observation) -> Observation:
+    """``observation`` with a copy of its value: the step receives the value itself, and
+    what it does to it must not change what the report records."""
+    if observation.value is HIDDEN:
+        return observation
+    return replace(observation, value=snapshot(observation.value))
 
 
 def _sighted(artifact: Artifact, context: Context) -> Sighting:
@@ -60,8 +68,8 @@ def _sighted(artifact: Artifact, context: Context) -> Sighting:
     declared = described(artifact.observable, context)
     try:
         sighting = artifact.observable.observe(context)
-    # Whatever a library's observable raises.
-    except Exception as error:  # NOSONAR
+    # Whatever a library's observable raises, even SystemExit, as a step's call does.
+    except (Exception, SystemExit) as error:  # NOSONAR
         problem = f"could not be observed: it raised {type(error).__name__}: {error}"
         return Sighting.unreachable(declared, f"a {what}", problem, _BROKEN_FIX)
     if not isinstance(sighting, Sighting):
