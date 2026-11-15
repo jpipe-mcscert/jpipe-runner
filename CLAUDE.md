@@ -57,8 +57,8 @@ Key design choices:
 - **The JSON report is the machine-readable contract** (ADR-0011), versioned and checked
   against `src/jpipe_runner/schema/report.schema.json`; the text report is for people.
 - **The compiler co-owns the authoring API**: it generates step libraries
-  (`PythonExporter.java` in `jpipe-compiler`), still for v3 as of jPipe 2.5.0 (#140).
-  `jpipe_runner.framework` exists only to raise an `ImportError` that tells v3 users what
+  (`PythonExporter.java` in `jpipe-compiler`), for v4 since jPipe 3.0.0 (#140); up to
+  2.5.0 it wrote the v3 API. `jpipe_runner.framework` exists only to raise an `ImportError` that tells v3 users what
   replaced it.
 
 ## Critical Files
