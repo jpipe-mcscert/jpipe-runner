@@ -11,7 +11,7 @@ and the step is not called: an observed artifact is never optional.
 """
 
 from collections.abc import Iterable, Iterator, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
@@ -58,8 +58,16 @@ def _recorded(observation: Observation) -> Observation:
     what it does to it must not change what the report records."""
     if observation.value is HIDDEN:
         return observation
-    recorded: Observation = replace(observation, value=snapshot(observation.value))
-    return recorded
+    return Observation(
+        observation.declared,
+        observation.path,
+        observation.sha256,
+        observation.size,
+        obstacle=observation.obstacle,
+        value=snapshot(observation.value),
+        variable=observation.variable,
+        hidden=observation.hidden,
+    )
 
 
 def _sighted(artifact: Artifact, context: Context) -> Sighting:
