@@ -415,6 +415,19 @@ def test_an_unreadable_file_a_glob_matched_appears_even_if_its_name_holds_a_wild
     assert stale(document, root) == (Change("e2", "docs/a[1].md", ChangeKind.APPEARED),)
 
 
+def test_a_glob_of_escaped_wildcards_that_matched_nothing_finds_its_file_added(
+    root: Path,
+) -> None:
+    """``File("[[]notes].md")`` designates ``[notes].md`` only, and is a glob all the same."""
+    recorded = _artifact("[[]notes].md", None) | {"declared": "[[]notes].md"}
+    document = _recorded(_element("e1", observes=["[[]notes].md"], artifacts=[recorded]))
+    assert stale(document, root) == ()
+
+    (root / "[notes].md").write_text("N", encoding="utf-8")
+
+    assert stale(document, root) == (Change("e1", "[notes].md", ChangeKind.ADDED),)
+
+
 def test_a_glob_recorded_as_matching_nothing_never_appears(root: Path) -> None:
     recorded = _artifact("docs/*.md", None) | {"declared": "docs/*.md"}
     document = _recorded(_element("e2", observes=["docs/*.md"], artifacts=[recorded]))

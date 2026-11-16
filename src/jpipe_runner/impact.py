@@ -256,8 +256,9 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
         if (kind := _compared(artifact, root)) is not None
     ]
     for pattern in element["observes"]:
-        # A path whose only wildcards are escaped, as in app/[[]slug]/a.md, is one file.
-        if designates_one(pattern) or not element["artifacts"]:
+        # A path whose only wildcards are escaped, as in app/[[]slug]/a.md, is one file,
+        # compared above, unless it was recorded under its pattern, having matched nothing.
+        if not element["artifacts"] or (designates_one(pattern) and pattern not in recorded):
             continue
         if None not in declared and pattern not in declared:
             continue
