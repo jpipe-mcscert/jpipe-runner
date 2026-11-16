@@ -143,28 +143,65 @@ def test_what_was_observed_that_is_no_file_is_an_observation_shown_or_not() -> N
 
 
 _SHA256 = "0" * 64
+_READ = {"sha256": _SHA256, "size": 1}
 
 
 @pytest.mark.parametrize(
-    ("reachable", "sha256", "size", "valid"),
+    ("artifact", "valid"),
     [
-        pytest.param(True, _SHA256, 1, True, id="reached"),
-        pytest.param(False, None, None, True, id="not read"),
-        pytest.param(False, _SHA256, 1, True, id="read, what it designates not found"),
-        pytest.param(True, None, None, False, id="reached without its digest"),
-        pytest.param(True, _SHA256, None, False, id="reached without its size"),
-        pytest.param(False, _SHA256, None, False, id="a digest without a size"),
-        pytest.param(False, None, 1, False, id="a size without a digest"),
+        pytest.param({"reachable": True, "sha256": _SHA256, "size": 1}, True, id="reached"),
+        pytest.param({"reachable": False, "sha256": None, "size": None}, True, id="not read"),
+        pytest.param(
+            {"reachable": False, "sha256": None, "size": None, "read": _READ},
+            True,
+            id="read, what was observed in it not found",
+        ),
+        pytest.param(
+            {"reachable": True, "sha256": None, "size": None}, False, id="reached, no digest"
+        ),
+        pytest.param(
+            {"reachable": False, "sha256": _SHA256, "size": 1}, False, id="unreachable, a digest"
+        ),
+        pytest.param(
+            {"reachable": True, "sha256": _SHA256, "size": 1, "read": _READ},
+            False,
+            id="reached, and read as if not",
+        ),
+        pytest.param(
+            {"reachable": False, "sha256": None, "size": None, "read": {"sha256": _SHA256}},
+            False,
+            id="read without its size",
+        ),
     ],
 )
-def test_the_schema_requires_the_digest_and_size_of_a_file_read_both_or_neither(
-    reachable: bool, sha256: str | None, size: int | None, valid: bool
+def test_the_schema_has_a_digest_where_a_file_was_read(
+    artifact: dict[str, Any], valid: bool
 ) -> None:
+    """``sha256`` is null exactly when the artifact is unreachable, as in 1.0; a file read
+    all the same has its digest in ``read`` (#166)."""
     report = document(RunReport("m", Verdict.PASS))
-    artifact = {"path": "a.txt", "reachable": reachable, "sha256": sha256, "size": size}
-    report["elements"] = [_minimal_element() | {"artifacts": [artifact]}]
+    report["elements"] = [_minimal_element() | {"artifacts": [{"path": "a.txt"} | artifact]}]
 
     assert VALIDATOR.is_valid(report) is valid
+
+
+def test_a_file_read_without_what_was_observed_in_it_is_written_with_what_was_read() -> None:
+    missing = Obstacle("package.json#/versoin", "designates no value in its file")
+    seen = (Observation("package.json#/versoin", "package.json", _SHA256, 18, obstacle=missing),)
+    element = ElementReport("e", "e", EVIDENCE, artifacts=seen)
+    report = document(RunReport("m", Verdict.FAIL, (element,)))
+
+    VALIDATOR.validate(report)
+    assert report["elements"][0]["artifacts"] == [
+        {
+            "path": "package.json",
+            "declared": "package.json#/versoin",
+            "reachable": False,
+            "sha256": None,
+            "size": None,
+            "read": {"sha256": _SHA256, "size": 18},
+        }
+    ]
 
 
 def _minimal_element() -> dict[str, Any]:

@@ -250,7 +250,11 @@ def test_a_file_the_run_could_not_read_has_not_appeared_while_it_still_cannot_be
 def _read_not_found(path: str, content: str) -> dict[str, Any]:
     """A file the run read without finding what it observed in it, such as a value a JSON
     Pointer designates."""
-    return _artifact(path, content) | {"declared": f"{path}#/version", "reachable": False}
+    read = _artifact(path, content)
+    return _artifact(path, None) | {
+        "declared": f"{path}#/version",
+        "read": {"sha256": read["sha256"], "size": read["size"]},
+    }
 
 
 @pytest.mark.parametrize(

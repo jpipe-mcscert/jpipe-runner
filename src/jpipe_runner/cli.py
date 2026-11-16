@@ -538,7 +538,7 @@ def _status(options: argparse.Namespace) -> int:
         (e["id"], a["path"])
         for e in document["elements"]
         for a in e["artifacts"]
-        if a["sha256"] is not None  # the files the run read
+        if impact.sha256_read(a) is not None
     }
     vanished = {
         (change.element, change.path)

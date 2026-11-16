@@ -21,6 +21,7 @@ from jpipe_runner.observables import (
     Observation,
     Obstacle,
     Sighting,
+    designates_one,
     escape,
     files,
     matches,
@@ -167,6 +168,23 @@ def test_a_path_is_relative_to_the_declaring_file_and_shown_relative_to_the_root
 def test_a_path_escaped_is_read_back_as_it_was(path: str) -> None:
     assert unescape(escape(path)) == path
     assert matches(path, escape(path))
+
+
+@pytest.mark.parametrize(
+    ("pattern", "one"),
+    [
+        ("a.md", True),
+        ("app/[[]slug]/a.md", True),
+        ("app/[[]slug]/*.md", False),
+        ("a[*]b[?]", True),
+        ("[ab].md", False),
+        ("a[1].md", False),
+    ],
+)
+def test_a_glob_whose_wildcards_are_all_escaped_designates_one_path(
+    pattern: str, one: bool
+) -> None:
+    assert designates_one(pattern) is one
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="'*' and '?' cannot be in a Windows name")

@@ -24,6 +24,7 @@ system. A property test holds them to the same answer.
 """
 
 import copy
+import glob
 import hashlib
 import json
 import os
@@ -69,13 +70,19 @@ def is_glob(path: str) -> bool:
 
 def escape(path: str) -> str:
     """``path`` as a glob that designates it, and nothing else: each wildcard alone in a
-    character class, as ``glob.escape`` writes it."""
-    return "".join(f"[{c}]" if c in _WILDCARDS else c for c in path)
+    character class."""
+    return glob.escape(path)
 
 
 def unescape(shown: str) -> str:
     """The path that ``shown``, written by ``escape``, designates."""
     return _ESCAPED.sub(r"\1", shown)
+
+
+def designates_one(pattern: str) -> bool:
+    """Whether the glob ``pattern`` designates one path, whatever the files: it holds no
+    wildcard, or only escaped ones, as ``app/[[]slug]/notes.md`` does."""
+    return not is_glob(_ESCAPED.sub("", pattern))
 
 
 def matches(path: str, pattern: str) -> bool:
@@ -184,7 +191,8 @@ class Observation:
     on.
 
     A file has a ``path``, relative to the run's root, a SHA-256 and a size: those of its
-    content, when it was read, even if what was observed in it was not found. An environment
+    content, when it was read, even if what was observed in it was not found (the report
+    then writes them in ``read``). An environment
     variable has its name, ``variable``. With one or the other, ``jpipe-runner status`` can
     look again without the step library; with neither, or when it is hidden, only a new
     run can. A glob that matches nothing is recorded once, under its pattern.
