@@ -1,4 +1,8 @@
 # Dependency freshness (ADR-0026, after jpipe-vscode ADR-VSC-0013): weekly, grouped.
+#
+# Every entry sets `labels:`, which replaces Dependabot's defaults. Without it, a file with more
+# than one ecosystem also gets a per-ecosystem label (`python`, `github_actions`), which
+# Dependabot creates in the repository when it is missing, outside the type:/area: scheme.
 version: 2
 updates:
   # Python, through poetry.lock. lockfile-only: Dependabot moves what the lock file records
@@ -9,6 +13,7 @@ updates:
     schedule:
       interval: weekly
     versioning-strategy: lockfile-only
+    labels: ["dependencies"]
     groups:
       python:
         patterns: ["*"]
@@ -17,6 +22,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    labels: ["dependencies"]
     groups:
       actions:
         patterns: ["*"]
