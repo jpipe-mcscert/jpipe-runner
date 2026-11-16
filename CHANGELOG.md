@@ -17,7 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directory**: `observes={"changelog": "CHANGELOG.md"}` in `justifications/steps.py`
   becomes `"../CHANGELOG.md"`. Until then its evidence fails with `JP019`, which names
   where the file was looked for. The report still shows every file relative to the
-  directory the command runs in, so `impact` and `status` work as before.
+  directory the command runs in, so `impact` and `status` work as before. A declared
+  path is shown as a glob there: a wildcard in the name of the library's directory is
+  escaped, so a library in `app/[slug]/` that observes `"*.md"` is shown as
+  `app/[[]slug]/*.md`, and observes the files in that directory only.
 
 ### Added
 - **An evidence observes more than files.** Beside a path, `observes` takes
@@ -33,8 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   element has `sources`, everything its step declares it observes, and `observations`,
   what it observed that is not a file. Each of its `artifacts` has `declared`, the source
   that designates the file, so a reader no longer matches files to globs itself, and the
-  `value` observed in it, if one was. Every field is added: `observes` still lists paths
-  and globs, and `jpipe-runner status` still reads the `1.0` reports of 4.0.0
+  `value` observed in it, if one was. A file that was read and is unreachable all the
+  same, such as one where a `JsonValue`'s pointer designates nothing, has `read`, its
+  SHA-256 and size, so that `status` sees whether it changed. Every field is added:
+  `observes` still lists paths and globs, and `jpipe-runner status` still reads the `1.0`
+  reports of 4.0.0
   ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
 - **`jpipe-runner status` compares environment variables too**, and answers for
   everything a run observed or not at all. A report that hides a value (an `Env` without

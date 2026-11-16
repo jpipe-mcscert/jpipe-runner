@@ -26,7 +26,7 @@ is a new major version.
 | Version | Runner | Added |
 |---|---|---|
 | 1.0 | 4.0.0 | |
-| 1.1 | 4.1.0 | an element's `sources` and `observations`; `declared` and `value`, on each of its [artifacts](#artifacts) |
+| 1.1 | 4.1.0 | an element's `sources` and `observations`; `declared`, `value` and `read`, on each of its [artifacts](#artifacts) |
 
 The schema is strict: it lists every field the runner writes, so the runner cannot add one
 without documenting it.
@@ -86,8 +86,8 @@ when the diagram was drawn under it.
 | `ran` | boolean | whether its step was called |
 | `bound_to` | string or null | its step, `module.function`; null if it has none |
 | `bound_by` | array of strings | the step's ids that designate this element, as the step names them |
-| `observes` | array of strings | the files, as paths and globs, that what its step observes depends on: a change to one reaches the element |
-| `sources` | array of strings | everything its step declares it observes: a path or a glob, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
+| `observes` | array of strings | the files, as globs, that what its step observes depends on: a change to one reaches the element. A wildcard in the name of a directory the runner put in front of a declared path is escaped: `app/[[]slug]/*.md` |
+| `sources` | array of strings | everything its step declares it observes: a path or a glob, escaped as in `observes`, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
 | `consumes`, `produces` | arrays of strings | the variables its step declares |
 | `produced` | object | the values its step produced, by variable; see [Produced values](#produced-values) |
 | `artifacts` | array | the files its step observed; see [Artifacts](#artifacts) |
@@ -125,12 +125,14 @@ Each file an evidence observed, recorded just before its step was called
 | `path` | string | the file; for a glob, one entry per file it matched |
 | `declared` | string | the one of the element's `sources` that designates the file; absent before 1.1 |
 | `value` | [value](#produced-values) | the value observed in the file, when what was observed is a value in it (`JsonValue`); absent otherwise |
-| `reachable` | boolean | whether the file could be read |
+| `reachable` | boolean | whether the file could be read, and the `value` in it found |
 | `sha256` | string or null | the SHA-256 of its content, as `sha256sum` prints it; null if unreachable |
 | `size` | integer or null | its size in bytes; null if unreachable |
+| `read` | object | `sha256` and `size`, as above, of a file that was read and is unreachable all the same, because what was observed in it was not found, such as a JSON Pointer that designates nothing; absent otherwise |
 
 An unreachable artifact is listed, and the report's diagnostics include its `JP019`, about
-that element. A glob that matched nothing is listed once, under its pattern: its `path` is its
+that element. `jpipe-runner status` compares a file that has a `read` as it compares a
+reachable one, by its SHA-256. A glob that matched nothing is listed once, under its pattern: its `path` is its
 `declared`. A file that several of the `sources` designate is listed once under each. An element whose step was not
 called observed nothing, and its `artifacts` is empty; what its step would have observed
 is in `observes`.

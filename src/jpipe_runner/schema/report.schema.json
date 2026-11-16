@@ -105,11 +105,11 @@
           "$ref": "#/$defs/names"
         },
         "observes": {
-          "description": "The files, as paths and globs relative to where the runner runs, that what its step observes depends on: a change to one of them reaches the element.",
+          "description": "The files, as globs relative to where the runner runs, that what its step observes depends on: a change to one of them reaches the element. A wildcard in the name of a directory the runner put in front of a path is escaped, as in checks[[]v2]/*.md.",
           "$ref": "#/$defs/names"
         },
         "sources": {
-          "description": "Everything its step declares it observes, as each describes itself: a path or a glob relative to where the runner runs, a file and a JSON Pointer (package.json#/version), an environment variable (env:CI), or what an observable of the step library answers. Since 1.1.",
+          "description": "Everything its step declares it observes, as each describes itself: a path or a glob relative to where the runner runs, a file and a JSON Pointer (package.json#/version), an environment variable (env:CI), or what an observable of the step library answers. A path is escaped as in observes. Since 1.1.",
           "$ref": "#/$defs/names"
         },
         "consumes": {
@@ -177,12 +177,28 @@
           "description": "The value observed in the file, when what was observed is a value in it. Since 1.1.",
           "$ref": "#/$defs/value"
         },
-        "reachable": {"type": "boolean"},
+        "reachable": {
+          "description": "Whether what was observed could be reached: the file read and, for a value in it, the value found.",
+          "type": "boolean"
+        },
         "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
-        "size": {"type": ["integer", "null"], "minimum": 0}
+        "size": {"type": ["integer", "null"], "minimum": 0},
+        "read": {
+          "description": "The file as the run read it, when it is unreachable all the same: what was observed in it was not found, such as the value a JSON Pointer designates. Since 1.1.",
+          "type": "object",
+          "required": ["sha256", "size"],
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "size": {"type": "integer", "minimum": 0}
+          }
+        }
       },
       "if": {"properties": {"reachable": {"const": true}}},
-      "then": {"properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}}},
+      "then": {
+        "properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}},
+        "not": {"required": ["read"]}
+      },
       "else": {"properties": {"sha256": {"type": "null"}, "size": {"type": "null"}}}
     },
     "observation": {

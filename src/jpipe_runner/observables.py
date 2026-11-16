@@ -15,7 +15,8 @@ environment variable. A step library defines its own by deriving ``Observable``.
 A path is written relative to the directory of the file that declares the step, so that a
 library observes the same files wherever the runner is started. An ``Observable`` receives
 a ``Context``, which turns such a path into one relative to the run's root, as the report
-shows it.
+shows it. What the report shows is a glob: a wildcard in the name of a directory the
+runner puts in front of the path is escaped, so that it designates that directory only.
 
 What a glob designates is defined here, and nowhere else: ``files`` lists the files it
 matches under a root, and ``matches`` says whether it would match a path, without the file
@@ -23,6 +24,7 @@ system. A property test holds them to the same answer.
 """
 
 import copy
+import glob
 import hashlib
 import json
 import os
@@ -41,6 +43,8 @@ _INDEX = re.compile(r"0|[1-9]\d*", re.ASCII)
 _EVIDENCE = "@evidence(observes=...)"
 _RECURSIVE = "**"
 _WILDCARDS = frozenset("*?[")
+_ESCAPED = re.compile(r"\[([*?\[])\]")
+"""A wildcard escaped, as ``escape`` writes it: alone in a character class."""
 
 _MISSING_FIX = (
     "Make sure it exists when the runner runs. A path in observes={...} is relative to "
@@ -62,6 +66,23 @@ HIDDEN: Final = _Hidden()
 def is_glob(path: str) -> bool:
     """Whether ``path`` is a glob pattern, which may match several files, rather than a path."""
     return not _WILDCARDS.isdisjoint(path)
+
+
+def escape(path: str) -> str:
+    """``path`` as a glob that designates it, and nothing else: each wildcard alone in a
+    character class."""
+    return glob.escape(path)
+
+
+def unescape(shown: str) -> str:
+    """The path that ``shown``, written by ``escape``, designates."""
+    return _ESCAPED.sub(r"\1", shown)
+
+
+def designates_one(pattern: str) -> bool:
+    """Whether the glob ``pattern`` designates one path, whatever the files: it holds no
+    wildcard, or only escaped ones, as ``app/[[]slug]/notes.md`` does."""
+    return not is_glob(_ESCAPED.sub("", pattern))
 
 
 def matches(path: str, pattern: str) -> bool:
@@ -130,7 +151,11 @@ class Context:
     def shown(self, path: str) -> str:
         """``path``, a path or a glob relative to ``directory``, as the report shows it:
         relative to ``root``, with ``/`` as separator. Links are followed to find where
-        the two directories are, never in ``path`` itself."""
+        the two directories are, never in ``path`` itself.
+
+        It is a glob, which ``impact`` and ``status`` match: a wildcard in the directories
+        put in front of ``path`` is escaped, so that a library in ``checks[v2]/`` that
+        observes ``*.md`` is shown ``checks[[]v2]/*.md``. Without one, nothing is."""
         parts = path.split("/")
         first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
         literal = os.path.normpath(os.path.join(os.path.realpath(self.directory), *parts[:first]))
@@ -138,11 +163,12 @@ class Context:
             relative = PurePath(os.path.relpath(literal, os.path.realpath(self.root))).as_posix()
         except ValueError:  # on Windows, another drive: there is no relative path
             relative = PurePath(literal).as_posix()
-        return "/".join(([] if relative == "." else [relative]) + parts[first:])
+        return "/".join(([] if relative == "." else [escape(relative)]) + parts[first:])
 
     def file(self, shown: str) -> Path:
-        """The file at ``shown``, a path relative to ``root``."""
-        return self.root / shown
+        """The file at ``shown``, a path as ``shown`` writes it: the wildcards it escaped
+        are read as the characters they are."""
+        return self.root / unescape(shown)
 
 
 @dataclass(frozen=True)
@@ -164,7 +190,9 @@ class Observation:
     There is no fourth case, so that a report never passes over something a verdict rests
     on.
 
-    A file has a ``path``, relative to the run's root, a SHA-256 and a size. An environment
+    A file has a ``path``, relative to the run's root, a SHA-256 and a size: those of its
+    content, when it was read, even if what was observed in it was not found (the report
+    then writes them in ``read``). An environment
     variable has its name, ``variable``. With one or the other, ``jpipe-runner status`` can
     look again without the step library; with neither, or when it is hidden, only a new
     run can. A glob that matches nothing is recorded once, under its pattern.
@@ -196,16 +224,16 @@ class Observation:
             self._check_file()
 
     def _check_file(self) -> None:
-        """A file is never hidden, and is recorded with its SHA-256 and size exactly when
-        it was reached, as the report's schema requires."""
+        """A file is never hidden, and is recorded with its SHA-256 and size, both or
+        neither, and both when it was reached, as the report's schema requires."""
         if self.hidden:
             raise ValueError(f"the observation of {self.declared!r} is a file, and is hidden")
         recorded = self.sha256 is not None and self.size is not None
         unrecorded = self.sha256 is None and self.size is None
-        if not (recorded if self.obstacle is None else unrecorded):
+        if not (recorded or (unrecorded and self.obstacle is not None)):
             raise ValueError(
                 f"the observation of the file {self.path!r} records its SHA-256 and size "
-                "when it was reached, and neither when it was not"
+                "when it was reached, both or neither when it was not"
             )
 
     @property
@@ -370,12 +398,14 @@ class JsonValue(Observable):
         seen, content = _read(declared, context.file(shown), context.root)
         if content is None:
             return Sighting(None, (seen,))
+        path, sha256, size = seen.path, seen.sha256, seen.size
         try:
             value = self._designated(json.loads(content))
         except (OSError, ValueError, LookupError) as error:
+            # The file was read: its SHA-256 tells status whether it changed since.
             problem = Obstacle(declared, _json_problem(error), "Correct the file, or the pointer.")
-            return Sighting(None, (Observation(declared, shown, obstacle=problem),))
-        return Sighting(value, (Observation(declared, shown, seen.sha256, seen.size, value=value),))
+            return Sighting(None, (Observation(declared, path, sha256, size, obstacle=problem),))
+        return Sighting(value, (Observation(declared, path, sha256, size, value=value),))
 
     def _designated(self, document: Any) -> Any:
         value = document

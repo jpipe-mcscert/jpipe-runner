@@ -815,6 +815,83 @@ def test_status_of_a_missing_report_is_4(release: Path, capsys: pytest.CaptureFi
     assert _main(capsys, "status", "missing.json")[0] == ExitCode.IO
 
 
+_SLUG_LIBRARY = """
+from pathlib import Path
+
+from jpipe_runner import JsonValue, Outcome, Pass, evidence, strategy
+
+
+@evidence(
+    "version",
+    observes={"version": JsonValue("package.json", "POINTER"), "notes": "*.md"},
+    produces=["announced"],
+)
+def announced(version: str, notes: list[Path]) -> Outcome:
+    return Pass(announced=bool(notes))
+
+
+@evidence("environment", observes={"notes": "notes.md"}, produces=["found"])
+def found(notes: Path) -> Outcome:
+    return Pass(found=notes.is_file())
+
+
+@strategy("gates", consumes=["announced", "found"])
+def gates(announced: bool, found: bool) -> Outcome:
+    return Pass()
+"""
+
+
+def _slug(scenario: Callable[[str], Path], pointer: str = "/version") -> list[str]:
+    """The observables example, with a library in app/[slug]/, a directory named as a
+    Next.js route is, beside the files it observes. The arguments that name it."""
+    root = scenario("observables")
+    library = root / "app" / "[slug]"
+    library.mkdir(parents=True)
+    (library / "steps.py").write_text(_SLUG_LIBRARY.replace("POINTER", pointer), encoding="utf-8")
+    (library / "package.json").write_text('{"version": "2.0"}', encoding="utf-8")
+    (library / "notes.md").write_text("2.0\n", encoding="utf-8")
+    return ["-l", "app/[[]slug]/steps.py", "justification.json"]
+
+
+def test_a_library_in_a_directory_named_with_a_wildcard_observes_its_own_files(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#167: the report escapes the directory's name, and impact and status match it."""
+    library = _slug(scenario)
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.OK
+    document = json.loads(Path("report.json").read_text(encoding="utf-8"))
+    (version,) = (element for element in document["elements"] if element["id"] == "version")
+
+    assert version["observes"] == ["app/[[]slug]/package.json", "app/[[]slug]/*.md"]
+    assert [a["path"] for a in version["artifacts"]] == [
+        "app/[slug]/package.json",
+        "app/[slug]/notes.md",
+    ]
+    code, out, _ = _main(capsys, "impact", "--changed", "app/[slug]/notes.md", *library)
+    assert (code, "  app/[slug]/notes.md  version, environment\n" in out) == (ExitCode.OK, True)
+    assert _main(capsys, "status", "report.json")[:2] == (
+        ExitCode.OK,
+        "Justification: observables\n\n"
+        "Everything the run observed is as it was: its report still holds.\n",
+    )
+
+
+def test_status_of_a_json_value_its_pointer_does_not_find_is_its_file_s_status(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#166: the run read the file, so it has not appeared since."""
+    library = _slug(scenario, "/versoin")
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.FAILED
+
+    assert _main(capsys, "status", "report.json")[0] == ExitCode.OK
+    Path("app/[slug]/package.json").write_text('{"versoin": "2.0"}', encoding="utf-8")
+    code, out, _ = _main(capsys, "status", "report.json")
+    assert (code, "  changed  app/[slug]/package.json  version\n" in out) == (
+        ExitCode.FAILED,
+        True,
+    )
+
+
 def test_a_justification_named_like_a_subcommand_is_run_when_not_first(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

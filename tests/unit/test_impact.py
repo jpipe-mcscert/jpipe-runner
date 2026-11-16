@@ -247,6 +247,58 @@ def test_a_file_the_run_could_not_read_has_not_appeared_while_it_still_cannot_be
     assert stale(document, root) == ()
 
 
+def _read_not_found(path: str, content: str) -> dict[str, Any]:
+    """A file the run read without finding what it observed in it, such as a value a JSON
+    Pointer designates."""
+    read = _artifact(path, content)
+    return _artifact(path, None) | {
+        "declared": f"{path}#/version",
+        "read": {"sha256": read["sha256"], "size": read["size"]},
+    }
+
+
+@pytest.mark.parametrize(
+    ("artifact", "kind"),
+    [
+        pytest.param(_read_not_found("build/tests.log", "ok"), None, id="as it was"),
+        pytest.param(_read_not_found("build/tests.log", "x"), ChangeKind.CHANGED, id="changed"),
+        pytest.param(_read_not_found("build/gone.log", "ok"), ChangeKind.VANISHED, id="vanished"),
+    ],
+)
+def test_a_file_read_without_finding_what_it_designates_is_compared_by_its_sha256(
+    artifact: dict[str, Any], kind: ChangeKind | None, root: Path
+) -> None:
+    """#166: it has not appeared, since the run read it."""
+    document = _recorded(_element("e1", observes=[artifact["path"]], artifacts=[artifact]))
+
+    expected = () if kind is None else (Change("e1", artifact["path"], kind),)
+    assert stale(document, root) == expected
+
+
+def test_a_file_under_a_directory_named_with_a_wildcard_is_matched_escaped(root: Path) -> None:
+    """#167: the report escapes the wildcards of the directory it puts in front of a path."""
+    (root / "checks[v2]").mkdir()
+    (root / "checks[v2]" / "a.md").write_text("A", encoding="utf-8")
+    (root / "checks[v2]" / "b.md").write_text("B", encoding="utf-8")
+    document = _recorded(
+        *(
+            _element(
+                element,
+                supports=["c"],
+                observes=[pattern],
+                artifacts=[_artifact("checks[v2]/a.md", "A") | {"declared": pattern}],
+            )
+            for element, pattern in [("e1", "checks[[]v2]/a.md"), ("e2", "checks[[]v2]/*.md")]
+        ),
+        _element("c", "conclusion"),
+    )
+
+    assert affected(document, ["checks[v2]/a.md"]).evidence == ("e1", "e2")
+    assert affected(document, ["checks[v2]/b.md"]).evidence == ("e2",)
+    assert affected(document, ["checksv/a.md"]).evidence == ()
+    assert stale(document, root) == (Change("e2", "checks[v2]/b.md", ChangeKind.ADDED),)
+
+
 def test_staleness_is_rendered_for_people() -> None:
     changes = [Change("e1", "build/tests.log", ChangeKind.CHANGED)]
 
@@ -361,6 +413,19 @@ def test_an_unreadable_file_a_glob_matched_appears_even_if_its_name_holds_a_wild
     document = _recorded(_element("e2", observes=["docs/*.md"], artifacts=[recorded, seen]))
 
     assert stale(document, root) == (Change("e2", "docs/a[1].md", ChangeKind.APPEARED),)
+
+
+def test_a_glob_of_escaped_wildcards_that_matched_nothing_finds_its_file_added(
+    root: Path,
+) -> None:
+    """``File("[[]notes].md")`` designates ``[notes].md`` only, and is a glob all the same."""
+    recorded = _artifact("[[]notes].md", None) | {"declared": "[[]notes].md"}
+    document = _recorded(_element("e1", observes=["[[]notes].md"], artifacts=[recorded]))
+    assert stale(document, root) == ()
+
+    (root / "[notes].md").write_text("N", encoding="utf-8")
+
+    assert stale(document, root) == (Change("e1", "[notes].md", ChangeKind.ADDED),)
 
 
 def test_a_glob_recorded_as_matching_nothing_never_appears(root: Path) -> None:

@@ -100,14 +100,19 @@ def _element(element: ElementReport, root: Path) -> dict[str, Any]:
 
 
 def _artifact(artifact: Observation, root: Path) -> dict[str, Any]:
-    """A file that was observed. It carries a value when what was observed is one in it."""
+    """A file that was observed. It carries a value when what was observed is one in it.
+    One that was read, without what was observed in it being found, is unreachable: its
+    SHA-256 and size are in ``read``, so that ``sha256`` is null exactly when it is."""
+    reached = artifact.reachable
     written: dict[str, Any] = {
         "path": artifact.path,
         "declared": artifact.declared,
-        "reachable": artifact.reachable,
-        "sha256": artifact.sha256,
-        "size": artifact.size,
+        "reachable": reached,
+        "sha256": artifact.sha256 if reached else None,
+        "size": artifact.size if reached else None,
     }
+    if not reached and artifact.sha256 is not None:
+        written["read"] = {"sha256": artifact.sha256, "size": artifact.size}
     if artifact.value is not HIDDEN:
         written["value"] = encoded(artifact.value, root)
     return written

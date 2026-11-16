@@ -81,8 +81,10 @@ def the_release_is_configured(changelog: Path, version: str, branch: str) -> Out
 - **The report does not change its paths.** `observes`, `artifacts[].path` and the
   messages show a file relative to the directory the runner runs in, the name a changed
   file has in `git diff`. `Context.shown` turns a declared path into that one, following
-  links to find the two directories and never in the path itself. `impact` and `status`
-  work as before, and `status` still runs where the run ran.
+  links to find the two directories and never in the path itself. It stays a glob: a
+  wildcard in the name of a directory it puts in front of the path is escaped
+  (`app/[[]slug]/*.md`), so that it designates the files declared (#167). `impact` and
+  `status` work as before, and `status` still runs where the run ran.
 - **What an evidence observes is an `Observable`**, an abstract class with three methods:
   `describe(context)`, how the report names it; `observe(context)`, what it is now;
   `depends_on(context)`, the files a change to which reaches it, none by default. A

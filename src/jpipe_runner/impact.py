@@ -28,7 +28,15 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION
-from jpipe_runner.observables import digest, files, fingerprint, is_glob, matches, readable
+from jpipe_runner.observables import (
+    designates_one,
+    digest,
+    files,
+    fingerprint,
+    is_glob,
+    matches,
+    readable,
+)
 
 Document = Mapping[str, Any]
 
@@ -248,7 +256,9 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
         if (kind := _compared(artifact, root)) is not None
     ]
     for pattern in element["observes"]:
-        if not is_glob(pattern) or not element["artifacts"]:
+        # A path whose only wildcards are escaped, as in app/[[]slug]/a.md, is one file,
+        # compared above, unless it was recorded under its pattern, having matched nothing.
+        if not element["artifacts"] or (designates_one(pattern) and pattern not in recorded):
             continue
         if None not in declared and pattern not in declared:
             continue
@@ -259,10 +269,22 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
     yield from dict.fromkeys(found)
 
 
+def sha256_read(artifact: Mapping[str, Any]) -> str | None:
+    """The SHA-256 of the file of ``artifact`` as the run read it, or None if it read none.
+    A file it read without finding what was observed in it, such as the value a JSON
+    Pointer designates, is unreachable, and has one (in ``read``, since 1.1)."""
+    if artifact["reachable"]:
+        return str(artifact["sha256"])
+    read = artifact.get("read")
+    return None if read is None else str(read["sha256"])
+
+
 def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
-    """How the file of ``artifact`` differs from what was recorded, if it does."""
+    """How the file of ``artifact`` differs from what was recorded, if it does. A file the
+    run read is compared by its SHA-256: only a file it did not read can have appeared."""
     file = root / artifact["path"]
-    if not artifact["reachable"]:
+    recorded = sha256_read(artifact)
+    if recorded is None:
         # A glob that matched nothing is recorded under its pattern: what it matches now
         # is found as added.
         return None if _matched_nothing(artifact) or not readable(file) else ChangeKind.APPEARED
@@ -272,7 +294,7 @@ def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
         sha256, _ = digest(file)
     except OSError:
         return ChangeKind.VANISHED
-    return None if sha256 == artifact["sha256"] else ChangeKind.CHANGED
+    return None if sha256 == recorded else ChangeKind.CHANGED
 
 
 def _matched_nothing(artifact: Mapping[str, Any]) -> bool:

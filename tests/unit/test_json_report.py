@@ -142,13 +142,66 @@ def test_what_was_observed_that_is_no_file_is_an_observation_shown_or_not() -> N
     ]
 
 
-def test_the_schema_refuses_a_reachable_artifact_without_its_digest() -> None:
-    report = document(RunReport("m", Verdict.PASS))
-    artifact = {"path": "a.txt", "reachable": True, "sha256": None, "size": None}
-    report["elements"] = [_minimal_element() | {"artifacts": [artifact]}]
+_SHA256 = "0" * 64
+_READ = {"sha256": _SHA256, "size": 1}
 
-    with pytest.raises(ValidationError):
-        VALIDATOR.validate(report)
+
+@pytest.mark.parametrize(
+    ("artifact", "valid"),
+    [
+        pytest.param({"reachable": True, "sha256": _SHA256, "size": 1}, True, id="reached"),
+        pytest.param({"reachable": False, "sha256": None, "size": None}, True, id="not read"),
+        pytest.param(
+            {"reachable": False, "sha256": None, "size": None, "read": _READ},
+            True,
+            id="read, what was observed in it not found",
+        ),
+        pytest.param(
+            {"reachable": True, "sha256": None, "size": None}, False, id="reached, no digest"
+        ),
+        pytest.param(
+            {"reachable": False, "sha256": _SHA256, "size": 1}, False, id="unreachable, a digest"
+        ),
+        pytest.param(
+            {"reachable": True, "sha256": _SHA256, "size": 1, "read": _READ},
+            False,
+            id="reached, and read as if not",
+        ),
+        pytest.param(
+            {"reachable": False, "sha256": None, "size": None, "read": {"sha256": _SHA256}},
+            False,
+            id="read without its size",
+        ),
+    ],
+)
+def test_the_schema_has_a_digest_where_a_file_was_read(
+    artifact: dict[str, Any], valid: bool
+) -> None:
+    """``sha256`` is null exactly when the artifact is unreachable, as in 1.0; a file read
+    all the same has its digest in ``read`` (#166)."""
+    report = document(RunReport("m", Verdict.PASS))
+    report["elements"] = [_minimal_element() | {"artifacts": [{"path": "a.txt"} | artifact]}]
+
+    assert VALIDATOR.is_valid(report) is valid
+
+
+def test_a_file_read_without_what_was_observed_in_it_is_written_with_what_was_read() -> None:
+    missing = Obstacle("package.json#/versoin", "designates no value in its file")
+    seen = (Observation("package.json#/versoin", "package.json", _SHA256, 18, obstacle=missing),)
+    element = ElementReport("e", "e", EVIDENCE, artifacts=seen)
+    report = document(RunReport("m", Verdict.FAIL, (element,)))
+
+    VALIDATOR.validate(report)
+    assert report["elements"][0]["artifacts"] == [
+        {
+            "path": "package.json",
+            "declared": "package.json#/versoin",
+            "reachable": False,
+            "sha256": None,
+            "size": None,
+            "read": {"sha256": _SHA256, "size": 18},
+        }
+    ]
 
 
 def _minimal_element() -> dict[str, Any]:
