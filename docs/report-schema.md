@@ -86,8 +86,8 @@ when the diagram was drawn under it.
 | `ran` | boolean | whether its step was called |
 | `bound_to` | string or null | its step, `module.function`; null if it has none |
 | `bound_by` | array of strings | the step's ids that designate this element, as the step names them |
-| `observes` | array of strings | the files, as paths and globs, that what its step observes depends on: a change to one reaches the element |
-| `sources` | array of strings | everything its step declares it observes: a path or a glob, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
+| `observes` | array of strings | the files, as globs, that what its step observes depends on: a change to one reaches the element. A wildcard in the name of a directory the runner put in front of a declared path is escaped: `app/[[]slug]/*.md` |
+| `sources` | array of strings | everything its step declares it observes: a path or a glob, escaped as in `observes`, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
 | `consumes`, `produces` | arrays of strings | the variables its step declares |
 | `produced` | object | the values its step produced, by variable; see [Produced values](#produced-values) |
 | `artifacts` | array | the files its step observed; see [Artifacts](#artifacts) |

@@ -15,7 +15,8 @@ environment variable. A step library defines its own by deriving ``Observable``.
 A path is written relative to the directory of the file that declares the step, so that a
 library observes the same files wherever the runner is started. An ``Observable`` receives
 a ``Context``, which turns such a path into one relative to the run's root, as the report
-shows it.
+shows it. What the report shows is a glob: a wildcard in the name of a directory the
+runner puts in front of the path is escaped, so that it designates that directory only.
 
 What a glob designates is defined here, and nowhere else: ``files`` lists the files it
 matches under a root, and ``matches`` says whether it would match a path, without the file
@@ -41,6 +42,8 @@ _INDEX = re.compile(r"0|[1-9]\d*", re.ASCII)
 _EVIDENCE = "@evidence(observes=...)"
 _RECURSIVE = "**"
 _WILDCARDS = frozenset("*?[")
+_ESCAPED = re.compile(r"\[([*?\[])\]")
+"""A wildcard escaped, as ``escape`` writes it: alone in a character class."""
 
 _MISSING_FIX = (
     "Make sure it exists when the runner runs. A path in observes={...} is relative to "
@@ -62,6 +65,17 @@ HIDDEN: Final = _Hidden()
 def is_glob(path: str) -> bool:
     """Whether ``path`` is a glob pattern, which may match several files, rather than a path."""
     return not _WILDCARDS.isdisjoint(path)
+
+
+def escape(path: str) -> str:
+    """``path`` as a glob that designates it, and nothing else: each wildcard alone in a
+    character class, as ``glob.escape`` writes it."""
+    return "".join(f"[{c}]" if c in _WILDCARDS else c for c in path)
+
+
+def unescape(shown: str) -> str:
+    """The path that ``shown``, written by ``escape``, designates."""
+    return _ESCAPED.sub(r"\1", shown)
 
 
 def matches(path: str, pattern: str) -> bool:
@@ -130,7 +144,11 @@ class Context:
     def shown(self, path: str) -> str:
         """``path``, a path or a glob relative to ``directory``, as the report shows it:
         relative to ``root``, with ``/`` as separator. Links are followed to find where
-        the two directories are, never in ``path`` itself."""
+        the two directories are, never in ``path`` itself.
+
+        It is a glob, which ``impact`` and ``status`` match: a wildcard in the directories
+        put in front of ``path`` is escaped, so that a library in ``checks[v2]/`` that
+        observes ``*.md`` is shown ``checks[[]v2]/*.md``. Without one, nothing is."""
         parts = path.split("/")
         first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
         literal = os.path.normpath(os.path.join(os.path.realpath(self.directory), *parts[:first]))
@@ -138,11 +156,12 @@ class Context:
             relative = PurePath(os.path.relpath(literal, os.path.realpath(self.root))).as_posix()
         except ValueError:  # on Windows, another drive: there is no relative path
             relative = PurePath(literal).as_posix()
-        return "/".join(([] if relative == "." else [relative]) + parts[first:])
+        return "/".join(([] if relative == "." else [escape(relative)]) + parts[first:])
 
     def file(self, shown: str) -> Path:
-        """The file at ``shown``, a path relative to ``root``."""
-        return self.root / shown
+        """The file at ``shown``, a path as ``shown`` writes it: the wildcards it escaped
+        are read as the characters they are."""
+        return self.root / unescape(shown)
 
 
 @dataclass(frozen=True)
@@ -374,8 +393,10 @@ class JsonValue(Observable):
             value = self._designated(json.loads(content))
         except (OSError, ValueError, LookupError) as error:
             problem = Obstacle(declared, _json_problem(error), "Correct the file, or the pointer.")
-            return Sighting(None, (Observation(declared, shown, obstacle=problem),))
-        return Sighting(value, (Observation(declared, shown, seen.sha256, seen.size, value=value),))
+            return Sighting(None, (Observation(declared, seen.path, obstacle=problem),))
+        return Sighting(
+            value, (Observation(declared, seen.path, seen.sha256, seen.size, value=value),)
+        )
 
     def _designated(self, document: Any) -> Any:
         value = document

@@ -21,9 +21,11 @@ from jpipe_runner.observables import (
     Observation,
     Obstacle,
     Sighting,
+    escape,
     files,
     matches,
     readable,
+    unescape,
 )
 
 
@@ -62,14 +64,18 @@ def _sha256(content: bytes) -> str:
         ("d/a.txt", "./d/a.txt", True),
         ("d/e/a.txt", "d/**", True),  # a trailing ** reaches everything below
         ("d", "d/**", False),  # and not what it is below
+        ("checks[v2]/a.md", "checks[[]v2]/*.md", True),  # a wildcard escaped is itself
+        ("checks[v2]/a.md", "checks[v2]/*.md", False),  # and is a wildcard otherwise
     ],
 )
 def test_a_path_matches_as_a_glob_designates_it(path: str, pattern: str, expected: bool) -> None:
     assert matches(path, pattern) is expected
 
 
-_SEGMENTS = st.sampled_from(["a", "b", ".c", "a.txt", "b.md"])
-_PATTERN_SEGMENTS = st.sampled_from(["*", "**", "a", "a.txt", "*.txt", "?", "[ab]", ".*"])
+_SEGMENTS = st.sampled_from(["a", "b", ".c", "a.txt", "b.md", "[a]"])
+_PATTERN_SEGMENTS = st.sampled_from(
+    ["*", "**", "a", "a.txt", "*.txt", "?", "[ab]", ".*", "[[]a]", "[[]*"]
+)
 
 
 @settings(deadline=None)
@@ -142,6 +148,10 @@ def test_a_file_that_cannot_be_opened_is_not_readable(tmp_path: Path) -> None:
         pytest.param("a", "**/*.md", "a/**/*.md", id="a glob from its directory"),
         pytest.param(".", "**/*.md", "**/*.md", id="a glob from the root"),
         pytest.param("..", "x.txt", "../x.txt", id="a library outside the root"),
+        pytest.param("checks[v2]", "*.md", "checks[[]v2]/*.md", id="a wildcard escaped"),
+        pytest.param("checks[v2]", "a.md", "checks[[]v2]/a.md", id="before a file too"),
+        pytest.param("a*/b?", "../c.md", "a[*]/c.md", id="each wildcard"),
+        pytest.param("checks[v2]", "../a[b].md", "a[b].md", id="not in what is declared"),
     ],
 )
 def test_a_path_is_relative_to_the_declaring_file_and_shown_relative_to_the_root(
@@ -151,6 +161,32 @@ def test_a_path_is_relative_to_the_declaring_file_and_shown_relative_to_the_root
     root.mkdir()
 
     assert Context(root / directory, root).shown(path) == shown
+
+
+@pytest.mark.parametrize("path", ["a.md", "checks[v2]/a.md", "x[*]/[[]/?*]", "[[]"])
+def test_a_path_escaped_is_read_back_as_it_was(path: str) -> None:
+    assert unescape(escape(path)) == path
+    assert matches(path, escape(path))
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="'*' and '?' cannot be in a Windows name")
+def test_a_library_in_a_directory_named_with_wildcards_observes_its_own_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#167: what is observed does not depend on where the runner runs."""
+    library = tmp_path / "checks[v2]" / "*"
+    _write(library, "a.md", b"A")
+    _write(tmp_path, "checks[v2]/2.md", b"2")  # what the unescaped glob would match
+    from_the_root = Context(library, tmp_path)
+
+    (seen,) = File("*.md").observe(from_the_root).observations
+    (literal,) = File("a.md").observe(from_the_root).observations
+
+    assert (seen.declared, seen.path) == ("checks[[]v2]/[*]/*.md", "checks[v2]/*/a.md")
+    assert (literal.declared, literal.path) == ("checks[[]v2]/[*]/a.md", "checks[v2]/*/a.md")
+    assert seen.sha256 == literal.sha256 == _sha256(b"A")
+    monkeypatch.chdir(library)
+    assert File("*.md").observe(Context(Path(), Path())).value == [Path("a.md")]
 
 
 def test_a_library_observes_the_same_files_wherever_the_runner_runs(
@@ -285,6 +321,19 @@ def test_a_json_value_that_cannot_be_reached_says_why(
     assert observation.obstacle.what == what
     assert problem in observation.obstacle.problem
     assert observation.sha256 is None
+
+
+def test_a_json_value_in_a_directory_named_with_a_wildcard_is_read_there(tmp_path: Path) -> None:
+    _write(tmp_path, "app[id]/package.json", b'{"version": "2.0"}')
+
+    sighting = JsonValue("package.json", "/version").observe(
+        Context(tmp_path / "app[id]", tmp_path)
+    )
+
+    assert sighting.value == "2.0"
+    assert [(o.declared, o.path) for o in sighting.observations] == [
+        ("app[[]id]/package.json#/version", "app[id]/package.json")
+    ]
 
 
 @pytest.mark.parametrize(

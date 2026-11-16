@@ -17,7 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   directory**: `observes={"changelog": "CHANGELOG.md"}` in `justifications/steps.py`
   becomes `"../CHANGELOG.md"`. Until then its evidence fails with `JP019`, which names
   where the file was looked for. The report still shows every file relative to the
-  directory the command runs in, so `impact` and `status` work as before.
+  directory the command runs in, so `impact` and `status` work as before. A declared
+  path is shown as a glob there: a wildcard in the name of the library's directory is
+  escaped, so a library in `app/[slug]/` that observes `"*.md"` is shown as
+  `app/[[]slug]/*.md`, and observes the files in that directory only.
 
 ### Added
 - **An evidence observes more than files.** Beside a path, `observes` takes

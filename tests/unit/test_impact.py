@@ -247,6 +247,30 @@ def test_a_file_the_run_could_not_read_has_not_appeared_while_it_still_cannot_be
     assert stale(document, root) == ()
 
 
+def test_a_file_under_a_directory_named_with_a_wildcard_is_matched_escaped(root: Path) -> None:
+    """#167: the report escapes the wildcards of the directory it puts in front of a path."""
+    (root / "checks[v2]").mkdir()
+    (root / "checks[v2]" / "a.md").write_text("A", encoding="utf-8")
+    (root / "checks[v2]" / "b.md").write_text("B", encoding="utf-8")
+    document = _recorded(
+        *(
+            _element(
+                element,
+                supports=["c"],
+                observes=[pattern],
+                artifacts=[_artifact("checks[v2]/a.md", "A") | {"declared": pattern}],
+            )
+            for element, pattern in [("e1", "checks[[]v2]/a.md"), ("e2", "checks[[]v2]/*.md")]
+        ),
+        _element("c", "conclusion"),
+    )
+
+    assert affected(document, ["checks[v2]/a.md"]).evidence == ("e1", "e2")
+    assert affected(document, ["checks[v2]/b.md"]).evidence == ("e2",)
+    assert affected(document, ["checksv/a.md"]).evidence == ()
+    assert stale(document, root) == (Change("e2", "checks[v2]/b.md", ChangeKind.ADDED),)
+
+
 def test_staleness_is_rendered_for_people() -> None:
     changes = [Change("e1", "build/tests.log", ChangeKind.CHANGED)]
 

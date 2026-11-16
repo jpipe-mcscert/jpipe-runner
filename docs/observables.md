@@ -120,6 +120,11 @@ from the project's directory, `"../mock/package.json"` is reported as `mock/pack
   instead, `"src/**/*"`.
 - `.` and `..` are resolved as text. A `..` after a wildcard is refused, since what it
   names would depend on the directories the glob finds.
+- What the report shows of a declared path is a glob, which `impact` and `status` match.
+  A wildcard in the name of a directory put in front of it is escaped, so that it names
+  that directory only: run from the project's directory, `"*.md"` in
+  `app/[slug]/steps.py` is shown as `app/[[]slug]/*.md`. The files themselves keep their
+  names: `app/[slug]/notes.md`.
 - A step typed at a Python prompt has no file: its paths are relative to the working
   directory.
 
@@ -310,7 +315,8 @@ To observe what the runner has no class for, derive `Observable`. It has three m
 | `depends_on(context)` | the files a change to which reaches it, for `impact`; none unless you say so |
 
 `context` is where the observation is made from. `context.shown(path)` turns a path
-relative to the file that declares the step into the one the report shows.
+relative to the file that declares the step into the one the report shows, and
+`context.file(shown)` gives the file it names.
 
 ### Something that is not a file
 
