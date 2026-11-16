@@ -535,7 +535,10 @@ def _status(options: argparse.Namespace) -> int:
         return ExitCode.INVALID
     changes = impact.stale(document)
     reached = {
-        (e["id"], a["path"]) for e in document["elements"] for a in e["artifacts"] if a["reachable"]
+        (e["id"], a["path"])
+        for e in document["elements"]
+        for a in e["artifacts"]
+        if a["sha256"] is not None  # the files the run read
     }
     vanished = {
         (change.element, change.path)

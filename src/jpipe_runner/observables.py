@@ -183,7 +183,8 @@ class Observation:
     There is no fourth case, so that a report never passes over something a verdict rests
     on.
 
-    A file has a ``path``, relative to the run's root, a SHA-256 and a size. An environment
+    A file has a ``path``, relative to the run's root, a SHA-256 and a size: those of its
+    content, when it was read, even if what was observed in it was not found. An environment
     variable has its name, ``variable``. With one or the other, ``jpipe-runner status`` can
     look again without the step library; with neither, or when it is hidden, only a new
     run can. A glob that matches nothing is recorded once, under its pattern.
@@ -215,16 +216,16 @@ class Observation:
             self._check_file()
 
     def _check_file(self) -> None:
-        """A file is never hidden, and is recorded with its SHA-256 and size exactly when
-        it was reached, as the report's schema requires."""
+        """A file is never hidden, and is recorded with its SHA-256 and size, both or
+        neither, and both when it was reached, as the report's schema requires."""
         if self.hidden:
             raise ValueError(f"the observation of {self.declared!r} is a file, and is hidden")
         recorded = self.sha256 is not None and self.size is not None
         unrecorded = self.sha256 is None and self.size is None
-        if not (recorded if self.obstacle is None else unrecorded):
+        if not (recorded or (unrecorded and self.obstacle is not None)):
             raise ValueError(
                 f"the observation of the file {self.path!r} records its SHA-256 and size "
-                "when it was reached, and neither when it was not"
+                "when it was reached, both or neither when it was not"
             )
 
     @property
@@ -389,14 +390,14 @@ class JsonValue(Observable):
         seen, content = _read(declared, context.file(shown), context.root)
         if content is None:
             return Sighting(None, (seen,))
+        path, sha256, size = seen.path, seen.sha256, seen.size
         try:
             value = self._designated(json.loads(content))
         except (OSError, ValueError, LookupError) as error:
+            # The file was read: its SHA-256 tells status whether it changed since.
             problem = Obstacle(declared, _json_problem(error), "Correct the file, or the pointer.")
-            return Sighting(None, (Observation(declared, seen.path, obstacle=problem),))
-        return Sighting(
-            value, (Observation(declared, seen.path, seen.sha256, seen.size, value=value),)
-        )
+            return Sighting(None, (Observation(declared, path, sha256, size, obstacle=problem),))
+        return Sighting(value, (Observation(declared, path, sha256, size, value=value),))
 
     def _designated(self, document: Any) -> Any:
         value = document

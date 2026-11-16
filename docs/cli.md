@@ -255,7 +255,9 @@ $ echo $?
 
 A file is `changed` when its SHA-256 differs from the one recorded, `vanished` when the
 run read it and it is gone, `appeared` when the run could not read it and it can be now,
-and `added` when a glob an evidence observes matches it and the run did not see it. An
+and `added` when a glob an evidence observes matches it and the run did not see it. A file
+the run read without finding what was observed in it, such as a `JsonValue` whose pointer
+designates nothing, is compared by its SHA-256 as well: it is stale once it changes. An
 environment variable is `changed`, `vanished` or `appeared` in the same way.
 
 `status` answers for everything the run observed, or does not answer. What the report

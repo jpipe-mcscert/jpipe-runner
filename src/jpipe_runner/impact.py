@@ -260,9 +260,11 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
 
 
 def _compared(artifact: Mapping[str, Any], root: Path) -> ChangeKind | None:
-    """How the file of ``artifact`` differs from what was recorded, if it does."""
+    """How the file of ``artifact`` differs from what was recorded, if it does. A file the
+    run read is compared by its SHA-256, even if what was observed in it was not found, such
+    as a value a JSON Pointer designates: only a file it did not read can have appeared."""
     file = root / artifact["path"]
-    if not artifact["reachable"]:
+    if artifact["sha256"] is None:
         # A glob that matched nothing is recorded under its pattern: what it matches now
         # is found as added.
         return None if _matched_nothing(artifact) or not readable(file) else ChangeKind.APPEARED

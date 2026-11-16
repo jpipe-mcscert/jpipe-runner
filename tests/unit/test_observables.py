@@ -320,7 +320,9 @@ def test_a_json_value_that_cannot_be_reached_says_why(
     assert (observation.declared, observation.path) == (f"package.json#{pointer}", "package.json")
     assert observation.obstacle.what == what
     assert problem in observation.obstacle.problem
-    assert observation.sha256 is None
+    # #166: a file that was read is recorded as it was, for status to compare.
+    read = None if content is None else (_sha256(content), len(content))
+    assert (None if observation.sha256 is None else (observation.sha256, observation.size)) == read
 
 
 def test_a_json_value_in_a_directory_named_with_a_wildcard_is_read_there(tmp_path: Path) -> None:
@@ -416,16 +418,20 @@ def test_whatever_is_observed_is_recorded_or_said_to_be_hidden() -> None:
         Observation("clock", hidden=True, value=12)
 
 
-def test_a_file_is_recorded_with_its_sha256_and_size_exactly_when_it_was_reached() -> None:
+def test_a_file_is_recorded_with_its_sha256_and_size_both_and_always_when_it_was_reached() -> None:
     """As the report's schema requires: a library's observable builds its own."""
     sha256 = _sha256(b"x")
+    missing = Obstacle("x.bin", "does not exist")
     assert Observation("x", "x.bin", sha256, 1).reachable
+    assert not Observation("x", "x.bin", obstacle=missing).reachable
+    # Read, and what was observed in it not found.
+    assert not Observation("x", "x.bin", sha256, 1, obstacle=missing).reachable
     with pytest.raises(ValueError, match="is a file, and is hidden"):
         Observation("x", "x.bin", hidden=True)
     with pytest.raises(ValueError, match="SHA-256 and size"):
         Observation("x", "x.bin", sha256=sha256)
     with pytest.raises(ValueError, match="SHA-256 and size"):
-        Observation("x", "x.bin", sha256, 1, obstacle=Obstacle("x.bin", "does not exist"))
+        Observation("x", "x.bin", sha256=sha256, obstacle=missing)
 
 
 def test_a_sighting_of_a_value_that_is_not_json_is_fingerprinted_by_its_repr() -> None:

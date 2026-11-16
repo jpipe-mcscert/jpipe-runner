@@ -158,7 +158,7 @@
       ]
     },
     "artifact": {
-      "description": "A file an evidence observed. A glob that matched nothing is recorded once, under its pattern, as unreachable.",
+      "description": "A file an evidence observed. A glob that matched nothing is recorded once, under its pattern, as unreachable. A file that was read has its SHA-256 and size, even if what was observed in it was not found.",
       "type": "object",
       "required": ["path", "reachable", "sha256", "size"],
       "additionalProperties": false,
@@ -177,13 +177,25 @@
           "description": "The value observed in the file, when what was observed is a value in it. Since 1.1.",
           "$ref": "#/$defs/value"
         },
-        "reachable": {"type": "boolean"},
-        "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
-        "size": {"type": ["integer", "null"], "minimum": 0}
+        "reachable": {
+          "description": "Whether what was observed could be reached: the file read and, for a value in it, the value found.",
+          "type": "boolean"
+        },
+        "sha256": {
+          "description": "The SHA-256 of the file's content, or null if the file could not be read. Before 1.1, null whenever it was unreachable.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size": {
+          "description": "The file's size in bytes, or null if it could not be read.",
+          "type": ["integer", "null"],
+          "minimum": 0
+        }
       },
-      "if": {"properties": {"reachable": {"const": true}}},
-      "then": {"properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}}},
-      "else": {"properties": {"sha256": {"type": "null"}, "size": {"type": "null"}}}
+      "oneOf": [
+        {"properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}}},
+        {"properties": {"reachable": {"const": false}, "sha256": {"type": "null"}, "size": {"type": "null"}}}
+      ]
     },
     "observation": {
       "description": "Something an evidence observed that is not a file, such as an environment variable.",

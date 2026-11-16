@@ -125,12 +125,14 @@ Each file an evidence observed, recorded just before its step was called
 | `path` | string | the file; for a glob, one entry per file it matched |
 | `declared` | string | the one of the element's `sources` that designates the file; absent before 1.1 |
 | `value` | [value](#produced-values) | the value observed in the file, when what was observed is a value in it (`JsonValue`); absent otherwise |
-| `reachable` | boolean | whether the file could be read |
-| `sha256` | string or null | the SHA-256 of its content, as `sha256sum` prints it; null if unreachable |
-| `size` | integer or null | its size in bytes; null if unreachable |
+| `reachable` | boolean | whether the file could be read, and the `value` in it found |
+| `sha256` | string or null | the SHA-256 of its content, as `sha256sum` prints it; null if the file could not be read |
+| `size` | integer or null | its size in bytes; null if the file could not be read |
 
 An unreachable artifact is listed, and the report's diagnostics include its `JP019`, about
-that element. A glob that matched nothing is listed once, under its pattern: its `path` is its
+that element. It has a `sha256` and a `size` when its file was read and what was observed in
+it was not found, such as a JSON Pointer that designates nothing; before 1.1, they were
+always null. A glob that matched nothing is listed once, under its pattern: its `path` is its
 `declared`. A file that several of the `sources` designate is listed once under each. An element whose step was not
 called observed nothing, and its `artifacts` is empty; what its step would have observed
 is in `observes`.

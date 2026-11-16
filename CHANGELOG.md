@@ -36,8 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   element has `sources`, everything its step declares it observes, and `observations`,
   what it observed that is not a file. Each of its `artifacts` has `declared`, the source
   that designates the file, so a reader no longer matches files to globs itself, and the
-  `value` observed in it, if one was. Every field is added: `observes` still lists paths
-  and globs, and `jpipe-runner status` still reads the `1.0` reports of 4.0.0
+  `value` observed in it, if one was. An unreachable artifact whose file was read, such
+  as a `JsonValue` whose pointer designates nothing, keeps its `sha256` and `size`, which
+  were always null in `1.0`, so that `status` sees whether the file changed. A reader
+  that took a non-null `sha256` to mean `reachable` must read `reachable`. The rest is
+  added: `observes` still lists paths and globs, and `jpipe-runner status` still reads
+  the `1.0` reports of 4.0.0
   ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
 - **`jpipe-runner status` compares environment variables too**, and answers for
   everything a run observed or not at all. A report that hides a value (an `Env` without

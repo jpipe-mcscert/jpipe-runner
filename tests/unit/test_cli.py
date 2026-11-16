@@ -876,6 +876,22 @@ def test_a_library_in_a_directory_named_with_a_wildcard_observes_its_own_files(
     )
 
 
+def test_status_of_a_json_value_its_pointer_does_not_find_is_its_file_s_status(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#166: the run read the file, so it has not appeared since."""
+    library = _slug(scenario, "/versoin")
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.FAILED
+
+    assert _main(capsys, "status", "report.json")[0] == ExitCode.OK
+    Path("app/[slug]/package.json").write_text('{"versoin": "2.0"}', encoding="utf-8")
+    code, out, _ = _main(capsys, "status", "report.json")
+    assert (code, "  changed  app/[slug]/package.json  version\n" in out) == (
+        ExitCode.FAILED,
+        True,
+    )
+
+
 def test_a_justification_named_like_a_subcommand_is_run_when_not_first(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

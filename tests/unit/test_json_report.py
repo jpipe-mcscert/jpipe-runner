@@ -142,13 +142,29 @@ def test_what_was_observed_that_is_no_file_is_an_observation_shown_or_not() -> N
     ]
 
 
-def test_the_schema_refuses_a_reachable_artifact_without_its_digest() -> None:
+_SHA256 = "0" * 64
+
+
+@pytest.mark.parametrize(
+    ("reachable", "sha256", "size", "valid"),
+    [
+        pytest.param(True, _SHA256, 1, True, id="reached"),
+        pytest.param(False, None, None, True, id="not read"),
+        pytest.param(False, _SHA256, 1, True, id="read, what it designates not found"),
+        pytest.param(True, None, None, False, id="reached without its digest"),
+        pytest.param(True, _SHA256, None, False, id="reached without its size"),
+        pytest.param(False, _SHA256, None, False, id="a digest without a size"),
+        pytest.param(False, None, 1, False, id="a size without a digest"),
+    ],
+)
+def test_the_schema_requires_the_digest_and_size_of_a_file_read_both_or_neither(
+    reachable: bool, sha256: str | None, size: int | None, valid: bool
+) -> None:
     report = document(RunReport("m", Verdict.PASS))
-    artifact = {"path": "a.txt", "reachable": True, "sha256": None, "size": None}
+    artifact = {"path": "a.txt", "reachable": reachable, "sha256": sha256, "size": size}
     report["elements"] = [_minimal_element() | {"artifacts": [artifact]}]
 
-    with pytest.raises(ValidationError):
-        VALIDATOR.validate(report)
+    assert VALIDATOR.is_valid(report) is valid
 
 
 def _minimal_element() -> dict[str, Any]:

@@ -247,6 +247,30 @@ def test_a_file_the_run_could_not_read_has_not_appeared_while_it_still_cannot_be
     assert stale(document, root) == ()
 
 
+def _read_not_found(path: str, content: str) -> dict[str, Any]:
+    """A file the run read without finding what it observed in it, such as a value a JSON
+    Pointer designates."""
+    return _artifact(path, content) | {"declared": f"{path}#/version", "reachable": False}
+
+
+@pytest.mark.parametrize(
+    ("artifact", "kind"),
+    [
+        pytest.param(_read_not_found("build/tests.log", "ok"), None, id="as it was"),
+        pytest.param(_read_not_found("build/tests.log", "x"), ChangeKind.CHANGED, id="changed"),
+        pytest.param(_read_not_found("build/gone.log", "ok"), ChangeKind.VANISHED, id="vanished"),
+    ],
+)
+def test_a_file_read_without_finding_what_it_designates_is_compared_by_its_sha256(
+    artifact: dict[str, Any], kind: ChangeKind | None, root: Path
+) -> None:
+    """#166: it has not appeared, since the run read it."""
+    document = _recorded(_element("e1", observes=[artifact["path"]], artifacts=[artifact]))
+
+    expected = () if kind is None else (Change("e1", artifact["path"], kind),)
+    assert stale(document, root) == expected
+
+
 def test_a_file_under_a_directory_named_with_a_wildcard_is_matched_escaped(root: Path) -> None:
     """#167: the report escapes the wildcards of the directory it puts in front of a path."""
     (root / "checks[v2]").mkdir()
