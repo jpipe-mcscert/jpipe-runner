@@ -1,5 +1,5 @@
-"""Diagrams: the compiler's drawing of a justification, with what a run concluded (#123, #145,
-ADR-0022).
+"""The diagram: the dataflow of a justification, in the compiler's notation, with what a run
+concluded (#123, #145, ADR-0029).
 
 The DOT text is checked as text, so these tests need no Graphviz. Only the tests that render
 an image call ``dot``, and are skipped where it is not installed; CI installs it.
@@ -14,22 +14,17 @@ from xml.etree import ElementTree
 
 import pytest
 
-from jpipe_runner import Env, Fail, Outcome, Pass, Skip, evidence, loader, strategy
-from jpipe_runner.diagram import FORMATS, View, source, write
+from jpipe_runner import Env, Fail, Outcome, Pass, Skip, conclusion, evidence, strategy
+from jpipe_runner.diagram import FORMATS, source, write
 from jpipe_runner.engine import Verdict
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry, step_of
 from tests.anchored import run
-from tests.scenarios import discover
 from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY, element, model
 
 DOT = shutil.which("dot")
 needs_dot = pytest.mark.skipif(DOT is None, reason="Graphviz's dot is not installed")
-
-# Each scenario written in jPipe keeps the compiler's DOT next to its JSON:
-# `jpipe process -i <model>.jd -m <name> -f DOT` (jPipe 2.5.0).
-DRAWN = [scenario for scenario in discover() if (scenario.directory / "justification.dot").exists()]
 
 RELEASE = model(
     element("c", CONCLUSION),
@@ -40,25 +35,19 @@ RELEASE = model(
 )
 
 
-def test_four_scenarios_keep_the_compilers_diagram() -> None:
-    assert {s.name for s in DRAWN} == {"release_example", "composed", "assembled", "unified"}
-
-
-@pytest.mark.parametrize("scenario", DRAWN, ids=lambda scenario: scenario.name)
-def test_a_justification_is_drawn_as_the_compiler_draws_it(scenario: Any) -> None:
-    compiled = (scenario.directory / "justification.dot").read_text(encoding="utf-8")
-
-    assert source(loader.load(scenario.justification)) == compiled
-
-
-@pytest.mark.parametrize("scenario", DRAWN, ids=lambda scenario: scenario.name)
-def test_a_run_in_which_nothing_ran_is_drawn_as_the_compiler_draws_it(scenario: Any) -> None:
-    justification = loader.load(scenario.justification)
-    report = RunReport.of(run(justification, StepRegistry([])))
-
-    assert report.verdict is Verdict.INVALID
-    assert source(justification, report) == (scenario.directory / "justification.dot").read_text(
-        encoding="utf-8"
+def test_without_a_report_the_argument_is_drawn_alone_in_the_compilers_notation() -> None:
+    assert source(RELEASE) == (
+        'digraph "m" {\n'
+        "  rankdir=BT;\n"
+        '  label="m";\n'
+        '  "c" [label="c", id="c", shape=rect, style="filled,rounded", fillcolor=lightgrey];\n'
+        '  "s" [label="s", id="s", shape=hexagon, style=filled, fillcolor="#F0C27F"];\n'
+        '  "e1" [label="e1", id="e1", shape=note, style=filled, fillcolor="#9ECAE1"];\n'
+        '  "e2" [label="e2", id="e2", shape=note, style=filled, fillcolor="#9ECAE1"];\n'
+        '  "s" -> "c";\n'
+        '  "e1" -> "s";\n'
+        '  "e2" -> "s";\n'
+        "}\n"
     )
 
 
@@ -97,23 +86,24 @@ def _drawn(
     root: Path,
     e1: Callable[[], Outcome],
     e2: Callable[[], Outcome] = lambda: Pass(b="b"),
-    view: View = View.JUSTIFICATION,
 ) -> dict[str, str]:
     """The diagram's lines of a run of RELEASE, by node or edge."""
     (root / "e1.txt").write_text("one", encoding="utf-8")
     report = RunReport.of(run(RELEASE, _steps(e1, e2), root=root), root)
-    lines = source(RELEASE, report, view=view).splitlines()
+    lines = source(RELEASE, report).splitlines()
     return {line.strip().partition(" [")[0].rstrip(";"): line.strip() for line in lines}
 
 
 def test_a_passing_element_keeps_its_style_with_a_green_border(tmp_path: Path) -> None:
+    (tmp_path / "e2.log").write_text("two", encoding="utf-8")
+
     drawn = _drawn(tmp_path, lambda: Pass(a="a"))
 
     assert drawn['"e1"'] == (
         '"e1" [label="e1", id="e1", shape=note, style=filled, fillcolor="#9ECAE1", '
         'color="#009E73", penwidth=2, tooltip=pass];'
     )
-    assert drawn['"e1" -> "s"'] == '"e1" -> "s" [color="#009E73"];'
+    assert drawn['"s" -> "c"'] == '"s" -> "c" [color="#009E73"];'
 
 
 def test_a_failed_element_is_vermillion_and_blocks_what_it_supports(tmp_path: Path) -> None:
@@ -126,7 +116,6 @@ def test_a_failed_element_is_vermillion_and_blocks_what_it_supports(tmp_path: Pa
         'fontcolor=white, fontname="Helvetica-Bold", penwidth=2, '
         'tooltip="fail: two tests failed"];'
     )
-    assert drawn['"e1" -> "s"'] == '"e1" -> "s" [color="#D55E00"];'
     assert drawn['"s"'] == (
         '"s" [label="s", id="s", shape=hexagon, style="filled,dashed", fillcolor="#EEEEEE", '
         'color="#999999", tooltip="skip: not run: e1 did not pass"];'
@@ -167,15 +156,14 @@ def test_a_report_of_another_justification_is_refused() -> None:
         source(RELEASE, other)
 
 
-# --- The dataflow view ----------------------------------------------------------------------
+# --- The dataflow ---------------------------------------------------------------------------
 
 
-def test_the_dataflow_view_adds_files_and_variables(tmp_path: Path) -> None:
+def test_the_diagram_adds_the_files_and_variables_the_steps_declare(tmp_path: Path) -> None:
     (tmp_path / "e2.log").write_text("two", encoding="utf-8")
 
-    drawn = _drawn(tmp_path, lambda: Pass(a="a"), view=View.DATAFLOW)
+    drawn = _drawn(tmp_path, lambda: Pass(a="a"))
 
-    assert drawn['label="m (dataflow)"'] == 'label="m (dataflow)";'
     assert drawn['"artifact e1.txt"'] == (
         '"artifact e1.txt" [label="e1.txt", fontname=Courier, fontsize=10, shape=folder];'
     )
@@ -194,7 +182,7 @@ def test_the_dataflow_view_adds_files_and_variables(tmp_path: Path) -> None:
 
 
 def test_a_file_that_could_not_be_reached_is_vermillion(tmp_path: Path) -> None:
-    drawn = _drawn(tmp_path, lambda: Pass(a="a"), view=View.DATAFLOW)  # no *.log
+    drawn = _drawn(tmp_path, lambda: Pass(a="a"))  # no *.log
 
     assert drawn['"artifact *.log"'].endswith('shape=folder, color="#D55E00", penwidth=2];')
     assert "color" not in drawn['"artifact e1.txt"']
@@ -214,7 +202,7 @@ def test_a_glob_is_not_unreachable_for_a_file_another_path_declares(tmp_path: Pa
     registry = StepRegistry(s for s in map(step_of, (reads, judges)) if s is not None)
     report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
 
-    drawn = source(small, report, view=View.DATAFLOW)
+    drawn = source(small, report)
 
     (glob,) = [line for line in drawn.splitlines() if line.strip().startswith('"artifact *.log" [')]
     (file,) = [line for line in drawn.splitlines() if '"artifact old/b.log" [' in line]
@@ -222,7 +210,7 @@ def test_a_glob_is_not_unreachable_for_a_file_another_path_declares(tmp_path: Pa
     assert 'color="#D55E00"' in file
 
 
-def test_the_dataflow_view_draws_what_is_observed_that_is_no_file(
+def test_the_diagram_draws_what_is_observed_that_is_no_file(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("JPIPE_STAGE", raising=False)
@@ -239,17 +227,61 @@ def test_the_dataflow_view_draws_what_is_observed_that_is_no_file(
     registry = StepRegistry(s for s in map(step_of, (reads, judges)) if s is not None)
     report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
 
-    drawn = source(small, report, view=View.DATAFLOW)
+    drawn = source(small, report)
 
     (node,) = [line for line in drawn.splitlines() if '"artifact env:JPIPE_STAGE" [' in line]
     assert 'color="#D55E00"' in node  # it is not set
     assert '"artifact env:JPIPE_STAGE" -> "e"' in drawn
 
 
+def test_a_support_a_variable_already_links_is_not_drawn(tmp_path: Path) -> None:
+    (tmp_path / "e2.log").write_text("two", encoding="utf-8")
+
+    drawn = _drawn(tmp_path, lambda: Pass(a="a"))
+
+    # e1 produces a and e2 produces b, which s consumes: the variables show the supports.
+    assert '"e1" -> "s"' not in drawn
+    assert '"e2" -> "s"' not in drawn
+    assert drawn['"s" -> "c"'] == '"s" -> "c" [color="#009E73"];'
+
+
+def test_a_support_no_variable_links_is_drawn(tmp_path: Path) -> None:
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["a"])
+    def first(log: Path) -> Outcome:
+        return Pass(a="a")
+
+    @evidence("e2", observes={"log": "e1.txt"}, produces=["b"])
+    def second(log: Path) -> Outcome:
+        return Pass(b="b")
+
+    @strategy("s", consumes=["a"])
+    def gates(a: str) -> Outcome:
+        return Pass()
+
+    @conclusion("c", consumes=["b"])
+    def ready(b: str) -> Outcome:
+        return Pass()
+
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    steps = (first, second, gates, ready)
+    registry = StepRegistry(s for s in map(step_of, steps) if s is not None)
+    report = RunReport.of(run(RELEASE, registry, root=tmp_path), tmp_path)
+
+    lines = [line.strip() for line in source(RELEASE, report).splitlines()]
+
+    # b flows from e2 to c, which e2 does not support: the support of s is drawn.
+    assert '"e1" -> "s" [color="#009E73"];' not in lines
+    assert '"e2" -> "s" [color="#009E73"];' in lines
+    assert (
+        '"variable b" -> "c" [style=dashed, color="#0072B2", label=" consumes", fontsize=9];'
+        in lines
+    )
+
+
 def test_a_variable_that_was_not_produced_is_dashed(tmp_path: Path) -> None:
     (tmp_path / "e2.log").write_text("two", encoding="utf-8")
 
-    drawn = _drawn(tmp_path, lambda: Fail("no"), view=View.DATAFLOW)
+    drawn = _drawn(tmp_path, lambda: Fail("no"))
 
     assert drawn['"variable a"'].endswith('shape=ellipse, style=dashed, color="#999999"];')
     assert "style" not in drawn['"variable b"']
@@ -270,7 +302,7 @@ def test_a_variable_without_one_producer_and_a_consumer_is_vermillion() -> None:
 
     registry = StepRegistry(s for s in map(step_of, (first, second, gates)) if s is not None)
     report = RunReport.of(run(RELEASE, registry))  # invalid: JP009, JP010, JP011
-    lines = source(RELEASE, report, view=View.DATAFLOW).splitlines()
+    lines = source(RELEASE, report).splitlines()
 
     for name in ("a", "unread", "missing"):
         (node,) = [line for line in lines if line.startswith(f'  "variable {name}" [')]
@@ -334,14 +366,26 @@ def test_every_format_is_rendered_by_graphviz(tmp_path: Path, fmt: str) -> None:
 def test_an_svg_keeps_the_ids_and_the_statuses(tmp_path: Path) -> None:
     (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
     report = RunReport.of(
-        run(RELEASE, _steps(lambda: Fail("no"), lambda: Pass(b="b")), root=tmp_path)
+        run(RELEASE, _steps(lambda: Fail("no"), lambda: Pass(b="b")), root=tmp_path), tmp_path
     )
 
     svg = ElementTree.parse(write(tmp_path / "m.svg", RELEASE, report)).getroot()
 
     namespace = {"svg": "http://www.w3.org/2000/svg"}
-    nodes = {g.get("id"): g for g in svg.iterfind(".//svg:g[@class='node']", namespace)}
-    assert set(nodes) == {"c", "s", "e1", "e2"}
+    groups = list(svg.iterfind(".//svg:g[@class='node']", namespace))
+    titles = {g.findtext("svg:title", namespaces=namespace) for g in groups}
+    assert titles == {
+        "c",
+        "s",
+        "e1",
+        "e2",
+        "artifact e1.txt",
+        "artifact *.log",
+        "variable a",
+        "variable b",
+    }
+    nodes = {g.get("id"): g for g in groups}
+    assert {"c", "s", "e1", "e2"} <= set(nodes)
     fills = {
         node_id: {p.get("fill") for p in g.iterfind(".//svg:polygon", namespace)}
         for node_id, g in nodes.items()

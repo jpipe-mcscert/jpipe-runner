@@ -334,7 +334,7 @@ def test_a_report_is_read_back(tmp_path: Path) -> None:
     [
         pytest.param("not json", id="not JSON"),
         pytest.param("[]", id="not an object"),
-        pytest.param('{"schema_version": "2.0"}', id="another major version"),
+        pytest.param('{"schema_version": "3.0"}', id="a later major version"),
         pytest.param('{"schema_version": "1.0"}', id="not a report"),
     ],
 )
@@ -363,7 +363,7 @@ def test_a_report_of_a_later_minor_version_is_read_and_its_new_fields_ignored(
     tmp_path: Path,
 ) -> None:
     document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
-    document |= {"schema_version": "1.2", "duration": 3.5}
+    document |= {"schema_version": "2.1", "duration": 3.5}
     path = tmp_path / "report.json"
     path.write_text(json.dumps(document), encoding="utf-8")
 
@@ -384,9 +384,20 @@ def test_a_report_of_this_version_with_a_field_it_does_not_define_is_refused(
 def test_the_stale_files_of_a_later_minor_version_are_found(root: Path) -> None:
     artifact = _artifact("build/tests.log", "was ok") | {"modified": "2026-10-09"}
     element = _element("e1", observes=["build/tests.log"], artifacts=[artifact])
-    document = {"schema_version": "1.2", "justification": "release", "elements": [element]}
+    document = {"schema_version": "2.1", "justification": "release", "elements": [element]}
 
     assert stale(document, root) == (Change("e1", "build/tests.log", ChangeKind.CHANGED),)
+
+
+def test_a_report_of_version_1_is_read_with_the_dataflow_field_2_0_removed(
+    tmp_path: Path,
+) -> None:
+    document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
+    document |= {"schema_version": "1.1", "diagram": "m.svg", "dataflow": "m-dataflow.svg"}
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    assert read(path)["diagram"] == "m.svg"
 
 
 def test_a_report_of_an_earlier_minor_version_is_read_without_the_fields_added_since(

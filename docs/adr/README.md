@@ -27,7 +27,7 @@ and add a row to this table.
 | [0008](0008-drop-external-variable-injection.md) | Drop external variable injection | accepted |
 | [0009](0009-separate-registry-from-value-store.md) | Separate the declaration registry from the per-run value store | accepted |
 | [0010](0010-diagnostics-as-data-rules-as-objects.md) | Diagnostics as data, rules as objects, real severity levels | accepted |
-| [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
+| [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) and [0029](0029-the-runner-draws-the-dataflow.md) |
 | [0012](0012-extract-the-github-action.md) | The GitHub Action leaves for jpipe-ci-actions, and runs v4 only | accepted |
 | [0013](0013-kind-divergence-under-composition.md) | Kind divergence under composition is a warning, not an error | accepted |
 | [0016](0016-hide-the-graph-inside-justification.md) | Hide the graph inside `Justification`; no NetworkX type in the public API | accepted, amended by [0010](0010-diagnostics-as-data-rules-as-objects.md) |
@@ -35,10 +35,11 @@ and add a row to this table.
 | [0019](0019-evidence-observes-files.md) | Evidence observes files, recorded just before its step runs | accepted |
 | [0020](0020-importing-step-libraries.md) | Import step libraries as modules named after their files, for one run | accepted |
 | [0021](0021-execution-semantics.md) | Failures and skips propagate as skips; a step's mistakes fail its element | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
-| [0022](0022-diagrams-follow-the-compiler.md) | Diagrams follow the compiler's, with a status overlay and a dataflow view | accepted |
-| [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted |
-| [0024](0024-dry-run-verdict-and-both-diagrams.md) | A dry run validates and is `valid`; the report records both diagrams | accepted |
+| [0022](0022-diagrams-follow-the-compiler.md) | Diagrams follow the compiler's, with a status overlay and a dataflow view | superseded by [0029](0029-the-runner-draws-the-dataflow.md) |
+| [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted, amended by [0029](0029-the-runner-draws-the-dataflow.md) |
+| [0024](0024-dry-run-verdict-and-both-diagrams.md) | A dry run validates and is `valid`; the report records both diagrams | accepted, amended by [0029](0029-the-runner-draws-the-dataflow.md) |
 | [0025](0025-impact-and-staleness.md) | Impact and staleness are read from the declarations and the report | accepted |
 | [0026](0026-dependency-ranges-and-freshness.md) | Runtime dependencies are tested ranges, and the lock file is kept fresh | accepted |
 | [0027](0027-one-pipeline-for-observed-artifacts.md) | One definition of what a glob designates, a report that keeps what each file was declared as, and observation in three steps | accepted, amended by [0028](0028-observables-and-file-relative-paths.md) |
 | [0028](0028-observables-and-file-relative-paths.md) | An evidence observes observables, and a path is relative to the file that declares its step | accepted |
+| [0029](0029-the-runner-draws-the-dataflow.md) | The runner draws one diagram, the dataflow | accepted |

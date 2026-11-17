@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "justification": "readiness",
   "verdict": "pass",
   "strict": false,
@@ -323,6 +323,5 @@
       "traceback": null
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

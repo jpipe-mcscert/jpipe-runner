@@ -373,18 +373,17 @@ each after what supports it; `s` and `c` give `release:e1` as what blocked them.
 report is the same on every run over the same files: it records no time, and its paths are
 relative to where the runner runs.
 
-The runner can also draw the run. The diagram is the argument as the jPipe compiler draws
-it (`jpipe process -f SVG`), with each element's status over it: here, the failed evidence
-in vermillion, what it blocked dashed and grey, and the evidence that passed with a green
-border ([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)).
+The runner can also draw the run. Its diagram is the dataflow: the argument, in the jPipe
+compiler's notation, with what the functions declare, the file each evidence observes and
+the variables that flow from the evidence to the strategy. A support that a variable
+already shows is not drawn twice: `e1` and `e2` support `s` through `tests_pass` and
+`changelog_ok`, and only `s` supports `c` with a plain arrow. Each element's status is drawn
+over it: the failed evidence in vermillion, what it blocked dashed and grey, and the
+evidence that passed with a green border. `tests_pass` is dashed: `e1` failed, so it was
+never produced, and `s`, which consumes it, could not run
+([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)).
 
-![The release argument after the run: e1 failed, e2 passed, s and c were skipped](images/release-fail.svg)
-
-Its dataflow view adds what the functions declare: the file each evidence observes, and
-the variables that flow from the evidence to the strategy. `tests_pass` is dashed: `e1`
-failed, so it was never produced, and `s`, which consumes it, could not run.
-
-![The same run, with the files observed and the variables produced and consumed](images/release-fail-dataflow.svg)
+![The release run's dataflow: e1 failed, so tests_pass was never produced; e2 passed; s and c were skipped](images/release-fail.svg)
 
 ### From the command line
 
@@ -433,11 +432,11 @@ $ echo $?
 ```
 
 The text report is for the person at the terminal; `report.json` holds the JSON report
-quoted above, and `release.svg` the first diagram (`--dataflow` draws the second). The
-exit code is for a CI pipeline: 0 when the justification holds, 1 when it fails, 3 when
-nothing could run (a refused model, a library that cannot be imported, a validation
-error), and 4 when a file could not be read or written. A skipped justification exits 0,
-unless the run is `--strict`. [`cli.md`](cli.md) describes every option.
+quoted above, and `release.svg` the diagram. The exit code is for a CI pipeline: 0 when
+the justification holds, 1 when it fails, 3 when nothing could run (a refused model, a
+library that cannot be imported, a validation error), and 4 when a file could not be read
+or written. A skipped justification exits 0, unless the run is `--strict`.
+[`cli.md`](cli.md) describes every option.
 
 ## When something is wrong
 

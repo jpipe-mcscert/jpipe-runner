@@ -42,7 +42,7 @@ cli.main                      argv → run | impact | status; exit codes 0–4 (
   │    ├─ the step, called    outcomes.as_outcome (JP017), JP022 if it raised
   │    └─ values.ValueStore   values produced in this run; JP023, JP024
   └─ report.RunReport         → text_report.render, json_report (report.schema.json),
-                                diagram.write (DOT piped to Graphviz's dot, ADR-0022)
+                                diagram.write (the dataflow, DOT piped to Graphviz's dot, ADR-0029)
 impact                        affected / stale / changed_since, from a JSON report (ADR-0025)
 ```
 
@@ -223,7 +223,7 @@ no milestone and three design questions to settle first.
   ```
   Homebrew's Poetry leaks system packages (e.g. `tbb`) into its resolver, breaking plugin installs.
 
-- **Graphviz system dependency**: diagrams are rendered by piping DOT text to the `dot` binary, as the jPipe compiler does (ADR-0022); there is no Python Graphviz package. Only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
+- **Graphviz system dependency**: the diagram is rendered by piping DOT text to the `dot` binary, as the jPipe compiler does (ADR-0029); there is no Python Graphviz package. Only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
 
 - **Debian packaging** lives in the committed `debian/` directory (`3.0 (native)`
   source format, pybuild via `debian/rules`). `setup.py` is the setuptools shim

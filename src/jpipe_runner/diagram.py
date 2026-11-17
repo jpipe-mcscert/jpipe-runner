@@ -1,32 +1,34 @@
-"""Diagrams: a justification drawn as the jPipe compiler draws it, with what a run concluded
-(ADR-0022).
+"""The diagram of a run: the dataflow of a justification, with what the run concluded
+(ADR-0029).
 
 ``source(justification, report)`` is the Graphviz DOT text of the diagram, and ``write``
-renders it to a file. Without a report, or for a run in which nothing ran, the diagram is
-the compiler's own (``jpipe process -f DOT``, jPipe 2.5.0): the same ids, labels wrapped at
-40 characters, shapes and colours (the Okabe-Ito palette). A run's statuses are drawn over
-it, in the same palette:
+renders it to a file. It draws the argument in the jPipe compiler's notation (its shapes and
+colours, from the Okabe-Ito palette, and its labels wrapped at 40 characters), and adds what
+the steps declare: each file or glob an evidence observes, and each variable a step produces
+or consumes, as nodes linked to the elements. A variable without a producer or a consumer,
+or with several producers, and a file that could not be reached, are drawn in vermillion.
 
-- **pass**: the compiler's node, with a green border;
+A support edge is left out when a variable already links its two ends: when the supporter
+produces a variable the element it supports consumes, the path through that variable shows
+the support, and the data that flows along it.
+
+A run's statuses are drawn over the elements, in the same palette:
+
+- **pass**: the element, with a green border;
 - **fail**: filled vermillion, in white bold text;
 - **skip**: filled light grey, with a dashed grey border, thicker when it is a root cause.
 
-An edge takes the colour of the status of the element it comes from. In SVG, a node's
-tooltip gives its status and reason.
+A support edge takes the colour of the status of the element it comes from. In SVG, a
+node's tooltip gives its status and reason. Without a report, or for a run in which nothing
+ran, the diagram is the argument alone.
 
-The **dataflow** view adds what the steps declare: each file or glob an evidence observes,
-and each variable a step produces or consumes, as nodes linked to the elements. A variable
-without a producer or a consumer, or with several producers, and a file that could not be
-reached, are drawn in vermillion.
-
-Rendering pipes the DOT text to Graphviz's ``dot``, as the compiler does: only the binary
-is needed. The ``dot`` format is the text itself, written without it.
+Rendering pipes the DOT text to Graphviz's ``dot``: only the binary is needed. The ``dot``
+format is the text itself, written without it.
 """
 
 import re
 import subprocess
 from collections.abc import Iterable, Iterator
-from enum import StrEnum
 from pathlib import Path
 
 from jpipe_runner.engine import Status
@@ -37,7 +39,7 @@ FORMATS = ("dot", "gif", "jpeg", "jpg", "pdf", "png", "svg")
 
 _WRAP_WIDTH = 40
 
-# The compiler's node styles (DotNodeStyle, jPipe 2.5.0): shape, style, fill, border.
+# The compiler's notation (DotNodeStyle, jPipe 2.5.0): shape, style, fill, border.
 _KIND_STYLES: dict[Kind, dict[str, str]] = {
     Kind.CONCLUSION: {"shape": "rect", "style": "filled,rounded", "fillcolor": "lightgrey"},
     Kind.SUB_CONCLUSION: {"shape": "rect", "color": "#0072B2"},
@@ -56,31 +58,18 @@ _BARE = re.compile(r"[A-Za-z_]\w*|\d+", re.ASCII)
 _INDENT = "  "
 
 
-class View(StrEnum):
-    """What a diagram shows."""
-
-    JUSTIFICATION = "justification"
-    """The argument: its elements and what supports what."""
-    DATAFLOW = "dataflow"
-    """The argument, and the files and variables its steps declare."""
-
-
-def source(
-    justification: Justification,
-    report: RunReport | None = None,
-    *,
-    view: View = View.JUSTIFICATION,
-) -> str:
+def source(justification: Justification, report: RunReport | None = None) -> str:
     """The DOT text of the diagram of ``justification``, with what ``report`` concluded.
 
-    The diagram is drawn from the model, whose order of elements and relations the
-    compiler's drawing follows, so ``report`` must be a report of that model: raises
-    ``ValueError`` if its elements, or what each supports, differ from the model's.
+    The diagram is drawn from the model, in the order of its elements and relations, and
+    from what ``report`` says the steps declare, so ``report`` must be a report of that
+    model: raises ``ValueError`` if its elements, or what each supports, differ from the
+    model's.
     """
     if report is not None:
         _check_reports_on(report, justification)
     reported = {} if report is None else {e.id: e for e in report.elements}
-    return "".join(f"{line}\n" for line in _Diagram(justification, reported, view).lines())
+    return "".join(f"{line}\n" for line in _Diagram(justification, reported).lines())
 
 
 def _check_reports_on(report: RunReport, model: Justification) -> None:
@@ -99,7 +88,6 @@ def write(
     justification: Justification,
     report: RunReport | None = None,
     *,
-    view: View = View.JUSTIFICATION,
     fmt: str | None = None,
 ) -> Path:
     """Write the diagram to ``path``, in ``fmt``, by default its suffix, and return ``path``.
@@ -111,7 +99,7 @@ def write(
     fmt = (fmt or path.suffix.removeprefix(".")).lower()
     if fmt not in FORMATS:
         raise ValueError(f"a diagram is one of {', '.join(FORMATS)}, not {fmt!r}")
-    text = source(justification, report, view=view)
+    text = source(justification, report)
     path.parent.mkdir(parents=True, exist_ok=True)
     if fmt == "dot":
         path.write_text(text, encoding="utf-8")
@@ -137,30 +125,22 @@ def write(
 class _Diagram:
     """The DOT lines of one diagram."""
 
-    def __init__(
-        self, model: Justification, reported: dict[str, ElementReport], view: View
-    ) -> None:
+    def __init__(self, model: Justification, reported: dict[str, ElementReport]) -> None:
         self._model = model
         self._reported = reported
-        self._view = view
+        self._dataflow = _Dataflow(reported)
 
     def lines(self) -> Iterator[str]:
-        label = self._model.name
-        dataflow = None
-        if self._view is View.DATAFLOW:
-            label = f"{self._model.name} ({self._view})"
-            dataflow = _Dataflow(self._reported)
         yield f"digraph {_quoted(self._model.name)} {{"
         yield f"{_INDENT}rankdir=BT;"
-        yield f"{_INDENT}label={_wrapped(label)};"
+        yield f"{_INDENT}label={_wrapped(self._model.name)};"
         for element in self._model:
             yield self._node(element)
-        if dataflow is not None:
-            yield from dataflow.nodes()
+        yield from self._dataflow.nodes()
         for relation in self._model.relations:
-            yield self._edge(relation.source, relation.target)
-        if dataflow is not None:
-            yield from dataflow.edges()
+            if not self._dataflow.links(relation.source, relation.target):
+                yield self._edge(relation.source, relation.target)
+        yield from self._dataflow.edges()
         yield "}"
 
     def _node(self, element: Element) -> str:
@@ -187,8 +167,17 @@ class _Dataflow:
     """The files and variables a run's steps declare, as nodes and edges."""
 
     def __init__(self, reported: dict[str, ElementReport]) -> None:
+        self._reported = reported
         self._elements = list(reported.values())
         self._ran = any(element.status is not None for element in self._elements)
+
+    def links(self, source: str, target: str) -> bool:
+        """Whether a variable links ``source`` to ``target``: one ``source`` produces and
+        ``target`` consumes."""
+        produced, consumer = self._reported.get(source), self._reported.get(target)
+        if produced is None or consumer is None:
+            return False
+        return not set(produced.produces).isdisjoint(consumer.consumes)
 
     def nodes(self) -> Iterator[str]:
         for path in _unique(p for e in self._elements for p in e.sources):

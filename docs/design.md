@@ -87,7 +87,7 @@ arrow is data.
 
 | Module | Role |
 |--------|------|
-| [`cli`](../src/jpipe_runner/cli.py) | The command line, `jpipe-runner`: reads its options, runs a justification through the modules below, writes the report and the diagrams, and returns an `ExitCode`. Entry point: `main(argv)`. |
+| [`cli`](../src/jpipe_runner/cli.py) | The command line, `jpipe-runner`: reads its options, runs a justification through the modules below, writes the report and the diagram, and returns an `ExitCode`. Entry point: `main(argv)`. |
 | [`impact`](../src/jpipe_runner/impact.py) | What a change to a file reaches in an argument, from a JSON report: the evidence that observes changed files and what it supports, and the files a run observed that have changed since. Entry points: `affected(document, changed)`, `stale(document, root)`, `read(path)`. |
 | [`__main__`](../src/jpipe_runner/__main__.py) | `python -m jpipe_runner`, which runs `cli.main` as the `jpipe-runner` script does. |
 | [`loader`](../src/jpipe_runner/loader.py) | Reads the JSON the jPipe compiler emits, checks it against the schema, and builds a `Justification`. Entry points: `load(path)` and `loads(text)`. |
@@ -102,7 +102,7 @@ arrow is data.
 | [`observables`](../src/jpipe_runner/observables.py) | What an evidence can observe: the `Observable` a step library derives, the built-in `File`, `JsonValue` and `Env`, the `Context` that anchors a path to the file that declares its step, and what a glob designates. |
 | [`report`](../src/jpipe_runner/report.py) | The `RunReport` of a run, built for every way a run ends, even when nothing ran: each element of the model with its status, its step and what that step declares, observed and produced, then every diagnostic. Entry points: `RunReport.of(result)`, `RunReport.refused(error)`, `RunReport.not_imported(justification, error)`. |
 | [`json_report`](../src/jpipe_runner/json_report.py) | Renders a `RunReport` as the JSON report, the machine-readable contract described by `report.schema.json` and [`report-schema.md`](report-schema.md). Entry points: `document(report)`, `dumps(report)`. |
-| [`diagram`](../src/jpipe_runner/diagram.py) | Draws a justification as the jPipe compiler draws it, with a run's statuses over it, and in the dataflow view the files and variables its steps declare. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
+| [`diagram`](../src/jpipe_runner/diagram.py) | Draws a run's dataflow: the justification in the jPipe compiler's notation, the files and variables its steps declare, and the run's statuses over it. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
 | [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
@@ -204,10 +204,6 @@ classDiagram
         class Frame
     }
 
-    namespace diagram {
-        class View
-    }
-
     namespace artifacts {
         class Observed
     }
@@ -248,7 +244,6 @@ classDiagram
     <<enumeration>> Unset
     <<enumeration>> Status
     <<enumeration>> Verdict
-    <<enumeration>> View
     <<enumeration>> ExitCode
     <<enumeration>> ChangeKind
     <<enumeration>> Unchecked
@@ -539,17 +534,18 @@ it is JSON, and as its `repr` and type otherwise, a `repr` made canonical: paths
 root relative to it, sets sorted, no object addresses. [`report-schema.md`](report-schema.md)
 documents it for readers.
 
-**A diagram is the compiler's drawing, with the run over it**
-([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)). `diagram.source` writes the DOT
-text of a justification as the compiler's `DotExporter` does (jPipe 2.5.0): its quoted ids,
-its labels wrapped at 40 characters, its shapes and Okabe-Ito colours, nodes in model order
-and edges in the order of the model's relations. A report's statuses are drawn over it in
-the same palette: a green border for a pass, a vermillion fill for a failure, a dashed grey
-node for a skip. The dataflow `View` adds, from what the report says the steps declare,
-each observed file and each variable as a node. `write` pipes the text to Graphviz's `dot`;
-only the `dot` format is written without it. Since the compiler's drawing follows the
-model's order, a diagram is drawn from the model and the report together, and a report
-whose elements, or what each supports, differ from the model's is refused.
+**The diagram is the run's dataflow**
+([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)). `diagram.source` writes the DOT
+text of a justification in the compiler's notation: its quoted ids, its labels wrapped at
+40 characters, its shapes and Okabe-Ito colours, nodes in model order and edges in the
+order of the model's relations. From what the report says the steps declare, it adds each
+observed file and each variable as a node, linked to the elements that observe, produce
+and consume it, and leaves out a support edge when a variable already links its two ends.
+A report's statuses are drawn over the elements in the same palette: a green border for a
+pass, a vermillion fill for a failure, a dashed grey node for a skip. `write` pipes the
+text to Graphviz's `dot`; only the `dot` format is written without it. A diagram is drawn
+from the model and the report together, and a report whose elements, or what each
+supports, differ from the model's is refused.
 
 **A dry run validates and calls no step**
 ([ADR-0024](adr/0024-dry-run-verdict-and-both-diagrams.md)). `run(..., dry_run=True)`
@@ -562,8 +558,8 @@ its step and what that step declares, so its dataflow can be drawn.
 outputs it could not write before anything runs (a diagram whose suffix is not a format,
 or that needs a `dot` that is not installed), then loads the model, imports the libraries
 and runs the engine inside `imported`, with the working directory as the root. Each way
-this ends gives a `RunReport`: `refused`, `not_imported` or `of`. It draws the diagrams
-asked for, recording where on the report (`with_diagram`, `with_dataflow`), writes the
+this ends gives a `RunReport`: `refused`, `not_imported` or `of`. It draws the diagram if
+asked for, recording where on the report (`with_diagram`), writes the
 JSON report to a file if asked, and prints the report on stdout: the text one, or the JSON
 one. Everything else goes to stderr, through the `jpipe_runner` logger, which `main`
 configures for its duration only. A file that cannot be read or written is an `OSError`,

@@ -4,7 +4,7 @@ Every function of ``tests/e2e/scenarios/release_example/steps.py`` appears in th
 character for character, and so does what validation reports on the release and composed
 examples, and what running them does, so the walkthrough cannot drift from the code the
 e2e suite runs. Runs are quoted as their text report, and step 7 quotes the JSON report and
-shows the diagrams of a run, which ``--update-goldens`` redraws where Graphviz is installed.
+shows the diagram of a run, which ``--update-goldens`` redraws where Graphviz is installed.
 The mistakes the page shows are what the command prints for them, the functions answer as
 its ``>>>`` session shows, and its listings of the order and the bindings are the code's.
 """
@@ -25,7 +25,7 @@ from jpipe_runner import loader
 from jpipe_runner.binding import Binding
 from jpipe_runner.cli import main
 from jpipe_runner.diagnostics import Diagnostic
-from jpipe_runner.diagram import View, write
+from jpipe_runner.diagram import write
 from jpipe_runner.engine import RunResult, run
 from jpipe_runner.json_report import document
 from jpipe_runner.report import RunReport
@@ -248,29 +248,26 @@ def _drawn(svg: Path) -> dict[str, tuple[set[str], set[str]]]:
     return nodes
 
 
-def test_the_page_shows_the_diagrams_of_the_failing_run(
+def test_the_page_shows_the_diagram_of_the_failing_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, update_goldens: bool
 ) -> None:
     result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, _two_failures)
-    pictures = {View.JUSTIFICATION: "release-fail.svg", View.DATAFLOW: "release-fail-dataflow.svg"}
+    picture = IMAGES / "release-fail.svg"
     if update_goldens and shutil.which("dot"):
-        for view, name in pictures.items():
-            write(IMAGES / name, result.justification, RunReport.of(result), view=view)
+        write(picture, result.justification, RunReport.of(result))
 
-    for name in pictures.values():
-        assert f"(images/{name})" in PAGE
-        drawn = _drawn(IMAGES / name)
-        assert "#d55e00" in drawn["release:e1"][0], f"redraw {name} with --update-goldens"
-        assert "#009e73" in drawn["release:e2"][1]
-        assert {"#eeeeee"} <= drawn["release:s"][0] & drawn["release:c"][0]
-    dataflow = _drawn(IMAGES / pictures[View.DATAFLOW])
-    assert {"artifact mock/junit.xml", "artifact mock/CHANGELOG.md"} <= set(dataflow)
-    assert "#999999" in dataflow["variable tests_pass"][1]
-    assert "#999999" not in dataflow["variable changelog_ok"][1]
+    assert "(images/release-fail.svg)" in PAGE
+    drawn = _drawn(picture)
+    assert "#d55e00" in drawn["release:e1"][0], "redraw it with --update-goldens"
+    assert "#009e73" in drawn["release:e2"][1]
+    assert {"#eeeeee"} <= drawn["release:s"][0] & drawn["release:c"][0]
+    assert {"artifact mock/junit.xml", "artifact mock/CHANGELOG.md"} <= set(drawn)
+    assert "#999999" in drawn["variable tests_pass"][1]
+    assert "#999999" not in drawn["variable changelog_ok"][1]
 
 
 @needs_dot
-def test_the_diagrams_on_the_page_are_rendered_from_the_run(
+def test_the_diagram_on_the_page_is_rendered_from_the_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     result = _run("release_example", ["steps.py"], tmp_path, monkeypatch, _two_failures)

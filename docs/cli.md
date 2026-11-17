@@ -10,7 +10,7 @@ every exit code. [`tutorial.md`](tutorial.md) walks through a first run,
 
 ```
 jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...
-             [--json] [--report PATH] [--diagram PATH] [--dataflow PATH]
+             [--json] [--report PATH] [--diagram PATH]
              [--strict] [--dry-run] [--colour {auto,always,never}]
              [-v | -vv | -q] [--version]  JUSTIFICATION
 jpipe-runner impact -l … [-p …]... (--changed PATH [--changed …]... | --since REF) JUSTIFICATION
@@ -56,8 +56,7 @@ $ echo $?
 | `--dry-run` | Validate the step libraries against the justification, and call no step: the verdict is `valid`, or `invalid`. |
 | `--json` | Print the JSON report on stdout, instead of the text report. |
 | `--report PATH` | Write the JSON report to `PATH`, whatever stdout shows. |
-| `--diagram PATH` | Draw the justification, with the run over it, to `PATH`. |
-| `--dataflow PATH` | Draw the justification with the files and variables its steps declare to `PATH`. |
+| `--diagram PATH` | Draw the dataflow, with the run over it, to `PATH`: the justification, and the files and variables its steps declare. |
 | `--colour WHEN` | Colour the text report: `auto` (the default) on a terminal unless `NO_COLOR` is set, `always`, or `never`. |
 | `-v`, `--verbose` | Log what the run does, on stderr; `-vv` logs details. |
 | `-q`, `--quiet` | Log errors only. |
@@ -73,25 +72,26 @@ the JSON report instead, the contract for programs, described in
 [`report-schema.md`](report-schema.md). `--report PATH` writes the JSON report to a file
 as well, so that one run gives the text to a person and the JSON to a program.
 
-**Diagrams** are drawn as the jPipe compiler draws them, with the run's statuses over them
-([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)). `--diagram` draws the argument,
-`--dataflow` adds the files each evidence observes and the variables the steps produce
-and consume; both can be drawn in one run. The suffix of the file is its format: `dot`,
-`gif`, `jpeg`, `jpg`, `pdf`, `png` or `svg`. Every format but `dot` needs Graphviz's `dot`
-command. The report records where each diagram was written, and the text report says so
-above the verdict.
+**The diagram** is the run's dataflow
+([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)): the justification, in the jPipe
+compiler's notation, with the files each evidence observes and the variables the steps
+produce and consume, and the run's statuses over its elements. A support is not drawn when
+a variable already links its two ends: the variable shows it. The suffix of the file is
+its format: `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png` or `svg`. Every format but `dot`
+needs Graphviz's `dot` command. The report records where the diagram was written, and the
+text report says so above the verdict.
 
 **Outputs are checked before anything runs.** An output whose suffix is not a format, that
 is a directory, or that two options would both write, is a usage error, and so nothing
 runs:
 
 ```console
-$ jpipe-runner --library steps.py --diagram release.png --dataflow release.png justification.json
+$ jpipe-runner --library steps.py --diagram release.png --report release.png justification.json
 usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
-                    [--report PATH] [--diagram PATH] [--dataflow PATH]
+                    [--report PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
-jpipe-runner: error: --diagram and --dataflow both write release.png
+jpipe-runner: error: --report and --diagram both write release.png
 $ echo $?
 2
 ```
@@ -147,7 +147,7 @@ $ echo $?
 ```
 
 Its JSON report lists every element, with its step and what that step declares, and a
-null status. `--dry-run --dataflow flow.svg` draws the dataflow the library declares
+null status. `--dry-run --diagram flow.svg` draws the dataflow the library declares
 without running it. A library that does not validate gives `invalid`, and exit code 3, as
 any run would.
 
