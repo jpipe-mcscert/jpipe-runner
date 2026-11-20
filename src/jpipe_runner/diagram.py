@@ -40,6 +40,7 @@ Rendering pipes the DOT text to Graphviz's ``dot``: only the binary is needed. T
 format is the text itself, written without it.
 """
 
+import html
 import re
 import subprocess
 from collections.abc import Iterable, Iterator
@@ -260,11 +261,10 @@ class _Dataflow:
     def nodes(self) -> Iterator[str]:
         for path in _unique(p for e in self._elements for p in e.sources):
             attributes = dict(_DATA, shape="folder")
-            if self._unreachable(path):
-                attributes.update(_PROBLEM)
-            yield _data_node(f"artifact {path}", path, attributes)
+            yield _data_node(f"artifact {path}", path, attributes, self._unreachable(path))
         for name in self._variables():
-            yield _data_node(f"variable {name}", name, self._variable(name))
+            attributes = self._variable(name)
+            yield _data_node(f"variable {name}", name, attributes, self._broken(name))
 
     def edges(self) -> Iterator[str]:
         for element in self._elements:
@@ -279,14 +279,17 @@ class _Dataflow:
         return _unique(n for e in self._elements for n in (*e.produces, *e.consumes))
 
     def _variable(self, name: str) -> dict[str, str]:
+        """The style of the variable ``name``: dashed and grey when it was not produced."""
         attributes = dict(_DATA, shape="ellipse")
-        producers = [e for e in self._elements if name in e.produces]
-        consumed = any(name in e.consumes for e in self._elements)
-        if len(producers) != 1 or not consumed:
-            attributes.update(_PROBLEM)
-        elif self._ran and not any(name in e.produced for e in producers):
+        produced = any(name in e.produced for e in self._elements)
+        if self._ran and not produced and not self._broken(name):
             attributes.update(style="dashed", color=_GREY)
         return attributes
+
+    def _broken(self, name: str) -> bool:
+        """Whether the variable ``name`` lacks one producer, or a consumer."""
+        producers = sum(name in e.produces for e in self._elements)
+        return producers != 1 or not any(name in e.consumes for e in self._elements)
 
     def _unreachable(self, declared: str) -> bool:
         return any(
@@ -324,12 +327,12 @@ def _styled(style: dict[str, str], *added: str) -> str:
     return ",".join(styles + [s for s in added if s not in styles])
 
 
-def _data_node(node: str, label: str, attributes: dict[str, str]) -> str:
-    """A file or variable, marked as a problem when it is drawn in vermillion."""
-    if attributes.get("color") == _VERMILLION:
+def _data_node(node: str, label: str, attributes: dict[str, str], problem: bool) -> str:
+    """A file or variable, in vermillion and marked ⚠ when it is a ``problem``."""
+    drawn = _quoted(label)
+    if problem:
+        attributes = attributes | _PROBLEM
         drawn = _marked([label], _WARNING, _DATA_SYMBOL_SIZE)
-    else:
-        drawn = _quoted(label)
     return f"{_INDENT}{_quoted(node)} [label={drawn}, {_attributes(attributes)}];"
 
 
@@ -411,5 +414,4 @@ def _marked(lines: list[str], symbol: str, size: str) -> str:
 
 def _html(text: str) -> str:
     """``text`` escaped for an HTML-like label."""
-    escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    return escaped.replace('"', "&quot;")
+    return html.escape(text)
