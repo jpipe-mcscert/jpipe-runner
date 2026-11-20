@@ -213,6 +213,13 @@ def test_a_template_chain_naming_an_unknown_element_is_reported(chain: TemplateC
     assert codes(error) == [("JP003", None)]
 
 
+def test_template_chain_ids_do_not_repeat_placeholder_ids() -> None:
+    chain = TemplateChain(
+        ("m:e",), (Template("t", ("m:c", "m:s"), (Placeholder("m:s", "s", ("m:e",)),)),)
+    )
+    assert chain.ids == ("m:e", "m:c", "m:s", "m:e")
+
+
 def test_a_model_keeps_its_template_chain() -> None:
     chain = TemplateChain(("m:e",), (Template("t", ("m:c", "m:s", "m:e")),))
     assert (
