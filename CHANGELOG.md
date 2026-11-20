@@ -95,8 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `build/old/a.xml` for one of its files.
 - `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
   read then and can be now, when its name holds `*`, `?` or `[`.
-- `--report` or `--diagram` naming the justification or a step library is a usage error
-  (exit code 2), and nothing runs. The file was overwritten when the run ended.
+- `--report` or `--diagram` naming the justification or a step library, a file a
+  library's glob matches, or a link to one, is a usage error (exit code 2), and nothing
+  runs. The file was overwritten when the run ended.
+- A step that produces an integer too long for Python to write in decimal (more than 4300
+  digits, by default) no longer crashes the run when the report is written: the value is
+  written as its `repr` and its type, as a value that is not JSON is.
 
 ### Changed
 - **The diagram draws a support once.** When an element produces a variable that the

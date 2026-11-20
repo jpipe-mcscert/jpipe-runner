@@ -84,10 +84,10 @@ that never goes back. It makes the events, unlike the report, differ from one ru
 next.
 
 **The end.** A stream without `run.ended` is that of a run still under way, or of one
-that was stopped. Once `run.ended` is written, the report it names is written too. A
-justification, a step library or a python path that cannot be read at all, such as a
-missing file, stops the command with exit code 4 and no report, so its stream ends without
-`run.ended`, and stderr says why.
+that was stopped. Once `run.ended` is written, the report it names is written, and printed
+on stdout. A justification, a step library or a python path that cannot be read at all,
+such as a missing file, stops the command with exit code 4 and no report, so its stream
+ends without `run.ended`, and stderr says why; so does a report that cannot be printed.
 
 ## Versioning
 

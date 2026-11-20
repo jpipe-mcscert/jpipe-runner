@@ -125,6 +125,13 @@ class EventStream:
     def _diagnostics(self, diagnostics: Iterable[Diagnostic]) -> list[dict[str, Any]]:
         return [json_report.diagnostic(each, self._root) for each in diagnostics]
 
+    def close(self) -> None:
+        """Close the file. Closing writes what the file still holds, and may fail too."""
+        try:
+            self._file.close()
+        except OSError as error:
+            self._fail(error)
+
     def _write(self, event: str, **payload: Any) -> None:
         if self._failed:
             return
@@ -134,11 +141,16 @@ class EventStream:
             self._file.write(_one_line(json.dumps(line, ensure_ascii=False)) + "\n")
             self._file.flush()
         except OSError as error:
-            self._failed = True
-            # An error is one line on stderr, not a traceback (ADR-0023).
-            _LOG.error("cannot write the run's events: %s", error.strerror or error)  # NOSONAR
+            self._fail(error)
             return
         self._seq += 1
+
+    def _fail(self, error: OSError) -> None:
+        """Nothing more is written: the first error is logged, and only the first."""
+        if not self._failed:
+            # An error is one line on stderr, not a traceback (ADR-0023).
+            _LOG.error("cannot write the run's events: %s", error.strerror or error)  # NOSONAR
+        self._failed = True
 
 
 def _one_line(text: str) -> str:

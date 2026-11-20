@@ -9,10 +9,12 @@ does not run its steps, how it measures time, and what happens when it cannot be
 import io
 import json
 import logging
+import os
 import shutil
+import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -218,6 +220,10 @@ def test_an_input_that_cannot_be_read_ends_the_stream_without_run_ended(
             "--events justification.json: the justification, which the run reads",
         ),
         (["--report", "./steps.py"], "--report steps.py: a step library, which the run reads"),
+        (
+            ["-l", "*.py", "--events", "steps.py"],
+            "--events steps.py: a step library, which the run reads",
+        ),
     ],
 )
 def test_an_output_another_output_writes_or_the_run_reads_is_a_usage_error(
@@ -230,6 +236,17 @@ def test_an_output_another_output_writes_or_the_run_reads_is_a_usage_error(
 
     assert main([*argv, *RELEASE]) == ExitCode.USAGE
     assert message in capsys.readouterr().err
+
+
+def test_an_output_that_links_to_an_input_is_a_usage_error(
+    workdir: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    directory = workdir("release_example")
+    os.link(directory / "justification.json", directory / "link.json")
+
+    assert main(["--events", "link.json", *RELEASE]) == ExitCode.USAGE
+    assert "--events link.json: the justification" in capsys.readouterr().err
+    assert (directory / "link.json").read_text(encoding="utf-8").startswith("{")
 
 
 class _Failing(io.StringIO):
@@ -265,21 +282,62 @@ def test_a_stream_that_cannot_be_written_stops_and_says_so_once(
     ]
 
 
+class _Faulty:
+    """The events file, which takes ``lines`` lines, then fails to write, and to close."""
+
+    def __init__(self, file: TextIO, lines: int) -> None:
+        self._file = file
+        self._lines = lines
+
+    def write(self, text: str) -> int:
+        if self._lines == 0:
+            raise OSError(28, "No space left on device")
+        self._lines -= 1
+        return self._file.write(text)
+
+    def flush(self) -> None:
+        self._file.flush()
+
+    def close(self) -> None:
+        self._file.close()
+        if self._lines == 0:
+            raise OSError(28, "No space left on device")
+
+
 def test_a_run_whose_stream_fails_still_reports_and_exits_4(
     workdir: Callable[[str], Path],
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     workdir("release_example")
-    failing = _Failing(lines=2)
-    monkeypatch.setattr(cli, "EventStream", lambda file, root: EventStream(failing, root=root))
+    monkeypatch.setattr(
+        cli, "EventStream", lambda file, root: EventStream(_Faulty(file, lines=2), root=root)
+    )
 
     code = main(["--events", EVENTS, *RELEASE])
 
     out, err = capsys.readouterr()
     assert code == ExitCode.IO
     assert "verdict: pass" in out
-    assert "cannot write the run's events" in err
+    assert err.count("cannot write the run's events") == 1
+
+
+class _Unprintable(io.StringIO):
+    def write(self, text: str) -> int:
+        raise OSError(28, "No space left on device")
+
+
+def test_a_report_that_cannot_be_printed_ends_the_stream_without_run_ended(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    monkeypatch.setattr(sys, "stdout", _Unprintable())
+
+    assert main(["--events", EVENTS, *RELEASE]) == ExitCode.IO
+
+    assert "run.ended" not in [event["event"] for event in read(directory / EVENTS)]
 
 
 def test_elapsed_time_is_measured_from_the_opening_in_milliseconds() -> None:

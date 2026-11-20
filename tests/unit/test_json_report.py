@@ -308,6 +308,16 @@ def test_a_produced_value_is_written_as_json_or_as_its_repr(value: Any, written:
     assert encoded(value) == written
 
 
+def test_an_int_too_long_to_write_is_written_as_its_type() -> None:
+    written = encoded([1, 10**5000])
+
+    assert written == {
+        "repr": "[1, <int object: repr() raised ValueError>]",
+        "type": "list",
+    }
+    json.dumps(written)
+
+
 class Report:
     """An object with Python's default repr, which holds its address."""
 

@@ -330,9 +330,9 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
         "--events": options.events,
         "--diagram": options.diagram,
     }
-    read = {Path(pattern).resolve(): "a step library" for pattern in options.library}
-    read[options.justification.resolve()] = "the justification"
-    seen: dict[Path, str] = {}
+    read = {_identity(library): "a step library" for library in _libraries(options.library)}
+    read[_identity(options.justification)] = "the justification"
+    seen: dict[object, str] = {}
     for flag, path in outputs.items():
         if path is None:
             continue
@@ -342,12 +342,23 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
         if flag == "--diagram" and suffix not in diagram.FORMATS:
             formats = ", ".join(diagram.FORMATS)
             command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
-        resolved = path.resolve()
-        if (input_ := read.get(resolved)) is not None:
+        identity = _identity(path)
+        if (input_ := read.get(identity)) is not None:
             command.error(f"{flag} {path}: {input_}, which the run reads")
-        if (same := seen.get(resolved)) is not None:
+        if (same := seen.get(identity)) is not None:
             command.error(f"{same} and {flag} both write {path}")
-        seen[resolved] = flag
+        seen[identity] = flag
+
+
+def _identity(path: Path) -> object:
+    """What tells ``path``'s file from any other: its device and its inode if it exists,
+    so that a link is the file it links to, and its absolute path otherwise."""
+    try:
+        status = path.stat()
+    except OSError:
+        return path.resolve()
+    # A file system that has no inodes gives 0 for every file.
+    return (status.st_dev, status.st_ino) if status.st_ino else path.resolve()
 
 
 def _run(options: argparse.Namespace) -> int:
@@ -357,24 +368,31 @@ def _run(options: argparse.Namespace) -> int:
     # on every machine.
     root = Path()
     _LOG.info("steps run with Python %s, in %s", sys.executable, Path.cwd())
+    # Expanded before the events file is opened, which a glob could otherwise match.
+    libraries = _libraries(options.library)
     with _events(options.events, root) as stream:
-        justification, report = _report(options, root, stream)
+        justification, report = _report(options, root, libraries, stream)
         _LOG.info("verdict: %s", report.verdict)
         report, drawn = _draw(options, justification, report, root)
         saved = _save(options.report, report)
         code = exit_code(report.verdict, strict=options.strict) if drawn and saved else ExitCode.IO
+        _print(options, report)
         if stream is not None:
             # A stream that failed writes nothing more, so this exit code is never shown.
             stream.run_ended(report, code, options.report if saved else None)
-        if not _streamed(stream):
-            code = ExitCode.IO
+    # Once the file is closed: closing it writes what it still holds, and may fail.
+    return code if _streamed(stream) else ExitCode.IO
+
+
+def _print(options: argparse.Namespace, report: RunReport) -> None:
+    """Print the report on stdout: the JSON report with ``--json``, the text one otherwise."""
     if options.json:
         sys.stdout.write(json_report.dumps(report))
     else:
         colour = _colour(options.colour)
         unicode = text_report.use_unicode(sys.stdout)
         sys.stdout.write(text_report.render(report, colour=colour, unicode=unicode))
-    return code
+    sys.stdout.flush()
 
 
 @contextmanager
@@ -385,9 +403,12 @@ def _events(path: Path | None, root: Path) -> Iterator[EventStream | None]:
         yield None
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="\n") as file:
-        _LOG.info("writing the run's events to %s", path)
-        yield EventStream(file, root=root)
+    stream = EventStream(path.open("w", encoding="utf-8", newline="\n"), root=root)
+    _LOG.info("writing the run's events to %s", path)
+    try:
+        yield stream
+    finally:
+        stream.close()
 
 
 def _streamed(stream: EventStream | None) -> bool:
@@ -407,11 +428,13 @@ def _check_graphviz(path: Path | None) -> None:
 
 
 def _report(
-    options: argparse.Namespace, root: Path, stream: EventStream | None = None
+    options: argparse.Namespace,
+    root: Path,
+    libraries: list[Path],
+    stream: EventStream | None = None,
 ) -> tuple[Justification | None, RunReport]:
-    """The model, unless it was refused, and the report of the run, however it ended.
-    ``stream``, if there is one, is told of the run as it goes."""
-    libraries = _libraries(options.library)
+    """The model, unless it was refused, and the report of the run of ``libraries``,
+    however it ended. ``stream``, if there is one, is told of the run as it goes."""
     try:
         justification = loader.load(options.justification)
     except InvalidJustificationError as error:
@@ -514,7 +537,7 @@ def _impact(options: argparse.Namespace) -> int:
         changed = impact.changed_since(options.since)
     else:
         changed = _relative(options.changed)
-    _, report = _report(options, Path())
+    _, report = _report(options, Path(), _libraries(options.library))
     if not any(element.step for element in report.elements):
         # A refused model, libraries that cannot be imported or that bind nothing: there is
         # nothing declared to analyze, and the report says why.

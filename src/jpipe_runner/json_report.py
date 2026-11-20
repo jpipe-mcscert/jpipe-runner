@@ -171,10 +171,13 @@ def encoded(value: Any, root: Path = Path()) -> dict[str, Any]:
 
 
 def _is_json(value: Any, seen: set[int]) -> bool:
-    """Whether ``value`` is JSON as it is: ``None``, a ``bool``, an ``int``, a finite
-    ``float``, a ``str``, or a list, tuple or mapping with ``str`` keys of such values."""
-    if value is None or isinstance(value, bool | int | str):
+    """Whether ``value`` is JSON as it is: ``None``, a ``bool``, an ``int`` Python can
+    write, a finite ``float``, a ``str``, or a list, tuple or mapping with ``str`` keys of
+    such values."""
+    if value is None or isinstance(value, bool | str):
         return True
+    if isinstance(value, int):
+        return _writable(value)
     if isinstance(value, float):
         return math.isfinite(value)
     if not isinstance(value, list | tuple | Mapping) or id(value) in seen:
@@ -183,6 +186,16 @@ def _is_json(value: Any, seen: set[int]) -> bool:
     if isinstance(value, Mapping):
         return all(isinstance(key, str) and _is_json(v, seen) for key, v in value.items())
     return all(_is_json(item, seen) for item in value)
+
+
+def _writable(value: int) -> bool:
+    """Whether Python writes ``value`` in decimal: not if it has more digits than
+    ``sys.get_int_max_str_digits()`` allows."""
+    try:
+        int.__repr__(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _plain(value: Any) -> Any:
