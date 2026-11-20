@@ -2,7 +2,7 @@
 
 ``events.schema.json`` refers to ``report.schema.json`` for an element and a diagnostic,
 as the report writes them. ``VALIDATOR`` resolves those references with the report's
-schema, whichever API the installed jsonschema has: ``referencing`` from 4.18, and a
+schema, whichever API the installed jsonschema has: a ``referencing`` registry from 4.18, and a
 ``RefResolver`` on the floor (ADR-0026).
 """
 
@@ -20,7 +20,13 @@ REPORT_SCHEMA = "report.schema.json"
 def _validator() -> Any:
     try:
         from referencing import Registry, Resource
-    except ImportError:  # jsonschema before 4.18
+
+        registry = Registry().with_resource(
+            REPORT_SCHEMA, Resource.from_contents(json_report.SCHEMA)
+        )
+        return Draft202012Validator(events.SCHEMA, registry=registry)
+    # Before 4.18, jsonschema takes no registry, even with referencing installed.
+    except (ImportError, TypeError):
         from jsonschema import RefResolver
 
         # Its references are resolved against a URI: the schemas', side by side.
@@ -29,8 +35,6 @@ def _validator() -> Any:
         store = {(directory / REPORT_SCHEMA).as_uri(): json_report.SCHEMA}
         resolver = RefResolver(base, events.SCHEMA, store=store)
         return Draft202012Validator(events.SCHEMA, resolver=resolver)
-    registry = Registry().with_resource(REPORT_SCHEMA, Resource.from_contents(json_report.SCHEMA))
-    return Draft202012Validator(events.SCHEMA, registry=registry)
 
 
 VALIDATOR = _validator()
