@@ -106,7 +106,7 @@ class TemplateChain:
                 i
                 for template in self.templates
                 for placeholder in template.placeholders
-                for i in (placeholder.id, *placeholder.supports)
+                for i in placeholder.supports
             ),
         )
 
