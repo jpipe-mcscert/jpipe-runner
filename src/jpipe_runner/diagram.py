@@ -413,5 +413,6 @@ def _marked(lines: list[str], symbol: str, size: str) -> str:
 
 
 def _html(text: str) -> str:
-    """``text`` escaped for an HTML-like label."""
-    return html.escape(text)
+    """``text`` escaped for an HTML-like label: its markup, and its backslashes, which
+    Graphviz would read as escapes such as ``\\N`` (the node's id) even in HTML text."""
+    return html.escape(text.replace("\\", "\\\\"))
