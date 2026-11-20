@@ -1,0 +1,32 @@
+
+// Template model
+template quality {
+  conclusion ready is "Version 2.0 is ready to ship"
+  strategy gates is "All release gates pass"
+  gates supports ready
+
+  @support tested is "Testing is demonstrated"
+  tested supports gates
+
+  @support documented is "Documentation is demonstrated"
+  documented supports gates
+}
+
+// instantiated template
+justification readiness implements quality {
+
+  sub-conclusion quality:tested is "The code is tested"
+  strategy testing is "The test suite passes with high coverage"
+  testing supports quality:tested
+  evidence suite is "The test suite passes"
+  suite supports testing
+  evidence coverage is "Coverage is above 80%"
+  coverage supports testing
+
+  sub-conclusion quality:documented is "The documentation is updated"
+  strategy docs is "The changelog and API docs are current"
+  docs supports quality:documented
+  evidence changelog is "The changelog is up to date"
+  changelog supports docs
+
+}

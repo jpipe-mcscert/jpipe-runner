@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "jPipe justification",
-  "description": "A justification model as the jPipe compiler emits it (ADR-0001). The runner only runs justifications, not templates. Properties not listed here are allowed and ignored: the compiler writes an `escaped` name for each element, which the runner does not use.",
+  "description": "A justification model as the jPipe compiler emits it (ADR-0001). The runner only runs justifications, not templates. Properties not listed here are allowed and ignored, such as the `origins` of a composed element.",
   "type": "object",
   "required": ["name", "type", "elements", "relations"],
   "properties": {
@@ -15,6 +15,23 @@
     "relations": {
       "type": "array",
       "items": {"$ref": "#/$defs/relation"}
+    },
+    "implements": {
+      "description": "How the compiler draws the template chain of a justification that implements a template (jPipe 4.0.0 and later). Only the diagram uses it.",
+      "type": "object",
+      "required": ["elements", "templates"],
+      "properties": {
+        "elements": {
+          "description": "The ids drawn outside every template, in drawing order.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "templates": {
+          "description": "The chain, the template the justification implements first: each is drawn inside the one before it.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/template"}
+        }
+      }
     }
   },
   "$defs": {
@@ -41,6 +58,36 @@
       "properties": {
         "source": {"$ref": "#/$defs/id"},
         "target": {"$ref": "#/$defs/id"}
+      }
+    },
+    "template": {
+      "type": "object",
+      "required": ["name", "elements"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "elements": {
+          "description": "The ids drawn in the template, in drawing order: a placeholder's id stands for the placeholder.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "placeholders": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/placeholder"}
+        }
+      }
+    },
+    "placeholder": {
+      "description": "A template's @support, filled by the element with the same id.",
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "label": {"type": "string"},
+        "supports": {
+          "description": "The strategies whose support by this id is drawn from the placeholder.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/id"}
+        }
       }
     }
   }

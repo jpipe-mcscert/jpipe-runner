@@ -76,7 +76,12 @@ as well, so that one run gives the text to a person and the JSON to a program.
 ([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)): the justification, in the jPipe
 compiler's notation, with the files each evidence observes and the variables the steps
 produce and consume, and the run's statuses over its elements. A support is not drawn when
-a variable already links its two ends: the variable shows it. The suffix of the file is
+a variable already links its two ends: the variable shows it. A justification that
+implements a template is drawn as the compiler draws it: each template a cluster, each
+`@support` a dotted placeholder linked to the element that fills it, and the template's
+supports drawn from the placeholders, even when a variable links their ends. The
+justification must be compiled by jPipe 4.0.0 or later, which writes the template chain to
+its JSON; an older one draws the argument flat. The suffix of the file is
 its format: `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png` or `svg`. Every format but `dot`
 needs Graphviz's `dot` command. The report records where the diagram was written, and the
 text report says so above the verdict.

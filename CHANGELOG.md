@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `jpipe-runner status` still read reports of version `1.x`, such as a saved baseline.
 
 ### Added
+- **The diagram draws the templates a justification implements**, as the jPipe compiler
+  does: each template a `<<template>>` cluster, each `@support` a dotted placeholder
+  linked to the element that fills it, and the template's supports drawn from the
+  placeholders. The diagram drew the argument flat, so nothing showed which elements came
+  from a template. This needs a justification compiled by jPipe 4.0.0 or later, which
+  writes the template chain to its JSON (`implements`); one compiled earlier is still
+  drawn flat (#171).
 - **An evidence observes more than files.** Beside a path, `observes` takes
   `JsonValue("package.json", "/version")`, a value in a JSON file, and `Env("CI")`, an
   environment variable; the step receives the value. Both are imported from

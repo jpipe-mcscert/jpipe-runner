@@ -146,6 +146,9 @@ classDiagram
         class Element
         class Relation
         class Kind
+        class TemplateChain
+        class Template
+        class Placeholder
         class InvalidJustificationError
     }
 
@@ -252,6 +255,12 @@ classDiagram
     Justification "1" *-- "*" Relation : relations
     Relation ..> Element : source, target
     Element --> Kind : kind
+    Justification "1" *-- "0..1" TemplateChain : template_chain
+    TemplateChain "1" *-- "*" Template : templates
+    Template "1" *-- "*" Placeholder : placeholders
+    TemplateChain ..> Element : elements
+    Template ..> Element : elements
+    Placeholder ..> Element : id, supports
     Justification ..> InvalidJustificationError : raises
     Exception <|-- InvalidJustificationError
     InvalidJustificationError "1" o-- "1..*" Diagnostic : diagnostics
@@ -342,6 +351,13 @@ relations. Each `Element` has a `Kind` (evidence, strategy, sub-conclusion, conc
 `Relation` goes from the supporting element to the element it supports, so evidence are
 the sources of the graph and the conclusion is its sink.
 
+A justification that implements a template also has a `TemplateChain`: how the compiler
+draws it, which jPipe writes since 4.0.0. It lists the elements drawn outside every
+template, then each `Template` of the chain, the one implemented first, with the elements
+drawn in it and its `Placeholder`s, the `@support`s that elements further down fill. The
+run does not use it: the elements and relations are already the flattened argument. Only
+the diagram reads it.
+
 **Elements are designated by id.** A `Relation` holds the ids of its two ends, and a
 `Diagnostic` the id of the element it is about, not the `Element` objects; the dotted
 arrows above are these references. An element also answers to its aliases, the ids of the
@@ -361,11 +377,11 @@ and the graph is frozen once built.
 **A `Justification` is valid by construction.** A model that cannot be run is never
 loaded. The loader rejects a document that is not JSON or does not match the schema
 (`JP001`), and the `Justification` constructor rejects a duplicate element id (`JP002`) or
-a relation to an element that does not exist (`JP003`). An alias counts as an id: one that
-another element also answers to is `JP002` too. Each of these raises an
-`InvalidJustificationError` carrying every problem found, as diagnostics. So does a cycle
-in the relations (`JP004`), reported once the rest is sound: the compiler never emits one,
-and the steps of a cyclic argument would have no order to run in.
+a relation, or a template chain, naming an element that does not exist (`JP003`). An alias
+counts as an id: one that another element also answers to is `JP002` too. Each of these
+raises an `InvalidJustificationError` carrying every problem found, as diagnostics. So does
+a cycle in the relations (`JP004`), reported once the rest is sound: the compiler never
+emits one, and the steps of a cyclic argument would have no order to run in.
 
 **A diagnostic's `code` is its contract.** The `message` is written for humans and may be
 reworded. A `Severity.ERROR` found while loading or validating stops the run before any
@@ -538,9 +554,13 @@ documents it for readers.
 ([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)). `diagram.source` writes the DOT
 text of a justification in the compiler's notation: its quoted ids, its labels wrapped at
 40 characters, its shapes and Okabe-Ito colours, nodes in model order and edges in the
-order of the model's relations. From what the report says the steps declare, it adds each
+order of the model's relations. A justification that implements templates is drawn as the
+compiler draws it: each template a cluster nested in the one before it, each `@support` a
+dotted placeholder linked to the element that fills it, and the template's supports drawn
+from the placeholder. From what the report says the steps declare, it adds each
 observed file and each variable as a node, linked to the elements that observe, produce
-and consume it, and leaves out a support edge when a variable already links its two ends.
+and consume it, and leaves out a support edge when a variable already links its two ends,
+unless the template draws it from a placeholder.
 A report's statuses are drawn over the elements in the same palette: a green border for a
 pass, a vermillion fill for a failure, a dashed grey node for a skip. `write` pipes the
 text to Graphviz's `dot`; only the `dot` format is written without it. A diagram is drawn

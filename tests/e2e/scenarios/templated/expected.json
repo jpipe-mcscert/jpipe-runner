@@ -1,0 +1,296 @@
+{
+  "schema_version": "2.0",
+  "justification": "readiness",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 9,
+    "pass": 9,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "readiness:suite",
+      "label": "The test suite passes",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:testing"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_test_suite_passes",
+      "bound_by": [
+        "readiness:suite"
+      ],
+      "observes": [
+        "mock/junit.xml"
+      ],
+      "sources": [
+        "mock/junit.xml"
+      ],
+      "consumes": [],
+      "produces": [
+        "tests_pass"
+      ],
+      "produced": {
+        "tests_pass": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
+          "reachable": true,
+          "sha256": "2728b322d158945c5898fcab1260a599d1170a00c34fc97cdcfcff66d702ff67",
+          "size": 59
+        }
+      ],
+      "observations": []
+    },
+    {
+      "id": "readiness:coverage",
+      "label": "Coverage is above 80%",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:testing"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.coverage_is_above_80",
+      "bound_by": [
+        "readiness:coverage"
+      ],
+      "observes": [
+        "mock/coverage.txt"
+      ],
+      "sources": [
+        "mock/coverage.txt"
+      ],
+      "consumes": [],
+      "produces": [
+        "coverage"
+      ],
+      "produced": {
+        "coverage": {
+          "value": 85
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/coverage.txt",
+          "declared": "mock/coverage.txt",
+          "reachable": true,
+          "sha256": "ff393127b5a059b172af9b9eed820368071cf24d46df1b8326623c8e79178379",
+          "size": 3
+        }
+      ],
+      "observations": []
+    },
+    {
+      "id": "readiness:testing",
+      "label": "The test suite passes with high coverage",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:quality:tested"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_suite_passes_with_high_coverage",
+      "bound_by": [
+        "readiness:testing"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [
+        "tests_pass",
+        "coverage"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:changelog",
+      "label": "The changelog is up to date",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:docs"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_changelog_is_up_to_date",
+      "bound_by": [
+        "readiness:changelog"
+      ],
+      "observes": [
+        "mock/CHANGELOG.md"
+      ],
+      "sources": [
+        "mock/CHANGELOG.md"
+      ],
+      "consumes": [],
+      "produces": [
+        "changelog_ok"
+      ],
+      "produced": {
+        "changelog_ok": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/CHANGELOG.md",
+          "declared": "mock/CHANGELOG.md",
+          "reachable": true,
+          "sha256": "bc63969ae2c6c30c212eaf92916d5f553f7b09c5b36b5125dd4546ec9c9d69bb",
+          "size": 33
+        }
+      ],
+      "observations": []
+    },
+    {
+      "id": "readiness:docs",
+      "label": "The changelog and API docs are current",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:quality:documented"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_docs_are_current",
+      "bound_by": [
+        "readiness:docs"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [
+        "changelog_ok"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:quality:tested",
+      "label": "The code is tested",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "readiness:quality:gates"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_code_is_tested",
+      "bound_by": [
+        "readiness:quality:tested"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [],
+      "produces": [
+        "tested"
+      ],
+      "produced": {
+        "tested": {
+          "value": true
+        }
+      },
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:quality:documented",
+      "label": "The documentation is updated",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "readiness:quality:gates"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "sources": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:quality:gates",
+      "label": "All release gates pass",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:quality:ready"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.all_release_gates_pass",
+      "bound_by": [
+        "readiness:quality:gates"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [
+        "tested"
+      ],
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:quality:ready",
+      "label": "Version 2.0 is ready to ship",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "sources": [],
+      "consumes": [],
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null
+}

@@ -1,0 +1,117 @@
+{
+  "implements": {
+    "elements": [
+      "readiness:testing",
+      "readiness:suite",
+      "readiness:coverage",
+      "readiness:docs",
+      "readiness:changelog",
+      "readiness:quality:tested",
+      "readiness:quality:documented"
+    ],
+    "templates": [{
+      "elements": [
+        "readiness:quality:ready",
+        "readiness:quality:gates",
+        "readiness:quality:tested",
+        "readiness:quality:documented"
+      ],
+      "name": "quality",
+      "placeholders": [
+        {
+          "supports": ["readiness:quality:gates"],
+          "id": "readiness:quality:tested",
+          "label": "Testing is demonstrated"
+        },
+        {
+          "supports": ["readiness:quality:gates"],
+          "id": "readiness:quality:documented",
+          "label": "Documentation is demonstrated"
+        }
+      ]
+    }]
+  },
+  "elements": [
+    {
+      "id": "readiness:quality:ready",
+      "label": "Version 2.0 is ready to ship",
+      "type": "conclusion"
+    },
+    {
+      "id": "readiness:quality:gates",
+      "label": "All release gates pass",
+      "type": "strategy"
+    },
+    {
+      "id": "readiness:testing",
+      "label": "The test suite passes with high coverage",
+      "type": "strategy"
+    },
+    {
+      "id": "readiness:suite",
+      "label": "The test suite passes",
+      "type": "evidence"
+    },
+    {
+      "id": "readiness:coverage",
+      "label": "Coverage is above 80%",
+      "type": "evidence"
+    },
+    {
+      "id": "readiness:docs",
+      "label": "The changelog and API docs are current",
+      "type": "strategy"
+    },
+    {
+      "id": "readiness:changelog",
+      "label": "The changelog is up to date",
+      "type": "evidence"
+    },
+    {
+      "id": "readiness:quality:tested",
+      "label": "The code is tested",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "readiness:quality:documented",
+      "label": "The documentation is updated",
+      "type": "sub-conclusion"
+    }
+  ],
+  "name": "readiness",
+  "type": "justification",
+  "relations": [
+    {
+      "source": "readiness:quality:gates",
+      "target": "readiness:quality:ready"
+    },
+    {
+      "source": "readiness:testing",
+      "target": "readiness:quality:tested"
+    },
+    {
+      "source": "readiness:docs",
+      "target": "readiness:quality:documented"
+    },
+    {
+      "source": "readiness:quality:documented",
+      "target": "readiness:quality:gates"
+    },
+    {
+      "source": "readiness:quality:tested",
+      "target": "readiness:quality:gates"
+    },
+    {
+      "source": "readiness:suite",
+      "target": "readiness:testing"
+    },
+    {
+      "source": "readiness:coverage",
+      "target": "readiness:testing"
+    },
+    {
+      "source": "readiness:changelog",
+      "target": "readiness:docs"
+    }
+  ]
+}

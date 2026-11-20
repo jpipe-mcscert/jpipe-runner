@@ -15,11 +15,12 @@ variables the steps produce and consume.
 
 The first view is the compiler's drawing in other colours. A reader holding both pictures
 of one argument has to work out that they differ only in colour, and which tool drew which.
-It also cannot keep its promise: for a justification that `implements` a template, the
+It also could not keep its promise: for a justification that `implements` a template, the
 compiler draws the template as a cluster, with placeholders for its `@support`s, which the
-JSON the runner reads does not describe (#171). What the runner adds to an argument is its
-dataflow: what each evidence observes, which values flow from which step to which, and what
-validation found wrong with it (JP009 to JP014). That is the view only the runner can draw.
+JSON the runner reads did not describe until jPipe 4.0.0 (#171, jpipe-compiler#199). What
+the runner adds to an argument is its dataflow: what each evidence observes, which values
+flow from which step to which, and what validation found wrong with it (JP009 to JP014).
+That is the view only the runner can draw.
 
 The dataflow view also drew every support twice when data flows along it: the support edge
 from evidence to strategy, and the path from the evidence through the variable it produces
@@ -59,8 +60,17 @@ user and the GitHub Action already pass, and the one view the runner exists to d
 - **The elements keep the compiler's notation**: its shapes, its Okabe-Ito colours, its
   quoted ids and its labels wrapped at 40 characters, so that a reader who knows the
   compiler's drawings recognizes them. The diagram no longer claims to be the compiler's
-  drawing: the tests that compared it with the compiler's DOT, and the compiler output they
-  kept, are gone, and with them #171's divergence.
+  drawing: the tests that compared it with the compiler's DOT for every scenario, and the
+  compiler output they kept, are gone.
+- **The templates a justification implements are drawn as the compiler draws them**, from
+  the template chain jPipe 4.0.0 writes to the JSON (`implements`): each template a cluster
+  nested in the one before it, each `@support` a dotted placeholder linked to the element
+  that fills it, and the template's supports drawn from the placeholders. Those supports
+  are drawn even when a variable links their ends: they are the template's structure, and
+  the variable, drawn from the element that fills the placeholder, shows the data. A
+  placeholder has no step, so no status; a support drawn from it takes the colour of the
+  element that fills it. A justification compiled by an earlier jPipe has no chain, and is
+  drawn flat.
 - **The report's `dataflow` field is removed, and the report becomes 2.0.** `diagram` is the
   path of the one diagram. Schema 1.1 was never released: 2.0 also carries what 1.1 added.
 - **`impact` and `status` read reports of version 1.x as well as 2.x.** The field 2.0
@@ -80,6 +90,8 @@ a step.
 - Good, because the diagram no longer depends on how the compiler lays out templates, nor
   on following its exporter's changes.
 - Good, because a support with data flowing along it is drawn once.
+- Good, because a reader sees which elements a justification inherits from its templates,
+  and which of its own fill their `@support`s.
 - Bad, because a user of `--dataflow` must pass `--diagram` instead, and a reader of the
   report's `dataflow` must read `diagram`, and accept version 2.0. jpipe-vscode's Run panel
   passes `--dataflow` and reads `dataflow`; the GitHub Action passes `--dataflow` when its
@@ -88,11 +100,16 @@ a step.
   A reader who wants the argument alone has the compiler's drawing.
 - Neutral, because a support edge carried its source's status in its colour; the element
   still carries it.
+- Neutral, because a template's support is drawn even when a variable links its ends, so a
+  templated diagram can show a support twice, once as the template's and once as data.
 
 ### Confirmation
 
 - `tests/unit/test_diagram.py` checks the notation, the statuses, the files and variables,
   which supports are drawn and which are left out, and, where `dot` is installed, the SVG.
+  It draws a chain of two templates exactly as `jpipe process -f DOT` does (jPipe 4.0.0),
+  and checks a run of the `templated` scenario: its placeholders, and the template's
+  support drawn from one even though a variable links its ends.
 - `tests/unit/test_cli.py` checks that `--diagram` draws the dataflow and records it, and
   that `--dataflow` is a usage error.
 - `tests/unit/test_impact.py` checks that a report of version 1.1, with its `dataflow`
@@ -121,6 +138,7 @@ a step.
 
 ## More Information
 
-- #171 (diagrams of a justification that implements a template), jpipe-compiler#199.
+- #171 (diagrams of a justification that implements a template), jpipe-compiler#199 (the
+  template chain in the JSON export, jPipe 4.0.0).
 - [ADR-0021](0021-execution-semantics.md), statuses and root causes;
   [ADR-0025](0025-impact-and-staleness.md), `impact` and `status`.
