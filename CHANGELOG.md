@@ -26,7 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the jPipe compiler's notation, with the files each evidence observes, the variables the
   steps produce and consume, and the run's statuses over its elements. The argument alone,
   with the run's colours over it, is no longer drawn: `jpipe process -f SVG` draws the
-  argument ([ADR-0029](docs/adr/0029-the-runner-draws-the-dataflow.md)).
+  argument ([ADR-0029](docs/adr/0029-the-runner-draws-the-dataflow.md)). The GitHub
+  Action's `dataflow` input and the Run panel of the VS Code extension pass `--dataflow`:
+  they need a release that passes `--diagram` before they use this version.
 - **The JSON report is version `2.0`, without its `dataflow` field.** `diagram` is the
   path of the one diagram. A program that checks `schema_version` must accept `2.0`, and
   one that read `dataflow` must read `diagram`. `jpipe-runner impact` and

@@ -462,3 +462,14 @@ def test_an_element_the_template_chain_does_not_place_is_drawn_outside_it() -> N
     ]
 
     assert nodes == ['"e1"', '"e2"', '"c"', '"s"']
+
+
+def test_a_template_name_is_wrapped_and_escaped_as_the_compiler_does() -> None:
+    chain = TemplateChain(
+        ("e1", "e2", "s"), (Template("a_long_template_name_for_wrapping", ("c",)),)
+    )
+    named = Justification("m", RELEASE.elements, RELEASE.relations, chain)
+
+    assert '    label="<<template>>\\na\\_long\\_template\\_name\\_for\\_wrapping";' in (
+        source(named).splitlines()
+    )

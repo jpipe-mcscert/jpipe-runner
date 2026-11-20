@@ -87,8 +87,8 @@ a step.
 ### Consequences
 
 - Good, because a run has one picture, and it shows what the runner checks.
-- Good, because the diagram no longer depends on how the compiler lays out templates, nor
-  on following its exporter's changes.
+- Good, because the diagram no longer follows the compiler's exporter for every model:
+  only a template chain is drawn as the compiler lays it out, from what the JSON says of it.
 - Good, because a support with data flowing along it is drawn once.
 - Good, because a reader sees which elements a justification inherits from its templates,
   and which of its own fill their `@support`s.
@@ -96,6 +96,8 @@ a step.
   report's `dataflow` must read `diagram`, and accept version 2.0. jpipe-vscode's Run panel
   passes `--dataflow` and reads `dataflow`; the GitHub Action passes `--dataflow` when its
   `dataflow` input is true.
+- Bad, because the drawing of templates depends on the compiler's `implements` export: a
+  change to it reaches the runner.
 - Bad, because `--diagram` users see more than the argument: the files and variables too.
   A reader who wants the argument alone has the compiler's drawing.
 - Neutral, because a support edge carried its source's status in its colour; the element

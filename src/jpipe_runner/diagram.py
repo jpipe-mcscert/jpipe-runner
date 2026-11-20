@@ -16,8 +16,9 @@ A justification that implements templates is drawn as the compiler draws it, fro
 template chain jPipe 4.0.0 writes to its JSON: each template a cluster labelled
 ``<<template>> name``, nested in the one before it; each ``@support`` a dotted placeholder,
 ``<id>@abstract``, linked by a dotted arrow from the element that fills it; and the
-template's supports drawn from the placeholder. Those are drawn even when a variable links
-their ends: they are the template's structure. A placeholder has no step, so no status.
+template's supports drawn from the placeholder. No variable links a placeholder, so those
+are drawn even when one links the element that fills it to the strategy: they are the
+template's structure. A placeholder has no step, so no status.
 
 A run's statuses are drawn over the elements, in the same palette:
 
@@ -27,8 +28,9 @@ A run's statuses are drawn over the elements, in the same palette:
 
 A support edge takes the colour of the status of the element it comes from, or, from a
 placeholder, of the element that fills it. In SVG, a
-node's tooltip gives its status and reason. Without a report, or for a run in which nothing
-ran, the diagram is the argument alone.
+node's tooltip gives its status and reason. Without a report, the diagram is the argument
+alone; with the report of a run in which nothing ran, such as a dry run, it is the dataflow
+the steps declare, without statuses.
 
 Rendering pipes the DOT text to Graphviz's ``dot``: only the binary is needed. The ``dot``
 format is the text itself, written without it.
@@ -145,7 +147,7 @@ class _Diagram:
         templates = () if self._chain is None else self._chain.templates
         self._placeholders = [p for template in templates for p in template.placeholders]
         self._from_placeholder = {
-            (placeholder.id, strategy): _abstract(placeholder.id)
+            (placeholder.id, strategy)
             for placeholder in self._placeholders
             for strategy in placeholder.supports
         }
@@ -160,9 +162,10 @@ class _Diagram:
             override = f"{_quoted(placeholder.id)} -> {_quoted(_abstract(placeholder.id))}"
             yield f"{_INDENT}{override} [arrowhead=empty, style=dotted];"
         for relation in self._model.relations:
-            drawn_from = self._from_placeholder.get((relation.source, relation.target))
-            if drawn_from is not None or not self._dataflow.links(relation.source, relation.target):
-                yield self._edge(relation.source, relation.target, drawn_from)
+            if (relation.source, relation.target) in self._from_placeholder:
+                yield self._edge(relation.source, relation.target, _abstract(relation.source))
+            elif not self._dataflow.links(relation.source, relation.target):
+                yield self._edge(relation.source, relation.target)
         yield from self._dataflow.edges()
         yield "}"
 
@@ -192,7 +195,7 @@ class _Diagram:
         placeholders = {placeholder.id: placeholder for placeholder in template.placeholders}
         yield f"{indent}subgraph {_quoted(f'cluster_{template.name}')} {{"
         yield f"{inside}style=filled; fillcolor=lightyellow; color=grey;"
-        yield f"{inside}label={_quoted(f'<<template>> {template.name}')};"
+        yield f"{inside}label={_wrapped(f'<<template>> {template.name}')};"
         for element_id in template.elements:
             if (placeholder := placeholders.get(element_id)) is not None:
                 drawn = _quoted(_abstract(element_id))
