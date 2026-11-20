@@ -220,3 +220,7 @@ def test_a_model_keeps_its_template_chain() -> None:
         == chain
     )
     assert model().template_chain is None
+
+def test_template_chain_ids_do_not_repeat_placeholder_ids() -> None:
+    chain = TemplateChain((), (Template("t", ("m:e",), (Placeholder("m:e", "e", ("m:x",)),)),))
+    assert chain.ids == ("m:e", "m:x")
