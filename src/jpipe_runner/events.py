@@ -21,6 +21,7 @@ more is written, and ``failed`` says so, for the command line to exit with code 
 
 import json
 import logging
+import re
 import time
 from collections.abc import Callable, Iterable
 from importlib.resources import files
@@ -42,9 +43,11 @@ SCHEMA: dict[str, Any] = json.loads(
 
 _LOG = logging.getLogger(__name__)
 
-_LINE_BREAKS = str.maketrans({"\x85": "\\u0085", "\u2028": "\\u2028", "\u2029": "\\u2029"})
-"""The characters that end a line for some readers, such as Python's ``splitlines``, and
-that JSON leaves as they are: escaped, an event is one line, however its reader splits."""
+_ESCAPED = re.compile("[\x85\u2028\u2029\ud800-\udfff]")
+"""What JSON leaves as it is but a line of UTF-8 cannot hold: the characters that end a line
+for some readers, such as Python's ``splitlines``, and a lone surrogate, which a file name
+that is not UTF-8 decodes to. Escaped, an event is one line however its reader splits, and
+it can always be written."""
 
 
 class EventStream:
@@ -138,5 +141,5 @@ class EventStream:
 
 
 def _one_line(text: str) -> str:
-    """``text``, JSON, with the characters some readers take for line breaks escaped."""
-    return text.translate(_LINE_BREAKS)
+    """``text``, JSON, with the characters ``_ESCAPED`` names escaped as JSON escapes them."""
+    return _ESCAPED.sub(lambda found: f"\\u{ord(found[0]):04x}", text)

@@ -97,8 +97,8 @@ needs Graphviz's `dot` command. The report records where the diagram was written
 text report says so above the verdict.
 
 **Outputs are checked before anything runs.** An output whose suffix is not a format, that
-is a directory, or that two options would both write, is a usage error, and so nothing
-runs:
+is a directory, that two options would both write, or that the run reads, the
+justification or a step library, is a usage error, and so nothing runs:
 
 ```console
 $ jpipe-runner --library steps.py --diagram release.png --report release.png justification.json

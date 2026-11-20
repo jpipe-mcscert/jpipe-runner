@@ -323,12 +323,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace) -> None:
-    """Refuse, before anything runs, the outputs that could not be written."""
+    """Refuse, before anything runs, the outputs that could not be written, or that would
+    overwrite what the run reads."""
     outputs = {
         "--report": options.report,
         "--events": options.events,
         "--diagram": options.diagram,
     }
+    read = {Path(pattern).resolve(): "a step library" for pattern in options.library}
+    read[options.justification.resolve()] = "the justification"
     seen: dict[Path, str] = {}
     for flag, path in outputs.items():
         if path is None:
@@ -340,6 +343,8 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
             formats = ", ".join(diagram.FORMATS)
             command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
         resolved = path.resolve()
+        if (input_ := read.get(resolved)) is not None:
+            command.error(f"{flag} {path}: {input_}, which the run reads")
         if (same := seen.get(resolved)) is not None:
             command.error(f"{same} and {flag} both write {path}")
         seen[resolved] = flag
@@ -355,14 +360,14 @@ def _run(options: argparse.Namespace) -> int:
     with _events(options.events, root) as stream:
         justification, report = _report(options, root, stream)
         _LOG.info("verdict: %s", report.verdict)
-        code = exit_code(report.verdict, strict=options.strict)
         report, drawn = _draw(options, justification, report, root)
         saved = _save(options.report, report)
-        if not (drawn and saved and _streamed(stream)):
-            code = ExitCode.IO
+        code = exit_code(report.verdict, strict=options.strict) if drawn and saved else ExitCode.IO
         if stream is not None:
+            # A stream that failed writes nothing more, so this exit code is never shown.
             stream.run_ended(report, code, options.report if saved else None)
-            code = code if _streamed(stream) else ExitCode.IO
+        if not _streamed(stream):
+            code = ExitCode.IO
     if options.json:
         sys.stdout.write(json_report.dumps(report))
     else:

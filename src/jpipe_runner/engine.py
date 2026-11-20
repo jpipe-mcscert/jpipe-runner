@@ -111,9 +111,8 @@ class RunListener(Protocol):
         is a dry run."""
 
     def element_started(self, element: Element) -> None:
-        """``element``'s supporters passed, and its step is about to be called, once the
-        artifacts it observes have been observed: it is not called if one cannot be
-        reached."""
+        """``element``'s supporters passed, and it is bound: the artifacts it observes are
+        about to be observed, then its step called, unless one of them cannot be reached."""
 
     def element_decided(self, result: ElementResult) -> None:
         """``result.element`` is decided: after every element that supports it."""

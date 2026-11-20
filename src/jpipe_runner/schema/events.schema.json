@@ -70,7 +70,7 @@
       }
     },
     "element.started": {
-      "description": "Every element that supports this one passed, and its step is about to be called, once the artifacts it observes have been observed. Not written for an element decided without its step.",
+      "description": "Every element that supports this one passed, and it is bound: the artifacts it observes are about to be observed, then its step called, unless one of them cannot be reached (JP019). Not written for an element that is not bound, or whose supporters did not all pass.",
       "type": "object",
       "required": ["event", "seq", "elapsed_ms", "id"],
       "additionalProperties": false,

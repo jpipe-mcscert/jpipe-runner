@@ -213,9 +213,14 @@ def test_an_input_that_cannot_be_read_ends_the_stream_without_run_ended(
     [
         (["--events", "mock"], "--events mock: a directory, where a file is expected"),
         (["--events", "out.json", "--report", "out.json"], "--report and --events both write"),
+        (
+            ["--events", "justification.json"],
+            "--events justification.json: the justification, which the run reads",
+        ),
+        (["--report", "./steps.py"], "--report steps.py: a step library, which the run reads"),
     ],
 )
-def test_an_events_file_another_output_writes_is_a_usage_error(
+def test_an_output_another_output_writes_or_the_run_reads_is_a_usage_error(
     workdir: Callable[[str], Path],
     capsys: pytest.CaptureFixture[str],
     argv: list[str],
@@ -289,10 +294,11 @@ def test_elapsed_time_is_measured_from_the_opening_in_milliseconds() -> None:
     assert [json.loads(line)["elapsed_ms"] for line in file.getvalue().splitlines()] == [0, 250]
 
 
-def test_an_event_is_one_line_whatever_its_text_holds() -> None:
+def test_an_event_is_one_line_of_utf_8_whatever_its_text_holds() -> None:
     file = io.StringIO()
     stream = EventStream(file)
-    label = "two\nlines\x85and\u2028three\u2029é"
+    # A lone surrogate is what a file name that is not UTF-8 decodes to.
+    label = "two\nlines\x85and\u2028three\u2029é\udcff"
     breaking = Justification("m", [Element("c", label, Kind.CONCLUSION)], [])
     stream.run_started(breaking, strict=False, dry_run=False)
     result = ElementResult(breaking.element("c"), Status.SKIP, reason="nothing\nsupports it")
@@ -302,6 +308,7 @@ def test_an_event_is_one_line_whatever_its_text_holds() -> None:
     lines = file.getvalue().splitlines()
     assert len(lines) == 2
     assert "é" in lines[1]
+    lines[1].encode("utf-8")
     decided = json.loads(lines[1])["element"]
     assert decided["label"] == label
     assert decided["reason"] == "nothing\nsupports it"

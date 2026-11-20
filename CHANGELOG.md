@@ -95,6 +95,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `build/old/a.xml` for one of its files.
 - `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
   read then and can be now, when its name holds `*`, `?` or `[`.
+- `--report` or `--diagram` naming the justification or a step library is a usage error
+  (exit code 2), and nothing runs. The file was overwritten when the run ended.
 
 ### Changed
 - **The diagram draws a support once.** When an element produces a variable that the
