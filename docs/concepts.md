@@ -140,3 +140,10 @@ report**, the versioned contract for programs, described in
 and its diagnostics, even when the model is refused or validation stops it; only a file
 that cannot be read at all, such as a missing justification, leaves an error on stderr
 and no report.
+
+### Event
+
+What a run tells a program while it runs, with `--events`: that validation ended, that an
+element's step is about to be called, that an element is decided, that the run ended. The
+events preview the report, which stays the authority; they are described in
+[`events.md`](events.md).

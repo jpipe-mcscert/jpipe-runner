@@ -11,6 +11,7 @@ tests/
   rules_doc.py         renders docs/rules.md from the rules
   scenarios.py         scenario discovery and the scenario.toml format (layer 2)
   strategies.py        hypothesis strategies for models and step plans (layer 3)
+  streams.py           reading a run's events (--events) and checking them against their schema
   unit/                layer 1 and layer 3, plus unit tests of the helpers above
     validation/
       builders.py      minimal in-memory validation contexts
@@ -73,6 +74,10 @@ cannot: that each library uses only the public API, declares every decorated fun
 observes files that exist, and that a cross-check runs after the argument below it.
 `tests/unit/test_json_report.py` builds each scenario's report in process, whichever way
 its run ends, and checks it against `report.schema.json` (#122).
+`tests/unit/test_events.py` runs each scenario with `--events` as well, and checks that its
+events match `events.schema.json` and preview its report: the same elements, diagnostics
+and verdict, each element decided after its supporters (#169). The events hold the time,
+so they have no golden file.
 
 ### Scenario layout
 

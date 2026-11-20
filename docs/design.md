@@ -10,6 +10,7 @@ flowchart LR
     json[/"justification JSON<br>(from the jPipe compiler)"/]
     schema[("justification.schema.json")]
     reportschema[("report.schema.json")]
+    eventsschema[("events.schema.json")]
 
     json -.->|read by| loader
     loader -.->|validated against| schema
@@ -60,6 +61,14 @@ flowchart LR
     json_report --> diagnostics
     json_report --> report
     json_report -.->|validated against| reportschema
+    events --> diagnostics
+    events --> engine
+    events --> json_report
+    events --> model
+    events --> report
+    events --> validation
+    events -.->|described by| eventsschema
+    eventsschema -.->|refers to| reportschema
     text_report --> diagnostics
     text_report --> engine
     text_report --> model
@@ -71,6 +80,7 @@ flowchart LR
     cli --> diagram
     cli --> impact
     cli --> engine
+    cli --> events
     cli --> json_report
     cli --> libraries
     cli --> loader
@@ -96,11 +106,12 @@ arrow is data.
 | [`binding`](../src/jpipe_runner/binding.py) | Resolves the ids a step names to elements of the model, and binds steps to elements, one to one, in a `BindingTable`. |
 | [`validation`](../src/jpipe_runner/validation.py) | Checks a step library against its model before anything runs: `Rule`, one check; `RuleSet`, which runs rules over a `ValidationContext` and collects what they report in a `ValidationReport`. |
 | [`rules`](../src/jpipe_runner/rules.py) | Every validation rule, one class each, and `RULES`, the rule set every run uses. [`rules.md`](rules.md) is generated from it. |
-| [`engine`](../src/jpipe_runner/engine.py) | Runs a step library against its model: validates it, then calls the steps supporters first, and returns a `RunResult`, each element's `ElementResult` and the verdict. Entry point: `run(justification, registry)`. |
+| [`engine`](../src/jpipe_runner/engine.py) | Runs a step library against its model: validates it, then calls the steps supporters first, and returns a `RunResult`, each element's `ElementResult` and the verdict, telling a `RunListener` as it goes. Entry point: `run(justification, registry)`. |
 | [`libraries`](../src/jpipe_runner/libraries.py) | Imports a run's step libraries, each as a module named after its file, with the run's python path, and forgets them after the run. Entry point: `imported(libraries, python_path)`. |
 | [`artifacts`](../src/jpipe_runner/artifacts.py) | Observes the artifacts of an evidence just before its step is called: what each was, what the step receives, and a `JP019` for each that could not be reached. |
 | [`observables`](../src/jpipe_runner/observables.py) | What an evidence can observe: the `Observable` a step library derives, the built-in `File`, `JsonValue` and `Env`, the `Context` that anchors a path to the file that declares its step, and what a glob designates. |
 | [`report`](../src/jpipe_runner/report.py) | The `RunReport` of a run, built for every way a run ends, even when nothing ran: each element of the model with its status, its step and what that step declares, observed and produced, then every diagnostic. Entry points: `RunReport.of(result)`, `RunReport.refused(error)`, `RunReport.not_imported(justification, error)`. |
+| [`events`](../src/jpipe_runner/events.py) | The events of a run, written as it goes, one JSON object per line, for a program that shows the run while it runs: the `EventStream`, the engine's `RunListener`, which the command line tells when the run starts and ends. Each element and diagnostic is written as `json_report` writes it, and `events.schema.json` describes the events, referring to `report.schema.json` for those. |
 | [`json_report`](../src/jpipe_runner/json_report.py) | Renders a `RunReport` as the JSON report, the machine-readable contract described by `report.schema.json` and [`report-schema.md`](report-schema.md). Entry points: `document(report)`, `dumps(report)`. |
 | [`diagram`](../src/jpipe_runner/diagram.py) | Draws a run's dataflow: the justification in the jPipe compiler's notation, the files and variables its steps declare, and the run's statuses over it. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
 | [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
@@ -191,8 +202,13 @@ classDiagram
     namespace engine {
         class RunResult
         class ElementResult
+        class RunListener
         class Status
         class Verdict
+    }
+
+    namespace events {
+        class EventStream
     }
 
     namespace libraries {
@@ -242,6 +258,7 @@ classDiagram
     }
 
     <<abstract>> Rule
+    <<interface>> RunListener
     <<enumeration>> Kind
     <<enumeration>> Severity
     <<enumeration>> Unset
@@ -309,6 +326,11 @@ classDiagram
     ElementResult ..> Outcome : outcome
     ElementResult "1" *-- "*" Observation : observed
     ElementResult "1" o-- "*" Diagnostic : diagnostics
+    RunListener ..> ElementResult : told of
+    RunListener ..> ValidationReport : told of
+    RunListener <|.. EventStream
+    EventStream ..> ElementReport : writes
+    EventStream ..> RunReport : ends with
     Diagnostic ..> TracebackException : traceback
     RunReport "1" *-- "*" ElementReport : elements
     RunReport "1" o-- "*" Diagnostic : diagnostics

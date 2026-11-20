@@ -36,10 +36,11 @@ and add a row to this table.
 | [0020](0020-importing-step-libraries.md) | Import step libraries as modules named after their files, for one run | accepted |
 | [0021](0021-execution-semantics.md) | Failures and skips propagate as skips; a step's mistakes fail its element | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
 | [0022](0022-diagrams-follow-the-compiler.md) | Diagrams follow the compiler's, with a status overlay and a dataflow view | superseded by [0029](0029-the-runner-draws-the-dataflow.md) |
-| [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted, amended by [0029](0029-the-runner-draws-the-dataflow.md) |
+| [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted, amended by [0029](0029-the-runner-draws-the-dataflow.md) and [0030](0030-a-run-streams-its-events.md) |
 | [0024](0024-dry-run-verdict-and-both-diagrams.md) | A dry run validates and is `valid`; the report records both diagrams | accepted, amended by [0029](0029-the-runner-draws-the-dataflow.md) |
 | [0025](0025-impact-and-staleness.md) | Impact and staleness are read from the declarations and the report | accepted |
 | [0026](0026-dependency-ranges-and-freshness.md) | Runtime dependencies are tested ranges, and the lock file is kept fresh | accepted |
 | [0027](0027-one-pipeline-for-observed-artifacts.md) | One definition of what a glob designates, a report that keeps what each file was declared as, and observation in three steps | accepted, amended by [0028](0028-observables-and-file-relative-paths.md) |
 | [0028](0028-observables-and-file-relative-paths.md) | An evidence observes observables, and a path is relative to the file that declares its step | accepted |
 | [0029](0029-the-runner-draws-the-dataflow.md) | The runner draws one diagram, the dataflow | accepted |
+| [0030](0030-a-run-streams-its-events.md) | A run streams its events to a file, one JSON object per line | accepted |

@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "jpipe-runner events 1.0",
+  "description": "One event of a run of jpipe-runner, as --events writes it: one JSON object per line (ADR-0030). The events preview the JSON report while the run goes on; the report stays the authority. An element and a diagnostic are written as the report writes them, so they follow report.schema.json, whose version run.started gives. Within a major version, a minor version only adds optional fields or events: a consumer ignores the fields and the events it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/events.md.",
+  "oneOf": [
+    {"$ref": "#/$defs/run.started"},
+    {"$ref": "#/$defs/validation.ended"},
+    {"$ref": "#/$defs/element.started"},
+    {"$ref": "#/$defs/element.decided"},
+    {"$ref": "#/$defs/run.ended"}
+  ],
+  "$defs": {
+    "seq": {
+      "description": "The event's place in the stream: 0 for the first, then one more for each event.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "elapsed_ms": {
+      "description": "Milliseconds since the stream was opened, on a clock that never goes back. Not deterministic: two runs over the same files give different times.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {"$ref": "report.schema.json#/$defs/diagnostic"}
+    },
+    "run.started": {
+      "description": "The first event: the model was read, or refused. Written before the step libraries are imported.",
+      "type": "object",
+      "required": ["event", "seq", "elapsed_ms", "schema_version", "report_schema_version", "justification", "elements", "strict", "dry_run"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {"const": "run.started"},
+        "seq": {"$ref": "#/$defs/seq"},
+        "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
+        "schema_version": {"const": "1.0"},
+        "report_schema_version": {
+          "description": "The version of report.schema.json that the elements and the diagnostics of this stream follow.",
+          "const": "2.0"
+        },
+        "justification": {
+          "description": "The justification's name, or null if the model was refused.",
+          "type": ["string", "null"]
+        },
+        "elements": {
+          "description": "The id of every element of the justification, each after the elements that support it, as the report lists them; empty if the model was refused.",
+          "$ref": "report.schema.json#/$defs/ids"
+        },
+        "strict": {"type": "boolean"},
+        "dry_run": {"type": "boolean"}
+      }
+    },
+    "validation.ended": {
+      "description": "Validation is over. The steps run next if it passed and the run is not a dry run. Not written when the model was refused or a step library could not be imported, since nothing was validated.",
+      "type": "object",
+      "required": ["event", "seq", "elapsed_ms", "passed", "diagnostics"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {"const": "validation.ended"},
+        "seq": {"$ref": "#/$defs/seq"},
+        "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
+        "passed": {
+          "description": "Whether validation reported no error.",
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "description": "What validation reported, as the report lists it.",
+          "$ref": "#/$defs/diagnostics"
+        }
+      }
+    },
+    "element.started": {
+      "description": "Every element that supports this one passed, and it is bound: the artifacts it observes are about to be observed, then its step called, unless one of them cannot be reached (JP019). Not written for an element that is not bound, or whose supporters did not all pass.",
+      "type": "object",
+      "required": ["event", "seq", "elapsed_ms", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {"const": "element.started"},
+        "seq": {"$ref": "#/$defs/seq"},
+        "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
+        "id": {"$ref": "report.schema.json#/$defs/id"}
+      }
+    },
+    "element.decided": {
+      "description": "An element is decided, after every element that supports it. Written once for each element, when the steps run.",
+      "type": "object",
+      "required": ["event", "seq", "elapsed_ms", "element", "diagnostics"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {"const": "element.decided"},
+        "seq": {"$ref": "#/$defs/seq"},
+        "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
+        "element": {
+          "description": "The element, as the report will write it.",
+          "$ref": "report.schema.json#/$defs/element"
+        },
+        "diagnostics": {
+          "description": "What running this element reported, as the report will list it.",
+          "$ref": "#/$defs/diagnostics"
+        }
+      }
+    },
+    "run.ended": {
+      "description": "The last event, written once the report and the diagram are written. A stream without it is that of a run that was stopped, or of one still under way.",
+      "type": "object",
+      "required": ["event", "seq", "elapsed_ms", "verdict", "exit_code", "summary", "report", "diagram"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {"const": "run.ended"},
+        "seq": {"$ref": "#/$defs/seq"},
+        "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
+        "verdict": {"$ref": "report.schema.json#/properties/verdict"},
+        "exit_code": {
+          "description": "The exit code of the command (docs/cli.md#exit-codes).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "summary": {"$ref": "report.schema.json#/$defs/summary"},
+        "report": {
+          "description": "The path of the JSON report, relative to the directory the runner ran in when it is under it, or null if none was written.",
+          "type": ["string", "null"]
+        },
+        "diagram": {
+          "description": "The path of the diagram, as the report gives it, or null if none was drawn.",
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

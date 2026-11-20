@@ -14,7 +14,9 @@ Read the pages in this order. Each one links to the next where it needs it.
 6. [`rules.md`](rules.md): every diagnostic code, and how to fix what it reports.
 7. [`report-schema.md`](report-schema.md): every field of the JSON report, for programs
    that read it.
-8. [`end-to-end.md`](end-to-end.md): one example followed through every stage, from the
+8. [`events.md`](events.md): the events a run writes as it goes, for programs that show it
+   while it runs, such as the IDE.
+9. [`end-to-end.md`](end-to-end.md): one example followed through every stage, from the
    argument to its verdict, with the runner's real output.
 
 Something does not work? [`troubleshooting.md`](troubleshooting.md) starts from what you

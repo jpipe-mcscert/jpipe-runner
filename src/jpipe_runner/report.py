@@ -66,6 +66,51 @@ class ElementReport:
     artifacts: tuple[Observation, ...] = ()
     """What its step observed, files and others, recorded just before the call."""
 
+    @classmethod
+    def of(
+        cls,
+        model: Justification,
+        element: Element,
+        binding: Binding | None = None,
+        result: ElementResult | None = None,
+        root: Path = Path(),
+    ) -> "ElementReport":
+        """``element`` of ``model``, with the step ``binding`` binds to it and the run's
+        ``result`` for it, when it has them: an element of the report, built on its own,
+        as the run's events show it the moment it is decided."""
+        report = cls(
+            element.id,
+            element.label,
+            element.kind,
+            element.aliases,
+            tuple(supported.id for supported in model.supported(element.id)),
+        )
+        if binding is not None:
+            step = binding.step
+            context = Context(step.directory, root)
+            observed = [artifact.observable for artifact in step.observes]
+            files = (path for observable in observed for path in dependencies(observable, context))
+            report = replace(
+                report,
+                step=step.name,
+                designators=binding.designators,
+                observes=tuple(dict.fromkeys(files)),
+                sources=tuple(described(observable, context) for observable in observed),
+                consumes=step.consumes,
+                produces=step.produces,
+            )
+        if result is not None:
+            report = replace(
+                report,
+                status=result.status,
+                reason=result.reason,
+                blocked_by=result.blocked_by,
+                ran=result.ran,
+                produced=result.produced,
+                artifacts=result.observed,
+            )
+        return report
+
 
 @dataclass(frozen=True)
 class Summary:
@@ -216,50 +261,9 @@ def _elements(
     """Every element of ``model``, in topological order, with its binding and its result,
     by element id, when it has them."""
     return tuple(
-        _element(model, element, bindings.get(element.id), results.get(element.id), root)
+        ElementReport.of(model, element, bindings.get(element.id), results.get(element.id), root)
         for element in model.topological_order()
     )
-
-
-def _element(
-    model: Justification,
-    element: Element,
-    binding: Binding | None,
-    result: ElementResult | None,
-    root: Path,
-) -> ElementReport:
-    report = ElementReport(
-        element.id,
-        element.label,
-        element.kind,
-        element.aliases,
-        tuple(supported.id for supported in model.supported(element.id)),
-    )
-    if binding is not None:
-        step = binding.step
-        context = Context(step.directory, root)
-        observed = [artifact.observable for artifact in step.observes]
-        files = (path for observable in observed for path in dependencies(observable, context))
-        report = replace(
-            report,
-            step=step.name,
-            designators=binding.designators,
-            observes=tuple(dict.fromkeys(files)),
-            sources=tuple(described(observable, context) for observable in observed),
-            consumes=step.consumes,
-            produces=step.produces,
-        )
-    if result is not None:
-        report = replace(
-            report,
-            status=result.status,
-            reason=result.reason,
-            blocked_by=result.blocked_by,
-            ran=result.ran,
-            produced=result.produced,
-            artifacts=result.observed,
-        )
-    return report
 
 
 def _type_name(trace: TracebackException) -> str:

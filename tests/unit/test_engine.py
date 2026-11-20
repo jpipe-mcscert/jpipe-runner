@@ -24,15 +24,16 @@ from jpipe_runner.engine import (
     DECLARED_VALUE_MISSING,
     STEP_RAISED,
     UNDECLARED_VALUE,
+    ElementResult,
     RunResult,
     Status,
     Verdict,
 )
 from jpipe_runner.libraries import imported
-from jpipe_runner.model import Justification
+from jpipe_runner.model import Element, Justification
 from jpipe_runner.outcomes import NOT_AN_OUTCOME
 from jpipe_runner.steps import StepRegistry, step_of
-from jpipe_runner.validation import RuleSet
+from jpipe_runner.validation import RuleSet, ValidationReport
 from tests.anchored import run
 from tests.unit.validation.builders import (
     CONCLUSION,
@@ -569,3 +570,77 @@ def test_without_validation_a_missing_value_is_a_runner_bug_not_a_silent_unset(
     registry = _registry(gates)
     with pytest.raises(RuntimeError, match="runner bug"):
         run(unchecked, registry, root=release.root)
+
+
+# --- What a listener is told (ADR-0030) ----------------------------------------------------
+
+
+class Listener:
+    """A ``RunListener`` that records what it is told, in order."""
+
+    def __init__(self, release: Release | None = None) -> None:
+        self.heard: list[tuple[str, Any]] = []
+        self._release = release
+
+    def validation_ended(self, report: ValidationReport) -> None:
+        self.heard.append(("validated", report.passed))
+
+    def element_started(self, element: Element) -> None:
+        # Its step has not been called yet.
+        called = None if self._release is None else element.id in self._release.called()
+        self.heard.append(("started", (element.id, called)))
+
+    def element_decided(self, result: ElementResult) -> None:
+        self.heard.append(("decided", (result.element.id, result.status)))
+
+
+def test_a_listener_hears_validation_then_each_element_started_then_decided(
+    release: Release,
+) -> None:
+    listener = Listener(release)
+    release.returns["e1"] = lambda: Fail("the log reports a failure")
+
+    release.run(listener=listener)
+
+    assert listener.heard == [
+        ("validated", True),
+        ("started", ("e1", False)),
+        ("decided", ("e1", Status.FAIL)),
+        ("started", ("e2", False)),
+        ("decided", ("e2", Status.PASS)),
+        ("decided", ("s", Status.SKIP)),
+        ("decided", ("c", Status.SKIP)),
+    ]
+
+
+def test_an_element_whose_artifact_cannot_be_reached_is_started_and_its_step_not_called(
+    release: Release,
+) -> None:
+    (release.root / "e1.txt").unlink()
+    listener = Listener(release)
+
+    result = release.run(listener=listener)
+
+    assert listener.heard[1:3] == [("started", ("e1", False)), ("decided", ("e1", Status.FAIL))]
+    assert result.result("e1").ran is False
+
+
+def test_a_listener_of_a_run_that_validation_stops_hears_only_validation(
+    release: Release,
+) -> None:
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["a"])
+    def first(log: Path) -> Outcome:
+        return Pass(a="one")
+
+    listener = Listener()
+    run(RELEASE, _registry(first), root=release.root, listener=listener)
+
+    assert listener.heard == [("validated", False)]
+
+
+def test_a_listener_of_a_dry_run_hears_only_validation(release: Release) -> None:
+    listener = Listener()
+
+    release.run(dry_run=True, listener=listener)
+
+    assert listener.heard == [("validated", True)]

@@ -20,6 +20,10 @@ without declaring it is dropped, with a warning (``JP024``).
 The verdict is ``FAIL`` if an element failed, ``SKIP`` if one was skipped, and ``PASS``
 otherwise; ``INVALID`` when validation stopped the run. A dry run validates and calls no
 step: its verdict is ``VALID`` when validation passed (ADR-0024).
+
+A ``RunListener`` is told as the run goes: when validation ends, when an element's step is
+about to be called, and when each element is decided (ADR-0030). It is called from the
+thread that runs ``run``, an element after all its supporters, so it needs no lock.
 """
 
 import logging
@@ -29,7 +33,7 @@ from enum import StrEnum
 from pathlib import Path
 from traceback import TracebackException
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Protocol
 
 from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, observe
 from jpipe_runner.binding import Binding, BindingTable
@@ -99,6 +103,34 @@ class ElementResult:
     which carries the traceback."""
 
 
+class RunListener(Protocol):
+    """What is told of a run as it goes, before ``run`` returns its ``RunResult``."""
+
+    def validation_ended(self, report: ValidationReport) -> None:
+        """Validation is over: the steps run next, unless it reported an error or the run
+        is a dry run."""
+
+    def element_started(self, element: Element) -> None:
+        """``element``'s supporters passed, and it is bound: the artifacts it observes are
+        about to be observed, then its step called, unless one of them cannot be reached."""
+
+    def element_decided(self, result: ElementResult) -> None:
+        """``result.element`` is decided: after every element that supports it."""
+
+
+class _Silent:
+    """The listener of a run that nothing listens to."""
+
+    def validation_ended(self, report: ValidationReport) -> None:
+        pass  # nothing listens
+
+    def element_started(self, element: Element) -> None:
+        pass  # nothing listens
+
+    def element_decided(self, result: ElementResult) -> None:
+        pass  # nothing listens
+
+
 @dataclass(frozen=True)
 class RunResult:
     """The outcome of a run: validation, then each element's result, in the order run."""
@@ -149,6 +181,7 @@ def run(
     strict: bool = False,
     root: Path = Path(),
     dry_run: bool = False,
+    listener: RunListener | None = None,
 ) -> RunResult:
     """Validate ``registry`` against ``justification``, then run it if nothing is an error.
 
@@ -156,10 +189,13 @@ def run(
     directory, is what the paths of the report are relative to; the paths an evidence
     observes are relative to the file that declares its step. A ``dry_run`` stops after
     validation, and calls no step. The steps run in this process: a run of libraries
-    imported with ``libraries.imported`` happens inside that context.
+    imported with ``libraries.imported`` happens inside that context. ``listener`` is told
+    of the run as it goes.
     """
+    listener = _Silent() if listener is None else listener
     ctx = ValidationContext.of(justification, registry)
     report = RULES.run(ctx, strict=strict)
+    listener.validation_ended(report)
     values = ValueStore()
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
@@ -167,19 +203,22 @@ def run(
     if dry_run:
         _LOG.info("validation passed: a dry run calls no step")
         return RunResult(justification, ctx.bindings, report, (), values, strict, dry_run=True)
-    elements = _Run(ctx, values, root).execute()
+    elements = _Run(ctx, values, root, listener).execute()
     return RunResult(justification, ctx.bindings, report, elements, values, strict)
 
 
 class _Run:
     """One execution of a validated library: the results so far, and the values produced."""
 
-    def __init__(self, ctx: ValidationContext, values: ValueStore, root: Path) -> None:
+    def __init__(
+        self, ctx: ValidationContext, values: ValueStore, root: Path, listener: RunListener
+    ) -> None:
         self._model = ctx.justification
         self._bindings = {binding.element.id: binding for binding in ctx.bindings}
         self._rank = {element.id: rank for rank, element in enumerate(self._model)}
         self._values = values
         self._root = root
+        self._listener = listener
         self._results: dict[str, ElementResult] = {}
 
     def execute(self) -> tuple[ElementResult, ...]:
@@ -187,6 +226,7 @@ class _Run:
             result = self._result_of(element)
             _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
             self._results[element.id] = result
+            self._listener.element_decided(result)
         return tuple(self._results.values())
 
     def _result_of(self, element: Element) -> ElementResult:
@@ -199,6 +239,7 @@ class _Run:
             return ElementResult(element, Status.SKIP, binding, reason, blocked_by)
         if binding is None:
             return ElementResult(element, Status.PASS)
+        self._listener.element_started(element)
         return self._call(binding)
 
     def _blocking(self, supporters: tuple[Element, ...]) -> tuple[str, ...]:

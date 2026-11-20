@@ -35,6 +35,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `jpipe-runner status` still read reports of version `1.x`, such as a saved baseline.
 
 ### Added
+- **`--events PATH` streams a run's events as it goes**, for a program that shows the run
+  while it runs, such as the IDE's Run panel (#169,
+  [ADR-0030](docs/adr/0030-a-run-streams-its-events.md)). The file receives one JSON
+  object per line, each flushed as written: the run started, with every element's id;
+  validation ended; an element's step is about to be called; an element is decided, as the
+  JSON report will write it; the run ended, with its verdict, its exit code and where the
+  report is. The report stays the authority. The events are described by
+  `events.schema.json`, shipped in the package, with a version of their own, and in
+  [`docs/events.md`](docs/events.md). Their order promises only that an element is
+  decided after the elements that support it, so that a consumer still works when steps
+  run concurrently (#174). A file that cannot be opened stops the command before anything
+  runs, and one that cannot be written to during the run makes it exit 4 after its report.
 - **The diagram draws the templates a justification implements**, as the jPipe compiler
   does: each template a `<<template>>` cluster, each `@support` a dotted placeholder
   linked to the element that fills it, and the template's supports drawn from the
@@ -83,6 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `build/old/a.xml` for one of its files.
 - `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
   read then and can be now, when its name holds `*`, `?` or `[`.
+- `--report` or `--diagram` naming the justification or a step library, a file a
+  library's glob matches, or a link to one, is a usage error (exit code 2), and nothing
+  runs. The file was overwritten when the run ended.
+- A step that produces an integer too long for Python to write in decimal (more than 4300
+  digits, by default) no longer crashes the run when the report is written: the value is
+  written as its `repr` and its type, as a value that is not JSON is.
 
 ### Changed
 - **The diagram draws a support once.** When an element produces a variable that the
