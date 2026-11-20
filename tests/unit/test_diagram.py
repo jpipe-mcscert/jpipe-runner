@@ -67,7 +67,7 @@ def test_a_label_is_wrapped_and_escaped_as_the_compiler_does() -> None:
     label = 'The "release_candidate" passes every check the team wrote for it, twice'
     labelled = Justification("m", [Element("e", label, EVIDENCE)], [])
 
-    (node,) = [line for line in source(labelled).splitlines() if line.startswith('  "e"')]
+    (node,) = [line for line in source(labelled).splitlines() if line.startswith('  "e" [')]
 
     assert node.startswith(
         '  "e" [label="The \\"release\\_candidate\\" passes every\\ncheck the team wrote for it,'
@@ -106,31 +106,43 @@ def _drawn(
     return {line.strip().partition(" [")[0].rstrip(";"): line.strip() for line in lines}
 
 
-def test_a_passing_element_keeps_its_style_with_a_green_border(tmp_path: Path) -> None:
+def _marked(symbol: str, text: str, size: int = 20) -> str:
+    """The HTML-like label of a node marked with ``symbol``."""
+    return (
+        '<<table border="0" cellborder="0" cellspacing="0"><tr>'
+        f'<td><font point-size="{size}">{symbol}</font></td><td>{text}</td></tr></table>>'
+    )
+
+
+def test_a_passing_element_keeps_its_style_with_a_green_border_and_a_check_mark(
+    tmp_path: Path,
+) -> None:
     (tmp_path / "e2.log").write_text("two", encoding="utf-8")
 
     drawn = _drawn(tmp_path, lambda: Pass(a="a"))
 
     assert drawn['"e1"'] == (
-        '"e1" [label="e1", id="e1", shape=note, style=filled, fillcolor="#9ECAE1", '
-        'color="#009E73", penwidth=2, tooltip=pass];'
+        f'"e1" [label={_marked("✔", "e1")}, id="e1", shape=note, style=filled, '
+        'fillcolor="#9ECAE1", color="#009E73", penwidth=2, tooltip=pass];'
     )
     assert drawn['"s" -> "c"'] == '"s" -> "c" [color="#009E73"];'
 
 
-def test_a_failed_element_is_vermillion_and_blocks_what_it_supports(tmp_path: Path) -> None:
+def test_a_failed_element_is_vermillion_with_a_cross_and_blocks_what_it_supports(
+    tmp_path: Path,
+) -> None:
     (tmp_path / "e2.log").write_text("two", encoding="utf-8")
 
     drawn = _drawn(tmp_path, lambda: Fail("two tests failed"))
 
     assert drawn['"e1"'] == (
-        '"e1" [label="e1", id="e1", shape=note, style=filled, fillcolor="#D55E00", '
-        'fontcolor=white, fontname="Helvetica-Bold", penwidth=2, '
+        f'"e1" [label={_marked("✘", "e1")}, id="e1", shape=note, style=filled, '
+        'fillcolor="#D55E00", fontcolor=white, fontname="Helvetica-Bold", penwidth=2, '
         'tooltip="fail: two tests failed"];'
     )
     assert drawn['"s"'] == (
-        '"s" [label="s", id="s", shape=hexagon, style="filled,dashed", fillcolor="#EEEEEE", '
-        'color="#999999", tooltip="skip: not run: e1 did not pass"];'
+        f'"s" [label={_marked("◌", "s")}, id="s", shape=hexagon, style="filled,dashed", '
+        'fillcolor="#EEEEEE", color="#999999", tooltip="skip: not run: e1 did not pass"];'
     )
     assert drawn['"s" -> "c"'] == '"s" -> "c" [color="#999999", style=dashed];'
     assert drawn['"c"'].endswith(
@@ -139,9 +151,92 @@ def test_a_failed_element_is_vermillion_and_blocks_what_it_supports(tmp_path: Pa
     )
 
 
+def test_a_support_from_a_failure_is_thicker(tmp_path: Path) -> None:
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["a"])
+    def first(log: Path) -> Outcome:
+        return Pass(a="a")
+
+    @evidence("e2", observes={"log": "e1.txt"}, produces=["b"])
+    def second(log: Path) -> Outcome:
+        return Fail("no")
+
+    @strategy("s", consumes=["a"])
+    def gates(a: str) -> Outcome:
+        return Pass()
+
+    @conclusion("c", consumes=["b"])
+    def ready(b: str) -> Outcome:
+        return Pass()
+
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    steps = (first, second, gates, ready)
+    registry = StepRegistry(s for s in map(step_of, steps) if s is not None)
+    report = RunReport.of(run(RELEASE, registry, root=tmp_path), tmp_path)
+
+    lines = [line.strip() for line in source(RELEASE, report).splitlines()]
+
+    # No variable links e2 to s: the support is drawn, from a failure.
+    assert '"e2" -> "s" [color="#D55E00", penwidth=2];' in lines
+
+
+def _labelled_run(tmp_path: Path, label: str) -> tuple[Justification, RunReport]:
+    """A model whose evidence ``e`` has ``label``, and the report of a run of it."""
+    labelled = model(
+        element("c", CONCLUSION), Element("e", label, EVIDENCE), relations=[("e", "c")]
+    )
+
+    @evidence("e", observes={"log": "e1.txt"}, produces=["a"])
+    def checked(log: Path) -> Outcome:
+        return Pass(a="a")
+
+    @conclusion("c", consumes=["a"])
+    def ready(a: str) -> Outcome:
+        return Pass()
+
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    registry = StepRegistry(s for s in map(step_of, (checked, ready)) if s is not None)
+    return labelled, RunReport.of(run(labelled, registry, root=tmp_path), tmp_path)
+
+
+def test_a_status_label_is_wrapped_as_the_compiler_wraps_and_escaped_for_html(
+    tmp_path: Path,
+) -> None:
+    label = 'The "release_candidate" passes every check & <gate> the team wrote, twice'
+    labelled, report = _labelled_run(tmp_path, label)
+
+    (node,) = [line for line in source(labelled, report).splitlines() if line.startswith('  "e" [')]
+
+    plain = source(labelled).split('label="')[3].split('", id=')[0]
+    assert plain.count("\\n") == 1  # the plain label breaks once: so does the marked one
+    text = (
+        "The &quot;release_candidate&quot; passes every<br/>"
+        "check &amp; &lt;gate&gt; the team wrote, twice"
+    )
+    assert node.startswith(f'  "e" [label={_marked("✔", text)}, id="e", ')
+
+
+def test_a_backslash_in_a_status_label_is_escaped(tmp_path: Path) -> None:
+    labelled, report = _labelled_run(tmp_path, r"Reads \N in C:\temp")
+
+    (node,) = [line for line in source(labelled, report).splitlines() if line.startswith('  "e" [')]
+
+    assert _marked("✔", r"Reads \\N in C:\\temp") in node
+
+
+@needs_dot
+def test_a_backslash_in_a_status_label_is_drawn_as_written(tmp_path: Path) -> None:
+    labelled, report = _labelled_run(tmp_path, r"Reads \N in C:\temp")
+
+    svg = ElementTree.parse(write(tmp_path / "m.svg", labelled, report)).getroot()
+
+    texts = {t.text for t in svg.iter("{http://www.w3.org/2000/svg}text")}
+    assert r"Reads \N in C:\temp" in texts
+
+
 def test_an_element_that_skips_on_its_own_account_has_a_thicker_border(tmp_path: Path) -> None:
     drawn = _drawn(tmp_path, lambda: Skip("not today"))
 
+    assert drawn['"e1"'].startswith(f'"e1" [label={_marked("◌", "e1")}, ')
     assert drawn['"e1"'].endswith('color="#999999", tooltip="skip: not today", penwidth=2];')
     assert "penwidth" not in drawn['"s"']
 
@@ -193,10 +288,13 @@ def test_the_diagram_adds_the_files_and_variables_the_steps_declare(tmp_path: Pa
     )
 
 
-def test_a_file_that_could_not_be_reached_is_vermillion(tmp_path: Path) -> None:
+def test_a_file_that_could_not_be_reached_is_vermillion_with_a_warning(tmp_path: Path) -> None:
     drawn = _drawn(tmp_path, lambda: Pass(a="a"))  # no *.log
 
-    assert drawn['"artifact *.log"'].endswith('shape=folder, color="#D55E00", penwidth=2];')
+    assert drawn['"artifact *.log"'] == (
+        f'"artifact *.log" [label={_marked("⚠", "*.log", 14)}, fontname=Courier, fontsize=10, '
+        'shape=folder, color="#D55E00", penwidth=2];'
+    )
     assert "color" not in drawn['"artifact e1.txt"']
 
 
@@ -318,6 +416,7 @@ def test_a_variable_without_one_producer_and_a_consumer_is_vermillion() -> None:
 
     for name in ("a", "unread", "missing"):
         (node,) = [line for line in lines if line.startswith(f'  "variable {name}" [')]
+        assert node.startswith(f'  "variable {name}" [label={_marked("⚠", name, 14)}, ')
         assert node.endswith('color="#D55E00", penwidth=2];')
 
 

@@ -20,15 +20,19 @@ template's supports drawn from the placeholder. No variable links a placeholder,
 are drawn even when one links the element that fills it to the strategy: they are the
 template's structure. A placeholder has no step, so no status.
 
-A run's statuses are drawn over the elements, in the same palette:
+A run's statuses are drawn over the elements, in the same palette, and each as a symbol
+beside the label, so that the diagram reads without its colours:
 
-- **pass**: the element, with a green border;
-- **fail**: filled vermillion, in white bold text;
-- **skip**: filled light grey, with a dashed grey border, thicker when it is a root cause.
+- **pass**: ✔, the element with a green border;
+- **fail**: ✘, filled vermillion, in white bold text;
+- **skip**: ◌, filled light grey, with a dashed grey border, thicker when it is a root cause.
 
-A support edge takes the colour of the status of the element it comes from, or, from a
-placeholder, of the element that fills it. In SVG, a
-node's tooltip gives its status and reason. Without a report, the diagram is the argument
+The symbol is drawn in the label's colour, which contrasts with every fill, and the label
+of an element with a status is an HTML-like label, wrapped as the compiler wraps it. A
+file or variable drawn in vermillion is marked ⚠. A support edge takes the colour of the
+status of the element it comes from, or, from a placeholder, of the element that fills it,
+and is thicker from a failure, dashed from a skip. In SVG, a node's tooltip gives its status
+and reason. Without a report, the diagram is the argument
 alone; with the report of a run in which nothing ran, such as a dry run, it is the dataflow
 the steps declare, without statuses.
 
@@ -36,6 +40,7 @@ Rendering pipes the DOT text to Graphviz's ``dot``: only the binary is needed. T
 format is the text itself, written without it.
 """
 
+import html
 import re
 import subprocess
 from collections.abc import Iterable, Iterator
@@ -61,7 +66,11 @@ _KIND_STYLES: dict[Kind, dict[str, str]] = {
 _GREEN, _VERMILLION, _GREY, _LIGHT_GREY = "#009E73", "#D55E00", "#999999", "#EEEEEE"
 _BLUE = "#0072B2"
 _EDGE_COLOURS = {Status.PASS: _GREEN, Status.FAIL: _VERMILLION, Status.SKIP: _GREY}
+_SYMBOLS = {Status.PASS: "✔", Status.FAIL: "✘", Status.SKIP: "◌"}
+_WARNING = "⚠"
+_SYMBOL_SIZE, _DATA_SYMBOL_SIZE = "20", "14"
 _DATA = {"fontname": "Courier", "fontsize": "10"}
+_PROBLEM = {"color": _VERMILLION, "penwidth": "2"}
 
 # A template's @support, in the compiler's notation: a dotted box, named after the element
 # that fills it.
@@ -209,9 +218,12 @@ class _Diagram:
     def _node(self, element: Element, indent: str) -> str:
         reported = self._reported.get(element.id)
         attributes = dict(_KIND_STYLES[element.kind])
+        label = _wrapped(element.label)
         if reported is not None and reported.status is not None:
             attributes.update(_overlay(attributes, reported))
-        head = f"label={_wrapped(element.label)}, id={_quoted(element.id)}"
+            lines = [" ".join(line) for line in _wrap(element.label)]
+            label = _marked(lines, _SYMBOLS[reported.status], _SYMBOL_SIZE)
+        head = f"label={label}, id={_quoted(element.id)}"
         return f"{indent}{_quoted(element.id)} [{head}, {_attributes(attributes)}];"
 
     def _edge(self, source: str, target: str, drawn_from: str | None = None) -> str:
@@ -223,7 +235,9 @@ class _Diagram:
         if status is None:
             return f"{edge};"
         attributes = {"color": _EDGE_COLOURS[status]}
-        if status is Status.SKIP:
+        if status is Status.FAIL:
+            attributes["penwidth"] = "2"
+        elif status is Status.SKIP:
             attributes["style"] = "dashed"
         return f"{edge} [{_attributes(attributes)}];"
 
@@ -247,11 +261,10 @@ class _Dataflow:
     def nodes(self) -> Iterator[str]:
         for path in _unique(p for e in self._elements for p in e.sources):
             attributes = dict(_DATA, shape="folder")
-            if self._unreachable(path):
-                attributes.update(color=_VERMILLION, penwidth="2")
-            yield _data_node(f"artifact {path}", path, attributes)
+            yield _data_node(f"artifact {path}", path, attributes, self._unreachable(path))
         for name in self._variables():
-            yield _data_node(f"variable {name}", name, self._variable(name))
+            attributes = self._variable(name)
+            yield _data_node(f"variable {name}", name, attributes, self._broken(name))
 
     def edges(self) -> Iterator[str]:
         for element in self._elements:
@@ -266,14 +279,17 @@ class _Dataflow:
         return _unique(n for e in self._elements for n in (*e.produces, *e.consumes))
 
     def _variable(self, name: str) -> dict[str, str]:
+        """The style of the variable ``name``: dashed and grey when it was not produced."""
         attributes = dict(_DATA, shape="ellipse")
-        producers = [e for e in self._elements if name in e.produces]
-        consumed = any(name in e.consumes for e in self._elements)
-        if len(producers) != 1 or not consumed:
-            attributes.update(color=_VERMILLION, penwidth="2")
-        elif self._ran and not any(name in e.produced for e in producers):
+        produced = any(name in e.produced for e in self._elements)
+        if self._ran and not produced and not self._broken(name):
             attributes.update(style="dashed", color=_GREY)
         return attributes
+
+    def _broken(self, name: str) -> bool:
+        """Whether the variable ``name`` lacks one producer, or a consumer."""
+        producers = sum(name in e.produces for e in self._elements)
+        return producers != 1 or not any(name in e.consumes for e in self._elements)
 
     def _unreachable(self, declared: str) -> bool:
         return any(
@@ -311,8 +327,13 @@ def _styled(style: dict[str, str], *added: str) -> str:
     return ",".join(styles + [s for s in added if s not in styles])
 
 
-def _data_node(node: str, label: str, attributes: dict[str, str]) -> str:
-    return f"{_INDENT}{_quoted(node)} [label={_quoted(label)}, {_attributes(attributes)}];"
+def _data_node(node: str, label: str, attributes: dict[str, str], problem: bool) -> str:
+    """A file or variable, in vermillion and marked ⚠ when it is a ``problem``."""
+    drawn = _quoted(label)
+    if problem:
+        attributes = attributes | _PROBLEM
+        drawn = _marked([label], _WARNING, _DATA_SYMBOL_SIZE)
+    return f"{_INDENT}{_quoted(node)} [label={drawn}, {_attributes(attributes)}];"
 
 
 def _data_edge(source: str, target: str, label: str, *, dotted: bool = False) -> str:
@@ -354,18 +375,44 @@ def _escaped(value: str) -> str:
 
 
 def _wrapped(label: str) -> str:
-    """``label`` wrapped at word boundaries and quoted, as the compiler wraps it
-    (DotLabel.wrapAndQuote): no line longer than 40 characters once escaped, unless a word
-    is, and ``_`` escaped."""
-    lines: list[str] = []
-    current = ""
+    """``label`` wrapped and quoted, as the compiler wraps it (DotLabel.wrapAndQuote), with
+    ``_`` escaped."""
+    lines = (" ".join(_dot_word(word) for word in line) for line in _wrap(label))
+    return '"' + "\\n".join(lines) + '"'
+
+
+def _wrap(label: str) -> list[list[str]]:
+    """The words of ``label``, line by line, wrapped at word boundaries as the compiler wraps
+    them: no line longer than 40 characters once escaped for DOT, unless a word is."""
+    lines: list[list[str]] = []
+    current: list[str] = []
+    width = 0
     for word in label.split():
-        escaped = _escaped(word).replace("_", "\\_")
-        if current and len(current) + 1 + len(escaped) > _WRAP_WIDTH:
+        size = len(_dot_word(word))
+        if current and width + 1 + size > _WRAP_WIDTH:
             lines.append(current)
-            current = escaped
-        else:
-            current = f"{current} {escaped}" if current else escaped
+            current, width = [], 0
+        width += size + (1 if current else 0)
+        current.append(word)
     if current:
         lines.append(current)
-    return '"' + "\\n".join(lines) + '"'
+    return lines
+
+
+def _dot_word(word: str) -> str:
+    """``word`` escaped as the compiler escapes a label's word."""
+    return _escaped(word).replace("_", "\\_")
+
+
+def _marked(lines: list[str], symbol: str, size: str) -> str:
+    """An HTML-like label: ``symbol``, at ``size`` points, beside ``lines``."""
+    text = "<br/>".join(_html(line) for line in lines)
+    table = '<table border="0" cellborder="0" cellspacing="0">'
+    symbol_cell = f'<td><font point-size="{size}">{symbol}</font></td>'
+    return f"<{table}<tr>{symbol_cell}<td>{text}</td></tr></table>>"
+
+
+def _html(text: str) -> str:
+    """``text`` escaped for an HTML-like label: its markup, and its backslashes, which
+    Graphviz would read as escapes such as ``\\N`` (the node's id) even in HTML text."""
+    return html.escape(text.replace("\\", "\\\\"))
