@@ -1,10 +1,15 @@
 # Contributing
 
-jPipe Runner is part of the [jPipe](https://www.jpipe.org) project. Bug reports and pull
-requests are welcome: open an [issue](https://github.com/jpipe-mcscert/jpipe-runner/issues)
-first for anything larger than a fix, so that we can agree on the approach before you
-write the code. A pull request from outside the maintainer team goes through
-[review](#branches-and-pull-requests) like any other.
+jPipe Runner is part of the [jPipe](https://www.jpipe.org) project. Bug reports, questions
+and proposals are welcome as [issues](https://github.com/jpipe-mcscert/jpipe-runner/issues).
+
+Pull requests are invite-only, as in every jPipe repository
+([contributions are by invitation](https://github.com/jpipe-mcscert/.github/blob/main/CONTRIBUTING.md#contributions-are-by-invitation)):
+only the maintainers and the collaborators they invite open one, and an unsolicited pull
+request is closed without review. To contribute, open an issue first and discuss the
+change there; if we agree on it, a maintainer invites you. Collaborators, too, open an
+issue before starting anything larger than a fix, so that we can agree on the approach
+before the code is written.
 
 ## Development setup
 
