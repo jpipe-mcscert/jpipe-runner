@@ -316,7 +316,7 @@ def test_an_event_is_one_line_of_utf_8_whatever_its_text_holds() -> None:
 
 def test_an_element_decided_before_the_run_started_is_a_runner_bug() -> None:
     stream = EventStream(io.StringIO())
-    lonely = model(element("c", CONCLUSION))
+    decided = ElementResult(model(element("c", CONCLUSION)).element("c"), Status.SKIP)
 
     with pytest.raises(RuntimeError, match="runner bug"):
-        stream.element_decided(ElementResult(lonely.element("c"), Status.SKIP))
+        stream.element_decided(decided)

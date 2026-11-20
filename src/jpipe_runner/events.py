@@ -135,7 +135,8 @@ class EventStream:
             self._file.flush()
         except OSError as error:
             self._failed = True
-            _LOG.error("cannot write the run's events: %s", error.strerror or error)
+            # An error is one line on stderr, not a traceback (ADR-0023).
+            _LOG.error("cannot write the run's events: %s", error.strerror or error)  # NOSONAR
             return
         self._seq += 1
 
