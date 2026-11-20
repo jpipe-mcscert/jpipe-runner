@@ -424,10 +424,10 @@ def test_a_dry_run_is_valid_and_lists_its_elements_unrun() -> None:
 
 
 def test_the_text_of_a_report_is_its_document_indented() -> None:
-    report = RunReport("m", Verdict.PASS).with_diagram("m.svg").with_dataflow("m-dataflow.svg")
+    report = RunReport("m", Verdict.PASS).with_diagram("m.svg")
 
     text = json_report.dumps(report)
 
     assert text.endswith("}\n")
     assert json.loads(text) == document(report)
-    assert '\n  "diagram": "m.svg",\n  "dataflow": "m-dataflow.svg"\n}' in text
+    assert '\n  "diagram": "m.svg"\n}' in text

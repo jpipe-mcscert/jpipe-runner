@@ -6,7 +6,7 @@ steps, and reports. Every way this ends has a report (ADR-0011), and an exit cod
 CI pipeline can act on (``ExitCode``).
 
 stdout carries the report and nothing else: the text report, or the JSON report with
-``--json``. ``--report``, ``--diagram`` and ``--dataflow`` write files. stderr carries the
+``--json``. ``--report`` and ``--diagram`` write files. stderr carries the
 logs, the errors and argparse's usage. The paths an evidence observes, and those the
 report shows, are relative to the working directory.
 """
@@ -176,14 +176,8 @@ def parser() -> argparse.ArgumentParser:
         "--diagram",
         type=Path,
         metavar="PATH",
-        help=f"draw the justification, with the run over it, to PATH; its suffix is the "
-        f"format: {formats}",
-    )
-    outputs.add_argument(
-        "--dataflow",
-        type=Path,
-        metavar="PATH",
-        help="draw the justification with the files and variables its steps declare to PATH",
+        help=f"draw the dataflow, with the run over it, to PATH: the justification, and the "
+        f"files and variables its steps declare; the suffix of PATH is the format: {formats}",
     )
     outputs.add_argument(
         "--colour",
@@ -321,11 +315,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace) -> None:
     """Refuse, before anything runs, the outputs that could not be written."""
-    outputs = {
-        "--report": options.report,
-        "--diagram": options.diagram,
-        "--dataflow": options.dataflow,
-    }
+    outputs = {"--report": options.report, "--diagram": options.diagram}
     seen: dict[Path, str] = {}
     for flag, path in outputs.items():
         if path is None:
@@ -343,7 +333,7 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
 
 
 def _run(options: argparse.Namespace) -> int:
-    _check_graphviz(options.diagram, options.dataflow)
+    _check_graphviz(options.diagram)
     # The working directory, as a relative path: a step receives the files it observes
     # relative to it, as the report shows them, and a reason that names one reads the same
     # on every machine.
@@ -363,13 +353,13 @@ def _run(options: argparse.Namespace) -> int:
     return code if drawn and saved else ExitCode.IO
 
 
-def _check_graphviz(*paths: Path | None) -> None:
-    """Raise ``FileNotFoundError`` if a diagram needs Graphviz's ``dot``, and it is not
+def _check_graphviz(path: Path | None) -> None:
+    """Raise ``FileNotFoundError`` if the diagram needs Graphviz's ``dot``, and it is not
     installed: nothing should run for an output that cannot be drawn."""
-    needed = [path for path in paths if path is not None and path.suffix.lower() != ".dot"]
+    needed = path is not None and path.suffix.lower() != ".dot"
     if needed and shutil.which("dot") is None:
         raise FileNotFoundError(
-            f"Graphviz's dot is needed to draw {needed[0]}, and is not installed or not on "
+            f"Graphviz's dot is needed to draw {path}, and is not installed or not on "
             "the PATH: install Graphviz (https://graphviz.org/download/), or draw a .dot file"
         )
 
@@ -427,27 +417,20 @@ def _draw(
     report: RunReport,
     root: Path,
 ) -> tuple[RunReport, bool]:
-    """The report, recording the diagrams drawn, and whether every one asked for was."""
-    drawings: list[tuple[Path | None, diagram.View, Callable[[RunReport, str], RunReport]]] = [
-        (options.diagram, diagram.View.JUSTIFICATION, RunReport.with_diagram),
-        (options.dataflow, diagram.View.DATAFLOW, RunReport.with_dataflow),
-    ]
-    drawn = True
-    for path, view, record in drawings:
-        if path is None:
-            continue
-        if justification is None:
-            _LOG.warning("the model was refused, so %s is not drawn", path)
-            continue
-        try:
-            diagram.write(path, justification, report, view=view)
-        except OSError as error:
-            _log_error(error)
-            drawn = False
-            continue
-        _LOG.info("drew the %s view at %s", view, path)
-        report = record(report, shown_path(str(path), root))
-    return report, drawn
+    """The report, recording the diagram if it was drawn, and whether it was, if asked for."""
+    path: Path | None = options.diagram
+    if path is None:
+        return report, True
+    if justification is None:
+        _LOG.warning("the model was refused, so %s is not drawn", path)
+        return report, True
+    try:
+        diagram.write(path, justification, report)
+    except OSError as error:
+        _log_error(error)
+        return report, False
+    _LOG.info("drew the diagram at %s", path)
+    return report.with_diagram(shown_path(str(path), root)), True
 
 
 def _save(path: Path | None, report: RunReport) -> bool:

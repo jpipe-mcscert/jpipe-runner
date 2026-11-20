@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "jpipe-runner report 1.1",
+  "title": "jpipe-runner report 2.0",
   "description": "What a run of jpipe-runner concluded (ADR-0011): every element of the justification, with its status, its step and what that step declares, observed and produced; then every diagnostic. Within a major version, a minor version only adds optional fields: a consumer ignores fields it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/report-schema.md.",
   "type": "object",
-  "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram", "dataflow"],
+  "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": {"const": "1.1"},
+    "schema_version": {"const": "2.0"},
     "justification": {
       "description": "The justification's name, or null if the model was refused before it could be read.",
       "type": ["string", "null"]
@@ -31,11 +31,7 @@
       "items": {"$ref": "#/$defs/diagnostic"}
     },
     "diagram": {
-      "description": "The path of the diagram drawn for this run, relative to the directory the runner ran in when it is under it, or null.",
-      "type": ["string", "null"]
-    },
-    "dataflow": {
-      "description": "The path of the dataflow diagram drawn for this run, relative to the directory the runner ran in when it is under it, or null.",
+      "description": "The path of the diagram drawn for this run, its dataflow, relative to the directory the runner ran in when it is under it, or null.",
       "type": ["string", "null"]
     }
   },
@@ -109,7 +105,7 @@
           "$ref": "#/$defs/names"
         },
         "sources": {
-          "description": "Everything its step declares it observes, as each describes itself: a path or a glob relative to where the runner runs, a file and a JSON Pointer (package.json#/version), an environment variable (env:CI), or what an observable of the step library answers. A path is escaped as in observes. Since 1.1.",
+          "description": "Everything its step declares it observes, as each describes itself: a path or a glob relative to where the runner runs, a file and a JSON Pointer (package.json#/version), an environment variable (env:CI), or what an observable of the step library answers. A path is escaped as in observes. Since 2.0.",
           "$ref": "#/$defs/names"
         },
         "consumes": {
@@ -131,7 +127,7 @@
           "items": {"$ref": "#/$defs/artifact"}
         },
         "observations": {
-          "description": "What its step observed that is not a file, recorded just before it was called. Since 1.1.",
+          "description": "What its step observed that is not a file, recorded just before it was called. Since 2.0.",
           "type": "array",
           "items": {"$ref": "#/$defs/observation"}
         }
@@ -169,12 +165,12 @@
           "minLength": 1
         },
         "declared": {
-          "description": "The one of the element's sources that designates it. Since 1.1.",
+          "description": "The one of the element's sources that designates it. Since 2.0.",
           "type": "string",
           "minLength": 1
         },
         "value": {
-          "description": "The value observed in the file, when what was observed is a value in it. Since 1.1.",
+          "description": "The value observed in the file, when what was observed is a value in it. Since 2.0.",
           "$ref": "#/$defs/value"
         },
         "reachable": {
@@ -184,7 +180,7 @@
         "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
         "size": {"type": ["integer", "null"], "minimum": 0},
         "read": {
-          "description": "The file as the run read it, when it is unreachable all the same: what was observed in it was not found, such as the value a JSON Pointer designates. Since 1.1.",
+          "description": "The file as the run read it, when it is unreachable all the same: what was observed in it was not found, such as the value a JSON Pointer designates. Since 2.0.",
           "type": "object",
           "required": ["sha256", "size"],
           "additionalProperties": false,

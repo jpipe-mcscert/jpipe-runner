@@ -1,0 +1,29 @@
+digraph "leaf_intermediate" {
+  rankdir=BT;
+  label="leaf\_intermediate";
+  "leaf_intermediate:intermediate:abs_i" [label="A leaf support #3", id="leaf_intermediate:intermediate:abs_i", shape=note, style=filled, fillcolor="#9ECAE1"];
+  "leaf_intermediate:root:abs2" [label="A leaf evidence #2", id="leaf_intermediate:root:abs2", shape=note, style=filled, fillcolor="#9ECAE1"];
+  subgraph "cluster_intermediate" {
+    style=filled; fillcolor=lightyellow; color=grey;
+    label="<<template>> intermediate";
+    "leaf_intermediate:intermediate:s" [label="An intermediate strategy", id="leaf_intermediate:intermediate:s", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+    "leaf_intermediate:intermediate:abs_i@abstract" [label="An intermediate abstract support #3", id="leaf_intermediate:intermediate:abs_i@abstract", shape=rect, style=dotted];
+    "leaf_intermediate:root:abs1" [label="an intermediate sub conclusion #1", id="leaf_intermediate:root:abs1", shape=rect, color="#0072B2"];
+    subgraph "cluster_root" {
+      style=filled; fillcolor=lightyellow; color=grey;
+      label="<<template>> root";
+      "leaf_intermediate:root:c" [label="A root conclusion", id="leaf_intermediate:root:c", shape=rect, style="filled,rounded", fillcolor=lightgrey];
+      "leaf_intermediate:root:s" [label="A root strategy", id="leaf_intermediate:root:s", shape=hexagon, style=filled, fillcolor="#F0C27F"];
+      "leaf_intermediate:root:abs1@abstract" [label="A root abstract support #1", id="leaf_intermediate:root:abs1@abstract", shape=rect, style=dotted];
+      "leaf_intermediate:root:abs2@abstract" [label="A root abstract support #2", id="leaf_intermediate:root:abs2@abstract", shape=rect, style=dotted];
+    }
+  }
+  "leaf_intermediate:intermediate:abs_i" -> "leaf_intermediate:intermediate:abs_i@abstract" [arrowhead=empty, style=dotted];
+  "leaf_intermediate:root:abs1" -> "leaf_intermediate:root:abs1@abstract" [arrowhead=empty, style=dotted];
+  "leaf_intermediate:root:abs2" -> "leaf_intermediate:root:abs2@abstract" [arrowhead=empty, style=dotted];
+  "leaf_intermediate:root:s" -> "leaf_intermediate:root:c";
+  "leaf_intermediate:intermediate:s" -> "leaf_intermediate:root:abs1";
+  "leaf_intermediate:root:abs1@abstract" -> "leaf_intermediate:root:s";
+  "leaf_intermediate:root:abs2@abstract" -> "leaf_intermediate:root:s";
+  "leaf_intermediate:intermediate:abs_i@abstract" -> "leaf_intermediate:intermediate:s";
+}

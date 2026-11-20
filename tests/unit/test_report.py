@@ -189,10 +189,10 @@ def test_a_dry_run_lists_every_element_with_its_step_and_runs_nothing(root: Path
 def test_a_diagram_is_recorded_on_a_copy(root: Path) -> None:
     report = _report(root, first, second, gates)
 
-    drawn = report.with_diagram("m.svg").with_dataflow("m-dataflow.svg")
+    drawn = report.with_diagram("m.svg")
 
-    assert (report.diagram, report.dataflow) == (None, None)
-    assert (drawn.diagram, drawn.dataflow) == ("m.svg", "m-dataflow.svg")
+    assert report.diagram is None
+    assert drawn.diagram == "m.svg"
     assert drawn.elements == report.elements
 
 

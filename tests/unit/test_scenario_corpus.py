@@ -64,6 +64,7 @@ EXPECTED_SCENARIOS = {
     "assembled",
     "unified",
     "observables",
+    "templated",
 }
 
 

@@ -383,10 +383,11 @@ def test_an_input_that_cannot_be_read_exits_4_without_a_report(
     [
         pytest.param(["justification.json"], id="no library"),
         pytest.param(["--diagram", "release.txt", *RELEASE], id="a suffix that is no format"),
-        pytest.param(["--dataflow", "release", *RELEASE], id="no suffix"),
+        pytest.param(["--diagram", "release", *RELEASE], id="no suffix"),
         pytest.param(["--diagram", "mock", *RELEASE], id="a directory"),
         pytest.param(["--report", "mock", *RELEASE], id="a directory for the report"),
-        pytest.param(["--diagram", "r.svg", "--dataflow", "r.svg", *RELEASE], id="one file twice"),
+        pytest.param(["--diagram", "r.svg", "--report", "r.svg", *RELEASE], id="one file twice"),
+        pytest.param(["--dataflow", "r.svg", *RELEASE], id="--dataflow, which --diagram replaced"),
         pytest.param(["-v", "-q", *RELEASE], id="verbose and quiet"),
         pytest.param(["-v", "name:value", *RELEASE], id="v3's --variable"),
         pytest.param(["--colour", "red", *RELEASE], id="an unknown colour choice"),
@@ -433,19 +434,21 @@ def test_python_m_drops_the_working_directory_from_the_python_path(
 # --- Diagrams ------------------------------------------------------------------------------
 
 
-def test_both_diagrams_are_drawn_and_recorded(
+def test_the_diagram_is_the_dataflow_drawn_and_recorded(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    argv = ["--diagram", "out/r.dot", "--dataflow", "out/r-flow.dot", "--report", "r.json"]
+    argv = ["--diagram", "out/r.dot", "--report", "r.json"]
 
     code, out, _ = _main(capsys, *argv, *RELEASE)
 
     report = json.loads((release / "r.json").read_text(encoding="utf-8"))
+    drawn = (release / "out" / "r.dot").read_text(encoding="utf-8")
     assert code == ExitCode.OK
-    assert (report["diagram"], report["dataflow"]) == ("out/r.dot", "out/r-flow.dot")
-    assert "diagram: out/r.dot\ndataflow: out/r-flow.dot\nverdict: pass\n" in out
-    assert (release / "out" / "r.dot").read_text(encoding="utf-8").startswith('digraph "release"')
-    assert "variable tests_pass" in (release / "out" / "r-flow.dot").read_text(encoding="utf-8")
+    assert report["diagram"] == "out/r.dot"
+    assert "dataflow" not in report
+    assert "diagram: out/r.dot\nverdict: pass\n" in out
+    assert drawn.startswith('digraph "release"')
+    assert "variable tests_pass" in drawn
 
 
 @needs_dot

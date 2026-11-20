@@ -240,7 +240,7 @@ else.
 |---|---|---|---|---|
 | JP001 | `SchemaConformance` | error | loading the model | The file is not UTF-8 JSON in the compiler's format, or is a template. |
 | JP002 | `UniqueElementId` | error | loading the model | An id or alias designates several elements. |
-| JP003 | `RelationEndpointsExist` | error | loading the model | A relation names an element that does not exist. |
+| JP003 | `RelationEndpointsExist` | error | loading the model | A relation, or the template chain, names an element that does not exist. |
 | JP004 | `Acyclic` | error | loading the model | The relations form a cycle: an element supports itself, directly or not. |
 | JP017 | `NotAnOutcome` | error | running a step | A step returned something other than `Pass`, `Fail` or `Skip`. |
 | JP019 | `UnreachableArtifact` | error | running a step | An artifact an evidence observes is missing, unreadable or not a regular file, or a glob matches no file: the step is not called. |

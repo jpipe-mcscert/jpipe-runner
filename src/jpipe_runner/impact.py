@@ -41,6 +41,10 @@ from jpipe_runner.observables import (
 Document = Mapping[str, Any]
 
 _MAJOR = SCHEMA_VERSION.partition(".")[0]
+_READ = ("1", _MAJOR)
+"""The major versions of the report this runner reads. Version 2.0 only removed
+``dataflow``, which nothing here reads, so a report saved by an earlier runner, such as a
+baseline, is still read."""
 
 
 def _compatible(schema: Any) -> Any:
@@ -59,7 +63,10 @@ def _compatible(schema: Any) -> Any:
 
 _VALIDATOR = Draft202012Validator(SCHEMA)
 _LATER = _compatible(SCHEMA)
-_LATER["properties"]["schema_version"] = {"type": "string", "pattern": f"^{_MAJOR}\\.[0-9]+$"}
+_LATER["properties"]["schema_version"] = {
+    "type": "string",
+    "pattern": f"^({'|'.join(_READ)})\\.[0-9]+$",
+}
 _LATER_VALIDATOR = Draft202012Validator(_LATER)
 
 
@@ -132,20 +139,22 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
     """The JSON report in the file at ``path``.
 
     Raises ``OSError`` if the file cannot be read, and ``InvalidReportError`` if it is not
-    a report of the schema's major version. A report of another minor version is read: the
-    fields a later one adds are ignored, and those an earlier one lacks are optional.
+    a report of version 1.x or 2.x. A report of another version is read: the fields a
+    later one adds, or an earlier one had, are ignored, and those an earlier one lacks are
+    optional.
     """
     try:
         document = json.loads(Path(path).read_text(encoding="utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise InvalidReportError(f"{path} is not a JSON report: {error}") from None
     version = document.get("schema_version") if isinstance(document, dict) else None
-    if not isinstance(version, str) or version.partition(".")[0] != _MAJOR:
+    if not isinstance(version, str) or version.partition(".")[0] not in _READ:
+        versions = " or ".join(f"{major}.x" for major in _READ)
         raise InvalidReportError(
-            f"{path} is not a JSON report of version {_MAJOR}.x: its schema_version is {version!r}"
+            f"{path} is not a JSON report of version {versions}: its schema_version is {version!r}"
         )
-    # A report of this version is checked against its schema; one of another minor version
-    # only for the fields this version knows.
+    # A report of this version is checked against its schema; one of another version only
+    # for the fields this version knows.
     validator = _VALIDATOR if version == SCHEMA_VERSION else _LATER_VALIDATOR
     problem = next(iter(validator.iter_errors(document)), None)
     if problem is not None:
@@ -272,7 +281,7 @@ def _changes(element: Mapping[str, Any], root: Path) -> Iterator[Change]:
 def sha256_read(artifact: Mapping[str, Any]) -> str | None:
     """The SHA-256 of the file of ``artifact`` as the run read it, or None if it read none.
     A file it read without finding what was observed in it, such as the value a JSON
-    Pointer designates, is unreachable, and has one (in ``read``, since 1.1)."""
+    Pointer designates, is unreachable, and has one (in ``read``, since 2.0)."""
     if artifact["reachable"]:
         return str(artifact["sha256"])
     read = artifact.get("read")

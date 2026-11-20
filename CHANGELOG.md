@@ -21,8 +21,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   path is shown as a glob there: a wildcard in the name of the library's directory is
   escaped, so a library in `app/[slug]/` that observes `"*.md"` is shown as
   `app/[[]slug]/*.md`, and observes the files in that directory only.
+- **The runner draws one diagram, the dataflow, and `--diagram PATH` draws it.**
+  `--dataflow` is removed: pass `--diagram` instead. The diagram is the justification, in
+  the jPipe compiler's notation, with the files each evidence observes, the variables the
+  steps produce and consume, and the run's statuses over its elements. The argument alone,
+  with the run's colours over it, is no longer drawn: `jpipe process -f SVG` draws the
+  argument ([ADR-0029](docs/adr/0029-the-runner-draws-the-dataflow.md)). The GitHub
+  Action's `dataflow` input and the Run panel of the VS Code extension pass `--dataflow`:
+  they need a release that passes `--diagram` before they use this version.
+- **The JSON report is version `2.0`, without its `dataflow` field.** `diagram` is the
+  path of the one diagram. A program that checks `schema_version` must accept `2.0`, and
+  one that read `dataflow` must read `diagram`. `jpipe-runner impact` and
+  `jpipe-runner status` still read reports of version `1.x`, such as a saved baseline.
 
 ### Added
+- **The diagram draws the templates a justification implements**, as the jPipe compiler
+  does: each template a `<<template>>` cluster, each `@support` a dotted placeholder
+  linked to the element that fills it, and the template's supports drawn from the
+  placeholders. The diagram drew the argument flat, so nothing showed which elements came
+  from a template. This needs a justification compiled by jPipe 4.0.0 or later, which
+  writes the template chain to its JSON (`implements`); one compiled earlier is still
+  drawn flat (#171).
 - **An evidence observes more than files.** Beside a path, `observes` takes
   `JsonValue("package.json", "/version")`, a value in a JSON file, and `Env("CI")`, an
   environment variable; the step receives the value. Both are imported from
@@ -32,13 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A step library defines what else to observe**, by deriving `Observable`: how the
   report names it, what it is now, and the files a change to which reaches it
   ([`docs/observables.md`](docs/observables.md#writing-your-own-observable)).
-- **The JSON report says more about what was observed**, in `schema_version` `1.1`. An
+- **The JSON report says more about what was observed**, in `schema_version` `2.0`. An
   element has `sources`, everything its step declares it observes, and `observations`,
   what it observed that is not a file. Each of its `artifacts` has `declared`, the source
   that designates the file, so a reader no longer matches files to globs itself, and the
   `value` observed in it, if one was. A file that was read and is unreachable all the
   same, such as one where a `JsonValue`'s pointer designates nothing, has `read`, its
-  SHA-256 and size, so that `status` sees whether it changed. Every field is added:
+  SHA-256 and size, so that `status` sees whether it changed. These fields are added:
   `observes` still lists paths and globs, and `jpipe-runner status` still reads the `1.0`
   reports of 4.0.0
   ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
@@ -59,6 +78,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read then and can be now, when its name holds `*`, `?` or `[`.
 
 ### Changed
+- **The diagram draws a support once.** When an element produces a variable that the
+  element it supports consumes, the path through the variable shows the support, and the
+  direct arrow between them is left out.
 - **networkx and jsonschema are ranges, not pins**: `networkx >=2.8.8,<4` and
   `jsonschema >=4.10.3,<5`. 4.0.0 required networkx 3.5 exactly, so pip could not install
   it beside a package that needs another networkx. The floors are the versions Ubuntu

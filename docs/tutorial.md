@@ -266,10 +266,9 @@ no element, a variable consumed but never produced, an evidence that observes no
 
 The text report is for people. For a program, `--report report.json` writes the JSON
 report, the contract for scripts and the [GitHub Action](https://github.com/jpipe-mcscert/jpipe-ci-actions)
-([`report-schema.md`](report-schema.md)). With Graphviz installed,
-`--diagram release.svg` draws the argument with the run's statuses over it, as the jPipe
-compiler draws it, and `--dataflow release-dataflow.svg` adds the files and values that
-flow through it. [`cli.md`](cli.md) describes every option and exit code, and
+([`report-schema.md`](report-schema.md)). With Graphviz installed, `--diagram release.svg`
+draws the run's dataflow: the argument, the files and values that flow through it, and the
+run's statuses over it. [`cli.md`](cli.md) describes every option and exit code, and
 `jpipe-runner impact` and `jpipe-runner status`, which tell what a change reaches and what
 has changed since a run.
 

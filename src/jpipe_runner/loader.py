@@ -17,7 +17,16 @@ from typing import Any
 from jsonschema import Draft202012Validator, ValidationError
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
-from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind, Relation
+from jpipe_runner.model import (
+    Element,
+    InvalidJustificationError,
+    Justification,
+    Kind,
+    Placeholder,
+    Relation,
+    Template,
+    TemplateChain,
+)
 
 SCHEMA_CONFORMANCE = "JP001"
 
@@ -86,7 +95,26 @@ def loads(text: str) -> Justification:
         for element in document["elements"]
     )
     relations = (Relation(r["source"], r["target"]) for r in document["relations"])
-    return Justification(document["name"], elements, relations)
+    return Justification(
+        document["name"], elements, relations, _template_chain(document.get("implements"))
+    )
+
+
+def _template_chain(implements: dict[str, Any] | None) -> TemplateChain | None:
+    if implements is None:
+        return None
+    templates = (
+        Template(
+            name=template["name"],
+            elements=tuple(template["elements"]),
+            placeholders=tuple(
+                Placeholder(p["id"], p["label"], tuple(p.get("supports", ())))
+                for p in template.get("placeholders", ())
+            ),
+        )
+        for template in implements["templates"]
+    )
+    return TemplateChain(tuple(implements["elements"]), tuple(templates))
 
 
 def _nonconformance(message: str, element: str | None = None, fix: str | None = None) -> Diagnostic:

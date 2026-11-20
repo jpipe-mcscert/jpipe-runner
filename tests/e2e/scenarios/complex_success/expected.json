@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "2.0",
   "justification": "vaccination_campaign",
   "verdict": "pass",
   "strict": false,
@@ -814,6 +814,5 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

@@ -156,9 +156,8 @@ class _Text:
             yield f"{_plural(len(self._report.diagnostics), 'diagnostic')} ({counts})"
         if self._report.strict:
             yield "strict: warnings count as errors"
-        for view, path in (("diagram", self._report.diagram), ("dataflow", self._report.dataflow)):
-            if path is not None:
-                yield f"{view}: {path}"
+        if self._report.diagram is not None:
+            yield f"diagram: {self._report.diagram}"
         verdict = f"verdict: {self._report.verdict}"
         if self._report.verdict is Verdict.VALID:
             verdict += " (a dry run: no step was called)"

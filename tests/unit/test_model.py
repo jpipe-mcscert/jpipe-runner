@@ -1,7 +1,16 @@
 import pytest
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
-from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind, Relation
+from jpipe_runner.model import (
+    Element,
+    InvalidJustificationError,
+    Justification,
+    Kind,
+    Placeholder,
+    Relation,
+    Template,
+    TemplateChain,
+)
 
 EVIDENCE = Element("m:e", "The tests pass", Kind.EVIDENCE)
 OTHER_EVIDENCE = Element("m:o", "The linter passes", Kind.EVIDENCE)
@@ -181,3 +190,33 @@ def test_the_error_message_lists_the_diagnostics() -> None:
     assert str(InvalidJustificationError(problems)) == (
         "JP002 error [m:e]: first\nJP003 error: second"
     )
+
+
+@pytest.mark.parametrize(
+    "chain",
+    [
+        pytest.param(TemplateChain(("m:x",), ()), id="outside"),
+        pytest.param(TemplateChain((), (Template("t", ("m:x",)),)), id="in a template"),
+        pytest.param(
+            TemplateChain((), (Template("t", ("m:e",), (Placeholder("m:x", "x"),)),)),
+            id="placeholder",
+        ),
+        pytest.param(
+            TemplateChain((), (Template("t", ("m:e",), (Placeholder("m:e", "e", ("m:x",)),)),)),
+            id="supports",
+        ),
+    ],
+)
+def test_a_template_chain_naming_an_unknown_element_is_reported(chain: TemplateChain) -> None:
+    with pytest.raises(InvalidJustificationError) as error:
+        Justification("m", (CONCLUSION, STRATEGY, EVIDENCE), RELATIONS, chain)
+    assert codes(error) == [("JP003", None)]
+
+
+def test_a_model_keeps_its_template_chain() -> None:
+    chain = TemplateChain(("m:e",), (Template("t", ("m:c", "m:s", "m:e")),))
+    assert (
+        Justification("m", (CONCLUSION, STRATEGY, EVIDENCE), RELATIONS, chain).template_chain
+        == chain
+    )
+    assert model().template_chain is None

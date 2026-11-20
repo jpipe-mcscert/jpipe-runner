@@ -133,9 +133,7 @@ class RunReport:
     strict: bool = False
     """Whether validation counted warnings as errors."""
     diagram: str | None = None
-    """Where the diagram of the run was written, if one was."""
-    dataflow: str | None = None
-    """Where the dataflow diagram of the run was written, if one was."""
+    """Where the diagram of the run, its dataflow, was written, if it was."""
     root: Path = field(default=Path(), compare=False)
     """The directory the run observed artifacts from: tracebacks are shown relative to it."""
 
@@ -207,10 +205,6 @@ class RunReport:
     def with_diagram(self, path: str) -> "RunReport":
         """This report, recording that its diagram was written at ``path``."""
         return replace(self, diagram=path)
-
-    def with_dataflow(self, path: str) -> "RunReport":
-        """This report, recording that its dataflow diagram was written at ``path``."""
-        return replace(self, dataflow=path)
 
 
 def _elements(

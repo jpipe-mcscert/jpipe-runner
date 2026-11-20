@@ -25,7 +25,7 @@ from jpipe_runner.diagnostics import Diagnostic, shown_path
 from jpipe_runner.observables import HIDDEN, Observation
 from jpipe_runner.report import ElementReport, RunReport, Trace
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "2.0"
 
 SCHEMA: dict[str, Any] = json.loads(
     files("jpipe_runner").joinpath("schema/report.schema.json").read_text(encoding="utf-8")
@@ -66,7 +66,6 @@ def document(report: RunReport) -> dict[str, Any]:
         "elements": [_element(element, report.root) for element in report.elements],
         "diagnostics": [_diagnostic(report, diagnostic) for diagnostic in report.diagnostics],
         "diagram": report.diagram,
-        "dataflow": report.dataflow,
     }
 
 
