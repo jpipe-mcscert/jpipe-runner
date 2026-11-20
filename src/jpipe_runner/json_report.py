@@ -23,7 +23,7 @@ from typing import Any
 
 from jpipe_runner.diagnostics import Diagnostic, shown_path
 from jpipe_runner.observables import HIDDEN, Observation
-from jpipe_runner.report import ElementReport, RunReport, Trace
+from jpipe_runner.report import ElementReport, RunReport, Summary, Trace
 
 SCHEMA_VERSION = "2.0"
 
@@ -48,23 +48,14 @@ _RECURSION: dict[type, str] = {
 
 def document(report: RunReport) -> dict[str, Any]:
     """``report`` as a JSON document, as ``report.schema.json`` describes it."""
-    summary = report.summary
     return {
         "schema_version": SCHEMA_VERSION,
         "justification": report.justification,
         "verdict": str(report.verdict),
         "strict": report.strict,
-        "summary": {
-            "elements": summary.elements,
-            "pass": summary.passed,
-            "fail": summary.failed,
-            "skip": summary.skipped,
-            "not_run": summary.not_run,
-            "errors": summary.errors,
-            "warnings": summary.warnings,
-        },
-        "elements": [_element(element, report.root) for element in report.elements],
-        "diagnostics": [_diagnostic(report, diagnostic) for diagnostic in report.diagnostics],
+        "summary": summary(report.summary),
+        "elements": [element(each, report.root) for each in report.elements],
+        "diagnostics": [diagnostic(each, report.root) for each in report.diagnostics],
         "diagram": report.diagram,
     }
 
@@ -75,7 +66,21 @@ def dumps(report: RunReport) -> str:
     return json.dumps(document(report), indent=2, ensure_ascii=False) + "\n"
 
 
-def _element(element: ElementReport, root: Path) -> dict[str, Any]:
+def summary(counted: Summary) -> dict[str, Any]:
+    """A report's summary, as the report writes it."""
+    return {
+        "elements": counted.elements,
+        "pass": counted.passed,
+        "fail": counted.failed,
+        "skip": counted.skipped,
+        "not_run": counted.not_run,
+        "errors": counted.errors,
+        "warnings": counted.warnings,
+    }
+
+
+def element(element: ElementReport, root: Path = Path()) -> dict[str, Any]:
+    """An element of a report, as the report writes it, with paths relative to ``root``."""
     return {
         "id": element.id,
         "label": element.label,
@@ -130,8 +135,10 @@ def _observation(observation: Observation, root: Path) -> dict[str, Any]:
     }
 
 
-def _diagnostic(report: RunReport, diagnostic: Diagnostic) -> dict[str, Any]:
-    trace = report.trace(diagnostic)
+def diagnostic(diagnostic: Diagnostic, root: Path = Path()) -> dict[str, Any]:
+    """A diagnostic, as the report writes it, with its traceback's paths relative to
+    ``root``."""
+    trace = None if diagnostic.traceback is None else Trace.of(diagnostic.traceback, root)
     return {
         "code": diagnostic.code,
         "severity": str(diagnostic.severity),

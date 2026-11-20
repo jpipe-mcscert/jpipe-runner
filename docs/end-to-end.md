@@ -439,6 +439,12 @@ library that cannot be imported, a validation error), and 4 when a file could no
 or written. A skipped justification exits 0, unless the run is `--strict`.
 [`cli.md`](cli.md) describes every option.
 
+The report arrives when the run ends. A program that shows the run while it runs, as the
+IDE's Run panel does, adds `--events run.jsonl`: the runner then writes a line to
+`run.jsonl` as each thing happens, validation ended, `release:e1` started, `release:e1`
+decided with its status, and so on until the run ended. Each element in it is the one the
+JSON report will hold. [`events.md`](events.md) quotes the events of this very run.
+
 ## When something is wrong
 
 Mistakes are reported at the earliest stage that can see them, with a code that names the
