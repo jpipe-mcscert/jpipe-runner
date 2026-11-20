@@ -562,7 +562,9 @@ observed file and each variable as a node, linked to the elements that observe, 
 and consume it, and leaves out a support edge when a variable already links its two ends,
 unless the template draws it from a placeholder.
 A report's statuses are drawn over the elements in the same palette: a green border for a
-pass, a vermillion fill for a failure, a dashed grey node for a skip. `write` pipes the
+pass, a vermillion fill for a failure, a dashed grey node for a skip. Each is also a symbol
+beside the label, ✔, ✘ or ◌, in the label's colour, so that the diagram reads without its
+colours; a file or variable drawn in vermillion is marked ⚠. `write` pipes the
 text to Graphviz's `dot`; only the `dot` format is written without it. A diagram is drawn
 from the model and the report together, and a report whose elements, or what each
 supports, differ from the model's is refused.

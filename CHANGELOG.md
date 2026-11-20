@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a template. This needs a justification compiled by jPipe 4.0.0 or later, which
   writes the template chain to its JSON (`implements`); one compiled earlier is still
   drawn flat (#171).
+- **The diagram shows each status as a symbol, not only as a colour**, so it reads with a
+  colour vision deficiency and in greyscale: ✔ beside the label of an element that passed,
+  ✘ of one that failed, ◌ of one that was skipped, and ⚠ on a file that could not be
+  reached or a variable without one producer and a consumer. A support edge from a
+  failure is drawn thicker. The colours are unchanged. A PNG or PDF diagram needs a font
+  with these symbols where Graphviz runs, such as DejaVu Sans; an SVG leaves them to the
+  browser.
 - **An evidence observes more than files.** Beside a path, `observes` takes
   `JsonValue("package.json", "/version")`, a value in a JSON file, and `Env("CI")`, an
   environment variable; the step receives the value. Both are imported from

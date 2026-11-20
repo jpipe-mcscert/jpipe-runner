@@ -378,8 +378,9 @@ compiler's notation, with what the functions declare, the file each evidence obs
 the variables that flow from the evidence to the strategy. A support that a variable
 already shows is not drawn twice: `e1` and `e2` support `s` through `tests_pass` and
 `changelog_ok`, and only `s` supports `c` with a plain arrow. Each element's status is drawn
-over it: the failed evidence in vermillion, what it blocked dashed and grey, and the
-evidence that passed with a green border. `tests_pass` is dashed: `e1` failed, so it was
+over it, as a colour and as a symbol beside its label: the failed evidence in vermillion,
+marked ✘, what it blocked dashed and grey, marked ◌, and the evidence that passed with a
+green border, marked ✔. `tests_pass` is dashed: `e1` failed, so it was
 never produced, and `s`, which consumes it, could not run
 ([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)).
 
