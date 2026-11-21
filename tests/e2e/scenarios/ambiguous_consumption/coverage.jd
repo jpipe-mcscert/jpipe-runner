@@ -1,0 +1,20 @@
+justification tested {
+  conclusion tested is "The code is tested"
+  strategy testing is "Test coverage clears the bar"
+  testing supports tested
+  evidence coverage is "Test coverage is measured"
+  coverage supports testing
+}
+
+justification documented {
+  conclusion documented is "The API is documented"
+  strategy docs is "Documentation coverage clears the bar"
+  docs supports documented
+  evidence coverage is "Documentation coverage is measured"
+  coverage supports docs
+}
+
+justification readiness is assemble(tested, documented) {
+  conclusionLabel: "Version 2.0 is ready to ship"
+  strategyLabel: "Both coverages clear the release bar"
+}

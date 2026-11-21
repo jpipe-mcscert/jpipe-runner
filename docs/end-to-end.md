@@ -202,8 +202,9 @@ Before running anything, the runner checks that the library fits the model:
 - each function's kind agrees with its element's;
 - each piece of evidence observes an artifact, and produces a value that another step
   consumes;
-- every consumed variable is produced by one step, which supports its consumer, so the
-  value exists by the time it is needed.
+- every consumed variable is produced by a step that supports its consumer, so the value
+  exists by the time it is needed, and by only one of its supporters, so that the
+  consumer receives the value it means.
 
 [`rules.md`](rules.md) lists every check. All the problems are reported at once. An error
 stops the run before any step executes; a warning is reported, and the run continues.
@@ -347,6 +348,7 @@ where two tests fail:
     "mock/junit.xml"
   ],
   "consumes": [],
+  "inputs": {},
   "produces": [
     "tests_pass"
   ],

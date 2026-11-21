@@ -36,6 +36,7 @@
         "mock/test_file.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "file_exists"
       ],
@@ -74,6 +75,12 @@
       "consumes": [
         "file_exists"
       ],
+      "inputs": {
+        "file_exists": {
+          "variable": "file_exists",
+          "produced_by": "E1"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],

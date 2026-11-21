@@ -86,16 +86,12 @@ def test_the_context_binds_the_registry_to_the_model() -> None:
     assert ctx.bindings.diagnostics == ()
 
 
-def test_producers_and_consumers_are_bound_steps_in_model_order() -> None:
+def test_the_dataflow_resolves_the_inputs_of_bound_steps_only() -> None:
     ctx = context(lint, suite, both, unbound)
-    assert {name: [b.element.id for b in found] for name, found in ctx.producers.items()} == {
-        "tests_ok": ["m:e1"],
-        "lint_ok": ["m:e2"],
-    }
-    assert {name: [b.element.id for b in found] for name, found in ctx.consumers.items()} == {
-        "tests_ok": ["m:s"],
-        "lint_ok": ["m:s"],
-    }
+    assert [
+        (c.consumer.element.id, c.input.variable, c.producer and c.producer.element.id)
+        for c in ctx.dataflow
+    ] == [("m:s", "tests_ok", "m:e1"), ("m:s", "lint_ok", "m:e2")]
 
 
 def test_a_rule_reports_with_its_own_code_and_severity() -> None:

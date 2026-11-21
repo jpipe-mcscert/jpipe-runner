@@ -1,0 +1,11 @@
+# justification.json is `jpipe process -i coverage.jd -m readiness -f JSON` (jPipe 4.0.0),
+# as in shared_names, with the same source libraries.
+description = "The strategy `assemble` adds consumes a variable that both sub-arguments below it produce, without naming either: validation reports the ambiguity, and nothing runs."
+origin = "new in v4 (#187)"
+libraries = ["tested_steps.py", "documented_steps.py", "readiness_steps.py"]
+exit_code = 3
+exercises = [
+    "a consumed variable two supporters produce (JP025), reported on the consumer",
+    "the same name consumed without ambiguity in each sub-argument, not reported",
+    "the report's inputs: a parameter that resolves to no single producer",
+]

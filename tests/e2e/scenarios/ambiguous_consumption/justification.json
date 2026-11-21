@@ -1,0 +1,106 @@
+{
+  "elements": [
+    {
+      "id": "readiness:assembleConclusion",
+      "label": "Version 2.0 is ready to ship",
+      "type": "conclusion"
+    },
+    {
+      "origins": [{
+        "model": "tested",
+        "id": "tested:tested",
+        "type": "conclusion"
+      }],
+      "id": "readiness:tested:tested",
+      "label": "The code is tested",
+      "type": "sub-conclusion"
+    },
+    {
+      "origins": [{
+        "model": "tested",
+        "id": "tested:testing",
+        "type": "strategy"
+      }],
+      "id": "readiness:tested:testing",
+      "label": "Test coverage clears the bar",
+      "type": "strategy"
+    },
+    {
+      "origins": [{
+        "model": "tested",
+        "id": "tested:coverage",
+        "type": "evidence"
+      }],
+      "id": "readiness:tested:coverage",
+      "label": "Test coverage is measured",
+      "type": "evidence"
+    },
+    {
+      "origins": [{
+        "model": "documented",
+        "id": "documented:documented",
+        "type": "conclusion"
+      }],
+      "id": "readiness:documented:documented",
+      "label": "The API is documented",
+      "type": "sub-conclusion"
+    },
+    {
+      "origins": [{
+        "model": "documented",
+        "id": "documented:docs",
+        "type": "strategy"
+      }],
+      "id": "readiness:documented:docs",
+      "label": "Documentation coverage clears the bar",
+      "type": "strategy"
+    },
+    {
+      "origins": [{
+        "model": "documented",
+        "id": "documented:coverage",
+        "type": "evidence"
+      }],
+      "id": "readiness:documented:coverage",
+      "label": "Documentation coverage is measured",
+      "type": "evidence"
+    },
+    {
+      "id": "readiness:assembleStrategy",
+      "label": "Both coverages clear the release bar",
+      "type": "strategy"
+    }
+  ],
+  "name": "readiness",
+  "type": "justification",
+  "relations": [
+    {
+      "source": "readiness:assembleStrategy",
+      "target": "readiness:assembleConclusion"
+    },
+    {
+      "source": "readiness:tested:testing",
+      "target": "readiness:tested:tested"
+    },
+    {
+      "source": "readiness:documented:docs",
+      "target": "readiness:documented:documented"
+    },
+    {
+      "source": "readiness:tested:coverage",
+      "target": "readiness:tested:testing"
+    },
+    {
+      "source": "readiness:documented:coverage",
+      "target": "readiness:documented:docs"
+    },
+    {
+      "source": "readiness:tested:tested",
+      "target": "readiness:assembleStrategy"
+    },
+    {
+      "source": "readiness:documented:documented",
+      "target": "readiness:assembleStrategy"
+    }
+  ]
+}

@@ -36,6 +36,7 @@
         "mock/junit.xml"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tests_pass"
       ],
@@ -78,6 +79,7 @@
         "mock/CHANGELOG.md"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "changelog_ok"
       ],
@@ -119,6 +121,16 @@
         "tests_pass",
         "changelog_ok"
       ],
+      "inputs": {
+        "tests_pass": {
+          "variable": "tests_pass",
+          "produced_by": "release:e1"
+        },
+        "changelog_ok": {
+          "variable": "changelog_ok",
+          "produced_by": "release:e2"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -139,6 +151,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

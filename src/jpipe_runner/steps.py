@@ -7,6 +7,11 @@ do: evidence observes artifacts of the world (``observes``) and consumes nothing
 conclusion is terminal and produces nothing. What can be observed is an ``Observable``
 (ADR-0028); a path is relative to the file that declares the step.
 
+A step consumes a variable from the one step among its supporters that produces it
+(ADR-0031). ``consumes`` lists the variables, each passed to the parameter of its name, or
+maps each parameter to its source: a variable, or ``Produced(variable, by=id)`` to name
+the part of the argument the value comes from, when several supporters produce it.
+
 A decorator registers nothing. It attaches a ``Step`` to the function and returns the
 function unchanged, so a step stays a plain function that a test can call. A
 ``StepRegistry`` collects the steps of a library's modules when a run needs them, so there
@@ -49,6 +54,40 @@ class Artifact:
 
 
 @dataclass(frozen=True)
+class Produced:
+    """The value of ``variable`` produced at or below the element ``by`` designates, for a
+    step to consume when several of its supporters produce that variable (ADR-0031).
+
+    ``by`` is an id as a step's decorator takes one (ADR-0007): it may designate the
+    producer itself, or an element it supports, such as the conclusion of the sub-argument
+    the value comes from.
+    """
+
+    variable: str
+    by: str
+
+    def __post_init__(self) -> None:
+        if not _is_name(self.variable):
+            raise TypeError(
+                f"Produced() takes a variable name that is a Python identifier, not "
+                f"{self.variable!r}"
+            )
+        if not isinstance(self.by, str) or not self.by.strip():
+            raise TypeError(f"Produced(by=...) takes an element id, not {self.by!r}")
+
+
+@dataclass(frozen=True)
+class Input:
+    """A parameter of a step, and the variable it receives (ADR-0031): from the one step
+    among the step's supporters that produces it, at or below the element ``by``
+    designates when it is given."""
+
+    parameter: str
+    variable: str
+    by: str | None = None
+
+
+@dataclass(frozen=True)
 class Step:
     """A function of a step library, as its decorator declares it. It holds no values."""
 
@@ -56,8 +95,8 @@ class Step:
     ids: tuple[str, ...]
     """The ids it was given, in order. Binding resolves them to elements (#115)."""
     function: Callable[..., Outcome]
-    consumes: tuple[str, ...] = ()
-    """The variables it consumes, passed to the function as keyword arguments."""
+    inputs: tuple[Input, ...] = ()
+    """What it consumes: each parameter, and the variable it receives."""
     produces: tuple[str, ...] = ()
     """The variables it produces, returned in ``Pass``."""
     observes: tuple[Artifact, ...] = ()
@@ -69,6 +108,11 @@ class Step:
     def name(self) -> str:
         """The function's qualified name, as reports show it: ``module.function``."""
         return f"{self.function.__module__}.{self.function.__qualname__}"
+
+    @property
+    def consumes(self) -> tuple[str, ...]:
+        """The variables it consumes, each once, in the order of its inputs."""
+        return tuple(dict.fromkeys(each.variable for each in self.inputs))
 
 
 def evidence(
@@ -84,22 +128,27 @@ def evidence(
     return _declare(Kind.EVIDENCE, ids, consumes=(), produces=produces, observes=artifacts)
 
 
+Consumes = Iterable[str] | Mapping[str, str | Produced]
+"""What a step consumes: a list of variables, each passed to the parameter of its name, or
+a map from each parameter to a variable or a ``Produced``."""
+
+
 def strategy(
-    *ids: str, consumes: Iterable[str] = (), produces: Iterable[str] = ()
+    *ids: str, consumes: Consumes = (), produces: Iterable[str] = ()
 ) -> Callable[[StepFunction], StepFunction]:
     """Declare the step for the strategy ``ids``."""
     return _declare(Kind.STRATEGY, ids, consumes=consumes, produces=produces)
 
 
 def sub_conclusion(
-    *ids: str, consumes: Iterable[str] = (), produces: Iterable[str] = ()
+    *ids: str, consumes: Consumes = (), produces: Iterable[str] = ()
 ) -> Callable[[StepFunction], StepFunction]:
     """Declare a step checking the sub-conclusion ``ids``. Optional: an unbound
     sub-conclusion derives its status from what supports it."""
     return _declare(Kind.SUB_CONCLUSION, ids, consumes=consumes, produces=produces)
 
 
-def conclusion(*ids: str, consumes: Iterable[str] = ()) -> Callable[[StepFunction], StepFunction]:
+def conclusion(*ids: str, consumes: Consumes = ()) -> Callable[[StepFunction], StepFunction]:
     """Declare a step checking the conclusion ``ids``. Optional: an unbound conclusion
     derives its status from what supports it. A conclusion is terminal: it produces nothing."""
     return _declare(Kind.CONCLUSION, ids, consumes=consumes, produces=())
@@ -155,7 +204,7 @@ def _declare(
     kind: Kind,
     ids: tuple[str, ...],
     *,
-    consumes: Iterable[str],
+    consumes: Consumes,
     produces: Iterable[str],
     observes: tuple[Artifact, ...] = (),
 ) -> Callable[[StepFunction], StepFunction]:
@@ -172,7 +221,7 @@ def _declare(
                 f"{decorator}() takes element ids as non-empty strings, not {element_id!r}"
             )
     _no_repeats(decorator, "id", ids)
-    consumed = _variables(decorator, "consumes", consumes)
+    inputs = _inputs(decorator, consumes)
     produced = _variables(decorator, "produces", produces)
 
     def declare(function: StepFunction) -> StepFunction:
@@ -183,8 +232,8 @@ def _declare(
                 f"{function.__qualname__} is already declared as {existing.kind} "
                 f"{existing.ids}: one function is one step"
             )
-        _check_signature(kind, function, consumed, observes)
-        step = Step(kind, ids, function, consumed, produced, observes, _declared_in(function))
+        _check_signature(kind, function, inputs, observes)
+        step = Step(kind, ids, function, inputs, produced, observes, _declared_in(function))
         setattr(function, _STEP, step)
         return function
 
@@ -250,6 +299,29 @@ def _variables(decorator: str, argument: str, names: Iterable[str]) -> tuple[str
     return variables
 
 
+def _inputs(decorator: str, consumes: Consumes) -> tuple[Input, ...]:
+    """What a step consumes, from the list of its variables or the map of its parameters."""
+    if not isinstance(consumes, Mapping):
+        return tuple(Input(name, name) for name in _variables(decorator, "consumes", consumes))
+    inputs = []
+    for parameter, source in consumes.items():
+        if not _is_name(parameter):
+            raise TypeError(
+                f"{decorator}(consumes=...) takes parameter names that are Python "
+                f"identifiers, not {parameter!r}"
+            )
+        if isinstance(source, Produced):
+            inputs.append(Input(parameter, source.variable, source.by))
+        elif _is_name(source):
+            inputs.append(Input(parameter, source))
+        else:
+            raise TypeError(
+                f"{decorator}(consumes=...) maps each parameter to a variable name or a "
+                f"Produced(variable, by=id), not {source!r}"
+            )
+    return tuple(inputs)
+
+
 def _no_repeats(decorator: str, what: str, values: tuple[str, ...]) -> None:
     if repeated := sorted({value for value in values if values.count(value) > 1}):
         raise TypeError(f"{decorator}() is given the {what} {', '.join(map(repr, repeated))} twice")
@@ -258,11 +330,11 @@ def _no_repeats(decorator: str, what: str, values: tuple[str, ...]) -> None:
 def _check_signature(
     kind: Kind,
     function: Callable[..., Any],
-    consumed: tuple[str, ...],
+    inputs: tuple[Input, ...],
     observed: tuple[Artifact, ...],
 ) -> None:
-    """The function takes each consumed variable and observed artifact as a keyword
-    argument, and needs no other."""
+    """The function takes each input and observed artifact as a keyword argument, and needs
+    no other."""
     decorator = _decorator(kind)
     parameters = inspect.signature(function).parameters.values()
     by_keyword = {p.name for p in parameters if p.kind in _KEYWORD_ARGUMENT}
@@ -278,7 +350,7 @@ def _check_signature(
     if kind is Kind.EVIDENCE:
         verb, passed, declaration = "observes", [a.name for a in observed], "observes={...}"
     else:
-        verb, passed, declaration = "consumes", list(consumed), "consumes=[...]"
+        verb, passed, declaration = "consumes", [i.parameter for i in inputs], "consumes=[...]"
     problems = []
     if missing := [name for name in passed if name not in by_keyword and not takes_any_keyword]:
         problems.append(f"it {verb} {missing} but has no parameter for them")

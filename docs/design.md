@@ -25,12 +25,18 @@ flowchart LR
     binding --> model
     binding --> steps
     binding --> diagnostics
+    dataflow --> binding
+    dataflow --> diagnostics
+    dataflow --> model
+    dataflow --> steps
     validation --> binding
+    validation --> dataflow
     validation --> model
     validation --> steps
     validation --> diagnostics
     rules --> validation
     rules --> binding
+    rules --> dataflow
     rules --> model
     rules --> diagnostics
     artifacts --> steps
@@ -39,6 +45,7 @@ flowchart LR
     libraries --> diagnostics
     engine --> artifacts
     engine --> binding
+    engine --> dataflow
     engine --> diagnostics
     engine --> model
     engine --> observables
@@ -49,10 +56,12 @@ flowchart LR
     engine --> values
     report --> observables
     report --> binding
+    report --> dataflow
     report --> diagnostics
     report --> engine
     report --> libraries
     report --> model
+    diagram --> dataflow
     diagram --> engine
     diagram --> model
     diagram --> report
@@ -104,6 +113,7 @@ arrow is data.
 | [`model`](../src/jpipe_runner/model.py) | The justification model: elements, the relations between them, and the graph they form. |
 | [`steps`](../src/jpipe_runner/steps.py) | The decorators that declare a step library's functions, `@evidence`, `@strategy`, `@sub_conclusion` and `@conclusion`, and the `StepRegistry` that collects them from the library's modules. |
 | [`binding`](../src/jpipe_runner/binding.py) | Resolves the ids a step names to elements of the model, and binds steps to elements, one to one, in a `BindingTable`. |
+| [`dataflow`](../src/jpipe_runner/dataflow.py) | Resolves each variable a bound step consumes among the step's supporters, in a `DataflowTable`: which step it comes from, or why none does. |
 | [`validation`](../src/jpipe_runner/validation.py) | Checks a step library against its model before anything runs: `Rule`, one check; `RuleSet`, which runs rules over a `ValidationContext` and collects what they report in a `ValidationReport`. |
 | [`rules`](../src/jpipe_runner/rules.py) | Every validation rule, one class each, and `RULES`, the rule set every run uses. [`rules.md`](rules.md) is generated from it. |
 | [`engine`](../src/jpipe_runner/engine.py) | Runs a step library against its model: validates it, then calls the steps supporters first, and returns a `RunResult`, each element's `ElementResult` and the verdict, telling a `RunListener` as it goes. Entry point: `run(justification, registry)`. |
@@ -167,6 +177,8 @@ classDiagram
         class Step
         class StepRegistry
         class Artifact
+        class Input
+        class Produced
     }
 
     namespace binding {
@@ -174,6 +186,12 @@ classDiagram
         class Binding
         class Resolver
         class AmbiguousIdError
+    }
+
+    namespace dataflow {
+        class DataflowTable
+        class Consumption
+        class Received
     }
 
     namespace validation {
@@ -189,7 +207,6 @@ classDiagram
         class ConflictingBinding
         class RefinedElement
         class MissingProducer
-        class DuplicateProducer
         class UnconsumedOutput
         class EvidenceProducesNothing
         class StrategyIgnoresUpstreamOutput
@@ -197,6 +214,7 @@ classDiagram
         class UnknownBindingTarget
         class IncompatibleKind
         class EvidenceObservesNothing
+        class AmbiguousConsumption
     }
 
     namespace engine {
@@ -286,6 +304,8 @@ classDiagram
     StepRegistry "1" o-- "*" Step : steps
     Step --> Kind : kind
     Step "1" *-- "*" Artifact : observes
+    Step "1" *-- "*" Input : inputs
+    Input ..> Produced : from
     Step ..> Outcome : returns
     BindingTable "1" *-- "*" Binding : bindings
     BindingTable ..> Resolver : uses
@@ -299,6 +319,12 @@ classDiagram
     ValidationContext --> Justification : justification
     ValidationContext --> StepRegistry : registry
     ValidationContext --> BindingTable : bindings
+    ValidationContext --> DataflowTable : dataflow
+    DataflowTable "1" *-- "*" Consumption : consumptions
+    DataflowTable ..> Resolver : uses
+    DataflowTable ..> Received : received
+    Consumption --> Binding : consumer, candidates
+    Consumption --> Input : input
     Rule ..> Diagnostic : reports
     ValidationReport "1" o-- "*" Diagnostic : diagnostics
     Rule <|-- UnboundElement
@@ -306,7 +332,6 @@ classDiagram
     Rule <|-- ConflictingBinding
     Rule <|-- RefinedElement
     Rule <|-- MissingProducer
-    Rule <|-- DuplicateProducer
     Rule <|-- UnconsumedOutput
     Rule <|-- EvidenceProducesNothing
     Rule <|-- StrategyIgnoresUpstreamOutput
@@ -314,8 +339,10 @@ classDiagram
     Rule <|-- UnknownBindingTarget
     Rule <|-- IncompatibleKind
     Rule <|-- EvidenceObservesNothing
+    Rule <|-- AmbiguousConsumption
     RunResult --> Justification : justification
     RunResult --> BindingTable : bindings
+    RunResult --> DataflowTable : dataflow
     RunResult --> ValidationReport : validation
     RunResult "1" *-- "*" ElementResult : elements
     RunResult --> ValueStore : values
@@ -326,6 +353,7 @@ classDiagram
     ElementResult ..> Outcome : outcome
     ElementResult "1" *-- "*" Observation : observed
     ElementResult "1" o-- "*" Diagnostic : diagnostics
+    ElementResult "1" *-- "*" Received : inputs
     RunListener ..> ElementResult : told of
     RunListener ..> ValidationReport : told of
     RunListener <|.. EventStream
@@ -341,6 +369,7 @@ classDiagram
     ElementReport --> Kind : kind
     ElementReport --> Status : status
     ElementReport "1" *-- "*" Observation : artifacts
+    ElementReport "1" *-- "*" Received : inputs
     Trace "1" *-- "*" Frame : frames
     Trace --> Trace : cause
     Exception <|-- LibraryLoadError
@@ -414,18 +443,17 @@ goes on. A `WARNING` is reported and changes nothing else.
 `Rule`, reified as a class: its `code`, `severity` and `summary` are class attributes, and
 its docstring says what it checks, why, and how to fix what it reports, so that every rule
 can be audited in one place. A `ValidationContext` holds what the rules read: the model,
-the step registry, and the `BindingTable` of one to the other, with the bound steps that
-produce and consume each variable. A step that binds nothing never runs, so the rules about
-data look only at bound steps. A `RuleSet` runs every rule, in code order, and collects
+the step registry, the `BindingTable` of one to the other, and the `DataflowTable` that
+says where each value a bound step consumes comes from. A step that binds nothing never
+runs, so the rules about data look only at bound steps. A `RuleSet` runs every rule, in code order, and collects
 every diagnostic in a `ValidationReport`, which passes when none is an error. A strict run
 reports warnings as errors. No rule can be disabled. What the model alone shows to be
 unrunnable (`JP001` to `JP004`) is not a rule: the loader refuses it first.
 
 **Every rule is in one module, `rules`, and the reference is generated from it.** Each
 rule is a subclass of `Rule`. The rules about binding (`JP006`, `JP007`, `JP015`) report
-what the `BindingTable` found, under their own code. The rules about data ask the model
-which elements support which: a variable's producer must support its consumer, directly
-or not (`upstream`), because a step runs only once its supporters have passed. A step's
+what the `BindingTable` found, under their own code, and what the `DataflowTable` found of
+the ids given as `by`. The rules about data read the `DataflowTable`. A step's
 kind is compared with its element's: an evidence or a conclusion turned into a
 sub-conclusion is what composition does, and is a warning (`JP008`); any other difference
 is an error (`JP016`). [`rules.md`](rules.md), the reference
@@ -434,7 +462,9 @@ committed page differs.
 
 **A step library declares its functions with one decorator per kind.** `@evidence`,
 `@strategy`, `@sub_conclusion` and `@conclusion` take the ids of the elements a function
-implements, as positional arguments, and the variables it `consumes` and `produces`. Each
+implements, as positional arguments, and the variables it `consumes` and `produces`.
+`consumes` is a list of variables, each passed to the parameter of its name, or a map
+from each parameter to a variable or a `Produced`; the `Step` keeps it as `Input`s. Each
 kind's decorator accepts only what the kind can do: evidence consumes nothing, and a
 conclusion produces nothing. Only evidence `observes` artifacts: a mapping from parameter
 name to an observable, or to a path, which stands for a `File`, kept on the `Step` as
@@ -444,6 +474,21 @@ A declaration that is wrong on its face is a `TypeError` when the library is imp
 id, a variable or parameter name that is not a Python identifier, an absolute path or a
 directory, or a parameter list that is not exactly the consumed variables, or for
 evidence the observed artifacts (a parameter with a default, or `**kwargs`, is allowed).
+
+**A consumed variable resolves among the consumer's supporters**
+([ADR-0031](adr/0031-variables-resolve-among-supporters.md)). A step receives a value only
+from a step that supports it, directly or not (`upstream`), because it runs only once its
+supporters have passed. So the `DataflowTable` resolves each `Input` of a bound step, a
+parameter and its variable, to its candidates: the bound steps that produce the variable
+and support the consumer, narrowed to those at or below the element its `by` designates,
+when the step consumes a `Produced(variable, by=id)`. Each input is a `Consumption`, with
+every producer of its variable, those reachable from `by`, and the candidates. Exactly one
+candidate is its producer. None is `JP009`, when nothing produces the variable, or `JP014`;
+several is `JP025`, which a `by` resolves. Two steps may therefore produce one variable, as
+libraries written apart for separate models do, and each consumer receives its own. A
+nearer candidate never wins over a farther one. A producer's value is consumed when an
+input draws on it (`users`): its candidates, or, when none supports the consumer, the
+producers it names, so that `JP011` and `JP012` do not repeat a `JP014`.
 
 **A step is bound to an element through the ids it names.** An id designates an element
 if it is the element's id or one of its aliases, then if it is that prefixed with the
@@ -462,9 +507,10 @@ declares is a `StepRegistry`; what a run produces is a `ValueStore`. Both are bu
 run and dropped with it, and no module holds one, so two runs in one process share
 nothing. `StepRegistry.from_modules` scans the namespaces of a library's modules for
 steps, each listed once, in order, so a module that Python has cached is collected again
-as it is. A `ValueStore` maps each variable to its `ProducedValue`: what was produced, and the id
-of the element whose step produced it. A variable is produced once, and one that nothing
-has produced reads as `UNSET`, which is not `None`: `None` is a value a step can produce.
+as it is. A `ValueStore` holds each `ProducedValue` under its variable and the id of the
+element whose step produced it: what was produced, and by which element. An element
+produces a variable once, and one that it has not produced reads as `UNSET`, which is not
+`None`: `None` is a value a step can produce.
 
 **A step reports its result by returning an `Outcome`.** `Pass` carries the values the
 step produces, by variable name; `Fail` carries the reason the check does not hold; `Skip`
@@ -531,11 +577,13 @@ on their own account, since every element in between was stopped by them. A fail
 a skip propagate alike, because what a step that did not pass would have produced does not
 exist. An element whose supporters all passed has its step called, whatever its kind, so
 a cross-check (`JP008`) runs after the argument below it; an unbound claim passes, and
-one that nothing supports is skipped. A step is called with the values it consumes, read
-from the run's `ValueStore`, and the artifacts it observes, observed just before the call.
-Validation makes an unset input impossible: a consumed variable has one producer, which
-supports its consumer (`JP009`, `JP014`), and a `Pass` stores every value its step
-declares or fails (`JP023`). The engine raises a `RuntimeError` rather than pass `UNSET`.
+one that nothing supports is skipped. A step is called with the values it consumes, each
+read from the run's `ValueStore` as the producer its input resolved to produced it, and the
+artifacts it observes, observed just before the call. Each `ElementResult` of a bound
+element records what its step's parameters receive, as `Received`. Validation makes an
+unset input impossible: a consumed variable resolves to one producer among the consumer's
+supporters (`JP009`, `JP014`, `JP025`), and a `Pass` stores every value its step declares
+or fails (`JP023`). The engine raises a `RuntimeError` rather than pass `UNSET`.
 
 **What a step does wrong fails its element, and the run goes on.** An exception (`JP022`,
 whose diagnostic carries the traceback, trimmed by `user_traceback`), a value that is not an outcome
@@ -554,7 +602,8 @@ of it and its model). A
 `InvalidJustificationError` of a refused model or the `LibraryLoadError` of libraries that
 could not be imported. It is plain data: every element of the model, in topological order,
 with its status (`None` when nothing ran), the step bound to it, what that step declares
-(the artifacts it observes, the variables it consumes and produces), and what the run
+(the artifacts it observes, the variables it consumes and produces, and where each input
+comes from), and what the run
 observed and produced; then every diagnostic, in the order found, and a `Summary` of both.
 A diagnostic about an exception (`JP020`, `JP022`) carries its traceback, which the report
 shows as a `Trace`: its frames' files relative to the run's root, and the same on every

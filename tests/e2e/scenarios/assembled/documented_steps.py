@@ -1,9 +1,8 @@
 """Steps written against the standalone `documented` model of assemble.jd.
 
 `documented:changelog` binds `readiness:documented:changelog` through the tail of its id.
-The variable the evidence produces is named after what it means in this model,
-`documented_release`, so that it cannot clash with a variable of `tested` once the two
-models run together (JP010).
+The variable the evidence produces, `documented_release`, is consumed both here and by the
+strategy `assemble` adds, in `readiness_steps.py`.
 """
 
 from pathlib import Path

@@ -51,6 +51,11 @@ class Resolver:
         self._exact = {key: element for element in justification for key in element.ids}
         self._keys = [(key.split(":"), element) for key, element in self._exact.items()]
 
+    @property
+    def name(self) -> str:
+        """The name of the justification whose elements it resolves ids to."""
+        return self._name
+
     def resolve(self, designator: str) -> Element | None:
         """The element ``designator`` designates, or ``None`` if it designates none.
 

@@ -34,6 +34,7 @@ PUBLIC_API = {
     "Pass",
     "Fail",
     "Skip",
+    "Produced",
     "Observable",
     "Context",
     "Sighting",
@@ -65,6 +66,8 @@ EXPECTED_SCENARIOS = {
     "unified",
     "observables",
     "templated",
+    "shared_names",
+    "ambiguous_consumption",
 }
 
 

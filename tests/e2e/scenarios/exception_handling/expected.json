@@ -32,6 +32,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "result"
       ],
@@ -60,6 +61,12 @@
       "consumes": [
         "result"
       ],
+      "inputs": {
+        "result": {
+          "variable": "result",
+          "produced_by": "S1"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],

@@ -32,6 +32,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -56,6 +57,12 @@
       "consumes": [
         "processed_string"
       ],
+      "inputs": {
+        "processed_string": {
+          "variable": "processed_string",
+          "produced_by": null
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],

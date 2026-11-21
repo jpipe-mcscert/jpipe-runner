@@ -14,7 +14,7 @@ and produced; then every diagnostic, in the order found. A report is plain data,
 once: the renderers are pure functions of it, and the engine prints nothing.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from traceback import FrameSummary, TracebackException
@@ -22,6 +22,7 @@ from types import MappingProxyType
 from typing import Any
 
 from jpipe_runner.binding import Binding
+from jpipe_runner.dataflow import Received
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
@@ -58,7 +59,10 @@ class ElementReport:
     sources: tuple[str, ...] = ()
     """Everything its step declares it observes, as each observable describes itself."""
     consumes: tuple[str, ...] = ()
-    """The variables its step declares it consumes."""
+    """The variables its step declares it consumes, each once."""
+    inputs: tuple[Received, ...] = ()
+    """What each parameter of its step receives: a variable, and the element whose step
+    produced it, or ``None`` when it does not resolve to one (ADR-0031)."""
     produces: tuple[str, ...] = ()
     """The variables its step declares it produces."""
     produced: Mapping[str, Any] = field(default_factory=lambda: _NOTHING)
@@ -74,10 +78,12 @@ class ElementReport:
         binding: Binding | None = None,
         result: ElementResult | None = None,
         root: Path = Path(),
+        inputs: tuple[Received, ...] | None = None,
     ) -> "ElementReport":
         """``element`` of ``model``, with the step ``binding`` binds to it and the run's
         ``result`` for it, when it has them: an element of the report, built on its own,
-        as the run's events show it the moment it is decided."""
+        as the run's events show it the moment it is decided. What its step's parameters
+        receive is ``inputs``, by default what ``result`` records."""
         report = cls(
             element.id,
             element.label,
@@ -97,6 +103,7 @@ class ElementReport:
                 observes=tuple(dict.fromkeys(files)),
                 sources=tuple(described(observable, context) for observable in observed),
                 consumes=step.consumes,
+                inputs=(() if result is None else result.inputs) if inputs is None else inputs,
                 produces=step.produces,
             )
         if result is not None:
@@ -190,7 +197,7 @@ class RunReport:
         return cls(
             result.justification.name,
             result.verdict,
-            _elements(result.justification, bindings, results, root),
+            _elements(result.justification, bindings, results, root, result.dataflow.received),
             result.diagnostics,
             result.strict,
             root=root,
@@ -257,11 +264,19 @@ def _elements(
     bindings: Mapping[str, Binding],
     results: Mapping[str, ElementResult],
     root: Path,
+    received: Callable[[str], tuple[Received, ...]] | None = None,
 ) -> tuple[ElementReport, ...]:
     """Every element of ``model``, in topological order, with its binding and its result,
-    by element id, when it has them."""
+    by element id, when it has them, and what ``received`` says its step receives."""
     return tuple(
-        ElementReport.of(model, element, bindings.get(element.id), results.get(element.id), root)
+        ElementReport.of(
+            model,
+            element,
+            bindings.get(element.id),
+            results.get(element.id),
+            root,
+            None if received is None else received(element.id),
+        )
         for element in model.topological_order()
     )
 

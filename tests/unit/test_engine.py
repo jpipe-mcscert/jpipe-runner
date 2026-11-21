@@ -11,6 +11,7 @@ from jpipe_runner import (
     Fail,
     Outcome,
     Pass,
+    Produced,
     Skip,
     conclusion,
     engine,
@@ -19,6 +20,7 @@ from jpipe_runner import (
     sub_conclusion,
 )
 from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT
+from jpipe_runner.dataflow import Received
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.engine import (
     DECLARED_VALUE_MISSING,
@@ -132,7 +134,73 @@ def test_what_each_element_did_is_recorded(release: Release) -> None:
     assert e1.binding.designators == ("e1",)
     assert (s.ran, s.produced, s.observed) == (True, {}, ())
     assert (c.ran, c.binding, c.reason, c.outcome) == (False, None, None, None)
-    assert result.values.produced_by("a") == "e1"
+    assert result.values.producers("a") == ("e1",)
+    assert s.inputs == (Received("a", "a", "e1"), Received("b", "b", "e2"))
+    assert (e1.inputs, c.inputs) == ((), ())
+
+
+# Two sub-arguments whose libraries both produce `coverage`, assembled under s -> c.
+ASSEMBLED = model(
+    element("c", CONCLUSION),
+    element("s", STRATEGY),
+    element("a:c", SUB_CONCLUSION),
+    element("a:s", STRATEGY),
+    element("a:e", EVIDENCE),
+    element("b:c", SUB_CONCLUSION),
+    element("b:s", STRATEGY),
+    element("b:e", EVIDENCE),
+    relations=[
+        ("s", "c"),
+        ("a:c", "s"),
+        ("a:s", "a:c"),
+        ("a:e", "a:s"),
+        ("b:c", "s"),
+        ("b:s", "b:c"),
+        ("b:e", "b:s"),
+    ],
+)
+
+
+def test_each_consumer_receives_the_value_of_its_own_supporter(tmp_path: Path) -> None:
+    (tmp_path / "log.txt").write_text("", encoding="utf-8")
+    received: dict[str, Any] = {}
+
+    @evidence("a:e", observes={"log": "log.txt"}, produces=["coverage"])
+    def tests(log: Path) -> Outcome:
+        return Pass(coverage=81.0)
+
+    @strategy("a:s", consumes=["coverage"])
+    def tested(coverage: float) -> Outcome:
+        received["a:s"] = coverage
+        return Pass()
+
+    @evidence("b:e", observes={"log": "log.txt"}, produces=["coverage"])
+    def docs(log: Path) -> Outcome:
+        return Pass(coverage=95.0)
+
+    @strategy("b:s", consumes=["coverage"])
+    def documented(coverage: float) -> Outcome:
+        received["b:s"] = coverage
+        return Pass()
+
+    @strategy(
+        "s",
+        consumes={"tests": Produced("coverage", by="a:c"), "docs": Produced("coverage", by="b:c")},
+    )
+    def gates(tests: float, docs: float) -> Outcome:
+        received["s"] = (tests, docs)
+        return Pass()
+
+    registry = _registry(tests, tested, docs, documented, gates)
+    result = run(ASSEMBLED, registry, root=tmp_path)
+
+    assert result.verdict is Verdict.PASS, result.diagnostics
+    assert received == {"a:s": 81.0, "b:s": 95.0, "s": (81.0, 95.0)}
+    assert result.values.producers("coverage") == ("a:e", "b:e")
+    assert result.result("s").inputs == (
+        Received("tests", "coverage", "a:e"),
+        Received("docs", "coverage", "b:e"),
+    )
 
 
 def test_a_failure_skips_what_it_supports_without_calling_it(release: Release) -> None:

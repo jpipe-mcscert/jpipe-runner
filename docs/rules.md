@@ -24,14 +24,14 @@ No rule can be disabled.
 | [JP007](#jp007-conflictingbinding) | `ConflictingBinding` | error | An element is bound by several steps, or a step to several elements. |
 | [JP008](#jp008-refinedelement) | `RefinedElement` | warning | A step declared as evidence or conclusion is bound to a sub-conclusion. |
 | [JP009](#jp009-missingproducer) | `MissingProducer` | error | A step consumes a variable that no step produces. |
-| [JP010](#jp010-duplicateproducer) | `DuplicateProducer` | error | Several steps produce the same variable. |
 | [JP011](#jp011-unconsumedoutput) | `UnconsumedOutput` | warning | A step produces a variable that no step consumes. |
 | [JP012](#jp012-evidenceproducesnothing) | `EvidenceProducesNothing` | error | An evidence produces no value that another step consumes. |
 | [JP013](#jp013-strategyignoresupstreamoutput) | `StrategyIgnoresUpstreamOutput` | warning | A strategy ignores a value its supporters produce for another step. |
-| [JP014](#jp014-consumedbeforeproduced) | `ConsumedBeforeProduced` | error | A step consumes a variable whose producer does not support it. |
+| [JP014](#jp014-consumedbeforeproduced) | `ConsumedBeforeProduced` | error | A step consumes a variable that no step supporting it produces. |
 | [JP015](#jp015-unknownbindingtarget) | `UnknownBindingTarget` | error | An id designates no element of the model. |
 | [JP016](#jp016-incompatiblekind) | `IncompatibleKind` | error | A step's kind differs from its element's, in a way composition cannot explain. |
 | [JP018](#jp018-evidenceobservesnothing) | `EvidenceObservesNothing` | error | An evidence observes no artifact. |
+| [JP025](#jp025-ambiguousconsumption) | `AmbiguousConsumption` | error | Several steps that support a step produce a variable it consumes. |
 
 ### JP005 `UnboundElement`
 
@@ -59,7 +59,8 @@ qualified by the justification's name, or a strictly shorter tail of either, cut
 `:` ([ADR-0007](adr/0007-binding-resolution.md)). An exact match always wins. A tail that
 ends the ids of two elements is not resolved to either: the runner never guesses which
 element a step implements. A tail unique today can become ambiguous when the model
-grows, or is composed with another.
+grows, or is composed with another. The id a step gives as `by`, in
+`Produced(variable, by=id)`, designates an element in the same way.
 
 **Fix:** use a longer id, which designates one element, such as the id the compiler
 exports.
@@ -119,17 +120,6 @@ element never runs, so what it declares does not count.
 **Fix:** produce the variable in a step that supports the consumer, or remove it from
 `consumes` and from the function's parameters.
 
-### JP010 `DuplicateProducer`
-
-Severity: **error**.
-
-Several steps produce the same variable.
-
-A variable has one value in a run, so it has one producer. With two, its consumers
-would receive whichever ran last.
-
-**Fix:** rename the variable in all producers but one, and consume the name you mean.
-
 ### JP011 `UnconsumedOutput`
 
 Severity: **warning**.
@@ -166,7 +156,8 @@ another step.
 A strategy is the reasoning that turns what its supporters found into a claim. A value
 produced right below it and read only further up skips that reasoning: the strategy
 judges without looking at it. A value nobody consumes is reported by `JP011` or
-`JP012` instead.
+`JP012` instead. A value counts as read further up when a step above draws on that
+supporter's value, not merely on a variable of the same name.
 
 **Fix:** consume the variable in the strategy, or produce it where it is used.
 
@@ -174,16 +165,20 @@ judges without looking at it. A value nobody consumes is reported by `JP011` or
 
 Severity: **error**.
 
-A step consumes a variable whose producer does not support it.
+A step consumes a variable that no step supporting it produces.
 
 Steps run supporters first, and a step whose supporter fails or skips is skipped in
 turn. A value is therefore certain to exist when a step runs only if its producer
 supports that step, directly or not. Coming first in some order is not enough: a
 producer on another branch may fail and leave the consumer without its value. A step
-that consumes what it produces is the extreme case.
+that consumes what it produces is the extreme case. So a consumed variable is looked
+for among the consumer's supporters only
+([ADR-0031](adr/0031-variables-resolve-among-supporters.md)), and at or below the
+element named by `by`, when the step names one with `Produced(variable, by=id)`.
 
 **Fix:** produce the variable in a step that supports its consumer, or move the
-consumer above the producer in the argument.
+consumer above the producer in the argument. With `by`, name an element at or above
+the producer, among the consumer's supporters.
 
 ### JP015 `UnknownBindingTarget`
 
@@ -192,7 +187,9 @@ Severity: **error**.
 A step's id designates no element of the model, so the step would never run.
 
 v3 ignored such an id silently: a typo meant the check was never run, and nothing said
-so. The step's other ids may still bind it.
+so. The step's other ids may still bind it. The id a step gives as `by`, in
+`Produced(variable, by=id)`, must designate an element too: otherwise, nothing says
+which value the step receives.
 
 **Fix:** use the id of an element of the model, as the compiler exports it, or a unique
 tail of it.
@@ -229,6 +226,24 @@ that they exist, record them, and archive them with the report
 **Fix:** declare what the evidence observes, and take it as a parameter:
 `@evidence("id", observes={"changelog": "CHANGELOG.md"})`.
 
+### JP025 `AmbiguousConsumption`
+
+Severity: **error**.
+
+Several steps that support a step produce a variable it consumes.
+
+A step receives a variable from the one step among its supporters that produces it
+([ADR-0031](adr/0031-variables-resolve-among-supporters.md)). Two steps may produce
+the same name, as libraries written apart for separate models do: each consumer then
+receives the value from its own sub-argument. A step that both support, such as the
+strategy `assemble` adds above them, sees both, and the runner never guesses which
+one it means, nor picks the nearer.
+
+**Fix:** name the part of the argument the value comes from, with
+`consumes={"parameter": Produced("variable", by="id")}`: `by` designates the producer,
+or an element it supports, such as the conclusion of its sub-argument. To take both
+values, map two parameters to the same variable, each with its own `by`.
+
 ## Codes reported outside validation
 
 A model or a step library that cannot be loaded is not validated, and nothing runs.
@@ -249,3 +264,12 @@ else.
 | JP022 | `StepRaised` | error | running a step | A step raised an exception. The traceback is kept. |
 | JP023 | `DeclaredValueMissing` | error | running a step | A step returned `Pass` without a value it declares it produces: nothing it returned is kept. |
 | JP024 | `UndeclaredValue` | warning | running a step | A step returned `Pass` with a value it does not declare: the value is dropped, and the step keeps its status. |
+
+## Retired codes
+
+A code never changes meaning, so a code no rule reports any more is retired, and
+never reused.
+
+| Code | Name | Why |
+|---|---|---|
+| JP010 | `DuplicateProducer` | Several steps produced the same variable. Since 4.1.0, a consumed variable resolves among its consumer's supporters ([ADR-0031](adr/0031-variables-resolve-among-supporters.md)): two producers of one name are an error only when one consumer can see both, which `JP025` reports. |

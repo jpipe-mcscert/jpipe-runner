@@ -72,9 +72,12 @@ bound; a conclusion or a sub-conclusion left **unbound** takes its
 ### Variable
 
 A named value that flows up the argument: a step **produces** it, by returning it in a
-`Pass`, and the steps above it **consume** it, as parameters of the same name. A variable
-has one producer in a run, and the producer must support each consumer, so that the value
-exists when the consumer runs.
+`Pass`, and the steps above it **consume** it, as parameters of the same name, or of the
+name `consumes` maps it to. A consumer receives a variable from the one step among its
+supporters that produces it, so that the value exists when the consumer runs. Two steps
+may produce the same name, as libraries written for separate models do, as long as no
+consumer sees both; one that does names the part of the argument the value comes from,
+with `Produced(variable, by=id)`.
 
 ### Artifact
 

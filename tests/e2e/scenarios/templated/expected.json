@@ -36,6 +36,7 @@
         "mock/junit.xml"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tests_pass"
       ],
@@ -78,6 +79,7 @@
         "mock/coverage.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "coverage"
       ],
@@ -119,6 +121,16 @@
         "tests_pass",
         "coverage"
       ],
+      "inputs": {
+        "tests_pass": {
+          "variable": "tests_pass",
+          "produced_by": "readiness:suite"
+        },
+        "coverage": {
+          "variable": "coverage",
+          "produced_by": "readiness:coverage"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -147,6 +159,7 @@
         "mock/CHANGELOG.md"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "changelog_ok"
       ],
@@ -187,6 +200,12 @@
       "consumes": [
         "changelog_ok"
       ],
+      "inputs": {
+        "changelog_ok": {
+          "variable": "changelog_ok",
+          "produced_by": "readiness:changelog"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -211,6 +230,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tested"
       ],
@@ -239,6 +259,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -265,6 +286,12 @@
       "consumes": [
         "tested"
       ],
+      "inputs": {
+        "tested": {
+          "variable": "tested",
+          "produced_by": "readiness:quality:tested"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -285,6 +312,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

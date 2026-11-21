@@ -148,10 +148,11 @@ read the `BindingTable`.
   producer it resolved to. "A variable is produced once" holds per producer. This amends
   the neutral consequence of [ADR-0009](0009-separate-registry-from-value-store.md): a
   name designates one value per consumer, not per run.
-- **The report**, schema 2.1, adds an optional `inputs` to each element, mapping each
+- **The report** adds an optional `inputs` to each element, mapping each
   parameter of its step to the variable it consumes and the element that produced it.
   `consumes` keeps listing the variable names, each once, and `produced` is already
-  recorded per element. The events write an element as the report does
+  recorded per element. Schema 2.0 first ships with 4.1.0, so `inputs` joins it rather
+  than making a 2.1. The events write an element as the report does
   ([ADR-0030](0030-a-run-streams-its-events.md)), so they carry `inputs` without a change
   of their own schema.
 - **The diagram** draws one node per produced value (a producer and a name), rather than
@@ -203,7 +204,7 @@ guide documents it.
   sub-argument, assembled, with the strategy `assemble` adds taking both through
   `Produced`. The `assembled` scenario's docstrings stop citing JP010.
 - `docs/rules.md`, regenerated from `rules.py`, lists JP025 and JP010 as retired.
-- The report schema test validates `inputs`, and `docs/report-schema.md` documents 2.1.
+- The report schema test validates `inputs`, and `docs/report-schema.md` documents it.
 - `docs/design.md` shows the resolution table, as `tests/unit/test_design_doc.py`
   requires.
 

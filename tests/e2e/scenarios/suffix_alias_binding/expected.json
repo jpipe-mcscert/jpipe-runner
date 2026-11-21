@@ -39,6 +39,7 @@
         "mock/metrics.csv"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "metrics_reported"
       ],
@@ -77,6 +78,12 @@
       "consumes": [
         "metrics_reported"
       ],
+      "inputs": {
+        "metrics_reported": {
+          "variable": "metrics_reported",
+          "produced_by": "rigor:unified_0"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],

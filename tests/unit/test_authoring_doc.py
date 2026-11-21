@@ -129,6 +129,20 @@ def test_the_page_quotes_the_step_of_the_assembled_strategy() -> None:
     assert "\n".join(source.splitlines()[first - 1 : function.end_lineno]) in PAGE
 
 
+def test_the_page_quotes_a_consumption_two_supporters_could_provide() -> None:
+    ambiguous = SCENARIOS / "ambiguous_consumption"
+    names = ("tested_steps.py", "documented_steps.py", "readiness_steps.py")
+    (diagnostic,) = _validated("ambiguous_consumption", *(_library(ambiguous / n) for n in names))
+    assert diagnostic.code == "JP025"
+    assert _quoted(diagnostic) in PAGE
+
+
+def test_the_page_quotes_the_step_that_names_where_each_value_comes_from() -> None:
+    source = (SCENARIOS / "shared_names" / "readiness_steps.py").read_text(encoding="utf-8")
+    start = source.index("from jpipe_runner import")
+    assert source[start:] in PAGE
+
+
 def _without_the_hooks_step(source: str) -> str:
     start = source.index('@evidence("draft:tests"')
     return source[:start] + source[source.index('@evidence("draft:changelog"') :]
