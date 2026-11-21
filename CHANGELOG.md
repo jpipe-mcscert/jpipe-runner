@@ -58,7 +58,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   colour vision deficiency and in greyscale: ✔ beside the label of an element that passed,
   ✘ of one that failed, ◌ of one that was skipped, and ⚠ on a file that could not be
   reached or a variable without one producer and a consumer. A support edge from a
-  failure is drawn thicker. The colours are unchanged. A PNG or PDF diagram needs a font
+  failure is drawn thicker. The colours are unchanged, and a failure keeps its font. **A
+  status never moves the diagram** (#186): each symbol sits in a cell of fixed size, empty
+  when there is none, so a dry run's diagram and the diagrams of runs with different
+  statuses put every node in the same place. A PNG or PDF diagram needs a font
   with these symbols where Graphviz runs, such as DejaVu Sans; an SVG leaves them to the
   browser.
 - **An evidence observes more than files.** Beside a path, `observes` takes

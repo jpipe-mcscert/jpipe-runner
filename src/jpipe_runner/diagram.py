@@ -27,12 +27,15 @@ A run's statuses are drawn over the elements, in the same palette, and each as a
 beside the label, so that the diagram reads without its colours:
 
 - **pass**: ✔, the element with a green border;
-- **fail**: ✘, filled vermillion, in white bold text;
+- **fail**: ✘, filled vermillion, in white text;
 - **skip**: ◌, filled light grey, with a dashed grey border, thicker when it is a root cause.
 
-The symbol is drawn in the label's colour, which contrasts with every fill, and the label
-of an element with a status is an HTML-like label, wrapped as the compiler wraps it. A
-file or variable drawn in vermillion is marked ⚠. A support edge takes the colour of the
+The symbol is drawn in the label's colour, which contrasts with every fill. A status never
+moves the diagram (#186): drawn with a report, every node's label is an HTML-like label,
+wrapped as the compiler wraps it, beside a cell of fixed size for its symbol, empty when
+it has none, and a status changes no font. A dry run's diagram, and the diagrams of two
+runs with different statuses, therefore put every node in the same place. A file or
+variable drawn in vermillion is marked ⚠, in a cell of its own. A support edge takes the colour of the
 status of the element it comes from, or, from a placeholder, of the element that fills it,
 and is thicker from a failure, dashed from a skip. In SVG, a node's tooltip gives its status
 and reason. Without a report, the diagram is the argument
@@ -72,7 +75,13 @@ _BLUE = "#0072B2"
 _EDGE_COLOURS = {Status.PASS: _GREEN, Status.FAIL: _VERMILLION, Status.SKIP: _GREY}
 _SYMBOLS = {Status.PASS: "✔", Status.FAIL: "✘", Status.SKIP: "◌"}
 _WARNING = "⚠"
-_SYMBOL_SIZE, _DATA_SYMBOL_SIZE = "20", "14"
+
+# The cell a symbol is drawn in: its point size, then the cell's fixed width and height, in
+# points, wider and taller than any of its symbols, so that every node keeps its size
+# whatever the cell holds (#186).
+_Cell = tuple[str, str, str]
+_STATUS_CELL: _Cell = ("20", "28", "32")
+_DATA_CELL: _Cell = ("14", "22", "22")
 _DATA = {"fontname": "Courier", "fontsize": "10"}
 _PROBLEM = {"color": _VERMILLION, "penwidth": "2"}
 
@@ -96,7 +105,8 @@ def source(justification: Justification, report: RunReport | None = None) -> str
     if report is not None:
         _check_reports_on(report, justification)
     reported = {} if report is None else {e.id: e for e in report.elements}
-    return "".join(f"{line}\n" for line in _Diagram(justification, reported).lines())
+    drawn = _Diagram(justification, reported, overlaid=report is not None)
+    return "".join(f"{line}\n" for line in drawn.lines())
 
 
 def _check_reports_on(report: RunReport, model: Justification) -> None:
@@ -152,9 +162,12 @@ def write(
 class _Diagram:
     """The DOT lines of one diagram."""
 
-    def __init__(self, model: Justification, reported: dict[str, ElementReport]) -> None:
+    def __init__(
+        self, model: Justification, reported: dict[str, ElementReport], *, overlaid: bool
+    ) -> None:
         self._model = model
         self._reported = reported
+        self._overlaid = overlaid
         self._dataflow = _Dataflow(reported)
         self._chain = model.template_chain
         templates = () if self._chain is None else self._chain.templates
@@ -220,13 +233,18 @@ class _Diagram:
         yield f"{indent}}}"
 
     def _node(self, element: Element, indent: str) -> str:
+        """An element, in its kind's style. Drawn with a report, its label has a cell for
+        its status, empty when it has none, so that a status changes its colours and
+        symbol, never its size: a run's diagrams line up whatever their statuses (#186)."""
         reported = self._reported.get(element.id)
         attributes = dict(_KIND_STYLES[element.kind])
         label = _wrapped(element.label)
-        if reported is not None and reported.status is not None:
-            attributes.update(_overlay(attributes, reported))
+        if self._overlaid:
+            status = None if reported is None else reported.status
+            if reported is not None and status is not None:
+                attributes.update(_overlay(attributes, reported))
             lines = [" ".join(line) for line in _wrap(element.label)]
-            label = _marked(lines, _SYMBOLS[reported.status], _SYMBOL_SIZE)
+            label = _marked(lines, None if status is None else _SYMBOLS[status], _STATUS_CELL)
         head = f"label={label}, id={_quoted(element.id)}"
         return f"{indent}{_quoted(element.id)} [{head}, {_attributes(attributes)}];"
 
@@ -373,7 +391,6 @@ def _overlay(style: dict[str, str], reported: ElementReport) -> dict[str, str]:
             "style": filled,
             "fillcolor": _VERMILLION,
             "fontcolor": "white",
-            "fontname": "Helvetica-Bold",
             "penwidth": "2",
             "tooltip": tooltip,
         }
@@ -391,11 +408,12 @@ def _styled(style: dict[str, str], *added: str) -> str:
 
 
 def _data_node(node: str, label: str, attributes: dict[str, str], problem: bool) -> str:
-    """A file or variable, in vermillion and marked ⚠ when it is a ``problem``."""
-    drawn = _quoted(label)
+    """A file or variable, in vermillion and marked ⚠ when it is a ``problem``. Its label
+    has a cell for the mark, empty when there is none: a file that turns out to be
+    unreachable moves nothing."""
     if problem:
         attributes = attributes | _PROBLEM
-        drawn = _marked([label], _WARNING, _DATA_SYMBOL_SIZE)
+    drawn = _marked([label], _WARNING if problem else None, _DATA_CELL)
     return f"{_INDENT}{_quoted(node)} [label={drawn}, {_attributes(attributes)}];"
 
 
@@ -467,11 +485,14 @@ def _dot_word(word: str) -> str:
     return _escaped(word).replace("_", "\\_")
 
 
-def _marked(lines: list[str], symbol: str, size: str) -> str:
-    """An HTML-like label: ``symbol``, at ``size`` points, beside ``lines``."""
+def _marked(lines: list[str], symbol: str | None, cell: _Cell) -> str:
+    """An HTML-like label: ``lines``, beside a ``cell`` of fixed size that holds
+    ``symbol``, or nothing."""
+    size, width, height = cell
     text = "<br/>".join(_html(line) for line in lines)
     table = '<table border="0" cellborder="0" cellspacing="0">'
-    symbol_cell = f'<td><font point-size="{size}">{symbol}</font></td>'
+    held = "" if symbol is None else f'<font point-size="{size}">{symbol}</font>'
+    symbol_cell = f'<td fixedsize="true" width="{width}" height="{height}">{held}</td>'
     return f"<{table}<tr>{symbol_cell}<td>{text}</td></tr></table>>"
 
 

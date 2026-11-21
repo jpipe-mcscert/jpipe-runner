@@ -114,11 +114,15 @@ def _drawn(
     return {line.strip().partition(" [")[0].rstrip(";"): line.strip() for line in lines}
 
 
-def _marked(symbol: str, text: str, size: int = 20) -> str:
-    """The HTML-like label of a node marked with ``symbol``."""
+def _marked(symbol: str | None, text: str, size: int = 20) -> str:
+    """The HTML-like label of a node drawn with a report: ``text`` beside the cell of its
+    symbol, at ``size`` points, which holds ``symbol``, or nothing."""
+    width, height = (28, 32) if size == 20 else (22, 22)
+    held = "" if symbol is None else f'<font point-size="{size}">{symbol}</font>'
     return (
         '<<table border="0" cellborder="0" cellspacing="0"><tr>'
-        f'<td><font point-size="{size}">{symbol}</font></td><td>{text}</td></tr></table>>'
+        f'<td fixedsize="true" width="{width}" height="{height}">{held}</td>'
+        f"<td>{text}</td></tr></table>>"
     )
 
 
@@ -145,7 +149,7 @@ def test_a_failed_element_is_vermillion_with_a_cross_and_blocks_what_it_supports
 
     assert drawn['"e1"'] == (
         f'"e1" [label={_marked("✘", "e1")}, id="e1", shape=note, style=filled, '
-        'fillcolor="#D55E00", fontcolor=white, fontname="Helvetica-Bold", penwidth=2, '
+        'fillcolor="#D55E00", fontcolor=white, penwidth=2, '
         'tooltip="fail: two tests failed"];'
     )
     assert drawn['"s"'] == (
@@ -271,6 +275,44 @@ def test_a_report_of_another_justification_is_refused() -> None:
         source(RELEASE, other)
 
 
+def _layout(dot_source: str) -> dict[str, tuple[str, ...]]:
+    """Where ``dot`` puts each node, and how large it draws the graph, from ``-Tplain``."""
+    plain = subprocess.run(
+        [str(DOT), "-Tplain"], input=dot_source, capture_output=True, text=True, check=True
+    ).stdout
+    placed = {}
+    for line in plain.splitlines():
+        kind, *fields = line.split()
+        if kind == "graph":
+            placed["graph"] = tuple(fields[1:3])
+        elif kind == "node":
+            placed[fields[0]] = tuple(fields[1:5])
+    return placed
+
+
+_OUTCOMES = {
+    "pass": (lambda: Pass(a="a"), lambda: Pass(b="b")),
+    "fail": (lambda: Fail("no"), lambda: Fail("no")),
+    "skip": (lambda: Skip("not here"), lambda: Skip("not here")),
+}
+
+
+@needs_dot
+@pytest.mark.parametrize("e1", list(_OUTCOMES))
+@pytest.mark.parametrize("e2", [*_OUTCOMES, "unreachable"])
+def test_a_status_never_moves_the_diagram(tmp_path: Path, e1: str, e2: str) -> None:
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    if e2 != "unreachable":
+        (tmp_path / "e2.log").write_text("two", encoding="utf-8")
+    second = _OUTCOMES["pass" if e2 == "unreachable" else e2][1]
+    registry = _steps(_OUTCOMES[e1][0], second)
+    planned = RunReport.of(run(RELEASE, registry, root=tmp_path, dry_run=True), tmp_path)
+    ran = RunReport.of(run(RELEASE, registry, root=tmp_path), tmp_path)
+    assert {e.status for e in ran.elements} - {None}, "the run decided nothing"
+
+    assert _layout(source(RELEASE, ran)) == _layout(source(RELEASE, planned))
+
+
 # --- The dataflow ---------------------------------------------------------------------------
 
 
@@ -280,10 +322,12 @@ def test_the_diagram_adds_the_files_and_variables_the_steps_declare(tmp_path: Pa
     drawn = _drawn(tmp_path, lambda: Pass(a="a"))
 
     assert drawn['"artifact e1.txt"'] == (
-        '"artifact e1.txt" [label="e1.txt", fontname=Courier, fontsize=10, shape=folder];'
+        f'"artifact e1.txt" [label={_marked(None, "e1.txt", 14)}, fontname=Courier, '
+        "fontsize=10, shape=folder];"
     )
     assert drawn['"variable a"'] == (
-        '"variable a" [label="a", fontname=Courier, fontsize=10, shape=ellipse];'
+        f'"variable a" [label={_marked(None, "a", 14)}, fontname=Courier, fontsize=10, '
+        "shape=ellipse];"
     )
     assert drawn['"artifact e1.txt" -> "e1"'] == (
         '"artifact e1.txt" -> "e1" [style=dotted, arrowhead=empty, label=" observes", fontsize=9];'
@@ -507,7 +551,7 @@ def test_two_producers_of_a_variable_are_two_values_each_with_its_consumers(
 
     for producer, consumer in (("a:e", "a:s"), ("b:e", "b:s")):
         (node,) = [line for line in lines if line.startswith(f'"variable x from {producer}" [')]
-        assert node.startswith(f'"variable x from {producer}" [label="x", ')
+        assert node.startswith(f'"variable x from {producer}" [label={_marked(None, "x", 14)}, ')
         assert "D55E00" not in node
         assert _consumes(f"variable x from {producer}", consumer) in lines
         assert _consumes(f"variable x from {producer}", "s") in lines
