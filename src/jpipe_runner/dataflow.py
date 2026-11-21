@@ -93,18 +93,11 @@ class DataflowTable:
             for variable in binding.step.produces:
                 producers.setdefault(variable, []).append(binding)
         problems: list[Diagnostic] = []
-        found: list[Consumption] = []
-        for consumer in bindings:
-            for each in consumer.step.inputs:
-                within = _designated(consumer, each, bindings, justification.name, problems)
-                every = tuple(producers.get(each.variable, ()))
-                reachable = () if each.by is not None and within is None else every
-                if within is not None:
-                    reachable = self._named(within, every)
-                supporting = self._supporters(consumer.element.id)
-                candidates = tuple(p for p in reachable if p.element.id in supporting)
-                found.append(Consumption(consumer, each, within, every, reachable, candidates))
-        self._consumptions = tuple(found)
+        self._consumptions = tuple(
+            self._resolved(consumer, each, producers, bindings, problems)
+            for consumer in bindings
+            for each in consumer.step.inputs
+        )
         self._diagnostics = tuple(problems)
         self._by_consumer: dict[str, list[Consumption]] = {}
         self._by_source: dict[tuple[str, str], list[Consumption]] = {}
@@ -113,6 +106,25 @@ class DataflowTable:
             for source in consumed.sources:
                 key = (source.element.id, consumed.input.variable)
                 self._by_source.setdefault(key, []).append(consumed)
+
+    def _resolved(
+        self,
+        consumer: Binding,
+        wanted: Input,
+        producers: dict[str, list[Binding]],
+        bindings: BindingTable,
+        problems: list[Diagnostic],
+    ) -> Consumption:
+        """``wanted``, an input of ``consumer``, with the steps that could provide it."""
+        within = _designated(consumer, wanted, bindings, self._justification.name, problems)
+        every = tuple(producers.get(wanted.variable, ()))
+        if within is not None:
+            reachable = self._named(within, every)
+        else:
+            reachable = () if wanted.by is not None else every
+        supporting = self._supporters(consumer.element.id)
+        candidates = tuple(p for p in reachable if p.element.id in supporting)
+        return Consumption(consumer, wanted, within, every, reachable, candidates)
 
     def _supporters(self, element_id: str) -> frozenset[str]:
         """The ids of the elements that support ``element_id``, directly or not."""
