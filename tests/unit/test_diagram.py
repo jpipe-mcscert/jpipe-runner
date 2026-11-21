@@ -6,6 +6,7 @@ an image call ``dot``, and are skipped where it is not installed; CI installs it
 """
 
 import os
+import shlex
 import shutil
 import stat
 import subprocess
@@ -285,7 +286,8 @@ def _layout(dot_source: str) -> dict[str, tuple[str, ...]]:
     ).stdout
     placed = {}
     for line in plain.splitlines():
-        kind, *fields = line.split()
+        # An id with a space, such as "artifact e1.txt", is quoted.
+        kind, *fields = shlex.split(line)
         if kind == "graph":
             placed["graph"] = tuple(fields[1:3])
         elif kind == "node":
@@ -313,7 +315,9 @@ def test_a_status_never_moves_the_diagram(tmp_path: Path, e1: str, e2: str) -> N
     ran = RunReport.of(run(RELEASE, registry, root=tmp_path), tmp_path)
     assert {e.status for e in ran.elements} - {None}, "the run decided nothing"
 
-    assert _layout(source(RELEASE, ran)) == _layout(source(RELEASE, planned))
+    laid_out = _layout(source(RELEASE, planned))
+    assert {"artifact e1.txt", "artifact *.log", "variable a", "variable b"} < laid_out.keys()
+    assert _layout(source(RELEASE, ran)) == laid_out
 
 
 # --- The dataflow ---------------------------------------------------------------------------
@@ -646,6 +650,27 @@ def test_a_diagram_keeps_the_permissions_of_the_file_it_replaces(tmp_path: Path)
     write(drawn, RELEASE)
 
     assert stat.S_IMODE(drawn.stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
+def test_a_private_diagram_is_never_readable_by_others_while_it_is_drawn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drawn = tmp_path / "m.dot"
+    drawn.write_text("the previous drawing", encoding="utf-8")
+    drawn.chmod(0o600)
+    modes: list[int] = []
+    draw = diagram._draw
+
+    def watched(text: str, fmt: str, drawing: Path, path: Path) -> None:
+        modes.append(stat.S_IMODE(drawing.stat().st_mode))
+        draw(text, fmt, drawing, path)
+
+    monkeypatch.setattr(diagram, "_draw", watched)
+
+    write(drawn, RELEASE)
+
+    assert modes == [0o600]
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")

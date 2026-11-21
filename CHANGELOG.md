@@ -54,7 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   final one, with the run's statuses, when the run ends; a status never moves a node, so
   the two line up. A diagram is written whole, under another name then renamed, so a
   reader never sees half of one. Without `--events`, and in a dry run, the diagram is
-  drawn once, at the end, as before.
+  drawn once, at the end, as before, and so it is when an evidence observes the diagram's
+  path, which the preview could otherwise change.
 - **The diagram draws the templates a justification implements**, as the jPipe compiler
   does: each template a `<<template>>` cluster, each `@support` a dotted placeholder
   linked to the element that fills it, and the template's supports drawn from the

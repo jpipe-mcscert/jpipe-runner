@@ -33,7 +33,7 @@ from jpipe_runner.engine import RunResult, Verdict
 from jpipe_runner.events import EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
-from jpipe_runner.observables import is_glob
+from jpipe_runner.observables import is_glob, matches
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry
 
@@ -374,7 +374,12 @@ def _run(options: argparse.Namespace) -> int:
     with _events(options.events, root, preview) as stream:
         justification, report = _report(options, root, libraries, stream)
         _LOG.info("verdict: %s", report.verdict)
-        report, drawn = _draw(options, justification, report, root)
+        try:
+            report, drawn = _draw(options, justification, report, root)
+        except BaseException:
+            if preview is not None:
+                preview.withdraw()
+            raise
         if not drawn and preview is not None:
             preview.withdraw()
         saved = _save(options.report, report)
@@ -431,6 +436,13 @@ class _Preview:
     def __call__(self, planned: RunResult) -> Path | None:
         try:
             report = RunReport.of(planned, self._root)
+            if observer := self._observed_by(report):
+                _LOG.warning(
+                    "the diagram is not drawn before the steps run: %s, which the steps "
+                    "could observe while they run",
+                    observer,
+                )
+                return None
             diagram.write(self._path, planned.justification, report)
         # Whatever went wrong, from an observable of the library that cannot describe
         # itself to dot, a preview never stops the run.
@@ -441,6 +453,18 @@ class _Preview:
         _LOG.info("drew the diagram at %s, before the steps run", self._path)
         self._drawn = True
         return self._path
+
+    def _observed_by(self, report: RunReport) -> str | None:
+        """What would observe the drawing, if an evidence's paths or globs designate it:
+        drawn during the run, it could change what a step receives, and its verdict."""
+        drawn = {shown_path(str(self._path), self._root)}
+        if self._path.is_symlink():
+            drawn.add(shown_path(str(self._path.resolve()), self._root))
+        for element in report.elements:
+            for observed in element.observes:
+                if any(matches(path, observed) for path in drawn):
+                    return f"{element.id} observes {observed}"
+        return None
 
     def withdraw(self) -> None:
         """Remove the drawing, if it was drawn: the run's own diagram could not be, and

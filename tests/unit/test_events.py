@@ -319,6 +319,69 @@ def test_a_final_diagram_that_cannot_be_drawn_withdraws_the_preview(
     assert not (directory / "release.dot").exists()
 
 
+_WATCHING = """
+from jpipe_runner import Pass, evidence, strategy
+
+
+@evidence("release:e1", observes={"drawn": "out/*.dot"}, produces=["tests_pass"])
+def drawings(drawn):
+    return Pass(tests_pass=len(drawn))
+
+
+@evidence("release:e2", observes={"log": "mock/CHANGELOG.md"}, produces=["changelog_ok"])
+def changelog(log):
+    return Pass(changelog_ok=True)
+
+
+@strategy("release:s", consumes=["tests_pass", "changelog_ok"])
+def gates(tests_pass, changelog_ok):
+    return Pass()
+"""
+
+
+def test_a_preview_a_step_could_observe_is_not_drawn(
+    workdir: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    directory = workdir("release_example")
+    (directory / "watching.py").write_text(_WATCHING, encoding="utf-8")
+    (directory / "out").mkdir()
+    command = ["--diagram", "out/run.dot", "-l", "watching.py", "justification.json"]
+
+    alone = main(command)
+    (directory / "out" / "run.dot").unlink()  # the run's own diagram, drawn at its end
+    followed = main(["--events", "events.jsonl", *command])
+
+    # out/ is empty when the steps run, followed or not: the evidence finds no drawing.
+    assert alone == followed == ExitCode.FAILED
+    assert of(read(directory / "events.jsonl"), "diagram.drawn") == []
+    err = capsys.readouterr().err
+    assert "the diagram is not drawn before the steps run: release:e1 observes out/*.dot" in err
+
+
+def test_a_final_diagram_that_raises_withdraws_the_preview(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    write = cli.diagram.write
+    calls: list[Path] = []
+
+    def second_raises(path: Path, *arguments: Any, **options: Any) -> Path:
+        calls.append(path)
+        if len(calls) == 2:
+            raise UnicodeEncodeError("ascii", "✔", 0, 1, "ordinal not in range(128)")
+        return write(path, *arguments, **options)
+
+    monkeypatch.setattr(cli.diagram, "write", second_raises)
+
+    with pytest.raises(UnicodeEncodeError):
+        main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+
+    assert len(of(read(directory / EVENTS), "diagram.drawn")) == 1
+    assert not (directory / "release.dot").exists()
+
+
 def test_the_diagram_is_named_at_the_end(
     workdir: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
 ) -> None:

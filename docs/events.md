@@ -150,7 +150,9 @@ colours it as elements are decided, then shows the drawing `run.ended` names, at
 path, once the run is over: a status never moves a node, so the two line up.
 
 It is written once, when `--diagram` is given, validation passed, and the run calls its
-steps. A dry run draws its diagram once, at the end, without this event, and so does a run
+steps, unless an evidence observes the diagram's path, by a path or a glob: drawn while the
+steps run, it could change what that evidence receives, so it is not drawn, and a warning
+says why. A dry run draws its diagram once, at the end, without this event, and so does a run
 without `--events`. A drawing that cannot be written is logged on stderr, and changes
 nothing else: the event is not written, the run goes on, and the diagram is drawn again
 when it ends. The file is written whole each time, under another name then renamed, so a

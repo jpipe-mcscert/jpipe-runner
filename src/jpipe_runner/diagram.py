@@ -154,9 +154,10 @@ def write(
     target.parent.mkdir(parents=True, exist_ok=True)
     drawing = _temporary(target)
     try:
-        _draw(text, fmt, drawing, path)
+        # Before anything is written, so that a private diagram is never readable by others.
         if target.exists():
             shutil.copymode(target, drawing)
+        _draw(text, fmt, drawing, path)
         _replace(drawing, target)
     finally:
         drawing.unlink(missing_ok=True)

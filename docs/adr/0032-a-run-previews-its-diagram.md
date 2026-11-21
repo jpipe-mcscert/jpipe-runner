@@ -90,7 +90,11 @@ no program has to handle a 1.0 stream without it.
 
 **A preview.** A drawing that cannot be written before the first step is logged as a
 warning, and nothing else: no `diagram.drawn`, the run goes on, and the diagram is drawn
-again when the run ends, where a failure is an error, as before (exit code 4).
+again when the run ends, where a failure is an error, as before (exit code 4). If that
+final drawing fails, the preview is removed, so that it cannot pass for the run's
+diagram. A preview is not drawn when an evidence observes the diagram's path, by a path or
+a glob: it stays at that path while the steps run, and could change what that evidence
+receives, so the run's verdict.
 
 **The layout.** Drawn with a report, every node's label is an HTML-like label, wrapped as
 the compiler wraps it, beside a cell of fixed size for its symbol (`fixedsize="true"`),
