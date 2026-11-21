@@ -21,6 +21,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
+import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout
 from dataclasses import dataclass
@@ -34,9 +35,14 @@ from jpipe_runner.engine import RunResult, Verdict
 from jpipe_runner.events import EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
-from jpipe_runner.observables import is_glob
+from jpipe_runner.observables import is_glob, matches
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry
+
+_WINDOWS = os.name == "nt"
+_ATTEMPTS, _PAUSE = 10, 0.1
+"""How many times, and how far apart in seconds, the drawing made before the steps is
+deleted."""
 
 _LOG = logging.getLogger(__name__)
 
@@ -442,9 +448,20 @@ class _Preview:
             )
             return None
         try:
-            self._directory = Path(tempfile.mkdtemp(prefix="jpipe-runner-"))
+            self._directory = Path(tempfile.mkdtemp(prefix="jpipe-runner-")).absolute()
             drawn = self._directory / "diagram.svg"
-            diagram.write(drawn, planned.justification, RunReport.of(planned, self._root))
+            report = RunReport.of(planned, self._root)
+            if observer := _observer(report, drawn, self._root):
+                # A temporary directory in the project, as TMPDIR may make it.
+                _LOG.warning(
+                    "the diagram is not drawn before the steps run: %s, so the steps "
+                    "could observe it at %s",
+                    observer,
+                    drawn,
+                )
+                self.discard()
+                return None
+            diagram.write(drawn, planned.justification, report)
         # Whatever went wrong, from an observable of the library that cannot describe
         # itself to dot, a preview never stops the run.
         except Exception as error:  # NOSONAR
@@ -455,10 +472,34 @@ class _Preview:
         return drawn
 
     def discard(self) -> None:
-        """Delete the drawing, and its directory, if it was drawn."""
-        if self._directory is not None:
-            shutil.rmtree(self._directory, ignore_errors=True)
-            self._directory = None
+        """Delete the drawing, and its directory, if it was drawn. On Windows, a file a
+        program has open cannot be deleted, as the reader of the drawing may have it for a
+        moment: try again, for about a second. What cannot be deleted is a warning."""
+        if self._directory is None:
+            return
+        directory, self._directory = self._directory, None
+        for attempt in range(_ATTEMPTS):
+            try:
+                shutil.rmtree(directory)
+                return
+            except FileNotFoundError:
+                return
+            except OSError as error:
+                if _WINDOWS and attempt < _ATTEMPTS - 1:
+                    time.sleep(_PAUSE)
+                    continue
+                _LOG.warning("cannot delete the diagram drawn before the steps run: %s", error)
+                return
+
+
+def _observer(report: RunReport, drawn: Path, root: Path) -> str | None:
+    """What an evidence observes that designates ``drawn``, if it is under ``root``."""
+    shown = shown_path(str(drawn), root)
+    for element in report.elements:
+        for observed in element.observes:
+            if matches(shown, observed):
+                return f"{element.id} observes {observed}"
+    return None
 
 
 def _streamed(stream: EventStream | None) -> bool:

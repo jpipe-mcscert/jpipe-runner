@@ -236,6 +236,125 @@ def test_with_events_the_diagram_is_drawn_before_the_first_step_and_then_deleted
     assert not list(directory.glob("*.svg"))
 
 
+def _local_temporary(directory: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A temporary directory in the project, as TMPDIR=$PWD/tmp would make it."""
+    local = directory / "tmp"
+    local.mkdir()
+    made = tempfile.mkdtemp
+    monkeypatch.setattr(
+        cli.tempfile, "mkdtemp", lambda **options: made(**{**options, "dir": local})
+    )
+    return local
+
+
+@needs_dot
+def test_a_preview_in_the_project_is_given_by_its_absolute_path(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    _local_temporary(directory, monkeypatch)
+
+    main(["--events", EVENTS, *RELEASE])
+
+    (drawn,) = of(read(directory / EVENTS), "diagram.drawn")
+    assert Path(drawn["path"]).is_absolute()
+    assert Path(drawn["path"]).is_relative_to(directory.resolve() / "tmp")
+
+
+_WATCHING = """
+from jpipe_runner import Pass, evidence, strategy
+
+
+@evidence("release:e1", observes={"drawn": "tmp/**/*.svg"}, produces=["tests_pass"])
+def drawings(drawn):
+    return Pass(tests_pass=len(drawn))
+
+
+@evidence("release:e2", observes={"log": "mock/CHANGELOG.md"}, produces=["changelog_ok"])
+def changelog(log):
+    return Pass(changelog_ok=True)
+
+
+@strategy("release:s", consumes=["tests_pass", "changelog_ok"])
+def gates(tests_pass, changelog_ok):
+    return Pass()
+"""
+
+
+@needs_dot
+def test_a_preview_a_step_could_observe_is_not_drawn(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    local = _local_temporary(directory, monkeypatch)
+    (directory / "watching.py").write_text(_WATCHING, encoding="utf-8")
+    command = ["-l", "watching.py", "justification.json"]
+
+    alone = main(command)
+    followed = main(["--events", EVENTS, *command])
+
+    # tmp/ holds no SVG when the steps run, followed or not: the evidence finds none.
+    assert alone == followed == ExitCode.FAILED
+    assert of(read(directory / EVENTS), "diagram.drawn") == []
+    assert "not drawn before the steps run: release:e1 observes tmp/**/*.svg" in (
+        capsys.readouterr().err
+    )
+    assert list(local.iterdir()) == []
+
+
+def test_on_windows_a_preview_a_reader_holds_open_is_deleted_once_it_is_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drawn = tmp_path / "jpipe-runner-x"
+    drawn.mkdir()
+    (drawn / "diagram.svg").write_text("<svg/>", encoding="utf-8")
+    remove, held = shutil.rmtree, [2]
+
+    def held_open(path: Path) -> None:
+        if held[0]:
+            held[0] -= 1
+            raise PermissionError(13, "The process cannot access the file")
+        remove(path)
+
+    monkeypatch.setattr(cli, "_WINDOWS", True)
+    monkeypatch.setattr(cli.shutil, "rmtree", held_open)
+    monkeypatch.setattr(cli.time, "sleep", lambda _: None)
+    preview = cli._Preview(tmp_path)
+    preview._directory = drawn
+
+    preview.discard()
+
+    assert not drawn.exists()
+
+
+def test_a_preview_that_cannot_be_deleted_is_a_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    drawn = tmp_path / "jpipe-runner-x"
+    drawn.mkdir()
+
+    def refused(path: Path) -> None:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(cli, "_WINDOWS", False)
+    monkeypatch.setattr(cli.shutil, "rmtree", refused)
+    preview = cli._Preview(tmp_path)
+    preview._directory = drawn
+
+    with caplog.at_level(logging.WARNING, logger="jpipe_runner"):
+        preview.discard()
+        preview.discard()  # once: it is not tried again
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings == [
+        "cannot delete the diagram drawn before the steps run: [Errno 13] Permission denied"
+    ]
+
+
 @needs_dot
 def test_the_diagram_file_holds_only_the_run_s_own_diagram(
     workdir: Callable[[str], Path],

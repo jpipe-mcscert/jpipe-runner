@@ -163,7 +163,11 @@ before a program gets to it; the drawing then has no use, and the program shows 
 It is written once, when validation passed and the run calls its steps, whether
 `--diagram` is given or not. A dry run writes no such event. A drawing that cannot be made,
 because Graphviz's `dot` is not installed or for any other reason, is logged on stderr, and
-changes nothing else: the event is not written, and the run goes on.
+changes nothing else: the event is not written, and the run goes on. So is a drawing an
+evidence would observe, when the temporary directory is in the project (`TMPDIR`) and one
+of its globs designates the drawing: drawn there, it could change what that evidence
+receives. A drawing that cannot be deleted at the end, on Windows because a program still
+has it open after a second of trying, is a warning, and changes nothing either.
 
 | Field | Type | |
 |---|---|---|

@@ -92,7 +92,8 @@ was made.
 
 **Where.** In SVG, which the IDE renders, as `diagram.svg` in a directory of its own that
 the runner makes in the system's temporary directory, outside the project, where no step
-observes it. The runner deletes it once the run has ended, after `run.ended` is written,
+observes it. When `TMPDIR` puts that directory in the project, and an evidence's path or
+glob designates the drawing, it is not drawn, and a warning says why. The runner deletes it once the run has ended, after `run.ended` is written,
 however the run ended. A program reads it when `diagram.drawn` arrives. A run that ends
 quickly may delete it before a program gets to it: the drawing then has no use, and the
 program shows the `--diagram` file `run.ended` names, if there is one. `--diagram` is drawn
@@ -106,7 +107,8 @@ ships with 4.1.0, so no program has to handle a 1.0 stream without it.
 
 **A preview.** A drawing that cannot be made before the first step, because Graphviz's
 `dot` is not installed or for any other reason, is logged as a warning, and nothing else:
-no `diagram.drawn`, and the run goes on.
+no `diagram.drawn`, and the run goes on. One that cannot be deleted at the end, on Windows
+after a second of trying while a program has it open, is a warning too.
 
 **The layout.** Drawn with a report, every node's label is an HTML-like label, wrapped as
 the compiler wraps it, beside a cell of fixed size for its symbol (`fixedsize="true"`),

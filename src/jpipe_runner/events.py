@@ -116,7 +116,9 @@ class EventStream:
             return
         drawn = self._preview(planned)
         if drawn is not None:
-            self._write("diagram.drawn", path=shown_path(str(drawn), self._root))
+            # Absolute, unlike the report's paths: the drawing is not the run's, and a program
+            # that runs elsewhere must find it.
+            self._write("diagram.drawn", path=str(drawn.absolute()))
 
     def element_started(self, element: Element) -> None:
         self._write("element.started", id=element.id)
