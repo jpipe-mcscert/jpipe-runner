@@ -100,7 +100,11 @@ are where a dry run puts them. With `--events`, a run that calls its steps also 
 diagram before the first step, without statuses, in a temporary SVG file it deletes once
 the run has ended, and says so in an event, for a program that colours it as the run goes
 ([`events.md`](events.md#diagramdrawn)); the `--diagram` file holds only the run's own
-diagram.
+diagram. What an evidence observes is drawn in the shape of its kind, a file as a tab, a
+glob as a folder, a value in a JSON file as a component, an environment variable as a
+house ([`observables.md`](observables.md#how-the-diagram-draws-them)), and marked ✔ once
+observed, or ⚠ when it could not be. A variable has no mark: whether one lacks a producer
+or a consumer is known before the run, and it is then drawn in vermillion.
 
 **Outputs are checked before anything runs.** An output whose suffix is not a format, that
 is a directory, that two options would both write, or that the run reads, the

@@ -27,7 +27,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind
-from jpipe_runner.observables import Context, Observation, dependencies, described
+from jpipe_runner.observables import Context, Observation, dependencies, described, drawn_as
 
 _NOTHING: Mapping[str, Any] = MappingProxyType({})
 
@@ -58,6 +58,9 @@ class ElementReport:
     depends on."""
     sources: tuple[str, ...] = ()
     """Everything its step declares it observes, as each observable describes itself."""
+    shapes: Mapping[str, str] = field(default_factory=lambda: _NOTHING)
+    """The shape the diagram draws each of its ``sources`` in, as its observable says.
+    Only the diagram reads it: the JSON report does not write it."""
     consumes: tuple[str, ...] = ()
     """The variables its step declares it consumes, each once."""
     inputs: tuple[Received, ...] = ()
@@ -102,6 +105,7 @@ class ElementReport:
                 designators=binding.designators,
                 observes=tuple(dict.fromkeys(files)),
                 sources=tuple(described(observable, context) for observable in observed),
+                shapes=MappingProxyType({described(o, context): drawn_as(o) for o in observed}),
                 consumes=step.consumes,
                 inputs=inputs,
                 produces=step.produces,

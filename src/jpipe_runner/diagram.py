@@ -59,6 +59,7 @@ from pathlib import Path
 from jpipe_runner.dataflow import Received
 from jpipe_runner.engine import Status
 from jpipe_runner.model import Element, Justification, Kind, Template
+from jpipe_runner.observables import DEFAULT_SHAPE, Observation
 from jpipe_runner.report import ElementReport, RunReport
 
 FORMATS = ("dot", "gif", "jpeg", "jpg", "pdf", "png", "svg")
@@ -83,6 +84,7 @@ _BLUE = "#0072B2"
 _EDGE_COLOURS = {Status.PASS: _GREEN, Status.FAIL: _VERMILLION, Status.SKIP: _GREY}
 _SYMBOLS = {Status.PASS: "✔", Status.FAIL: "✘", Status.SKIP: "◌"}
 _WARNING = "⚠"
+_OBSERVED = "✔"
 
 # The cell a symbol is drawn in: its point size, then the cell's fixed width and height, in
 # points, wider and taller than any of its symbols, so that every node keeps its size
@@ -360,10 +362,40 @@ class _Dataflow:
 
     def nodes(self) -> Iterator[str]:
         for path in _unique(p for e in self._elements for p in e.sources):
-            attributes = dict(_DATA, shape="folder")
-            yield _data_node(f"artifact {path}", path, attributes, self._unreachable(path))
+            yield self._source_node(path)
         for node, name in self._values():
-            yield _data_node(node, name, self._variable(node, name), self._broken(node))
+            yield _variable_node(node, name, self._variable(node, name), self._broken(node))
+
+    def _source_node(self, declared: str) -> str:
+        """What an evidence observes, in the shape its observable says. Its label has a
+        cell for a symbol: ✔ once it was observed, ⚠ when it could not be, empty while it
+        was not, as in a dry run. A source that could not be observed is drawn in
+        vermillion too."""
+        attributes = dict(_DATA, shape=self._shape(declared))
+        seen = self._seen(declared)
+        unreachable = any(not observation.reachable for observation in seen)
+        if unreachable:
+            attributes |= _PROBLEM
+        symbol = _WARNING if unreachable else _OBSERVED if seen else None
+        drawn = _marked([declared], symbol, _DATA_CELL)
+        node = _quoted(f"artifact {declared}")
+        return f"{_INDENT}{node} [label={drawn}, {_attributes(attributes)}];"
+
+    def _shape(self, declared: str) -> str:
+        """The shape of the first element's observable that ``declared`` names."""
+        for element in self._elements:
+            if (shape := element.shapes.get(declared)) is not None:
+                return shape
+        return DEFAULT_SHAPE
+
+    def _seen(self, declared: str) -> list[Observation]:
+        """What the run observed of ``declared``, for every element that observes it."""
+        return [
+            observation
+            for element in self._elements
+            for observation in element.artifacts
+            if observation.declared == declared
+        ]
 
     def edges(self) -> Iterator[str]:
         for element in self._elements:
@@ -424,13 +456,6 @@ class _Dataflow:
         producers = self._producers.get(name, [])
         return producers[0] if len(producers) == 1 else None
 
-    def _unreachable(self, declared: str) -> bool:
-        return any(
-            not observation.reachable and observation.declared == declared
-            for element in self._elements
-            for observation in element.artifacts
-        )
-
 
 def _overlay(style: dict[str, str], reported: ElementReport) -> dict[str, str]:
     """The attributes that draw ``reported``'s status over its kind's ``style``."""
@@ -459,14 +484,12 @@ def _styled(style: dict[str, str], *added: str) -> str:
     return ",".join(styles + [s for s in added if s not in styles])
 
 
-def _data_node(node: str, label: str, attributes: dict[str, str], problem: bool) -> str:
-    """A file or variable, in vermillion and marked ⚠ when it is a ``problem``. Its label
-    has a cell for the mark, empty when there is none: a file that turns out to be
-    unreachable moves nothing."""
+def _variable_node(node: str, label: str, attributes: dict[str, str], problem: bool) -> str:
+    """A variable, in vermillion when it is a ``problem``. It has no symbol: whether it is
+    one is known before the run, from the declarations, so a run never moves it."""
     if problem:
         attributes = attributes | _PROBLEM
-    drawn = _marked([label], _WARNING if problem else None, _DATA_CELL)
-    return f"{_INDENT}{_quoted(node)} [label={drawn}, {_attributes(attributes)}];"
+    return f"{_INDENT}{_quoted(node)} [label={_quoted(label)}, {_attributes(attributes)}];"
 
 
 def _data_edge(source: str, target: str, label: str, *, dotted: bool = False) -> str:

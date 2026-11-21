@@ -64,6 +64,7 @@ flowchart LR
     diagram --> dataflow
     diagram --> engine
     diagram --> model
+    diagram --> observables
     diagram --> report
     diagram -.->|piped to| dot[["Graphviz dot"]]
     json_report --> observables
@@ -639,9 +640,12 @@ unless the template draws it from a placeholder.
 A report's statuses are drawn over the elements in the same palette: a green border for a
 pass, a vermillion fill for a failure, a dashed grey node for a skip. Each is also a symbol
 beside the label, ✔, ✘ or ◌, in the label's colour, so that the diagram reads without its
-colours; a file or variable drawn in vermillion is marked ⚠. **A status never moves the
+colours. What an evidence observes is drawn in the shape its `Observable` says, and
+marked ✔ once observed, or ⚠ in vermillion when it could not be; a variable has no mark,
+and is vermillion when it lacks a producer or a consumer. **A status never moves the
 diagram** ([ADR-0032](adr/0032-a-run-previews-its-diagram.md)): drawn with a report, every
-node's label has a cell of fixed size for its symbol, empty when there is none, and a
+element's and source's label has a cell of fixed size for its symbol, empty when there is
+none, and a
 failure keeps its kind's font, so the diagrams of a dry run and of any execution put every
 node in the same place. `write` pipes the text to Graphviz's `dot`, only the `dot` format
 being written without it, into a temporary file beside the path, then renames it: a

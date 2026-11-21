@@ -13,15 +13,19 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from jpipe_runner.observables import (
+    DEFAULT_SHAPE,
     HIDDEN,
+    SHAPES,
     Context,
     Env,
     File,
     JsonValue,
+    Observable,
     Observation,
     Obstacle,
     Sighting,
     designates_one,
+    drawn_as,
     escape,
     files,
     matches,
@@ -456,3 +460,46 @@ def test_a_sighting_of_a_value_that_is_not_json_is_fingerprinted_by_its_repr() -
     sighting = Sighting.of("clock", {1, 2})
 
     assert sighting.observations[0].sha256 == _sha256(repr({1, 2}).encode())
+
+
+# --- Shapes ---------------------------------------------------------------------------------
+
+
+def test_each_built_in_says_the_shape_the_diagram_draws_it_in() -> None:
+    assert File("CHANGELOG.md").shape == "tab"
+    assert File("src/**/*.py").shape == "folder"
+    assert JsonValue("package.json", "/version").shape == "component"
+    assert Env("CI").shape == "house"
+    assert {"tab", "folder", "component", "house", DEFAULT_SHAPE} <= SHAPES
+
+
+class _Shaped(Observable):
+    def __init__(self, shape: object) -> None:
+        self._shape = shape
+
+    @property
+    def shape(self) -> str:
+        if isinstance(self._shape, Exception):
+            raise self._shape
+        return self._shape  # type: ignore[return-value]
+
+    def describe(self, context: Context) -> str:
+        return "shaped"
+
+    def observe(self, context: Context) -> Sighting:
+        return Sighting.of("shaped", None)
+
+
+@pytest.mark.parametrize(
+    ("shape", "expected"),
+    [
+        pytest.param("cylinder", "cylinder", id="one of SHAPES"),
+        pytest.param("note", DEFAULT_SHAPE, id="an evidence's"),
+        pytest.param("circle", DEFAULT_SHAPE, id="one that grows with its label"),
+        pytest.param(RuntimeError("no"), DEFAULT_SHAPE, id="raises"),
+    ],
+)
+def test_the_diagram_draws_an_observable_in_its_shape_or_the_default(
+    shape: object, expected: str
+) -> None:
+    assert drawn_as(_Shaped(shape)) == expected

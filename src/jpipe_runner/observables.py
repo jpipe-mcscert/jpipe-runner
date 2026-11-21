@@ -281,12 +281,53 @@ def fingerprint(value: Any) -> str:
     return hashlib.sha256(text.encode("utf-8", "surrogatepass")).hexdigest()
 
 
+SHAPES = frozenset(
+    {
+        "box3d",
+        "cds",
+        "component",
+        "cylinder",
+        "doubleoctagon",
+        "folder",
+        "house",
+        "invhouse",
+        "invtrapezium",
+        "larrow",
+        "lpromoter",
+        "octagon",
+        "parallelogram",
+        "pentagon",
+        "rarrow",
+        "rpromoter",
+        "septagon",
+        "signature",
+        "tab",
+        "trapezium",
+        "tripleoctagon",
+    }
+)
+"""The Graphviz shapes an observable may be drawn in. The others either mean an element of
+the argument or a variable in the jPipe notation (``note``, ``hexagon``, ``box``,
+``ellipse``), or cannot hold a label: they grow with it (``circle``, ``star``), have no
+outline (``plaintext``), or draw a line through it (the synthetic biology glyphs)."""
+
+DEFAULT_SHAPE = "box3d"
+"""The shape of an observable that does not say: a closed box, whose content the runner
+does not know."""
+
+
 class Observable(ABC):
     """Something an evidence observes. Derive it to observe what no built-in does.
 
     An observable is declared once and observed at every run: it holds what designates the
     thing (a path, a name), never the thing. It must be hashable, as a frozen dataclass is.
     """
+
+    @property
+    def shape(self) -> str:
+        """The Graphviz shape the diagram draws it in, one of ``SHAPES``: ``DEFAULT_SHAPE``,
+        unless a subclass says otherwise, as each built-in does."""
+        return DEFAULT_SHAPE
 
     @abstractmethod
     def describe(self, context: Context) -> str:
@@ -321,6 +362,17 @@ def described(observable: Observable, context: Context) -> str:
         return type(observable).__name__
 
 
+def drawn_as(observable: Observable) -> str:
+    """The shape the diagram draws ``observable`` in, or the default one if its ``shape``
+    raises or is not one of ``SHAPES``: one of a step library may."""
+    try:
+        shape = observable.shape
+    # Whatever a library's observable raises, even SystemExit.
+    except (Exception, SystemExit):  # NOSONAR
+        return DEFAULT_SHAPE
+    return shape if shape in SHAPES else DEFAULT_SHAPE
+
+
 def dependencies(observable: Observable, context: Context) -> tuple[str, ...]:
     """What ``observable`` depends on, or nothing if it raises: one of a step library may."""
     try:
@@ -347,6 +399,11 @@ class File(Observable):
     def is_glob(self) -> bool:
         """Whether ``path`` is a pattern, which may match several files."""
         return is_glob(self.path)
+
+    @property
+    def shape(self) -> str:
+        """A ``tab``, or a ``folder`` for a glob, which may match several files."""
+        return "folder" if self.is_glob else "tab"
 
     def describe(self, context: Context) -> str:
         return context.shown(self.path)
@@ -377,6 +434,11 @@ class JsonValue(Observable):
 
     path: str
     pointer: str = ""
+
+    @property
+    def shape(self) -> str:
+        """A ``component``: a part of a file."""
+        return "component"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "path", _checked(self.path, "JsonValue()"))
@@ -441,6 +503,12 @@ class Env(Observable):
 
     name: str
     display: bool = False
+
+    @property
+    def shape(self) -> str:
+        """A ``house``, pointing up, in the diagram, into what it comes in to from outside
+        the repository."""
+        return "house"
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip() or "=" in self.name:

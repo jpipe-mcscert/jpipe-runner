@@ -68,9 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   argument for it (#177).
 - **The diagram shows each status as a symbol, not only as a colour**, so it reads with a
   colour vision deficiency and in greyscale: ✔ beside the label of an element that passed,
-  ✘ of one that failed, ◌ of one that was skipped, and ⚠ on a file that could not be
-  reached or a variable without one producer and a consumer. A support edge from a
-  failure is drawn thicker. The colours are unchanged, and a failure keeps its font. **A
+  ✘ of one that failed, ◌ of one that was skipped. What an evidence observes is marked ✔
+  once observed, or ⚠ when it could not be reached. A variable has no mark: one without
+  one producer and a consumer is drawn in vermillion. A support edge from a failure is
+  drawn thicker. The colours are unchanged, and a failure keeps its font. **A
   status never moves the diagram** (#186): each symbol sits in a cell of fixed size, empty
   when there is none, so a dry run's diagram and the diagrams of runs with different
   statuses put every node in the same place. A PNG or PDF diagram needs a font
@@ -81,10 +82,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   environment variable; the step receives the value. Both are imported from
   `jpipe_runner`, with `File`, which a path stands for. An environment variable is not
   shown in the report unless its step says `Env("CI", display=True)`
-  ([`docs/observables.md`](docs/observables.md)).
+  ([`docs/observables.md`](docs/observables.md)). The diagram draws each kind in a shape
+  of its own: a file as a tab, a glob as a folder, a value in a JSON file as a component,
+  an environment variable as a house
+  ([`docs/observables.md`](docs/observables.md#how-the-diagram-draws-them)).
 - **A step library defines what else to observe**, by deriving `Observable`: how the
-  report names it, what it is now, and the files a change to which reaches it
-  ([`docs/observables.md`](docs/observables.md#writing-your-own-observable)).
+  report names it, what it is now, the files a change to which reaches it, and the shape
+  the diagram draws it in, a `box3d` unless it says otherwise. A shape that means
+  something else in the diagram, such as an evidence's `note`, is refused when the library
+  is imported ([`docs/observables.md`](docs/observables.md#writing-your-own-observable)).
 - **The JSON report says more about what was observed**, in `schema_version` `2.0`. An
   element has `sources`, everything its step declares it observes, and `observations`,
   what it observed that is not a file. Each of its `artifacts` has `declared`, the source

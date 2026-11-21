@@ -33,7 +33,7 @@ from types import ModuleType
 from typing import Any, TypeVar
 
 from jpipe_runner.model import Kind
-from jpipe_runner.observables import File, Observable
+from jpipe_runner.observables import SHAPES, File, Observable
 from jpipe_runner.outcomes import Outcome
 
 StepFunction = TypeVar("StepFunction", bound=Callable[..., Outcome])
@@ -267,8 +267,28 @@ def _artifacts(kind: Kind, observes: Mapping[str, str | Observable]) -> tuple[Ar
                 f"{decorator}(observes=...) takes observables that can be hashed, as a "
                 f"frozen dataclass is, not {observable!r}"
             ) from None
+        _check_shape(decorator, observable)
         artifacts.append(Artifact(name, observable))
     return tuple(artifacts)
+
+
+def _check_shape(decorator: str, observable: Observable) -> None:
+    """Refuse an observable the diagram cannot draw as it asks: one whose ``shape`` is not
+    one of ``SHAPES``, or raises."""
+    kind = type(observable).__name__
+    try:
+        shape = observable.shape
+    # Whatever a library's observable raises, even SystemExit.
+    except (Exception, SystemExit) as error:  # NOSONAR
+        raise TypeError(
+            f"{decorator}(observes=...) cannot draw {kind}: its shape raised {error!r}"
+        ) from None
+    if shape not in SHAPES:
+        allowed = ", ".join(sorted(SHAPES, key=str.lower))
+        raise TypeError(
+            f"{decorator}(observes=...) cannot draw {kind} as {shape!r}: an observable's "
+            f"shape is one of {allowed}"
+        )
 
 
 def _declared_in(function: Callable[..., Any]) -> Path:
