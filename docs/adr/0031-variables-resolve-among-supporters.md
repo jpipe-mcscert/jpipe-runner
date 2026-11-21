@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-11-20
+status: accepted
+date: 2026-11-21
 decision-makers: Sébastien Mosser
 ---
 
@@ -260,5 +260,4 @@ guide documents it.
   [ADR-0010](0010-diagnostics-as-data-rules-as-objects.md) (codes and rules),
   [ADR-0011](0011-json-report-is-the-machine-readable-contract.md) (the report's versions),
   [ADR-0029](0029-the-runner-draws-the-dataflow.md) (the diagram).
-- Still to settle before acceptance: the names `Produced` and `by`, and the name of the
-  report's `inputs`.
+- The names `Produced`, `by` and the report's `inputs` were accepted with this decision.
