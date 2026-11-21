@@ -33,6 +33,9 @@ class Observed:
     arguments: Mapping[str, Any]
     """What the step receives, by parameter name. Complete only when ``reachable``."""
     diagnostics: tuple[Diagnostic, ...]
+    sources: tuple[tuple[str, bool], ...] = ()
+    """Each artifact, as the report names it in ``sources``, and whether it was reached, in
+    the order the step declares them."""
 
     @property
     def reachable(self) -> bool:
@@ -45,12 +48,17 @@ def observe(artifacts: Iterable[Artifact], context: Context, element: str) -> Ob
     observations: list[Observation] = []
     arguments: dict[str, Any] = {}
     diagnostics: list[Diagnostic] = []
+    sources: list[tuple[str, bool]] = []
     for artifact in artifacts:
         sighting = _sighted(artifact, context)
         arguments[artifact.name] = sighting.value
         observations.extend(map(_recorded, sighting.observations))
         diagnostics.extend(_unreachable(artifact, sighting, element))
-    return Observed(tuple(observations), MappingProxyType(arguments), tuple(diagnostics))
+        reached = all(observation.reachable for observation in sighting.observations)
+        sources.append((described(artifact.observable, context), reached))
+    return Observed(
+        tuple(observations), MappingProxyType(arguments), tuple(diagnostics), tuple(sources)
+    )
 
 
 def _recorded(observation: Observation) -> Observation:

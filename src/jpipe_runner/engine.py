@@ -125,6 +125,12 @@ class RunListener(Protocol):
         """``element``'s supporters passed, and it is bound: the artifacts it observes are
         about to be observed, then its step called, unless one of them cannot be reached."""
 
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
+        """What ``element``'s step declares it observes was observed: ``source``, as the
+        report names it in ``sources``, and whether it was ``reachable``. Told for each,
+        in the order the step declares them, once all are observed and before the step is
+        called, if it is."""
+
     def element_decided(self, result: ElementResult) -> None:
         """``result.element`` is decided: after every element that supports it."""
 
@@ -139,6 +145,9 @@ class _Silent:
         pass  # nothing listens
 
     def element_started(self, element: Element) -> None:
+        pass  # nothing listens
+
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
         pass  # nothing listens
 
     def element_decided(self, result: ElementResult) -> None:
@@ -281,6 +290,8 @@ class _Run:
     def _call(self, binding: Binding) -> ElementResult:
         element, step = binding.element, binding.step
         observed = observe(step.observes, Context(step.directory, self._root), element.id)
+        for source, reachable in observed.sources:
+            self._listener.source_observed(element, source, reachable)
         if not observed.reachable:
             return _failed(binding, observed.diagnostics, observed=observed.observations)
         arguments = {c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)}

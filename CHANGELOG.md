@@ -39,8 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   while it runs, such as the IDE's Run panel (#169,
   [ADR-0030](docs/adr/0030-a-run-streams-its-events.md)). The file receives one JSON
   object per line, each flushed as written: the run started, with every element's id;
-  validation ended; an element's step is about to be called; an element is decided, as the
-  JSON report will write it; the run ended, with its verdict, its exit code and where the
+  validation ended; an element's step is about to be called; each source it observes was
+  observed, and whether it was reached, before the step is called; an element is decided,
+  as the JSON report will write it; the run ended, with its verdict, its exit code and where the
   report is. The report stays the authority. The events are described by
   `events.schema.json`, shipped in the package, with a version of their own, and in
   [`docs/events.md`](docs/events.md). Their order promises only that an element is

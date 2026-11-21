@@ -7,6 +7,7 @@
     {"$ref": "#/$defs/validation.ended"},
     {"$ref": "#/$defs/diagram.drawn"},
     {"$ref": "#/$defs/element.started"},
+    {"$ref": "#/$defs/source.observed"},
     {"$ref": "#/$defs/element.decided"},
     {"$ref": "#/$defs/run.ended"}
   ],
@@ -96,6 +97,27 @@
         "seq": {"$ref": "#/$defs/seq"},
         "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
         "id": {"$ref": "report.schema.json#/$defs/id"}
+      }
+    },
+    "source.observed": {
+      "description": "A source an element's step declares it observes was observed: one event for each, in the order the step declares them, once they are all observed and before the step is called, between the element's element.started and element.decided. Its element.decided holds what was observed, as the report will write it.",
+      "type": "object",
+      "required": ["event", "seq", "elapsed_ms", "id", "source", "reachable"],
+      "additionalProperties": false,
+      "properties": {
+        "event": {"const": "source.observed"},
+        "seq": {"$ref": "#/$defs/seq"},
+        "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
+        "id": {"$ref": "report.schema.json#/$defs/id"},
+        "source": {
+          "description": "The source, as the element's sources name it: a path or a glob, a file and a JSON Pointer, env:NAME, or what an observable of the step library says.",
+          "type": "string",
+          "minLength": 1
+        },
+        "reachable": {
+          "description": "Whether it was reached. When a source is not, the step is not called, and the element fails with JP019.",
+          "type": "boolean"
+        }
       }
     },
     "element.decided": {

@@ -10,6 +10,8 @@ as it goes, such as the IDE. ``events.schema.json``, shipped in the package, des
   would draw it, in a temporary file, for a program that colours it as the run goes
   (ADR-0032);
 - ``element.started``, when an element's step is about to be called;
+- ``source.observed``, for each source an evidence observes, once it is observed and
+  before its step is called: whether it was reached;
 - ``element.decided``, when an element is decided, as the report will write it;
 - ``run.ended``, last, with the verdict, the exit code and where the report is.
 
@@ -122,6 +124,9 @@ class EventStream:
 
     def element_started(self, element: Element) -> None:
         self._write("element.started", id=element.id)
+
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
+        self._write("source.observed", id=element.id, source=source, reachable=reachable)
 
     def element_decided(self, result: ElementResult) -> None:
         if self._model is None:
