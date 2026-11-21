@@ -4,7 +4,7 @@ import pytest
 
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.rules import ConsumedBeforeProduced
-from jpipe_runner.steps import Step
+from jpipe_runner.steps import Produced, Step
 from tests.unit.validation.builders import (
     CONCLUSION,
     EVIDENCE,
@@ -58,6 +58,40 @@ ERROR = Severity.ERROR
             id="an indirect supporter",
         ),
         pytest.param([step(STRATEGY, "m:s1", consumes=["x"])], [], id="no producer: JP009"),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e1", produces=["x"], name="f"),
+                step(EVIDENCE, "m:e2", produces=["x"], name="g"),
+                step(STRATEGY, "m:s1", consumes=["x"]),
+            ],
+            [],
+            id="a namesake on another branch",
+        ),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e1", produces=["x"], name="f"),
+                step(EVIDENCE, "m:e2", produces=["x"], name="g"),
+                step(STRATEGY, "m:s1", consumes={"x": Produced("x", by="m:e2")}),
+            ],
+            [("JP014", ERROR, "m:s1")],
+            id="by a producer that does not support it",
+        ),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e2", produces=["x"]),
+                step(STRATEGY, "m:s1", consumes={"x": Produced("x", by="m:e1")}),
+            ],
+            [("JP014", ERROR, "m:s1")],
+            id="by an element below which nothing produces it",
+        ),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e1", produces=["x"]),
+                step(STRATEGY, "m:s1", consumes={"x": Produced("x", by="m:nowhere")}),
+            ],
+            [],
+            id="by designates nothing: JP015",
+        ),
     ],
 )
 def test_a_producer_that_does_not_support_its_consumer_is_reported(

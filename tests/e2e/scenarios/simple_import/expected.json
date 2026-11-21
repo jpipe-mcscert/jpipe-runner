@@ -36,6 +36,7 @@
         "root_utils.py"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_a"
       ],
@@ -78,6 +79,7 @@
         "steps/step_utils.py"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_b"
       ],
@@ -120,6 +122,7 @@
         "root_runtime_utils.py"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_c"
       ],
@@ -162,6 +165,7 @@
         "steps/step_runtime_utils.py"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_d"
       ],
@@ -205,6 +209,24 @@
         "number_c",
         "number_d"
       ],
+      "inputs": {
+        "number_a": {
+          "variable": "number_a",
+          "produced_by": "E1"
+        },
+        "number_b": {
+          "variable": "number_b",
+          "produced_by": "E2"
+        },
+        "number_c": {
+          "variable": "number_c",
+          "produced_by": "E3"
+        },
+        "number_d": {
+          "variable": "number_d",
+          "produced_by": "E4"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -225,6 +247,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

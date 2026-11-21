@@ -119,6 +119,12 @@ class BindingTable:
         self._bound = bound
         self._diagnostics = tuple(problems)
         self._contested = frozenset(contested)
+        self._resolver = resolver
+
+    @property
+    def resolver(self) -> Resolver:
+        """What resolved the steps' ids, for any other id that designates an element."""
+        return self._resolver
 
     @property
     def bindings(self) -> tuple[Binding, ...]:

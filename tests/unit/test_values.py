@@ -14,24 +14,24 @@ PER_RUN = {"ValueStore", "StepRegistry"}
 def test_a_produced_value_carries_its_producer() -> None:
     store = ValueStore()
     store.put("coverage", 92.0, produced_by="m:e")
-    assert store.get("coverage") == 92.0
-    assert store.produced_by("coverage") == "m:e"
+    assert store.get("coverage", "m:e") == 92.0
+    assert store.producers("coverage") == ("m:e",)
     assert "coverage" in store
 
 
 def test_a_variable_nothing_produced_is_unset() -> None:
     store = ValueStore()
-    assert store.get("coverage") is UNSET
-    assert store.produced_by("coverage") is None
+    assert store.get("coverage", "m:e") is UNSET
+    assert store.producers("coverage") == ()
     assert "coverage" not in store
 
 
 def test_unset_is_not_none() -> None:
     store = ValueStore()
     store.put("result", None, produced_by="m:s")
-    assert store.get("result") is None
-    assert store.get("result") is not UNSET
-    assert store.produced_by("result") == "m:s"
+    assert store.get("result", "m:s") is None
+    assert store.get("result", "m:s") is not UNSET
+    assert store.producers("result") == ("m:s",)
 
 
 def test_unset_is_false_and_reads_as_its_name() -> None:
@@ -39,33 +39,44 @@ def test_unset_is_false_and_reads_as_its_name() -> None:
     assert repr(UNSET) == "UNSET"
 
 
-def test_a_variable_is_produced_once() -> None:
+def test_two_producers_of_one_variable_each_keep_their_value() -> None:
+    store = ValueStore()
+    store.put("coverage", 92.0, produced_by="m:a:e")
+    store.put("coverage", 50.0, produced_by="m:b:e")
+    assert store.get("coverage", "m:a:e") == 92.0
+    assert store.get("coverage", "m:b:e") == 50.0
+    assert store.get("coverage", "m:c:e") is UNSET
+    assert store.producers("coverage") == ("m:a:e", "m:b:e")
+
+
+def test_a_producer_produces_a_variable_once() -> None:
     store = ValueStore()
     store.put("coverage", 92.0, produced_by="m:e1")
     with pytest.raises(ValueError, match="m:e1"):
-        store.put("coverage", 50.0, produced_by="m:e2")
-    assert store.get("coverage") == 92.0
+        store.put("coverage", 50.0, produced_by="m:e1")
+    assert store.get("coverage", "m:e1") == 92.0
 
 
 def test_values_are_listed_in_the_order_produced() -> None:
     store = ValueStore()
     store.put("b", 2, produced_by="m:e2")
     store.put("a", 1, produced_by="m:e1")
-    assert list(store) == ["b", "a"]
+    store.put("b", 3, produced_by="m:e3")
     assert list(store.entries()) == [
         ("b", ProducedValue(2, "m:e2")),
         ("a", ProducedValue(1, "m:e1")),
+        ("b", ProducedValue(3, "m:e3")),
     ]
-    assert len(store) == 2
-    assert repr(store) == "ValueStore(2 values)"
+    assert len(store) == 3
+    assert repr(store) == "ValueStore(3 values)"
 
 
 def test_two_runs_do_not_share_values() -> None:
     first, second = ValueStore(), ValueStore()
     first.put("coverage", 92.0, produced_by="m:e")
-    assert second.get("coverage") is UNSET
+    assert second.get("coverage", "m:e") is UNSET
     second.put("coverage", 50.0, produced_by="m:e")
-    assert first.get("coverage") == 92.0
+    assert first.get("coverage", "m:e") == 92.0
 
 
 def _module_level_statements() -> list[tuple[str, ast.stmt]]:

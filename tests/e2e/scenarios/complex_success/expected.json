@@ -36,6 +36,7 @@
         "mock/event_calendar.csv"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "event_count"
       ],
@@ -78,6 +79,7 @@
         "mock/testimonial_videos_list.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "testimonial_count"
       ],
@@ -120,6 +122,7 @@
         "mock/social_posts.json"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "social_posts_size"
       ],
@@ -162,6 +165,7 @@
         "mock/staff_roster.csv"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "staff_count"
       ],
@@ -204,6 +208,7 @@
         "mock/leader_commitments.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "leader_commitments_size"
       ],
@@ -245,6 +250,16 @@
         "leader_commitments_size",
         "testimonial_count"
       ],
+      "inputs": {
+        "leader_commitments_size": {
+          "variable": "leader_commitments_size",
+          "produced_by": "leader_commitments"
+        },
+        "testimonial_count": {
+          "variable": "testimonial_count",
+          "produced_by": "testimonial_videos"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -273,6 +288,7 @@
         "mock/speakers_list.csv"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "speaker_count"
       ],
@@ -314,6 +330,16 @@
         "event_count",
         "speaker_count"
       ],
+      "inputs": {
+        "event_count": {
+          "variable": "event_count",
+          "produced_by": "event_calendar"
+        },
+        "speaker_count": {
+          "variable": "speaker_count",
+          "produced_by": "speakers_list"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -342,6 +368,7 @@
         "mock/schedule_plan.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "schedule_plan_size"
       ],
@@ -384,6 +411,7 @@
         "mock/fleet_info.json"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "fleet_size"
       ],
@@ -425,6 +453,16 @@
         "fleet_size",
         "staff_count"
       ],
+      "inputs": {
+        "fleet_size": {
+          "variable": "fleet_size",
+          "produced_by": "fleet_available"
+        },
+        "staff_count": {
+          "variable": "staff_count",
+          "produced_by": "trained_staff"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -447,6 +485,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -475,6 +514,7 @@
         "mock/safety_report.*"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "safety_report_format"
       ],
@@ -511,6 +551,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -533,6 +574,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -559,6 +601,12 @@
       "consumes": [
         "schedule_plan_size"
       ],
+      "inputs": {
+        "schedule_plan_size": {
+          "variable": "schedule_plan_size",
+          "produced_by": "schedule_plan"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -587,6 +635,7 @@
         "mock/faq_document.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "faq_document_size"
       ],
@@ -628,6 +677,16 @@
         "safety_report_format",
         "faq_document_size"
       ],
+      "inputs": {
+        "safety_report_format": {
+          "variable": "safety_report_format",
+          "produced_by": "safety_report"
+        },
+        "faq_document_size": {
+          "variable": "faq_document_size",
+          "produced_by": "faq_document"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -650,6 +709,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -672,6 +732,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -700,6 +761,7 @@
         "mock/press_release.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "press_release_size"
       ],
@@ -741,6 +803,16 @@
         "press_release_size",
         "social_posts_size"
       ],
+      "inputs": {
+        "press_release_size": {
+          "variable": "press_release_size",
+          "produced_by": "press_release"
+        },
+        "social_posts_size": {
+          "variable": "social_posts_size",
+          "produced_by": "social_posts"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -763,6 +835,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -787,6 +860,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -807,6 +881,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

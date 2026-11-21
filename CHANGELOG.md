@@ -80,6 +80,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `observes` still lists paths and globs, and `jpipe-runner status` still reads the `1.0`
   reports of 4.0.0
   ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
+- **Step libraries written apart can use the same variable name** (#187,
+  [ADR-0031](docs/adr/0031-variables-resolve-among-supporters.md)). A step receives a
+  variable from the step among its supporters that produces it, so two libraries for
+  separate models, each producing `coverage` for its own strategy, now run together once
+  the models are composed, without renaming. A step that sees both, such as the strategy
+  `assemble` adds, names where each value comes from with the new
+  `Produced(variable, by=id)`, in a `consumes` that maps each parameter to its source:
+  `consumes={"tests": Produced("coverage", by="tested:tested")}`. `by` designates the
+  producer, or an element it supports, as a step's ids do. Without it, validation reports
+  the ambiguity (`JP025`). Each element of the JSON report has `inputs`: what each
+  parameter of its step received, and from which element. The diagram draws one node per
+  value, so two values of one name are two nodes.
 - **`jpipe-runner status` compares environment variables too**, and answers for
   everything a run observed or not at all. A report that hides a value (an `Env` without
   `display=True`), or holds what only an observable of the step library can observe
@@ -103,6 +115,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written as its `repr` and its type, as a value that is not JSON is.
 
 ### Changed
+- **`JP010` is retired.** Two steps producing the same variable are no longer an error in
+  themselves, only when one consumer sees both, which `JP025` reports. `JP014` reports a
+  consumer none of whose supporters produces the variable, and no longer a namesake on
+  another branch. A library valid in 4.0.0 resolves every variable as before.
 - **The diagram draws a support once.** When an element produces a variable that the
   element it supports consumes, the path through the variable shows the support, and the
   direct arrow between them is left out.

@@ -96,6 +96,10 @@ def element(element: ElementReport, root: Path = Path()) -> dict[str, Any]:
         "observes": list(element.observes),
         "sources": list(element.sources),
         "consumes": list(element.consumes),
+        "inputs": {
+            each.parameter: {"variable": each.variable, "produced_by": each.produced_by}
+            for each in element.inputs
+        },
         "produces": list(element.produces),
         "produced": {name: encoded(value, root) for name, value in element.produced.items()},
         "artifacts": [_artifact(seen, root) for seen in element.artifacts if seen.path],

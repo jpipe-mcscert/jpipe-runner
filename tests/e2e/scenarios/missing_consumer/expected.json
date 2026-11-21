@@ -36,6 +36,7 @@
         "mock/number_a.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_a"
       ],
@@ -78,6 +79,7 @@
         "mock/number_b.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_b"
       ],
@@ -119,6 +121,16 @@
         "number_a",
         "number_b"
       ],
+      "inputs": {
+        "number_a": {
+          "variable": "number_a",
+          "produced_by": "E1"
+        },
+        "number_b": {
+          "variable": "number_b",
+          "produced_by": "E2"
+        }
+      },
       "produces": [
         "total"
       ],
@@ -145,6 +157,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

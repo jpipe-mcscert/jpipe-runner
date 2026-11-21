@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from jpipe_runner.observables import Context, Env, File, JsonValue, Observable, Sighting
     from jpipe_runner.outcomes import Fail, Outcome, Pass, Skip
-    from jpipe_runner.steps import conclusion, evidence, strategy, sub_conclusion
+    from jpipe_runner.steps import Produced, conclusion, evidence, strategy, sub_conclusion
 
 try:
     __version__ = version("jpipe-runner")
@@ -29,6 +29,7 @@ _PUBLIC = {
     "Observable": "observables",
     "Outcome": "outcomes",
     "Pass": "outcomes",
+    "Produced": "steps",
     "Sighting": "observables",
     "Skip": "outcomes",
     "conclusion": "steps",
@@ -46,6 +47,7 @@ __all__ = [
     "Observable",
     "Outcome",
     "Pass",
+    "Produced",
     "Sighting",
     "Skip",
     "__version__",

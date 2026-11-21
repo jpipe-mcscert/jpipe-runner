@@ -109,8 +109,21 @@
           "$ref": "#/$defs/names"
         },
         "consumes": {
-          "description": "The variables its step declares it consumes.",
+          "description": "The variables its step declares it consumes, each once.",
           "$ref": "#/$defs/names"
+        },
+        "inputs": {
+          "description": "What each parameter of its step receives, by parameter: the variable, and the id of the element whose step produced it, among the element's supporters, or null if it resolves to no single one (ADR-0031). Since 2.0.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["variable", "produced_by"],
+            "additionalProperties": false,
+            "properties": {
+              "variable": {"type": "string", "minLength": 1},
+              "produced_by": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]}
+            }
+          }
         },
         "produces": {
           "description": "The variables its step declares it produces.",

@@ -1,0 +1,14 @@
+# justification.json is `jpipe process -i coverage.jd -m readiness -f JSON` (jPipe 4.0.0).
+# tested_steps.py and documented_steps.py were each written against one standalone source
+# model, and both name their value `coverage`; readiness_steps.py implements the strategy
+# that `assemble` adds, which takes both.
+description = "Two step libraries written apart produce a variable of the same name, each consumed in its own sub-argument, and the strategy `assemble` adds above them takes both by naming the sub-argument each comes from."
+origin = "new in v4 (#187)"
+libraries = ["tested_steps.py", "documented_steps.py", "readiness_steps.py"]
+exit_code = 0
+exercises = [
+    "one variable name produced by two libraries, resolved among each consumer's supporters (ADR-0031)",
+    "Produced(variable, by=id), by the sub-conclusion of each source model",
+    "a step taking two values of one name under two parameters",
+    "the report's inputs: which element each parameter received its value from",
+]

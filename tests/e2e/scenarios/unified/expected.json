@@ -36,6 +36,7 @@
         "mock/junit.xml"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "suite_failures"
       ],
@@ -76,6 +77,12 @@
       "consumes": [
         "suite_failures"
       ],
+      "inputs": {
+        "suite_failures": {
+          "variable": "suite_failures",
+          "produced_by": "release:argued:suite"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -108,6 +115,7 @@
         "mock/junit.xml"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "code_tested"
       ],
@@ -148,6 +156,12 @@
       "consumes": [
         "code_tested"
       ],
+      "inputs": {
+        "code_tested": {
+          "variable": "code_tested",
+          "produced_by": "release:unified_0"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -170,6 +184,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -194,6 +209,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -216,6 +232,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -243,6 +260,16 @@
         "code_tested",
         "suite_failures"
       ],
+      "inputs": {
+        "code_tested": {
+          "variable": "code_tested",
+          "produced_by": "release:unified_0"
+        },
+        "suite_failures": {
+          "variable": "suite_failures",
+          "produced_by": "release:argued:suite"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -263,6 +290,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

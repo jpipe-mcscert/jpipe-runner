@@ -52,6 +52,11 @@ ERROR = Severity.ERROR
             id="one diagnostic per consumer",
         ),
         pytest.param(
+            [step(EVIDENCE, "m:e"), step(STRATEGY, "m:s", consumes={"a": "y", "b": "y"})],
+            [("JP009", ERROR, "m:s")],
+            id="one diagnostic for two parameters that receive it",
+        ),
+        pytest.param(
             [step(EVIDENCE, "m:e", produces=["x"]), step(STRATEGY, "m:s", consumes=["x"])],
             [],
             id="produced",

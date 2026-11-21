@@ -8,7 +8,8 @@ error was reported. Each element is then taken in topological order:
   account. Its step is not called. A failure and a skip propagate alike: what a step
   that did not pass would have produced does not exist;
 - otherwise, a **bound** element's step is called, whatever its kind, with the values it
-  consumes and the artifacts it observes, and what it returns is the element's status;
+  consumes, each from the supporter validation resolved it to (ADR-0031), and the
+  artifacts it observes, and what it returns is the element's status;
 - an **unbound** conclusion or sub-conclusion passes, since all its supporters passed.
   One that nothing supports is skipped: nothing judges it.
 
@@ -28,7 +29,7 @@ thread that runs ``run``, an element after all its supporters, so it needs no lo
 
 import logging
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from traceback import TracebackException
@@ -37,6 +38,7 @@ from typing import Any, Protocol
 
 from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, observe
 from jpipe_runner.binding import Binding, BindingTable
+from jpipe_runner.dataflow import Consumption, DataflowTable, Received
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.observables import Context, Observation, snapshot
@@ -101,6 +103,9 @@ class ElementResult:
     diagnostics: tuple[Diagnostic, ...] = ()
     """What went wrong while running it. A step that raised is reported with ``JP022``,
     which carries the traceback."""
+    inputs: tuple[Received, ...] = ()
+    """What each parameter of its step receives, and from which element: whether the step
+    was called or not."""
 
 
 class RunListener(Protocol):
@@ -137,6 +142,8 @@ class RunResult:
 
     justification: Justification
     bindings: BindingTable
+    dataflow: DataflowTable
+    """Where each value a bound step consumes comes from."""
     validation: ValidationReport
     elements: tuple[ElementResult, ...]
     """One per element, in topological order. Empty when validation stopped the run."""
@@ -199,12 +206,14 @@ def run(
     values = ValueStore()
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
-        return RunResult(justification, ctx.bindings, report, (), values, strict)
+        return RunResult(justification, ctx.bindings, ctx.dataflow, report, (), values, strict)
     if dry_run:
         _LOG.info("validation passed: a dry run calls no step")
-        return RunResult(justification, ctx.bindings, report, (), values, strict, dry_run=True)
+        return RunResult(
+            justification, ctx.bindings, ctx.dataflow, report, (), values, strict, dry_run=True
+        )
     elements = _Run(ctx, values, root, listener).execute()
-    return RunResult(justification, ctx.bindings, report, elements, values, strict)
+    return RunResult(justification, ctx.bindings, ctx.dataflow, report, elements, values, strict)
 
 
 class _Run:
@@ -215,6 +224,7 @@ class _Run:
     ) -> None:
         self._model = ctx.justification
         self._bindings = {binding.element.id: binding for binding in ctx.bindings}
+        self._dataflow = ctx.dataflow
         self._rank = {element.id: rank for rank, element in enumerate(self._model)}
         self._values = values
         self._root = root
@@ -224,6 +234,8 @@ class _Run:
     def execute(self) -> tuple[ElementResult, ...]:
         for element in self._model.topological_order():
             result = self._result_of(element)
+            if result.binding is not None:
+                result = replace(result, inputs=self._dataflow.received(element.id))
             _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
             self._results[element.id] = result
             self._listener.element_decided(result)
@@ -257,7 +269,7 @@ class _Run:
         observed = observe(step.observes, Context(step.directory, self._root), element.id)
         if not observed.reachable:
             return _failed(binding, observed.diagnostics, observed=observed.observations)
-        arguments = {name: self._consumed(name, element) for name in step.consumes}
+        arguments = {c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)}
         arguments.update(observed.arguments)
         _LOG.debug("calling %s for %s", step.name, element.id)
         try:
@@ -273,12 +285,15 @@ class _Run:
             return _failed(binding, (error.diagnostic,), observed=observed.observations)
         return self._judged(binding, outcome, observed.observations)
 
-    def _consumed(self, name: str, element: Element) -> Any:
-        value = self._values.get(name)
+    def _consumed(self, consumed: Consumption) -> Any:
+        # Validation guarantees one producer among the consumer's supporters (JP009, JP014,
+        # JP025), and an element runs only once its supporters passed, which stored what
+        # they declare (JP023).
+        producer, name = consumed.producer, consumed.input.variable
+        value = UNSET if producer is None else self._values.get(name, producer.element.id)
         if value is UNSET:
-            # Validation guarantees a producer upstream (JP009, JP014), and an element runs
-            # only once its supporters passed, which stored what they declare (JP023).
-            raise RuntimeError(f"{element.id!r} consumes {name!r}, which is unset: a runner bug")
+            element = consumed.consumer.element.id
+            raise RuntimeError(f"{element!r} consumes {name!r}, which is unset: a runner bug")
         return value
 
     def _judged(

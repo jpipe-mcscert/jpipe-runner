@@ -25,7 +25,7 @@ and add a row to this table.
 | [0006](0006-one-decorator-per-kind.md) | One decorator per kind | accepted |
 | [0007](0007-binding-resolution.md) | Binding resolution, and why elements carry several ids | accepted |
 | [0008](0008-drop-external-variable-injection.md) | Drop external variable injection | accepted |
-| [0009](0009-separate-registry-from-value-store.md) | Separate the declaration registry from the per-run value store | accepted |
+| [0009](0009-separate-registry-from-value-store.md) | Separate the declaration registry from the per-run value store | accepted, amended by [0031](0031-variables-resolve-among-supporters.md) |
 | [0010](0010-diagnostics-as-data-rules-as-objects.md) | Diagnostics as data, rules as objects, real severity levels | accepted |
 | [0011](0011-json-report-is-the-machine-readable-contract.md) | The JSON report is the machine-readable contract | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) and [0029](0029-the-runner-draws-the-dataflow.md) |
 | [0012](0012-extract-the-github-action.md) | The GitHub Action leaves for jpipe-ci-actions, and runs v4 only | accepted |
@@ -44,3 +44,4 @@ and add a row to this table.
 | [0028](0028-observables-and-file-relative-paths.md) | An evidence observes observables, and a path is relative to the file that declares its step | accepted |
 | [0029](0029-the-runner-draws-the-dataflow.md) | The runner draws one diagram, the dataflow | accepted |
 | [0030](0030-a-run-streams-its-events.md) | A run streams its events to a file, one JSON object per line | accepted |
+| [0031](0031-variables-resolve-among-supporters.md) | A consumed variable resolves among its consumer's supporters | accepted |

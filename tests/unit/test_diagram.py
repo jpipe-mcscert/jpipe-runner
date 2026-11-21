@@ -19,6 +19,7 @@ from jpipe_runner import (
     Fail,
     Outcome,
     Pass,
+    Produced,
     Skip,
     conclusion,
     engine,
@@ -33,7 +34,14 @@ from jpipe_runner.model import Element, Justification, Template, TemplateChain
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry, step_of
 from tests.anchored import run
-from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY, element, model
+from tests.unit.validation.builders import (
+    CONCLUSION,
+    EVIDENCE,
+    STRATEGY,
+    SUB_CONCLUSION,
+    element,
+    model,
+)
 
 DOT = shutil.which("dot")
 needs_dot = pytest.mark.skipif(DOT is None, reason="Graphviz's dot is not installed")
@@ -411,13 +419,111 @@ def test_a_variable_without_one_producer_and_a_consumer_is_vermillion() -> None:
         return Pass()
 
     registry = StepRegistry(s for s in map(step_of, (first, second, gates)) if s is not None)
-    report = RunReport.of(run(RELEASE, registry))  # invalid: JP009, JP010, JP011
+    report = RunReport.of(run(RELEASE, registry))  # invalid: JP009, JP011, JP025
     lines = source(RELEASE, report).splitlines()
 
     for name in ("a", "unread", "missing"):
         (node,) = [line for line in lines if line.startswith(f'  "variable {name}" [')]
         assert node.startswith(f'  "variable {name}" [label={_marked("⚠", name, 14)}, ')
         assert node.endswith('color="#D55E00", penwidth=2];')
+
+
+def test_a_value_its_consumer_does_not_resolve_to_is_vermillion() -> None:
+    @strategy("s", consumes=["a"], produces=["a"])
+    def loop(a: str) -> Outcome:
+        return Pass(a=a)
+
+    registry = StepRegistry(s for s in map(step_of, (loop,)) if s is not None)
+    report = RunReport.of(run(RELEASE, registry))  # invalid: JP014, s does not support s
+    lines = source(RELEASE, report).splitlines()
+
+    (node,) = [line for line in lines if line.startswith('  "variable a" [')]
+    assert node.startswith(f'  "variable a" [label={_marked("⚠", "a", 14)}, ')
+
+
+# Two sub-arguments, a:e -> a:s -> a:c and b:e -> b:s -> b:c, both supporting s -> c.
+BRANCHES = model(
+    element("c", CONCLUSION),
+    element("s", STRATEGY),
+    element("a:c", SUB_CONCLUSION),
+    element("a:s", STRATEGY),
+    element("a:e", EVIDENCE),
+    element("b:c", SUB_CONCLUSION),
+    element("b:s", STRATEGY),
+    element("b:e", EVIDENCE),
+    relations=[
+        ("s", "c"),
+        ("a:c", "s"),
+        ("a:s", "a:c"),
+        ("a:e", "a:s"),
+        ("b:c", "s"),
+        ("b:s", "b:c"),
+        ("b:e", "b:s"),
+    ],
+)
+
+
+def _branches(tmp_path: Path, **consumes: str | Produced) -> list[str]:
+    """The lines of the diagram of ``BRANCHES``, where a:e and b:e both produce ``x``, each
+    consumed below its sub-conclusion, and s consumes ``consumes``."""
+    (tmp_path / "log.txt").write_text("", encoding="utf-8")
+
+    @evidence("a:e", observes={"log": "log.txt"}, produces=["x"])
+    def first(log: Path) -> Outcome:
+        return Pass(x=1)
+
+    @strategy("a:s", consumes=["x"])
+    def first_judged(x: int) -> Outcome:
+        return Pass()
+
+    @evidence("b:e", observes={"log": "log.txt"}, produces=["x"])
+    def second(log: Path) -> Outcome:
+        return Pass(x=2)
+
+    @strategy("b:s", consumes=["x"])
+    def second_judged(x: int) -> Outcome:
+        return Pass()
+
+    @strategy("s", consumes=consumes)
+    def gates(**_: Any) -> Outcome:
+        return Pass()
+
+    steps = (first, first_judged, second, second_judged, gates)
+    registry = StepRegistry(s for s in map(step_of, steps) if s is not None)
+    report = RunReport.of(run(BRANCHES, registry, root=tmp_path), tmp_path)
+    return [line.strip() for line in source(BRANCHES, report).splitlines()]
+
+
+def _consumes(node: str, consumer: str) -> str:
+    return (
+        f'"{node}" -> "{consumer}" [style=dashed, color="#0072B2", label=" consumes", fontsize=9];'
+    )
+
+
+def test_two_producers_of_a_variable_are_two_values_each_with_its_consumers(
+    tmp_path: Path,
+) -> None:
+    lines = _branches(tmp_path, a=Produced("x", by="a:c"), b=Produced("x", by="b:c"))
+
+    for producer, consumer in (("a:e", "a:s"), ("b:e", "b:s")):
+        (node,) = [line for line in lines if line.startswith(f'"variable x from {producer}" [')]
+        assert node.startswith(f'"variable x from {producer}" [label="x", ')
+        assert "D55E00" not in node
+        assert _consumes(f"variable x from {producer}", consumer) in lines
+        assert _consumes(f"variable x from {producer}", "s") in lines
+    assert not [line for line in lines if line.startswith('"variable x" [')]
+    assert _consumes("variable x from a:e", "b:s") not in lines
+
+
+def test_a_variable_that_resolves_to_no_single_producer_is_a_vermillion_value(
+    tmp_path: Path,
+) -> None:
+    lines = _branches(tmp_path, x="x")  # JP025: both sub-arguments produce x
+
+    (node,) = [line for line in lines if line.startswith('"variable x" [')]
+    assert node.startswith(f'"variable x" [label={_marked("⚠", "x", 14)}, ')
+    assert _consumes("variable x", "s") in lines
+    assert _consumes("variable x from a:e", "a:s") in lines
 
 
 # --- Writing a diagram ----------------------------------------------------------------------

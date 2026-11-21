@@ -36,6 +36,7 @@
         "mock/CHANGELOG.md"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "changelog_ok"
       ],
@@ -76,6 +77,12 @@
       "consumes": [
         "changelog_ok"
       ],
+      "inputs": {
+        "changelog_ok": {
+          "variable": "changelog_ok",
+          "produced_by": "readiness:draft:changelog"
+        }
+      },
       "produces": [
         "docs_current"
       ],
@@ -104,6 +111,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -132,6 +140,7 @@
         "mock/junit.xml"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "suite_passes"
       ],
@@ -174,6 +183,7 @@
         "mock/coverage.txt"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "coverage"
       ],
@@ -215,6 +225,16 @@
         "suite_passes",
         "coverage"
       ],
+      "inputs": {
+        "suite_passes": {
+          "variable": "suite_passes",
+          "produced_by": "readiness:tested:suite"
+        },
+        "coverage": {
+          "variable": "coverage",
+          "produced_by": "readiness:tested:coverage"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -246,6 +266,7 @@
         "mock/junit.xml"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tests_pass"
       ],
@@ -287,6 +308,16 @@
         "tests_pass",
         "docs_current"
       ],
+      "inputs": {
+        "tests_pass": {
+          "variable": "tests_pass",
+          "produced_by": "readiness:hook"
+        },
+        "docs_current": {
+          "variable": "docs_current",
+          "produced_by": "readiness:draft:docs"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -307,6 +338,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

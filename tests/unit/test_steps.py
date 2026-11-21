@@ -14,7 +14,7 @@ import jpipe_runner
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence, strategy, sub_conclusion
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import Context, Env, File, Observable, Sighting
-from jpipe_runner.steps import Artifact, Step, StepRegistry, step_of
+from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry, step_of
 
 HERE = Path(__file__).parent
 """Where the steps of these tests are declared: what their paths are relative to."""
@@ -28,6 +28,7 @@ def test_the_package_exports_the_authoring_api() -> None:
         "conclusion",
         "Outcome",
         "Pass",
+        "Produced",
         "Fail",
         "Skip",
         "Observable",
@@ -81,8 +82,9 @@ def test_the_decorator_is_the_kind(
     def function(a: int = 0) -> Outcome:
         return Pass()
 
+    inputs = tuple(Input(name, name) for name in consumes)
     assert step_of(decorator(function)) == Step(
-        kind, ("m:x",), function, consumes, produces, directory=HERE
+        kind, ("m:x",), function, inputs, produces, directory=HERE
     )
 
 
@@ -111,6 +113,38 @@ def test_variables_are_kept_in_the_order_given_from_any_iterable() -> None:
     step = step_of(combine)
     assert step is not None
     assert (step.consumes, step.produces) == (("b", "a"), ("d", "c"))
+
+
+def test_consumes_maps_each_parameter_to_a_variable_or_a_named_producer() -> None:
+    @strategy(
+        "m:s",
+        consumes={
+            "tests": Produced("coverage", by="m:a"),
+            "docs": Produced("coverage", by="m:b"),
+            "release": "version",
+        },
+    )
+    def gates(tests: float, docs: float, release: str) -> Outcome:
+        return Pass()
+
+    step = step_of(gates)
+    assert step is not None
+    assert step.inputs == (
+        Input("tests", "coverage", "m:a"),
+        Input("docs", "coverage", "m:b"),
+        Input("release", "version"),
+    )
+    assert step.consumes == ("coverage", "version")
+
+
+def test_a_list_of_variables_passes_each_to_the_parameter_of_its_name() -> None:
+    @conclusion("m:c", consumes=["a", "b"])
+    def holds(a: int, b: int) -> Outcome:
+        return Pass()
+
+    step = step_of(holds)
+    assert step is not None
+    assert step.inputs == (Input("a", "a"), Input("b", "b"))
 
 
 def test_a_step_is_named_by_its_module_and_qualified_name() -> None:
@@ -149,6 +183,12 @@ def test_a_step_may_consume_what_it_produces() -> None:
         pytest.param(lambda: evidence("m:e", produces=["class"]), id="a keyword"),
         pytest.param(lambda: evidence("m:e", produces=[1]), id="not a string"),
         pytest.param(lambda: strategy("m:s", consumes=["a", "a"]), id="variable twice"),
+        pytest.param(lambda: strategy("m:s", consumes={"a-b": "a"}), id="parameter not a name"),
+        pytest.param(lambda: strategy("m:s", consumes={"a": "a-b"}), id="source not a name"),
+        pytest.param(lambda: strategy("m:s", consumes={"a": 1}), id="source not a string"),
+        pytest.param(lambda: Produced("a-b", by="m:e"), id="produced not a name"),
+        pytest.param(lambda: Produced("a", by=""), id="produced by an empty id"),
+        pytest.param(lambda: Produced("a", by=1), id="produced by an int"),
     ],
 )
 def test_a_malformed_declaration_is_a_type_error(declare: Callable[[], object]) -> None:
@@ -206,6 +246,12 @@ def test_the_parameters_are_the_consumed_variables(
     declare = strategy("m:s", consumes=consumes)
     with pytest.raises(TypeError, match="consume"):
         declare(function)
+
+
+def test_the_parameters_are_the_keys_of_a_map_of_inputs() -> None:
+    declare = strategy("m:s", consumes={"b": Produced("a", by="m:e")})
+    with pytest.raises(TypeError, match=r"\['b'\]"):
+        declare(_not_consumed)
 
 
 def test_a_parameter_with_a_default_or_keywords_need_not_match() -> None:

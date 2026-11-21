@@ -38,6 +38,7 @@
         "mock/CHANGELOG.md"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "announced"
       ],
@@ -88,6 +89,7 @@
         "env:PATH"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "commands_found"
       ],
@@ -130,6 +132,16 @@
         "announced",
         "commands_found"
       ],
+      "inputs": {
+        "announced": {
+          "variable": "announced",
+          "produced_by": "version"
+        },
+        "commands_found": {
+          "variable": "commands_found",
+          "produced_by": "environment"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -150,6 +162,7 @@
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],

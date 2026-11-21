@@ -26,7 +26,7 @@ is a new major version.
 | Version | Runner | Changed |
 |---|---|---|
 | 1.0 | 4.0.0 | |
-| 2.0 | 4.1.0 | added an element's `sources` and `observations`, and `declared`, `value` and `read` on each of its [artifacts](#artifacts); removed `dataflow`, as the runner draws one diagram, the dataflow, whose path is `diagram` |
+| 2.0 | 4.1.0 | added an element's `sources`, `inputs` and `observations`, and `declared`, `value` and `read` on each of its [artifacts](#artifacts); removed `dataflow`, as the runner draws one diagram, the dataflow, whose path is `diagram` |
 
 `jpipe-runner impact` and `jpipe-runner status` read a report of version 1.x as well: the
 one field 2.0 removed is one they never read, so a report saved by an earlier runner, such
@@ -91,7 +91,8 @@ was drawn under it.
 | `bound_by` | array of strings | the step's ids that designate this element, as the step names them |
 | `observes` | array of strings | the files, as globs, that what its step observes depends on: a change to one reaches the element. A wildcard in the name of a directory the runner put in front of a declared path is escaped: `app/[[]slug]/*.md` |
 | `sources` | array of strings | everything its step declares it observes: a path or a glob, escaped as in `observes`, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
-| `consumes`, `produces` | arrays of strings | the variables its step declares |
+| `consumes`, `produces` | arrays of strings | the variables its step declares, each once |
+| `inputs` | object | what each parameter of its step receives, by parameter: its `variable`, and `produced_by`, the id of the element whose step produced it, among the element's supporters, or null when it resolves to no single one ([ADR-0031](adr/0031-variables-resolve-among-supporters.md)) |
 | `produced` | object | the values its step produced, by variable; see [Produced values](#produced-values) |
 | `artifacts` | array | the files its step observed; see [Artifacts](#artifacts) |
 | `observations` | array | what its step observed that is not a file; see [Observations](#observations) |
@@ -238,6 +239,7 @@ failures:
         "mock/junit.xml"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tests_pass"
       ],
@@ -276,6 +278,7 @@ failures:
         "mock/CHANGELOG.md"
       ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "changelog_ok"
       ],
@@ -319,6 +322,16 @@ failures:
         "tests_pass",
         "changelog_ok"
       ],
+      "inputs": {
+        "tests_pass": {
+          "variable": "tests_pass",
+          "produced_by": "release:e1"
+        },
+        "changelog_ok": {
+          "variable": "changelog_ok",
+          "produced_by": "release:e2"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -341,6 +354,7 @@ failures:
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
       "artifacts": [],
@@ -389,6 +403,7 @@ A step that raises (the `exception_handling` scenario):
       "observes": [],
       "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "result"
       ],
@@ -417,6 +432,12 @@ A step that raises (the `exception_handling` scenario):
       "consumes": [
         "result"
       ],
+      "inputs": {
+        "result": {
+          "variable": "result",
+          "produced_by": "S1"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],

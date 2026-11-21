@@ -35,6 +35,12 @@
       "consumes": [
         "var_a"
       ],
+      "inputs": {
+        "var_a": {
+          "variable": "var_a",
+          "produced_by": null
+        }
+      },
       "produces": [
         "var_a"
       ],
@@ -63,6 +69,12 @@
       "consumes": [
         "var_a"
       ],
+      "inputs": {
+        "var_a": {
+          "variable": "var_a",
+          "produced_by": "S1"
+        }
+      },
       "produces": [
         "var_b"
       ],
@@ -90,6 +102,16 @@
         "var_a",
         "var_b"
       ],
+      "inputs": {
+        "var_a": {
+          "variable": "var_a",
+          "produced_by": "S1"
+        },
+        "var_b": {
+          "variable": "var_b",
+          "produced_by": "S2"
+        }
+      },
       "produces": [],
       "produced": {},
       "artifacts": [],

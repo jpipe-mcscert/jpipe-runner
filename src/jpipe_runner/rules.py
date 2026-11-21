@@ -4,23 +4,27 @@ Each rule is a class, written to be audited by a human: ``code``, ``severity`` a
 ``summary`` say what it reports, and its docstring says what it checks, why, and how to
 fix what it reports. ``docs/rules.md`` is generated from this module (ADR-0010, #128).
 
-``RULES`` is the rule set every run uses.
+``RULES`` is the rule set every run uses. ``RETIRED`` lists the codes no rule reports any
+more: a code never changes meaning, so a retired one is never reused.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 
 from jpipe_runner import binding
 from jpipe_runner.binding import Binding
+from jpipe_runner.dataflow import Consumption
 from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.model import Kind
 from jpipe_runner.validation import Rule, RuleSet, ValidationContext
 
 
 class _FromBindingTable(Rule):
-    """Reports what the binding table found under this rule's code (ADR-0007)."""
+    """Reports what binding found under this rule's code (ADR-0007): the ids of the steps,
+    and the ids that name a producer with `Produced(variable, by=id)` (ADR-0031)."""
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        return (d for d in ctx.bindings.diagnostics if d.code == self.code)
+        found = (*ctx.bindings.diagnostics, *ctx.dataflow.diagnostics)
+        return (d for d in found if d.code == self.code)
 
 
 class AmbiguousBinding(_FromBindingTable):
@@ -31,7 +35,8 @@ class AmbiguousBinding(_FromBindingTable):
     `:` ([ADR-0007](adr/0007-binding-resolution.md)). An exact match always wins. A tail that
     ends the ids of two elements is not resolved to either: the runner never guesses which
     element a step implements. A tail unique today can become ambiguous when the model
-    grows, or is composed with another.
+    grows, or is composed with another. The id a step gives as `by`, in
+    `Produced(variable, by=id)`, designates an element in the same way.
 
     **Fix:** use a longer id, which designates one element, such as the id the compiler
     exports.
@@ -66,7 +71,9 @@ class UnknownBindingTarget(_FromBindingTable):
     """A step's id designates no element of the model, so the step would never run.
 
     v3 ignored such an id silently: a typo meant the check was never run, and nothing said
-    so. The step's other ids may still bind it.
+    so. The step's other ids may still bind it. The id a step gives as `by`, in
+    `Produced(variable, by=id)`, must designate an element too: otherwise, nothing says
+    which value the step receives.
 
     **Fix:** use the id of an element of the model, as the compiler exports it, or a unique
     tail of it.
@@ -164,36 +171,13 @@ class MissingProducer(Rule):
     summary = "A step consumes a variable that no step produces."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        for bound in ctx.bindings:
-            for variable in bound.step.consumes:
-                if variable not in ctx.producers:
-                    yield self.diagnostic(
-                        f"{bound.step.name} consumes {variable!r}, which no step produces",
-                        element=bound.element.id,
-                        fix=f"Produce {variable!r} in a step that supports this one.",
-                    )
-
-
-class DuplicateProducer(Rule):
-    """Several steps produce the same variable.
-
-    A variable has one value in a run, so it has one producer. With two, its consumers
-    would receive whichever ran last.
-
-    **Fix:** rename the variable in all producers but one, and consume the name you mean.
-    """
-
-    code = "JP010"
-    severity = Severity.ERROR
-    summary = "Several steps produce the same variable."
-
-    def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        for variable, producers in ctx.producers.items():
-            if len(producers) > 1:
-                names = ", ".join(bound.step.name for bound in producers)
+        for consumed in _distinct(ctx):
+            if not consumed.producers:
+                variable = consumed.input.variable
                 yield self.diagnostic(
-                    f"{variable!r} is produced by {len(producers)} steps: {names}",
-                    fix="Give each produced value its own name.",
+                    f"{consumed.consumer.step.name} consumes {variable!r}, which no step produces",
+                    element=consumed.consumer.element.id,
+                    fix=f"Produce {variable!r} in a step that supports this one.",
                 )
 
 
@@ -216,7 +200,7 @@ class UnconsumedOutput(Rule):
             if _evidence_without_use(bound, ctx):
                 continue
             for variable in bound.step.produces:
-                if variable not in ctx.consumers:
+                if not ctx.dataflow.users(bound.element.id, variable):
                     yield self.diagnostic(
                         f"{bound.step.name} produces {variable!r}, which no step consumes",
                         element=bound.element.id,
@@ -262,7 +246,8 @@ class StrategyIgnoresUpstreamOutput(Rule):
     A strategy is the reasoning that turns what its supporters found into a claim. A value
     produced right below it and read only further up skips that reasoning: the strategy
     judges without looking at it. A value nobody consumes is reported by `JP011` or
-    `JP012` instead.
+    `JP012` instead. A value counts as read further up when a step above draws on that
+    supporter's value, not merely on a variable of the same name.
 
     **Fix:** consume the variable in the strategy, or produce it where it is used.
     """
@@ -276,7 +261,8 @@ class StrategyIgnoresUpstreamOutput(Rule):
             if bound.element.kind is not Kind.STRATEGY:
                 continue
             for supporter, variable in _produced_below(bound, ctx):
-                if variable in ctx.consumers and variable not in bound.step.consumes:
+                users = ctx.dataflow.users(supporter, variable)
+                if users and all(u.consumer.element.id != bound.element.id for u in users):
                     yield self.diagnostic(
                         f"{bound.step.name} ignores {variable!r}, which its supporter "
                         f"{supporter!r} produces",
@@ -286,34 +272,34 @@ class StrategyIgnoresUpstreamOutput(Rule):
 
 
 class ConsumedBeforeProduced(Rule):
-    """A step consumes a variable whose producer does not support it.
+    """A step consumes a variable that no step supporting it produces.
 
     Steps run supporters first, and a step whose supporter fails or skips is skipped in
     turn. A value is therefore certain to exist when a step runs only if its producer
     supports that step, directly or not. Coming first in some order is not enough: a
     producer on another branch may fail and leave the consumer without its value. A step
-    that consumes what it produces is the extreme case.
+    that consumes what it produces is the extreme case. So a consumed variable is looked
+    for among the consumer's supporters only
+    ([ADR-0031](adr/0031-variables-resolve-among-supporters.md)), and at or below the
+    element named by `by`, when the step names one with `Produced(variable, by=id)`.
 
     **Fix:** produce the variable in a step that supports its consumer, or move the
-    consumer above the producer in the argument.
+    consumer above the producer in the argument. With `by`, name an element at or above
+    the producer, among the consumer's supporters.
     """
 
     code = "JP014"
     severity = Severity.ERROR
-    summary = "A step consumes a variable whose producer does not support it."
+    summary = "A step consumes a variable that no step supporting it produces."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        for bound in ctx.bindings:
-            upstream = {element.id for element in ctx.justification.upstream(bound.element.id)}
-            for variable in bound.step.consumes:
-                for producer in ctx.producers.get(variable, ()):
-                    if producer.element.id not in upstream:
-                        yield self.diagnostic(
-                            f"{bound.step.name} consumes {variable!r}, produced by "
-                            f"{producer.element.id!r}, which does not support it",
-                            element=bound.element.id,
-                            fix=f"Produce {variable!r} in a step that supports this one.",
-                        )
+        for consumed in _distinct(ctx):
+            if consumed.designated and consumed.producers and not consumed.candidates:
+                yield self.diagnostic(
+                    _unsupported(consumed),
+                    element=consumed.consumer.element.id,
+                    fix=f"Produce {consumed.input.variable!r} in a step that supports this one.",
+                )
 
 
 class IncompatibleKind(Rule):
@@ -374,6 +360,54 @@ class EvidenceObservesNothing(Rule):
                 )
 
 
+class AmbiguousConsumption(Rule):
+    """Several steps that support a step produce a variable it consumes.
+
+    A step receives a variable from the one step among its supporters that produces it
+    ([ADR-0031](adr/0031-variables-resolve-among-supporters.md)). Two steps may produce
+    the same name, as libraries written apart for separate models do: each consumer then
+    receives the value from its own sub-argument. A step that both support, such as the
+    strategy `assemble` adds above them, sees both, and the runner never guesses which
+    one it means, nor picks the nearer.
+
+    **Fix:** name the part of the argument the value comes from, with
+    `consumes={"parameter": Produced("variable", by="id")}`: `by` designates the producer,
+    or an element it supports, such as the conclusion of its sub-argument. To take both
+    values, map two parameters to the same variable, each with its own `by`.
+    """
+
+    code = "JP025"
+    severity = Severity.ERROR
+    summary = "Several steps that support a step produce a variable it consumes."
+
+    def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
+        for consumed in _distinct(ctx):
+            if len(consumed.candidates) > 1:
+                variable = consumed.input.variable
+                ids = ", ".join(repr(p.element.id) for p in consumed.candidates)
+                yield self.diagnostic(
+                    f"{consumed.consumer.step.name} consumes {variable!r}, which "
+                    f"{len(consumed.candidates)} of its supporters produce: {ids}",
+                    element=consumed.consumer.element.id,
+                    fix=_naming(consumed, ctx),
+                )
+
+
+def _naming(consumed: Consumption, ctx: ValidationContext) -> str:
+    """The fix of a JP025: the entry of ``consumes`` to write for each parameter that
+    receives the ambiguous variable, leaving the step's other entries as they are."""
+    variable, by = consumed.input.variable, consumed.input.by
+    example = consumed.candidates[0].element.id
+    parameters = [
+        c.input.parameter
+        for c in ctx.dataflow.of(consumed.consumer.element.id)
+        if (c.input.variable, c.input.by) == (variable, by)
+    ]
+    entries = ", ".join(f'"{p}": Produced("{variable}", by="{example}")' for p in parameters)
+    which = "the one it means" if len(parameters) == 1 else "the one each parameter means"
+    return f"Name {which}, keeping the other entries of consumes: {entries}."
+
+
 def _decorator(kind: Kind) -> str:
     return f"@{kind.value.replace('-', '_')}"
 
@@ -384,6 +418,33 @@ def _composed(bound: Binding) -> bool:
         Kind.EVIDENCE,
         Kind.CONCLUSION,
     )
+
+
+def _distinct(ctx: ValidationContext) -> Iterator[Consumption]:
+    """Each input of each bound step, once per source: two parameters that receive the same
+    variable from the same place are one problem, when there is one."""
+    seen: set[tuple[str, str, str | None]] = set()
+    for consumed in ctx.dataflow:
+        key = (consumed.consumer.element.id, consumed.input.variable, consumed.input.by)
+        if key not in seen:
+            seen.add(key)
+            yield consumed
+
+
+def _unsupported(consumed: Consumption) -> str:
+    """What a JP014 says of ``consumed``: who produces its variable, if not a supporter."""
+    step, variable, by = consumed.consumer.step.name, consumed.input.variable, consumed.input.by
+    named = consumed.reachable or consumed.producers
+    ids = ", ".join(repr(p.element.id) for p in named)
+    which = "which does not support it" if len(named) == 1 else "none of which supports it"
+    if by is None:
+        return f"{step} consumes {variable!r}, produced by {ids}, {which}"
+    if consumed.within is not None and not consumed.reachable:
+        return (
+            f"{step} consumes {variable!r} by {by!r}, but no step at or below "
+            f"{consumed.within.id!r} produces it"
+        )
+    return f"{step} consumes {variable!r} by {by!r}, produced by {ids}, {which}"
 
 
 def _produced_below(bound: Binding, ctx: ValidationContext) -> Iterator[tuple[str, str]]:
@@ -397,7 +458,7 @@ def _produced_below(bound: Binding, ctx: ValidationContext) -> Iterator[tuple[st
 def _evidence_without_use(bound: Binding, ctx: ValidationContext) -> bool:
     """Whether ``bound`` is an evidence step none of whose values any step consumes."""
     return bound.step.kind is Kind.EVIDENCE and not any(
-        variable in ctx.consumers for variable in bound.step.produces
+        ctx.dataflow.users(bound.element.id, variable) for variable in bound.step.produces
     )
 
 
@@ -408,7 +469,6 @@ RULES = RuleSet(
         ConflictingBinding(),
         RefinedElement(),
         MissingProducer(),
-        DuplicateProducer(),
         UnconsumedOutput(),
         EvidenceProducesNothing(),
         StrategyIgnoresUpstreamOutput(),
@@ -416,6 +476,18 @@ RULES = RuleSet(
         UnknownBindingTarget(),
         IncompatibleKind(),
         EvidenceObservesNothing(),
+        AmbiguousConsumption(),
     ]
 )
 """Every rule, run on every validation."""
+
+RETIRED: Mapping[str, tuple[str, str]] = {
+    "JP010": (
+        "DuplicateProducer",
+        "Several steps produced the same variable. Since 4.1.0, a consumed variable "
+        "resolves among its consumer's supporters "
+        "([ADR-0031](adr/0031-variables-resolve-among-supporters.md)): two producers of one "
+        "name are an error only when one consumer can see both, which `JP025` reports.",
+    ),
+}
+"""The codes no rule reports any more: for each, the rule's name and what replaced it."""

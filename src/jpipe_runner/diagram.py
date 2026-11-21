@@ -4,9 +4,12 @@
 ``source(justification, report)`` is the Graphviz DOT text of the diagram, and ``write``
 renders it to a file. It draws the argument in the jPipe compiler's notation (its shapes and
 colours, from the Okabe-Ito palette, and its labels wrapped at 40 characters), and adds what
-the steps declare: each file or glob an evidence observes, and each variable a step produces
-or consumes, as nodes linked to the elements. A variable without a producer or a consumer,
-or with several producers, and a file that could not be reached, are drawn in vermillion.
+the steps declare: each file or glob an evidence observes, and each value a step produces
+or consumes, as nodes linked to the elements. A value is a variable and the step that
+produces it: two steps that produce one variable are two nodes, and each consumer is
+linked to the one it receives (ADR-0031). A value nothing consumes, a consumed variable
+that resolves to no single producer, and a file that could not be reached, are drawn in
+vermillion.
 
 A support edge is left out when a variable already links its two ends: when the supporter
 produces a variable the element it supports consumes, the path through that variable shows
@@ -46,6 +49,7 @@ import subprocess
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
+from jpipe_runner.dataflow import Received
 from jpipe_runner.engine import Status
 from jpipe_runner.model import Element, Justification, Kind, Template
 from jpipe_runner.report import ElementReport, RunReport
@@ -243,53 +247,112 @@ class _Diagram:
 
 
 class _Dataflow:
-    """The files and variables a run's steps declare, as nodes and edges."""
+    """The files and values a run's steps declare, as nodes and edges.
+
+    A value's node is named after its variable, ``variable coverage``, and after its
+    producer too, ``variable coverage from m:e``, when several steps produce the variable.
+    A consumed variable that resolves to no single producer has a node of its own, named
+    after the variable, unless one step produces it: then it is drawn from that one, which
+    validation reports does not support the consumer (JP014). Either way, the value is
+    drawn in vermillion.
+    """
 
     def __init__(self, reported: dict[str, ElementReport]) -> None:
         self._reported = reported
         self._elements = list(reported.values())
         self._ran = any(element.status is not None for element in self._elements)
+        self._producers: dict[str, list[str]] = {}
+        for element in self._elements:
+            for name in element.produces:
+                self._producers.setdefault(name, []).append(element.id)
+        self._produced_by: dict[str, str] = {}
+        self._consumers: dict[str, set[str]] = {}
+        self._unresolved: set[str] = set()
+        for element in self._elements:
+            for name in element.produces:
+                self._produced_by[self._node(name, element.id)] = element.id
+            for received in self._inputs(element):
+                node = self._source(received)
+                self._consumers.setdefault(node, set()).add(element.id)
+                if received.produced_by is None:
+                    self._unresolved.add(node)
+        self._links = {
+            (self._produced_by[node], consumer)
+            for node, consumers in self._consumers.items()
+            if node in self._produced_by
+            for consumer in consumers
+        }
 
     def links(self, source: str, target: str) -> bool:
-        """Whether a variable links ``source`` to ``target``: one ``source`` produces and
-        ``target`` consumes."""
-        produced, consumer = self._reported.get(source), self._reported.get(target)
-        if produced is None or consumer is None:
-            return False
-        return not set(produced.produces).isdisjoint(consumer.consumes)
+        """Whether a value links ``source`` to ``target``: ``source`` produces it and
+        ``target`` consumes it."""
+        return (source, target) in self._links
 
     def nodes(self) -> Iterator[str]:
         for path in _unique(p for e in self._elements for p in e.sources):
             attributes = dict(_DATA, shape="folder")
             yield _data_node(f"artifact {path}", path, attributes, self._unreachable(path))
-        for name in self._variables():
-            attributes = self._variable(name)
-            yield _data_node(f"variable {name}", name, attributes, self._broken(name))
+        for node, name in self._values():
+            yield _data_node(node, name, self._variable(node, name), self._broken(node))
 
     def edges(self) -> Iterator[str]:
         for element in self._elements:
             for path in element.sources:
                 yield _data_edge(f"artifact {path}", element.id, "observes", dotted=True)
             for name in element.produces:
-                yield _data_edge(element.id, f"variable {name}", "produces")
-            for name in element.consumes:
-                yield _data_edge(f"variable {name}", element.id, "consumes")
+                yield _data_edge(element.id, self._node(name, element.id), "produces")
+            for node in _unique(self._source(received) for received in self._inputs(element)):
+                yield _data_edge(node, element.id, "consumes")
 
-    def _variables(self) -> list[str]:
-        return _unique(n for e in self._elements for n in (*e.produces, *e.consumes))
+    def _node(self, name: str, producer: str | None) -> str:
+        """The node of ``name`` as ``producer`` produces it, or of ``name`` unresolved."""
+        if producer is None or len(self._producers.get(name, ())) <= 1:
+            return f"variable {name}"
+        return f"variable {name} from {producer}"
 
-    def _variable(self, name: str) -> dict[str, str]:
-        """The style of the variable ``name``: dashed and grey when it was not produced."""
+    def _source(self, received: Received) -> str:
+        """The node a parameter receives its value from."""
+        producer = received.produced_by or self._only(received.variable)
+        return self._node(received.variable, producer)
+
+    def _values(self) -> list[tuple[str, str]]:
+        """Each value's node and its variable, in the order the elements declare them."""
+        found: dict[str, str] = {}
+        for element in self._elements:
+            for name in element.produces:
+                found.setdefault(self._node(name, element.id), name)
+            for received in self._inputs(element):
+                found.setdefault(self._source(received), received.variable)
+        return list(found.items())
+
+    def _variable(self, node: str, name: str) -> dict[str, str]:
+        """The style of a value: dashed and grey when it was not produced."""
         attributes = dict(_DATA, shape="ellipse")
-        produced = any(name in e.produced for e in self._elements)
-        if self._ran and not produced and not self._broken(name):
+        producer = self._produced_by.get(node)
+        produced = producer is not None and name in self._reported[producer].produced
+        if self._ran and not produced and not self._broken(node):
             attributes.update(style="dashed", color=_GREY)
         return attributes
 
-    def _broken(self, name: str) -> bool:
-        """Whether the variable ``name`` lacks one producer, or a consumer."""
-        producers = sum(name in e.produces for e in self._elements)
-        return producers != 1 or not any(name in e.consumes for e in self._elements)
+    def _broken(self, node: str) -> bool:
+        """Whether a value lacks a producer, or a consumer, or is consumed by a step that
+        does not resolve to it."""
+        return (
+            node not in self._produced_by or node not in self._consumers or node in self._unresolved
+        )
+
+    def _inputs(self, element: ElementReport) -> tuple[Received, ...]:
+        """What ``element``'s step receives: its inputs, or, in a report that has none, each
+        variable it consumes, to a parameter of the same name, from its producer if only one
+        step produces it."""
+        if element.inputs or not element.consumes:
+            return element.inputs
+        return tuple(Received(name, name, self._only(name)) for name in element.consumes)
+
+    def _only(self, name: str) -> str | None:
+        """The one element that produces ``name``, if only one does."""
+        producers = self._producers.get(name, [])
+        return producers[0] if len(producers) == 1 else None
 
     def _unreachable(self, declared: str) -> bool:
         return any(
