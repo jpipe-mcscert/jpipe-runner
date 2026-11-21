@@ -44,3 +44,4 @@ and add a row to this table.
 | [0028](0028-observables-and-file-relative-paths.md) | An evidence observes observables, and a path is relative to the file that declares its step | accepted |
 | [0029](0029-the-runner-draws-the-dataflow.md) | The runner draws one diagram, the dataflow | accepted |
 | [0030](0030-a-run-streams-its-events.md) | A run streams its events to a file, one JSON object per line | accepted |
+| [0031](0031-variables-resolve-among-supporters.md) | A consumed variable resolves among its consumer's supporters | proposed |
