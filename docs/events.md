@@ -79,7 +79,9 @@ is this, and nothing more:
 - `diagram.drawn`, when there is one, comes after `validation.ended` and before any
   element's event;
 - an element is decided after every element that supports it;
-- an element that starts is decided after it starts.
+- an element that starts is decided after it starts;
+- the sources an element observes come between its `element.started` and its
+  `element.decided`, one `source.observed` each, in the order its step declares them.
 
 The events of two elements may come in any order, and one element's may come between
 another's `element.started` and `element.decided`: do not count on the elements coming in
@@ -170,6 +172,10 @@ evidence would observe, when the temporary directory is in the project (`TMPDIR`
 of its globs designates the drawing: drawn there, it could change what that evidence
 receives. A drawing that cannot be deleted at the end, on Windows because a program still
 has it open after a second of trying, is a warning, and changes nothing either.
+
+In the drawing, an element's node has the element's id as its SVG `id`. A source's node,
+whose name may hold characters an `id` cannot, has none: its `<title>` is `artifact `
+followed by the source, as `source.observed` names it, such as `artifact mock/junit.xml`.
 
 | Field | Type | |
 |---|---|---|

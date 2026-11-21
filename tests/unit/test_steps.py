@@ -362,6 +362,7 @@ class _Drawn(Observable):
         pytest.param("note", r"cannot draw _Drawn as 'note': .* box3d, cds", id="an evidence's"),
         pytest.param("circle", "cannot draw _Drawn as 'circle'", id="grows with its label"),
         pytest.param(RuntimeError("no"), "its shape raised RuntimeError", id="raises"),
+        pytest.param(["tab"], r"cannot draw _Drawn as \['tab'\]", id="not a string"),
     ],
 )
 def test_an_observable_the_diagram_cannot_draw_is_refused_at_import(

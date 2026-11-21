@@ -309,7 +309,9 @@ SHAPES = frozenset(
 """The Graphviz shapes an observable may be drawn in. The others either mean an element of
 the argument or a variable in the jPipe notation (``note``, ``hexagon``, ``box``,
 ``ellipse``), or cannot hold a label: they grow with it (``circle``, ``star``), have no
-outline (``plaintext``), or draw a line through it (the synthetic biology glyphs)."""
+outline (``plaintext``), or draw a line through it (the synthetic biology glyphs drawn on
+a line, such as ``promoter`` and ``insulator``; those drawn as a box, such as ``cds`` and
+``rarrow``, are allowed)."""
 
 DEFAULT_SHAPE = "box3d"
 """The shape of an observable that does not say: a closed box, whose content the runner
@@ -362,15 +364,30 @@ def described(observable: Observable, context: Context) -> str:
         return type(observable).__name__
 
 
-def drawn_as(observable: Observable) -> str:
-    """The shape the diagram draws ``observable`` in, or the default one if its ``shape``
-    raises or is not one of ``SHAPES``: one of a step library may."""
+def checked_shape(observable: Observable) -> str:
+    """The shape ``observable`` asks to be drawn in. Raises ``ValueError``, saying why, if
+    it is not one of ``SHAPES``, or if asking raises: one of a step library may."""
+    kind = type(observable).__name__
     try:
         shape = observable.shape
     # Whatever a library's observable raises, even SystemExit.
-    except (Exception, SystemExit):  # NOSONAR
+    except (Exception, SystemExit) as error:  # NOSONAR
+        raise ValueError(f"cannot draw {kind}: its shape raised {error!r}") from None
+    if not isinstance(shape, str) or shape not in SHAPES:
+        allowed = ", ".join(sorted(SHAPES, key=str.lower))
+        raise ValueError(
+            f"cannot draw {kind} as {shape!r}: an observable's shape is one of {allowed}"
+        )
+    return shape
+
+
+def drawn_as(observable: Observable) -> str:
+    """The shape the diagram draws ``observable`` in: the one it asks for, or
+    ``DEFAULT_SHAPE`` if ``checked_shape`` refuses it."""
+    try:
+        return checked_shape(observable)
+    except ValueError:
         return DEFAULT_SHAPE
-    return shape if shape in SHAPES else DEFAULT_SHAPE
 
 
 def dependencies(observable: Observable, context: Context) -> tuple[str, ...]:

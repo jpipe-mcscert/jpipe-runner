@@ -64,7 +64,6 @@ flowchart LR
     diagram --> dataflow
     diagram --> engine
     diagram --> model
-    diagram --> observables
     diagram --> report
     diagram -.->|piped to| dot[["Graphviz dot"]]
     json_report --> observables
@@ -641,7 +640,7 @@ A report's statuses are drawn over the elements in the same palette: a green bor
 pass, a vermillion fill for a failure, a dashed grey node for a skip. Each is also a symbol
 beside the label, ✔, ✘ or ◌, in the label's colour, so that the diagram reads without its
 colours. What an evidence observes is drawn in the shape its `Observable` says, and
-marked ✔ once observed, or ⚠ in vermillion when it could not be; a variable has no mark,
+marked ✔ once observed, or ⚠ with a vermillion border when it could not be; a variable has no mark,
 and is vermillion when it lacks a producer or a consumer. **A status never moves the
 diagram** ([ADR-0032](adr/0032-a-run-previews-its-diagram.md)): drawn with a report, every
 element's and source's label has a cell of fixed size for its symbol, empty when there is

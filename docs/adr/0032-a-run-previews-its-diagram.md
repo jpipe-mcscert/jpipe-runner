@@ -110,8 +110,9 @@ ships with 4.1.0, so no program has to handle a 1.0 stream without it.
 no `diagram.drawn`, and the run goes on. One that cannot be deleted at the end, on Windows
 after a second of trying while a program has it open, is a warning too.
 
-**The layout.** Drawn with a report, every node's label is an HTML-like label, wrapped as
-the compiler wraps it, beside a cell of fixed size for its symbol (`fixedsize="true"`),
+**The layout.** Drawn with a report, every element's and observed source's label is an
+HTML-like label, wrapped as the compiler wraps it, beside a cell of fixed size for its
+symbol (`fixedsize="true"`),
 empty when there is none: 28×32 pt for a status, at 20 points, and 22×22 pt for ✔ or ⚠ on
 what an evidence observes, at 14 points, wider and taller than the symbols need, so that no
 symbol overflows on a platform whose fonts are larger. A failure keeps its kind's font:

@@ -45,8 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report is. The report stays the authority. The events are described by
   `events.schema.json`, shipped in the package, with a version of their own, and in
   [`docs/events.md`](docs/events.md). Their order promises only that an element is
-  decided after the elements that support it, so that a consumer still works when steps
-  run concurrently (#174). A file that cannot be opened stops the command before anything
+  decided after the elements that support it, and that the sources it observes come
+  between its start and its decision, so that a consumer still works when steps run
+  concurrently (#174). A file that cannot be opened stops the command before anything
   runs, and one that cannot be written to during the run makes it exit 4 after its report.
 - **With `--events`, the diagram is drawn before the first step**, as a dry run would draw
   it, in a temporary SVG file, and the `diagram.drawn` event gives its path, so that a

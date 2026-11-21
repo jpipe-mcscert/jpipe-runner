@@ -24,7 +24,8 @@ step: its verdict is ``VALID`` when validation passed (ADR-0024).
 
 A ``RunListener`` is told as the run goes: when validation ends, when the steps are about
 to run, with the result a dry run would have returned (ADR-0032), when an element's step is
-about to be called, and when each element is decided (ADR-0030). It is called from the
+about to be called, when each source it observes was observed, and when each element is
+decided (ADR-0030). It is called from the
 thread that runs ``run``, an element after all its supporters, so it needs no lock.
 """
 
@@ -37,7 +38,7 @@ from traceback import TracebackException
 from types import MappingProxyType
 from typing import Any, Protocol
 
-from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, observe
+from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, Observed, observe
 from jpipe_runner.binding import Binding, BindingTable
 from jpipe_runner.dataflow import Consumption, DataflowTable, Received
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
@@ -101,6 +102,10 @@ class ElementResult:
     supports cannot change the record by changing the value it receives."""
     observed: tuple[Observation, ...] = ()
     """What its step observed, recorded just before the call."""
+    reached: tuple[tuple[str, bool], ...] = ()
+    """Each source its step declares it observes, as the report names it in ``sources``,
+    and whether it was reached, in the order the step declares them; empty when the step
+    observed nothing, or was not called."""
     diagnostics: tuple[Diagnostic, ...] = ()
     """What went wrong while running it. A step that raised is reported with ``JP022``,
     which carries the traceback."""
@@ -292,6 +297,12 @@ class _Run:
         observed = observe(step.observes, Context(step.directory, self._root), element.id)
         for source, reachable in observed.sources:
             self._listener.source_observed(element, source, reachable)
+        return replace(self._called(binding, observed), reached=observed.sources)
+
+    def _called(self, binding: Binding, observed: Observed) -> ElementResult:
+        """The result of ``binding``'s step, called with what it ``observed``, unless
+        something could not be reached."""
+        element, step = binding.element, binding.step
         if not observed.reachable:
             return _failed(binding, observed.diagnostics, observed=observed.observations)
         arguments = {c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)}

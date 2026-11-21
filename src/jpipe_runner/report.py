@@ -61,6 +61,9 @@ class ElementReport:
     shapes: Mapping[str, str] = field(default_factory=lambda: _NOTHING)
     """The shape the diagram draws each of its ``sources`` in, as its observable says.
     Only the diagram reads it: the JSON report does not write it."""
+    reached: Mapping[str, bool] = field(default_factory=lambda: _NOTHING)
+    """Whether each of its ``sources`` was reached, once its step observed them: what the
+    diagram marks ✔ or ⚠, and ``source.observed`` says. Empty until then."""
     consumes: tuple[str, ...] = ()
     """The variables its step declares it consumes, each once."""
     inputs: tuple[Received, ...] = ()
@@ -98,14 +101,15 @@ class ElementReport:
             step = binding.step
             context = Context(step.directory, root)
             observed = [artifact.observable for artifact in step.observes]
+            named = [(described(observable, context), observable) for observable in observed]
             files = (path for observable in observed for path in dependencies(observable, context))
             report = replace(
                 report,
                 step=step.name,
                 designators=binding.designators,
                 observes=tuple(dict.fromkeys(files)),
-                sources=tuple(described(observable, context) for observable in observed),
-                shapes=MappingProxyType({described(o, context): drawn_as(o) for o in observed}),
+                sources=tuple(name for name, _ in named),
+                shapes=MappingProxyType({name: drawn_as(o) for name, o in named}),
                 consumes=step.consumes,
                 inputs=inputs,
                 produces=step.produces,
@@ -119,6 +123,7 @@ class ElementReport:
                 ran=result.ran,
                 produced=result.produced,
                 artifacts=result.observed,
+                reached=MappingProxyType(dict(result.reached)),
             )
         return report
 

@@ -64,7 +64,7 @@ user and the GitHub Action already pass, and the one view the runner exists to d
   compiler output they kept, are gone.
 - **Each status is a symbol as well as a colour**: ✔ for a pass, ✘ for a failure, ◌ for a
   skip, beside the label, in the label's colour. What an evidence observes is marked ✔
-  once observed, and ⚠ in vermillion when it could not be. A variable has no symbol: a
+  once observed, and ⚠ with a vermillion border when it could not be. A variable has no symbol: a
   problem with it, no producer or no consumer, is known from the declarations, and it is
   drawn in vermillion. A support edge from a failure is thicker, as one from a skip is dashed. The
   Okabe-Ito palette tells its colours apart for most colour vision deficiencies, but a pass

@@ -202,7 +202,7 @@ assert JsonValue("package.json", "/version").shape == "component"
 assert Env("CI").shape == "house"
 ```
 
-Once the run has observed it, a source is marked ✔ beside its label, or ⚠ in vermillion
+Once the run has observed it, a source is marked ✔ beside its label, or ⚠ with a vermillion border
 when it could not be reached. A dry run observes nothing, and leaves the place of the mark
 empty, so the two diagrams put every node in the same place.
 

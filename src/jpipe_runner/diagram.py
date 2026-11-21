@@ -4,8 +4,9 @@
 ``source(justification, report)`` is the Graphviz DOT text of the diagram, and ``write``
 renders it to a file. It draws the argument in the jPipe compiler's notation (its shapes and
 colours, from the Okabe-Ito palette, and its labels wrapped at 40 characters), and adds what
-the steps declare: each file or glob an evidence observes, and each value a step produces
-or consumes, as nodes linked to the elements. A value is a variable and the step that
+the steps declare: each source an evidence observes, in the shape its observable says (a
+file a tab, a glob a folder, a value in a JSON file a component, an environment variable a
+house), and each value a step produces or consumes, as nodes linked to the elements. A value is a variable and the step that
 produces it: two steps that produce one variable are two nodes, and each consumer is
 linked to the one it receives (ADR-0031). A value nothing consumes, a consumed variable
 that resolves to no single producer, and a file that could not be reached, are drawn in
@@ -31,11 +32,13 @@ beside the label, so that the diagram reads without its colours:
 - **skip**: ◌, filled light grey, with a dashed grey border, thicker when it is a root cause.
 
 The symbol is drawn in the label's colour, which contrasts with every fill. A status never
-moves the diagram (#186): drawn with a report, every node's label is an HTML-like label,
-wrapped as the compiler wraps it, beside a cell of fixed size for its symbol, empty when
-it has none, and a status changes no font. A dry run's diagram, and the diagrams of two
-runs with different statuses, therefore put every node in the same place. A file or
-variable drawn in vermillion is marked ⚠, in a cell of its own. A support edge takes the
+moves the diagram (#186): drawn with a report, every element's label is an HTML-like
+label, wrapped as the compiler wraps it, beside a cell of fixed size for its symbol, empty
+when it has none, and a status changes no font. So is every source's: ✔ once observed,
+⚠ with a vermillion border when it could not be reached, empty until it is observed. A
+dry run's diagram, and the diagrams of two runs with different statuses, therefore put
+every node in the same place. A variable has no symbol: whether it lacks a producer or a
+consumer is known from the declarations, and it is then drawn in vermillion. A support edge takes the
 colour of the status of the element it comes from, or, from a placeholder, of the element
 that fills it, and is thicker from a failure, dashed from a skip. In SVG, a node's tooltip
 gives its status and reason. Without a report, the diagram is the argument alone; with the
@@ -59,7 +62,6 @@ from pathlib import Path
 from jpipe_runner.dataflow import Received
 from jpipe_runner.engine import Status
 from jpipe_runner.model import Element, Justification, Kind, Template
-from jpipe_runner.observables import DEFAULT_SHAPE, Observation
 from jpipe_runner.report import ElementReport, RunReport
 
 FORMATS = ("dot", "gif", "jpeg", "jpg", "pdf", "png", "svg")
@@ -348,6 +350,13 @@ class _Dataflow:
                 self._consumers.setdefault(node, set()).add(element.id)
                 if received.produced_by is None:
                     self._unresolved.add(node)
+        self._shapes: dict[str, str] = {}
+        self._reached: dict[str, bool] = {}
+        for element in self._elements:
+            for declared, shape in element.shapes.items():
+                self._shapes.setdefault(declared, shape)
+            for declared, reached in element.reached.items():
+                self._reached[declared] = self._reached.get(declared, True) and reached
         self._links = {
             (self._produced_by[node], consumer)
             for node, consumers in self._consumers.items()
@@ -371,31 +380,14 @@ class _Dataflow:
         cell for a symbol: ✔ once it was observed, ⚠ when it could not be, empty while it
         was not, as in a dry run. A source that could not be observed is drawn in
         vermillion too."""
-        attributes = dict(_DATA, shape=self._shape(declared))
-        seen = self._seen(declared)
-        unreachable = any(not observation.reachable for observation in seen)
-        if unreachable:
+        attributes = dict(_DATA, shape=self._shapes[declared])
+        reached = self._reached.get(declared)
+        if reached is False:
             attributes |= _PROBLEM
-        symbol = _WARNING if unreachable else _OBSERVED if seen else None
+        symbol = None if reached is None else _OBSERVED if reached else _WARNING
         drawn = _marked([declared], symbol, _DATA_CELL)
         node = _quoted(f"artifact {declared}")
         return f"{_INDENT}{node} [label={drawn}, {_attributes(attributes)}];"
-
-    def _shape(self, declared: str) -> str:
-        """The shape of the first element's observable that ``declared`` names."""
-        for element in self._elements:
-            if (shape := element.shapes.get(declared)) is not None:
-                return shape
-        return DEFAULT_SHAPE
-
-    def _seen(self, declared: str) -> list[Observation]:
-        """What the run observed of ``declared``, for every element that observes it."""
-        return [
-            observation
-            for element in self._elements
-            for observation in element.artifacts
-            if observation.declared == declared
-        ]
 
     def edges(self) -> Iterator[str]:
         for element in self._elements:

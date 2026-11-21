@@ -465,6 +465,40 @@ def test_a_source_is_drawn_in_the_shape_its_observable_says(tmp_path: Path) -> N
     assert shape("opaque") == "box3d"
 
 
+@pytest.mark.parametrize("reachable", [True, False])
+def test_a_source_is_marked_as_the_run_reached_it_whatever_it_records(
+    tmp_path: Path, reachable: bool
+) -> None:
+    @dataclass(frozen=True)
+    class Host(Observable):
+        """Records its sighting under a name of its own, not the one it describes."""
+
+        def describe(self, context: Context) -> str:
+            return "host:localhost"
+
+        def observe(self, context: Context) -> Sighting:
+            if reachable:
+                return Sighting.of("localhost", "127.0.0.1")
+            return Sighting.unreachable("localhost", "the host", "does not resolve")
+
+    @evidence("e", observes={"address": Host()}, produces=["a"])
+    def resolves(address: str) -> Outcome:
+        return Pass(a=address)
+
+    @strategy("s", consumes=["a"])
+    def judges(a: str) -> Outcome:
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (resolves, judges)) if s is not None)
+    report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
+
+    lines = source(small, report).splitlines()
+    (node,) = [line for line in lines if line.strip().startswith('"artifact host:localhost" [')]
+    assert _marked("✔" if reachable else "⚠", "host:localhost", 14) in node
+    assert ('color="#D55E00"' in node) is not reachable
+
+
 def test_a_source_has_an_empty_cell_until_it_is_observed(tmp_path: Path) -> None:
     (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
     registry = _steps(lambda: Pass(a="a"), lambda: Pass(b="b"))
