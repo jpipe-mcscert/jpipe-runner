@@ -350,13 +350,7 @@ class _Dataflow:
                 self._consumers.setdefault(node, set()).add(element.id)
                 if received.produced_by is None:
                     self._unresolved.add(node)
-        self._shapes: dict[str, str] = {}
-        self._reached: dict[str, bool] = {}
-        for element in self._elements:
-            for declared, shape in element.shapes.items():
-                self._shapes.setdefault(declared, shape)
-            for declared, reached in element.reached.items():
-                self._reached[declared] = self._reached.get(declared, True) and reached
+        self._shapes, self._reached = _sources(self._elements)
         self._links = {
             (self._produced_by[node], consumer)
             for node, consumers in self._consumers.items()
@@ -382,9 +376,12 @@ class _Dataflow:
         vermillion too."""
         attributes = dict(_DATA, shape=self._shapes[declared])
         reached = self._reached.get(declared)
-        if reached is False:
+        symbol = None
+        if reached is True:
+            symbol = _OBSERVED
+        elif reached is False:
+            symbol = _WARNING
             attributes |= _PROBLEM
-        symbol = None if reached is None else _OBSERVED if reached else _WARNING
         drawn = _marked([declared], symbol, _DATA_CELL)
         node = _quoted(f"artifact {declared}")
         return f"{_INDENT}{node} [label={drawn}, {_attributes(attributes)}];"
@@ -447,6 +444,20 @@ class _Dataflow:
         """The one element that produces ``name``, if only one does."""
         producers = self._producers.get(name, [])
         return producers[0] if len(producers) == 1 else None
+
+
+def _sources(elements: list[ElementReport]) -> tuple[dict[str, str], dict[str, bool]]:
+    """The shape of each source the ``elements`` observe, as the first to declare it says,
+    and whether it was reached, by every element that observed it: a source no element
+    observed yet has none."""
+    shapes: dict[str, str] = {}
+    reached: dict[str, bool] = {}
+    for element in elements:
+        for declared, shape in element.shapes.items():
+            shapes.setdefault(declared, shape)
+        for declared, each in element.reached.items():
+            reached[declared] = reached.get(declared, True) and each
+    return shapes, reached
 
 
 def _overlay(style: dict[str, str], reported: ElementReport) -> dict[str, str]:

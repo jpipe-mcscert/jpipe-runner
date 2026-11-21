@@ -297,7 +297,8 @@ class _Run:
         observed = observe(step.observes, Context(step.directory, self._root), element.id)
         for source, reachable in observed.sources:
             self._listener.source_observed(element, source, reachable)
-        return replace(self._called(binding, observed), reached=observed.sources)
+        result: ElementResult = replace(self._called(binding, observed), reached=observed.sources)
+        return result
 
     def _called(self, binding: Binding, observed: Observed) -> ElementResult:
         """The result of ``binding``'s step, called with what it ``observed``, unless
