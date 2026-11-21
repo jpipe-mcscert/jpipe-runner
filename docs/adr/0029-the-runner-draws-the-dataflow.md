@@ -80,7 +80,9 @@ user and the GitHub Action already pass, and the one view the runner exists to d
   the variable, drawn from the element that fills the placeholder, shows the data. A
   placeholder has no step, so no status; a support drawn from it takes the colour of the
   element that fills it. A justification compiled by an earlier jPipe has no chain, and is
-  drawn flat.
+  drawn flat. So is one whose chain names an element the model does not have: the run
+  does not read the chain, so a chain that names an element the model does not have is set
+  aside, with a warning (`JP026`), rather than refusing an argument that runs (#177).
 - **The report's `dataflow` field is removed, and the report becomes 2.0.** `diagram` is the
   path of the one diagram. Schema 1.1 was never released: 2.0 also carries what 1.1 added.
 - **`impact` and `status` read reports of version 1.x as well as 2.x.** The field 2.0

@@ -462,6 +462,41 @@ def _evidence_without_use(bound: Binding, ctx: ValidationContext) -> bool:
     )
 
 
+class DanglingTemplateChain(Rule):
+    """The template chain the compiler wrote names an element the model does not have.
+
+    jPipe 4.0.0 writes, beside a justification that implements a template, how it draws
+    the templates (`implements`): which elements each template holds, and the `@support`s
+    filled further down. Only the diagram reads it. The run reads the elements and the
+    relations, which already are the whole argument. So a chain that names an element the
+    model does not have, by its own id, is set aside rather than refusing an argument that
+    runs: a diagram of it is drawn flat, as for a justification compiled by an earlier
+    jPipe ([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)). The compiler writes a
+    chain that matches the elements, so the warning says that the JSON file was edited, or
+    written by something else, since it was compiled. As for every warning, a strict run
+    counts it as an error.
+
+    **Fix:** compile the justification again from its jPipe source. If the warning stays,
+    report it to the jPipe compiler. Until then, only the diagram's template clusters are
+    missing.
+    """
+
+    code = "JP026"
+    severity = Severity.WARNING
+    summary = "The template chain names an element that does not exist: it is not drawn."
+
+    def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
+        if unknown := ctx.justification.unknown_in_template_chain:
+            names = ", ".join(map(repr, unknown))
+            which = "which is not an element" if len(unknown) == 1 else "none of which is one"
+            yield self.diagnostic(
+                f"the template chain names {names}, {which}, so a diagram of the argument "
+                f"is drawn without its templates",
+                fix="Compile the justification again from its source; if this stays, "
+                "report it to jPipe.",
+            )
+
+
 RULES = RuleSet(
     [
         UnboundElement(),
@@ -477,6 +512,7 @@ RULES = RuleSet(
         IncompatibleKind(),
         EvidenceObservesNothing(),
         AmbiguousConsumption(),
+        DanglingTemplateChain(),
     ]
 )
 """Every rule, run on every validation."""

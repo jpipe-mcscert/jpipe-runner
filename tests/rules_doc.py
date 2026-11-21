@@ -42,7 +42,7 @@ OTHER_CODES = (
         "RelationEndpointsExist",
         Severity.ERROR,
         _LOADING,
-        "A relation, or the template chain, names an element that does not exist.",
+        "A relation names an element that does not exist.",
     ),
     (
         model.CYCLE,

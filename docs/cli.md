@@ -91,7 +91,8 @@ implements a template is drawn as the compiler draws it: each template a cluster
 `@support` a dotted placeholder linked to the element that fills it, and the template's
 supports drawn from the placeholders, even when a variable links their ends. The
 justification must be compiled by jPipe 4.0.0 or later, which writes the template chain to
-its JSON; an older one draws the argument flat. The suffix of the file is
+its JSON; an older one draws the argument flat, as does one whose chain names an element
+it does not have, with a warning ([`JP026`](rules.md#jp026-danglingtemplatechain)). The suffix of the file is
 its format: `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png` or `svg`. Every format but `dot`
 needs Graphviz's `dot` command. The report records where the diagram was written, and the
 text report says so above the verdict. A status never moves a node: the elements and files
