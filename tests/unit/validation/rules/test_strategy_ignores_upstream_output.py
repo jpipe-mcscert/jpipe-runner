@@ -4,7 +4,7 @@ import pytest
 
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.rules import StrategyIgnoresUpstreamOutput
-from jpipe_runner.steps import Step
+from jpipe_runner.steps import Produced, Step
 from tests.unit.validation.builders import (
     CONCLUSION,
     EVIDENCE,
@@ -69,6 +69,30 @@ E2 = step(EVIDENCE, "m:e2", produces=["b"], name="e2")
             ],
             [("JP013", WARNING, "m:s")],
             id="a bound sub-conclusion's output",
+        ),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e1", produces=["x"], name="e1"),
+                step(EVIDENCE, "m:e2", produces=["x"], name="e2"),
+                step(STRATEGY, "m:s", consumes={"x": Produced("x", by="m:e1")}),
+                step(CONCLUSION, "m:c", consumes={"x": Produced("x", by="m:e2")}),
+            ],
+            [("JP013", WARNING, "m:s")],
+            id="one value of a shared name read only further up",
+        ),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e1", produces=["x"], name="e1"),
+                step(EVIDENCE, "m:e2", produces=["x"], name="e2"),
+                step(
+                    STRATEGY,
+                    "m:s",
+                    consumes={"a": Produced("x", by="m:e1"), "b": Produced("x", by="m:e2")},
+                ),
+                step(CONCLUSION, "m:c", consumes={"x": Produced("x", by="m:e2")}),
+            ],
+            [],
+            id="both values of a shared name consumed",
         ),
     ],
 )

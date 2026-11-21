@@ -129,13 +129,21 @@ def test_by_designating_a_producer_selects_it_even_above_another(
 def test_the_fix_it_suggests_resolves_the_ambiguity() -> None:
     ctx = context(CHAIN, *LINKS, step(CONCLUSION, "m:c", consumes=["x"], name="c"))
     (diagnostic,) = AmbiguousConsumption().check(ctx)
-    assert diagnostic.fix == 'Name the one it means: consumes={"x": Produced("x", by="m:e")}.'
+    assert diagnostic.fix == (
+        'Name the one it means, keeping the other entries of consumes: "x": '
+        'Produced("x", by="m:e").'
+    )
     fixed = step(CONCLUSION, "m:c", consumes={"x": Produced("x", by="m:e")}, name="c")
     assert reported(AmbiguousConsumption(), context(CHAIN, *LINKS, fixed)) == []
 
 
 def test_two_parameters_receiving_one_ambiguous_variable_are_one_problem() -> None:
-    gates = step(STRATEGY, "m:s", consumes={"a": "x", "b": "x"}, name="s")
-    assert reported(AmbiguousConsumption(), context(MODEL, *SOURCES, gates)) == [
-        ("JP025", ERROR, "m:s")
-    ]
+    a_c = step(SUB_CONCLUSION, "m:a:c", produces=["y"], name="a_c")
+    gates = step(STRATEGY, "m:s", consumes={"a": "x", "b": "x", "c": "y"}, name="s")
+    (diagnostic,) = AmbiguousConsumption().check(context(MODEL, *SOURCES, a_c, gates))
+    assert (diagnostic.code, diagnostic.element) == ("JP025", "m:s")
+    # Each parameter that receives the variable gets its entry; "c" is left as it is.
+    assert diagnostic.fix == (
+        "Name the one each parameter means, keeping the other entries of consumes: "
+        '"a": Produced("x", by="m:a:e"), "b": Produced("x", by="m:a:e").'
+    )

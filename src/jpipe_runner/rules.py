@@ -383,16 +383,29 @@ class AmbiguousConsumption(Rule):
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
         for consumed in _distinct(ctx):
             if len(consumed.candidates) > 1:
-                variable, parameter = consumed.input.variable, consumed.input.parameter
+                variable = consumed.input.variable
                 ids = ", ".join(repr(p.element.id) for p in consumed.candidates)
-                example = consumed.candidates[0].element.id
                 yield self.diagnostic(
                     f"{consumed.consumer.step.name} consumes {variable!r}, which "
                     f"{len(consumed.candidates)} of its supporters produce: {ids}",
                     element=consumed.consumer.element.id,
-                    fix=f'Name the one it means: consumes={{"{parameter}": '
-                    f'Produced("{variable}", by="{example}")}}.',
+                    fix=_naming(consumed, ctx),
                 )
+
+
+def _naming(consumed: Consumption, ctx: ValidationContext) -> str:
+    """The fix of a JP025: the entry of ``consumes`` to write for each parameter that
+    receives the ambiguous variable, leaving the step's other entries as they are."""
+    variable, by = consumed.input.variable, consumed.input.by
+    example = consumed.candidates[0].element.id
+    parameters = [
+        c.input.parameter
+        for c in ctx.dataflow.of(consumed.consumer.element.id)
+        if (c.input.variable, c.input.by) == (variable, by)
+    ]
+    entries = ", ".join(f'"{p}": Produced("{variable}", by="{example}")' for p in parameters)
+    which = "the one it means" if len(parameters) == 1 else "the one each parameter means"
+    return f"Name {which}, keeping the other entries of consumes: {entries}."
 
 
 def _decorator(kind: Kind) -> str:

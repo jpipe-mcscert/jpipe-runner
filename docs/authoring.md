@@ -424,7 +424,7 @@ The runner does not guess which one it means, nor picks the nearer:
 
 ```
 JP025 error [readiness:assembleStrategy]: readiness_steps.both_coverages_clear_the_release_bar consumes 'coverage', which 2 of its supporters produce: 'readiness:tested:coverage', 'readiness:documented:coverage'
-  fix: Name the one it means: consumes={"coverage": Produced("coverage", by="readiness:tested:coverage")}.
+  fix: Name the one it means, keeping the other entries of consumes: "coverage": Produced("coverage", by="readiness:tested:coverage").
 ```
 
 Name the part of the argument each value comes from. `consumes` then maps each parameter

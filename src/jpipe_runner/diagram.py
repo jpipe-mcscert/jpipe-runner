@@ -276,14 +276,17 @@ class _Dataflow:
                 self._consumers.setdefault(node, set()).add(element.id)
                 if received.produced_by is None:
                     self._unresolved.add(node)
+        self._links = {
+            (self._produced_by[node], consumer)
+            for node, consumers in self._consumers.items()
+            if node in self._produced_by
+            for consumer in consumers
+        }
 
     def links(self, source: str, target: str) -> bool:
         """Whether a value links ``source`` to ``target``: ``source`` produces it and
         ``target`` consumes it."""
-        return any(
-            self._produced_by.get(node) == source and target in consumers
-            for node, consumers in self._consumers.items()
-        )
+        return (source, target) in self._links
 
     def nodes(self) -> Iterator[str]:
         for path in _unique(p for e in self._elements for p in e.sources):

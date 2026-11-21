@@ -245,7 +245,7 @@
       "severity": "error",
       "element": "readiness:assembleStrategy",
       "message": "readiness_steps.both_coverages_clear_the_release_bar consumes 'coverage', which 2 of its supporters produce: 'readiness:tested:coverage', 'readiness:documented:coverage'",
-      "fix": "Name the one it means: consumes={\"coverage\": Produced(\"coverage\", by=\"readiness:tested:coverage\")}.",
+      "fix": "Name the one it means, keeping the other entries of consumes: \"coverage\": Produced(\"coverage\", by=\"readiness:tested:coverage\").",
       "traceback": null
     }
   ],
