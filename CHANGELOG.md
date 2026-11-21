@@ -47,15 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   decided after the elements that support it, so that a consumer still works when steps
   run concurrently (#174). A file that cannot be opened stops the command before anything
   runs, and one that cannot be written to during the run makes it exit 4 after its report.
-- **With `--events`, `--diagram` is drawn before the first step**, as a dry run would draw
-  it, and the `diagram.drawn` event says so, so that a program can colour the drawing as
-  the run goes without running a dry run first (#185,
-  [ADR-0032](docs/adr/0032-a-run-previews-its-diagram.md)). The drawing is replaced by the
-  final one, with the run's statuses, when the run ends; a status never moves a node, so
-  the two line up. A diagram is written whole, under another name then renamed, so a
-  reader never sees half of one. Without `--events`, and in a dry run, the diagram is
-  drawn once, at the end, as before, and so it is when an evidence observes the diagram's
-  path, which the preview could otherwise change.
+- **With `--events`, the diagram is drawn before the first step**, as a dry run would draw
+  it, in a temporary SVG file, and the `diagram.drawn` event gives its path, so that a
+  program can colour the drawing as the run goes without running a dry run first (#185,
+  [ADR-0032](docs/adr/0032-a-run-previews-its-diagram.md)). The runner deletes it once the
+  run has ended. `--diagram` is not needed for it, and its file holds only the run's own
+  diagram, drawn at the end as before; a status never moves a node, so the two line up.
+  The drawing needs Graphviz's `dot`; without it, a warning says it is not drawn, and the
+  run goes on. A diagram is now written whole, under another name then renamed, so a
+  reader never sees half of one.
 - **The diagram draws the templates a justification implements**, as the jPipe compiler
   does: each template a `<<template>>` cluster, each `@support` a dotted placeholder
   linked to the element that fills it, and the template's supports drawn from the

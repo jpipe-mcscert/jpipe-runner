@@ -41,16 +41,20 @@ While it ran, `run.jsonl` received one line per event:
 ```jsonl
 {"event": "run.started", "seq": 0, "elapsed_ms": 1, "schema_version": "1.0", "report_schema_version": "2.0", "justification": "release", "elements": ["release:e1", "release:e2", "release:s", "release:c"], "strict": false, "dry_run": false}
 {"event": "validation.ended", "seq": 1, "elapsed_ms": 1, "passed": true, "diagnostics": []}
-{"event": "element.started", "seq": 2, "elapsed_ms": 1, "id": "release:e1"}
-{"event": "element.decided", "seq": 3, "elapsed_ms": 1, "element": {"id": "release:e1", "label": "The test suite passes", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "fail", "reason": "mock/junit.xml: 2 tests failed", "blocked_by": [], "ran": true, "bound_to": "steps.the_test_suite_passes", "bound_by": ["release:e1"], "observes": ["mock/junit.xml"], "sources": ["mock/junit.xml"], "consumes": [], "inputs": {}, "produces": ["tests_pass"], "produced": {}, "artifacts": [{"path": "mock/junit.xml", "declared": "mock/junit.xml", "reachable": true, "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b", "size": 187}], "observations": []}, "diagnostics": []}
-{"event": "element.started", "seq": 4, "elapsed_ms": 1, "id": "release:e2"}
-{"event": "element.decided", "seq": 5, "elapsed_ms": 1, "element": {"id": "release:e2", "label": "The changelog is up to date", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "pass", "reason": null, "blocked_by": [], "ran": true, "bound_to": "steps.the_changelog_is_up_to_date", "bound_by": ["release:e2"], "observes": ["mock/CHANGELOG.md"], "sources": ["mock/CHANGELOG.md"], "consumes": [], "inputs": {}, "produces": ["changelog_ok"], "produced": {"changelog_ok": {"value": true}}, "artifacts": [{"path": "mock/CHANGELOG.md", "declared": "mock/CHANGELOG.md", "reachable": true, "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402", "size": 4}], "observations": []}, "diagnostics": []}
-{"event": "element.decided", "seq": 6, "elapsed_ms": 2, "element": {"id": "release:s", "label": "All release gates pass", "kind": "strategy", "aliases": [], "supports": ["release:c"], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": "steps.all_release_gates_pass", "bound_by": ["release:s"], "observes": [], "sources": [], "consumes": ["tests_pass", "changelog_ok"], "inputs": {"tests_pass": {"variable": "tests_pass", "produced_by": "release:e1"}, "changelog_ok": {"variable": "changelog_ok", "produced_by": "release:e2"}}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
-{"event": "element.decided", "seq": 7, "elapsed_ms": 2, "element": {"id": "release:c", "label": "Version 2.0 is ready to ship", "kind": "conclusion", "aliases": [], "supports": [], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": null, "bound_by": [], "observes": [], "sources": [], "consumes": [], "inputs": {}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
-{"event": "run.ended", "seq": 8, "elapsed_ms": 2, "verdict": "fail", "exit_code": 1, "summary": {"elements": 4, "pass": 1, "fail": 1, "skip": 2, "not_run": 0, "errors": 0, "warnings": 0}, "report": "report.json", "diagram": null}
+{"event": "diagram.drawn", "seq": 2, "elapsed_ms": 49, "path": "/tmp/jpipe-runner-q8l2v0xd/diagram.svg"}
+{"event": "element.started", "seq": 3, "elapsed_ms": 49, "id": "release:e1"}
+{"event": "element.decided", "seq": 4, "elapsed_ms": 49, "element": {"id": "release:e1", "label": "The test suite passes", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "fail", "reason": "mock/junit.xml: 2 tests failed", "blocked_by": [], "ran": true, "bound_to": "steps.the_test_suite_passes", "bound_by": ["release:e1"], "observes": ["mock/junit.xml"], "sources": ["mock/junit.xml"], "consumes": [], "inputs": {}, "produces": ["tests_pass"], "produced": {}, "artifacts": [{"path": "mock/junit.xml", "declared": "mock/junit.xml", "reachable": true, "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b", "size": 187}], "observations": []}, "diagnostics": []}
+{"event": "element.started", "seq": 5, "elapsed_ms": 49, "id": "release:e2"}
+{"event": "element.decided", "seq": 6, "elapsed_ms": 50, "element": {"id": "release:e2", "label": "The changelog is up to date", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "pass", "reason": null, "blocked_by": [], "ran": true, "bound_to": "steps.the_changelog_is_up_to_date", "bound_by": ["release:e2"], "observes": ["mock/CHANGELOG.md"], "sources": ["mock/CHANGELOG.md"], "consumes": [], "inputs": {}, "produces": ["changelog_ok"], "produced": {"changelog_ok": {"value": true}}, "artifacts": [{"path": "mock/CHANGELOG.md", "declared": "mock/CHANGELOG.md", "reachable": true, "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402", "size": 4}], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 7, "elapsed_ms": 50, "element": {"id": "release:s", "label": "All release gates pass", "kind": "strategy", "aliases": [], "supports": ["release:c"], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": "steps.all_release_gates_pass", "bound_by": ["release:s"], "observes": [], "sources": [], "consumes": ["tests_pass", "changelog_ok"], "inputs": {"tests_pass": {"variable": "tests_pass", "produced_by": "release:e1"}, "changelog_ok": {"variable": "changelog_ok", "produced_by": "release:e2"}}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 8, "elapsed_ms": 50, "element": {"id": "release:c", "label": "Version 2.0 is ready to ship", "kind": "conclusion", "aliases": [], "supports": [], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": null, "bound_by": [], "observes": [], "sources": [], "consumes": [], "inputs": {}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
+{"event": "run.ended", "seq": 9, "elapsed_ms": 50, "verdict": "fail", "exit_code": 1, "summary": {"elements": 4, "pass": 1, "fail": 1, "skip": 2, "not_run": 0, "errors": 0, "warnings": 0}, "report": "report.json", "diagram": null}
 ```
 
-`release:e1` and `release:e2` each start, then are decided. `release:s` and `release:c`
+Once validation has ended, the runner draws the diagram, which takes most of this short
+run's time, and `diagram.drawn` says where: in a directory of the system's temporary
+directory, whose name changes from one run to the next. `release:e1` and `release:e2`
+each start, then are decided. `release:s` and `release:c`
 are decided without starting: their step is not called, since `release:e1`, which they
 depend on, failed. The last line gives the verdict, the exit code, and the report to read
 for the rest.
@@ -144,23 +148,26 @@ and has no `validation.ended`.
 ### `diagram.drawn`
 
 The run's diagram was drawn before its first step, as a dry run of the same command would
-draw it: the dataflow, every element without a status
+draw it: the dataflow, every element without a status, in SVG
 ([ADR-0032](adr/0032-a-run-previews-its-diagram.md)). A program that follows the run
-colours it as elements are decided, then shows the drawing `run.ended` names, at the same
-path, once the run is over: a status never moves a node, so the two line up.
+colours it as elements are decided. A status never moves a node, so the drawing lines up
+with the diagram `--diagram` asks for, which `run.ended` names when the run is over.
 
-It is written once, when `--diagram` is given, validation passed, and the run calls its
-steps, unless an evidence observes the diagram's path, by a path or a glob: drawn while the
-steps run, it could change what that evidence receives, so it is not drawn, and a warning
-says why. A dry run draws its diagram once, at the end, without this event, and so does a run
-without `--events`. A drawing that cannot be written is logged on stderr, and changes
-nothing else: the event is not written, the run goes on, and the diagram is drawn again
-when it ends. The file is written whole each time, under another name then renamed, so a
-program that reads it never sees half a drawing.
+The drawing is a file of its own, in a directory the runner makes in the system's
+temporary directory, never the `--diagram` file, which holds only the run's own diagram.
+**The runner deletes it once the run has ended**, after `run.ended` is written, whatever
+ended the run: read it as soon as the event arrives. A run that ends quickly may delete it
+before a program gets to it; the drawing then has no use, and the program shows the
+`--diagram` file named by `run.ended`, if there is one.
+
+It is written once, when validation passed and the run calls its steps, whether
+`--diagram` is given or not. A dry run writes no such event. A drawing that cannot be made,
+because Graphviz's `dot` is not installed or for any other reason, is logged on stderr, and
+changes nothing else: the event is not written, and the run goes on.
 
 | Field | Type | |
 |---|---|---|
-| `path` | string | the path of the drawing, relative to the directory the runner ran in, as `run.ended` will give it |
+| `path` | string | the absolute path of the drawing, an SVG file, deleted once the run has ended |
 
 ### `element.started`
 

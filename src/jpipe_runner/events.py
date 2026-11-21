@@ -7,7 +7,8 @@ as it goes, such as the IDE. ``events.schema.json``, shipped in the package, des
 - ``run.started``, once the model is read or refused: every element's id;
 - ``validation.ended``, with what validation reported;
 - ``diagram.drawn``, when the run's diagram was drawn before the first step, as a dry run
-  would draw it, for a program that colours it as the run goes (ADR-0032);
+  would draw it, in a temporary file, for a program that colours it as the run goes
+  (ADR-0032);
 - ``element.started``, when an element's step is about to be called;
 - ``element.decided``, when an element is decided, as the report will write it;
 - ``run.ended``, last, with the verdict, the exit code and where the report is.

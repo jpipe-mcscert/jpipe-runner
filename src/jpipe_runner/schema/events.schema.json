@@ -71,7 +71,7 @@
       }
     },
     "diagram.drawn": {
-      "description": "The run's diagram was drawn before its first step, as a dry run would draw it: every element without a status (ADR-0032). Written once, after validation.ended and before the first element.started, when --diagram is given, validation passed, the run calls its steps, and the drawing could be written. The file is replaced, whole, when the run ends, by the diagram with the run's statuses, which run.ended names.",
+      "description": "The run's diagram was drawn before its first step, as a dry run would draw it, in SVG: every element without a status (ADR-0032). Written once, after validation.ended and before the first element.started, when validation passed, the run calls its steps, and the drawing could be made. The drawing is a file of its own, in the system's temporary directory, never the --diagram file, and the runner deletes it once the run has ended.",
       "type": "object",
       "required": ["event", "seq", "elapsed_ms", "path"],
       "additionalProperties": false,
@@ -80,7 +80,7 @@
         "seq": {"$ref": "#/$defs/seq"},
         "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
         "path": {
-          "description": "The path of the drawing, relative to the directory the runner ran in when it is under it.",
+          "description": "The absolute path of the drawing, an SVG file, deleted once the run has ended.",
           "type": "string",
           "minLength": 1
         }

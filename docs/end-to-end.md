@@ -445,11 +445,12 @@ The report arrives when the run ends. A program that shows the run while it runs
 IDE's Run panel does, adds `--events run.jsonl`: the runner then writes a line to
 `run.jsonl` as each thing happens, validation ended, `release:e1` started, `release:e1`
 decided with its status, and so on until the run ended. Each element in it is the one the
-JSON report will hold. With `--diagram release.svg` as well, the runner draws the diagram
-once validation has ended, before `release:e1` starts, as a dry run would draw it, without
-statuses, and says so (`diagram.drawn`): the panel colours that drawing as each element is
-decided, and the run replaces it with the diagram above when it ends. A status never moves
-a node, so the two line up ([ADR-0032](adr/0032-a-run-previews-its-diagram.md)).
+JSON report will hold. Once validation has ended, before `release:e1` starts, the runner
+also draws the diagram as a dry run would, without statuses, in a temporary SVG file, and
+says so (`diagram.drawn`): the panel colours that drawing as each element is decided. A
+status never moves a node, so it lines up with `release.svg`, the run's own diagram, which
+the panel shows once the run has ended, when the runner deletes the temporary drawing
+([ADR-0032](adr/0032-a-run-previews-its-diagram.md)).
 [`events.md`](events.md) quotes the events of this very run.
 
 ## When something is wrong

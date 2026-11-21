@@ -661,10 +661,11 @@ and runs the engine inside `imported`, with the working directory as the root. E
 this ends gives a `RunReport`: `refused`, `not_imported` or `of`. It draws the diagram if
 asked for, recording where on the report (`with_diagram`), writes the
 JSON report to a file if asked, and prints the report on stdout: the text one, or the JSON
-one. With `--events` and `--diagram`, the `EventStream` is given a preview, which draws
-the diagram from the `RunResult` the engine passes its listener once validation passes and
-before the first step (`steps_starting`), as a dry run would draw it, and the stream
-announces it (`diagram.drawn`); a preview that fails is logged, and changes nothing else.
+one. With `--events`, the `EventStream` is given a preview, which draws the diagram, in
+SVG, in a temporary directory, from the `RunResult` the engine passes its listener once
+validation passes and before the first step (`steps_starting`), as a dry run would draw
+it, and the stream announces it (`diagram.drawn`); the command line deletes it once the run
+has ended, however it ended. A preview that fails is logged, and changes nothing else.
 Everything else goes to stderr, through the `jpipe_runner` logger, which `main`
 configures for its duration only. A file that cannot be read or written is an `OSError`,
 logged, and the exit code `IO`; the exit code of a run is otherwise `exit_code(verdict)`.

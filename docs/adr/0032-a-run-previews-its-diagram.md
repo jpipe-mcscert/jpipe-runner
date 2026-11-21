@@ -45,7 +45,9 @@ can that drawing line up with the one the run ends with?
   run ends with, put every node in the same place, whatever the statuses.
 - **Nothing changes for whoever does not follow the run**: without `--events`, and in a
   dry run, the command writes what it wrote before.
-- **The runner writes no file that nobody named.**
+- **`--diagram` holds the run's diagram**, and nothing else: no drawing without statuses
+  can pass for it, and no step can observe one there.
+- **The runner leaves behind no file that nobody named.**
 
 ## Considered Options
 
@@ -54,6 +56,7 @@ For where the drawing goes:
 1. At the `--diagram` path, replaced when the run ends.
 2. Beside it, under a name derived from it.
 3. In an event, as SVG text.
+4. In a temporary file, in SVG, which the runner deletes once the run has ended.
 
 For how the events announce it:
 
@@ -67,34 +70,43 @@ For the layout:
 
 ## Decision Outcome
 
-Chosen options: **at the `--diagram` path, announced by `diagram.drawn`, in a layout that
-reserves the symbol's cell**, because they are the only ones under which one run gives one
-file that a program can colour as the run goes and that lines up with the final drawing,
-without the runner writing a file nobody named.
+Chosen options: **in a temporary file the runner deletes once the run has ended,
+announced by `diagram.drawn`, in a layout that reserves the symbol's cell**, because they
+are the only ones under which one run gives a program a drawing to colour as the run goes,
+that lines up with the run's diagram, while `--diagram` holds only that diagram and the
+runner leaves nothing behind.
 
-**When.** A run given both `--events` and `--diagram`, whose validation passes and which
-calls its steps, draws its diagram once validation has ended and before the first element
-starts, as a dry run of the same command would draw it: every element without a status.
-A dry run draws its diagram once, at the end, as before: that diagram is already the
-dataflow without statuses. Without `--events`, nothing changes, since nobody could learn
-that the drawing was made.
+A first version of this record drew the preview at the `--diagram` path, replaced when the
+run ended. Its review showed what that costs: a drawing without statuses at the path of
+the run's diagram, which a step could observe while it ran, and which had to be withdrawn
+when the final drawing failed, so as not to pass for it. A temporary file has neither
+problem, and was chosen before the record shipped.
 
-**Where.** At the `--diagram` path. The diagram the run ends with replaces it there, and
-`run.ended` names it as before. Every drawing is written to a temporary file beside the
-path, then renamed to it, so that a program reading the path sees the previous drawing or
-the new one, never half of one, and a drawing that fails leaves the previous one.
+**When.** A run given `--events`, whose validation passes and which calls its steps, draws
+its diagram once validation has ended and before the first element starts, as a dry run of
+the same command would draw it: every element without a status. `--diagram` is not needed:
+the program that follows the run gets its drawing without a diagram written in the user's
+directory. A dry run writes no preview: its `--diagram` is already the dataflow without
+statuses. Without `--events`, nothing changes, since nobody could learn that the drawing
+was made.
 
-**The event.** `diagram.drawn`, with the drawing's `path`, written after `validation.ended`
-and before any element's event. It is part of events 1.0, which first ships with 4.1.0, so
-no program has to handle a 1.0 stream without it.
+**Where.** In SVG, which the IDE renders, as `diagram.svg` in a directory of its own that
+the runner makes in the system's temporary directory, outside the project, where no step
+observes it. The runner deletes it once the run has ended, after `run.ended` is written,
+however the run ended. A program reads it when `diagram.drawn` arrives. A run that ends
+quickly may delete it before a program gets to it: the drawing then has no use, and the
+program shows the `--diagram` file `run.ended` names, if there is one. `--diagram` is drawn
+once, at the end, as before. Every drawing is written to a temporary file beside its path,
+then renamed to it, so that a program reading the path sees the previous drawing or the
+new one, never half of one, and a drawing that fails leaves the previous one.
 
-**A preview.** A drawing that cannot be written before the first step is logged as a
-warning, and nothing else: no `diagram.drawn`, the run goes on, and the diagram is drawn
-again when the run ends, where a failure is an error, as before (exit code 4). If that
-final drawing fails, the preview is removed, so that it cannot pass for the run's
-diagram. A preview is not drawn when an evidence observes the diagram's path, by a path or
-a glob: it stays at that path while the steps run, and could change what that evidence
-receives, so the run's verdict.
+**The event.** `diagram.drawn`, with the drawing's absolute `path`, written after
+`validation.ended` and before any element's event. It is part of events 1.0, which first
+ships with 4.1.0, so no program has to handle a 1.0 stream without it.
+
+**A preview.** A drawing that cannot be made before the first step, because Graphviz's
+`dot` is not installed or for any other reason, is logged as a warning, and nothing else:
+no `diagram.drawn`, and the run goes on.
 
 **The layout.** Drawn with a report, every node's label is an HTML-like label, wrapped as
 the compiler wraps it, beside a cell of fixed size for its symbol (`fixedsize="true"`),
@@ -109,27 +121,29 @@ alone, in the compiler's notation, as before.
 **In the code**, the engine tells its `RunListener` that the steps are about to run, with
 the `RunResult` a dry run would have returned (`steps_starting`), once, before the first
 element starts, and never in a dry run. `EventStream` takes a `preview` from the command
-line, which draws the diagram from that result, and writes `diagram.drawn` if it drew it.
-This amends ADR-0030's listener, which was told of validation, of an element started and
+line, which draws the diagram from that result, and writes `diagram.drawn` if it drew it;
+the command line deletes the drawing once the run has ended. This amends ADR-0030's listener, which was told of validation, of an element started and
 of an element decided.
 
 ### Consequences
 
 - Good, because the Run panel colours the drawing of the run it follows, from one command:
   the libraries are imported once, and the drawing cannot disagree with the run.
+- Good, because `--diagram` holds only the run's diagram, written once, at the end, as in
+  4.0.0: no step observes a preview there, and none can pass for the run's diagram.
 - Good, because the preview and the final drawing put every node in the same place, as do
   the diagrams of a dry run and of any execution, and of two executions in which different
   elements fail: they can be compared by eye.
 - Good, because a program that reads the diagram while the run writes it never sees half
   a drawing.
 - Good, because a command without `--events`, and a dry run, write what they wrote before.
-- Bad, because a run that previews calls `dot` twice: on the release example, a whole dry
-  run, drawing included, takes 0.2 s.
+- Bad, because a run with `--events` calls `dot` once more, before its first step: on the
+  release example, about 50 ms, most of a run that short.
+- Bad, because a program must read the drawing while the run goes on: a run that ends
+  before it does leaves it nothing to colour, only the `--diagram` file.
 - Bad, because every node drawn with a report is a little wider, by the symbol's cell,
   and its label is HTML-like, even when it has no status: the diagram no longer reuses the
   compiler's label for an element without a status.
-- Bad, because the file at `--diagram` changes while the run goes on: a program that
-  copies it must copy it after `run.ended`.
 - Neutral, because the golden files change once: the diagram on the end-to-end page.
 
 ### Confirmation
@@ -138,11 +152,14 @@ of an element decided.
   evidence's outcomes, and with an unreachable file, and checks with `dot -Tplain` that
   every node is where the dry run puts it, and that a drawing that fails leaves the
   previous one and no temporary file.
-- `tests/unit/test_events.py` runs every scenario with `--events` and `--diagram`, and
-  checks that `diagram.drawn` is written exactly when the steps run, after
-  `validation.ended` and before any element's event; that the preview is the dry run's
-  diagram and is replaced by the final one; that a dry run, and a run without `--events`,
-  draw once; and that a preview that fails is logged and changes nothing else.
+- `tests/unit/test_events.py` runs every scenario with `--events`, and checks that
+  `diagram.drawn` is written exactly when the steps run, after `validation.ended` and
+  before any element's event, and that the drawing is gone once the run has ended. It
+  checks that the preview is the dry run's diagram, in the temporary directory; that the
+  `--diagram` file holds only the run's diagram; that a dry run, and a run without
+  `--events`, draw no preview; that a preview that cannot be drawn, Graphviz missing
+  included, is logged and changes nothing else; and that the preview is deleted however
+  the run ends.
 - `tests/unit/test_engine.py` checks that the listener is told of the steps starting,
   once, with a result that reports as a dry run of the same library does.
 - `tests/unit/test_events_doc.py` checks that [`events.md`](../events.md) documents the
@@ -155,7 +172,11 @@ of an element decided.
 #### 1. At the `--diagram` path
 
 - Good, because there is one file, which the user named, and nothing to clean up.
-- Bad, because the file changes during the run, so it must be written whole each time.
+- Bad, because a drawing without statuses sits at the path of the run's diagram while the
+  steps run: a step that observes that path receives it, and a final drawing that fails
+  leaves it to pass for the run's diagram, unless it is withdrawn.
+- Bad, because it needs `--diagram`: the program that follows the run writes a diagram in
+  the user's directory to get its drawing.
 
 #### 2. Beside it
 
@@ -167,6 +188,14 @@ of an element decided.
 
 - Good, because no file is written.
 - Bad, because an event line runs to tens of kilobytes, and only SVG fits in it.
+
+#### 4. In a temporary file, deleted once the run has ended
+
+- Good, because `--diagram` keeps its meaning, the run's diagram, and the drawing is
+  outside the project, where no step observes it.
+- Good, because it needs no `--diagram`, and leaves nothing behind.
+- Bad, because the drawing is gone once the run has ended: a program that reads it too
+  late has only the `--diagram` file.
 
 ### How the events announce it
 

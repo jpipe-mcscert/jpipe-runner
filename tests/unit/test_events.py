@@ -12,6 +12,7 @@ import logging
 import os
 import shutil
 import sys
+import tempfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TextIO
@@ -19,7 +20,7 @@ from typing import Any, TextIO
 import pytest
 from jsonschema import Draft202012Validator
 
-from jpipe_runner import cli, engine, events, json_report
+from jpipe_runner import cli, diagram, engine, events, json_report
 from jpipe_runner.cli import ExitCode, main
 from jpipe_runner.engine import ElementResult, RunResult, Status
 from jpipe_runner.events import EventStream
@@ -37,6 +38,9 @@ from tests.streams import of, read
 from tests.unit.validation.builders import CONCLUSION, element, model
 
 EVENTS = "out/run.jsonl"
+needs_dot = pytest.mark.skipif(
+    shutil.which("dot") is None, reason="Graphviz's dot is not installed"
+)
 RELEASE = ["-l", "steps.py", "justification.json"]
 
 
@@ -78,8 +82,7 @@ def test_the_events_of_every_scenario_preview_its_report(
 ) -> None:
     directory = workdir(scenario.name)
 
-    drawing = ["--diagram", "out/diagram.dot"]
-    code = main(["--events", EVENTS, "--report", "report.json", *drawing, *_arguments(scenario)])
+    code = main(["--events", EVENTS, "--report", "report.json", *_arguments(scenario)])
 
     capsys.readouterr()
     found = read(directory / EVENTS)
@@ -104,12 +107,14 @@ def test_the_events_of_every_scenario_preview_its_report(
     if not refused:
         streamed = [d for event in [*validated, *decided] for d in event["diagnostics"]]
         assert _canonical(streamed) == _canonical(report["diagnostics"])
-    # The diagram is drawn before the first step exactly when the steps run.
+    # The diagram is drawn before the first step exactly when the steps run, and Graphviz
+    # can draw it; it is gone once the run has ended.
     previewed = of(found, "diagram.drawn")
-    assert [event["path"] for event in previewed] == (["out/diagram.dot"] if ran else [])
-    first = min((e["seq"] for e in found if e["event"].startswith("element.")), default=None)
-    if previewed and first is not None:
-        assert validated[0]["seq"] < previewed[0]["seq"] < first
+    assert len(previewed) == (1 if ran and shutil.which("dot") else 0)
+    for event in previewed:
+        assert not Path(event["path"]).exists()
+        first = min(e["seq"] for e in found if e["event"].startswith("element."))
+        assert validated[0]["seq"] < event["seq"] < first
 
 
 @pytest.mark.parametrize("scenario", discover(), ids=lambda scenario: scenario.name)
@@ -174,35 +179,50 @@ def test_a_refused_model_streams_its_start_and_its_end(
     assert (ended["verdict"], ended["exit_code"]) == ("invalid", ExitCode.INVALID)
 
 
-def _drawings(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Each diagram the command line draws, as it was written, in order."""
-    drawn: list[str] = []
+@pytest.fixture
+def temporary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The directory the command line's temporary directories are made in, for a test to
+    see what is left in it."""
+    directory = tmp_path / "tmp"
+    directory.mkdir()
+    made = tempfile.mkdtemp
+    monkeypatch.setattr(
+        cli.tempfile, "mkdtemp", lambda **options: made(**{**options, "dir": directory})
+    )
+    return directory
+
+
+def _drawings(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Path, str]]:
+    """Each diagram the command line draws, in order: where, and its DOT text."""
+    drawn: list[tuple[Path, str]] = []
     write = cli.diagram.write
 
-    def recorded(path: Path, *arguments: Any, **options: Any) -> Path:
-        written = write(path, *arguments, **options)
-        drawn.append(written.read_text(encoding="utf-8"))
+    def recorded(path: Path, model: Justification, report: Any = None, **options: Any) -> Path:
+        written = write(path, model, report, **options)
+        assert path.exists()
+        drawn.append((path, diagram.source(model, report)))
         return written
 
     monkeypatch.setattr(cli.diagram, "write", recorded)
     return drawn
 
 
-def test_the_diagram_is_drawn_before_the_first_step_as_a_dry_run_draws_it(
+@needs_dot
+def test_with_events_the_diagram_is_drawn_before_the_first_step_and_then_deleted(
     workdir: Callable[[str], Path],
+    temporary: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     directory = workdir("release_example")
     drawn = _drawings(monkeypatch)
 
-    main(["--dry-run", "--diagram", "release.dot", *RELEASE])
-    main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+    main(["--dry-run", "--diagram", "dry.dot", *RELEASE])
+    main(["--events", EVENTS, *RELEASE])
 
-    dry, preview, final = drawn
-    assert preview == dry
-    assert final != preview
-    assert (directory / "release.dot").read_text(encoding="utf-8") == final
+    (_, dry), (preview, previewed) = drawn
+    assert previewed == dry
+    assert (preview.name, preview.parent.parent) == ("diagram.svg", temporary)
     found = read(directory / EVENTS)
     assert [e["event"] for e in found][:4] == [
         "run.started",
@@ -210,11 +230,32 @@ def test_the_diagram_is_drawn_before_the_first_step_as_a_dry_run_draws_it(
         "diagram.drawn",
         "element.started",
     ]
-    assert of(found, "diagram.drawn")[0]["path"] == "release.dot"
-    assert not list(directory.glob(".release.dot.*"))
+    assert of(found, "diagram.drawn")[0]["path"] == str(preview)
+    assert found[-1]["diagram"] is None
+    assert list(temporary.iterdir()) == []
+    assert not list(directory.glob("*.svg"))
 
 
-def test_a_dry_run_draws_its_diagram_once_and_announces_no_preview(
+@needs_dot
+def test_the_diagram_file_holds_only_the_run_s_own_diagram(
+    workdir: Callable[[str], Path],
+    temporary: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    drawn = _drawings(monkeypatch)
+
+    main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+
+    (preview, _), (final, text) = drawn
+    assert preview.parent.parent == temporary
+    assert final == Path("release.dot")
+    assert (directory / "release.dot").read_text(encoding="utf-8") == text
+    assert read(directory / EVENTS)[-1]["diagram"] == "release.dot"
+
+
+def test_a_dry_run_announces_no_preview(
     workdir: Callable[[str], Path],
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -224,11 +265,11 @@ def test_a_dry_run_draws_its_diagram_once_and_announces_no_preview(
 
     main(["--dry-run", "--events", EVENTS, "--diagram", "release.dot", *RELEASE])
 
-    assert len(drawn) == 1
+    assert [path for path, _ in drawn] == [Path("release.dot")]
     assert of(read(directory / EVENTS), "diagram.drawn") == []
 
 
-def test_without_events_the_diagram_is_drawn_once_at_the_end(
+def test_without_events_no_preview_is_drawn(
     workdir: Callable[[str], Path],
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
@@ -238,148 +279,80 @@ def test_without_events_the_diagram_is_drawn_once_at_the_end(
 
     main(["--diagram", "release.dot", *RELEASE])
 
-    assert len(drawn) == 1
+    assert [path for path, _ in drawn] == [Path("release.dot")]
 
 
-def test_a_preview_that_cannot_be_drawn_is_logged_and_changes_nothing_else(
+def test_without_graphviz_no_preview_is_drawn_and_the_run_goes_on(
     workdir: Callable[[str], Path],
+    temporary: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     directory = workdir("release_example")
-    write = cli.diagram.write
-    calls: list[Path] = []
+    monkeypatch.setattr(shutil, "which", lambda name: None)
 
-    def first_fails(path: Path, *arguments: Any, **options: Any) -> Path:
-        calls.append(path)
-        if len(calls) == 1:
-            raise OSError("dot failed to draw release.svg: out of memory")
-        return write(path, *arguments, **options)
-
-    monkeypatch.setattr(cli.diagram, "write", first_fails)
-
-    code = main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
-
-    found = read(directory / EVENTS)
-    assert code == ExitCode.OK
-    assert of(found, "diagram.drawn") == []
-    assert found[-1]["diagram"] == "release.dot"
-    assert "warning: cannot draw the diagram before the steps run" in capsys.readouterr().err
-
-
-def test_a_preview_that_raises_anything_is_logged_and_the_run_goes_on(
-    workdir: Callable[[str], Path],
-    capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    directory = workdir("release_example")
-    write = cli.diagram.write
-    calls: list[Path] = []
-
-    def first_raises(path: Path, *arguments: Any, **options: Any) -> Path:
-        calls.append(path)
-        if len(calls) == 1:
-            raise UnicodeEncodeError("ascii", "✔", 0, 1, "ordinal not in range(128)")
-        return write(path, *arguments, **options)
-
-    monkeypatch.setattr(cli.diagram, "write", first_raises)
-
-    code = main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+    code = main(["--events", EVENTS, *RELEASE])
 
     assert code == ExitCode.OK
     assert of(read(directory / EVENTS), "diagram.drawn") == []
-    assert "cannot draw the diagram before the steps run: UnicodeEncodeError" in (
+    assert "not drawn before the steps run: Graphviz's dot is not installed" in (
         capsys.readouterr().err
     )
+    assert list(temporary.iterdir()) == []
 
 
-def test_a_final_diagram_that_cannot_be_drawn_withdraws_the_preview(
+@needs_dot
+@pytest.mark.parametrize(
+    "raised",
+    [
+        pytest.param(OSError("dot failed to draw diagram.svg: out of memory"), id="OSError"),
+        pytest.param(
+            UnicodeEncodeError("ascii", "✔", 0, 1, "ordinal not in range(128)"),
+            id="anything else",
+        ),
+    ],
+)
+def test_a_preview_that_cannot_be_drawn_is_logged_and_changes_nothing_else(
     workdir: Callable[[str], Path],
+    temporary: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    raised: Exception,
+) -> None:
+    directory = workdir("release_example")
+
+    def failing(*arguments: Any, **options: Any) -> Path:
+        raise raised
+
+    monkeypatch.setattr(cli.diagram, "write", failing)
+
+    code = main(["--events", EVENTS, *RELEASE])
+
+    assert code == ExitCode.OK
+    assert of(read(directory / EVENTS), "diagram.drawn") == []
+    assert "warning: cannot draw the diagram before the steps run: " in capsys.readouterr().err
+    assert list(temporary.iterdir()) == []
+
+
+@needs_dot
+def test_the_preview_is_deleted_however_the_run_ends(
+    workdir: Callable[[str], Path],
+    temporary: Path,
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     directory = workdir("release_example")
-    write = cli.diagram.write
-    calls: list[Path] = []
 
-    def second_fails(path: Path, *arguments: Any, **options: Any) -> Path:
-        calls.append(path)
-        if len(calls) == 2:
-            raise OSError("dot failed to draw release.dot: killed")
-        return write(path, *arguments, **options)
+    def unprintable(*arguments: Any) -> None:
+        raise OSError(28, "No space left on device")
 
-    monkeypatch.setattr(cli.diagram, "write", second_fails)
+    monkeypatch.setattr(cli, "_print", unprintable)
 
-    code = main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+    code = main(["--events", EVENTS, *RELEASE])
 
-    found = read(directory / EVENTS)
     assert code == ExitCode.IO
-    assert len(of(found, "diagram.drawn")) == 1
-    assert found[-1]["diagram"] is None
-    assert not (directory / "release.dot").exists()
-
-
-_WATCHING = """
-from jpipe_runner import Pass, evidence, strategy
-
-
-@evidence("release:e1", observes={"drawn": "out/*.dot"}, produces=["tests_pass"])
-def drawings(drawn):
-    return Pass(tests_pass=len(drawn))
-
-
-@evidence("release:e2", observes={"log": "mock/CHANGELOG.md"}, produces=["changelog_ok"])
-def changelog(log):
-    return Pass(changelog_ok=True)
-
-
-@strategy("release:s", consumes=["tests_pass", "changelog_ok"])
-def gates(tests_pass, changelog_ok):
-    return Pass()
-"""
-
-
-def test_a_preview_a_step_could_observe_is_not_drawn(
-    workdir: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
-) -> None:
-    directory = workdir("release_example")
-    (directory / "watching.py").write_text(_WATCHING, encoding="utf-8")
-    (directory / "out").mkdir()
-    command = ["--diagram", "out/run.dot", "-l", "watching.py", "justification.json"]
-
-    alone = main(command)
-    (directory / "out" / "run.dot").unlink()  # the run's own diagram, drawn at its end
-    followed = main(["--events", "events.jsonl", *command])
-
-    # out/ is empty when the steps run, followed or not: the evidence finds no drawing.
-    assert alone == followed == ExitCode.FAILED
-    assert of(read(directory / "events.jsonl"), "diagram.drawn") == []
-    err = capsys.readouterr().err
-    assert "the diagram is not drawn before the steps run: release:e1 observes out/*.dot" in err
-
-
-def test_a_final_diagram_that_raises_withdraws_the_preview(
-    workdir: Callable[[str], Path],
-    capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    directory = workdir("release_example")
-    write = cli.diagram.write
-    calls: list[Path] = []
-
-    def second_raises(path: Path, *arguments: Any, **options: Any) -> Path:
-        calls.append(path)
-        if len(calls) == 2:
-            raise UnicodeEncodeError("ascii", "✔", 0, 1, "ordinal not in range(128)")
-        return write(path, *arguments, **options)
-
-    monkeypatch.setattr(cli.diagram, "write", second_raises)
-
-    with pytest.raises(UnicodeEncodeError):
-        main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
-
     assert len(of(read(directory / EVENTS), "diagram.drawn")) == 1
-    assert not (directory / "release.dot").exists()
+    assert list(temporary.iterdir()) == []
 
 
 def test_the_diagram_is_named_at_the_end(
