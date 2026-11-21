@@ -64,7 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   writes the template chain to its JSON (`implements`); one compiled earlier is still
   drawn flat (#171). A chain that names an element the justification does not have is
   set aside with a warning, `JP026`, and the diagram is drawn flat: the run does not read
-  the chain, so it never refuses an argument for it (#177).
+  the chain, so only a strict run, which counts every warning as an error, refuses the
+  argument for it (#177).
 - **The diagram shows each status as a symbol, not only as a colour**, so it reads with a
   colour vision deficiency and in greyscale: ✔ beside the label of an element that passed,
   ✘ of one that failed, ◌ of one that was skipped, and ⚠ on a file that could not be

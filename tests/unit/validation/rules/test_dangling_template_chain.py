@@ -27,14 +27,21 @@ def _with(chain: TemplateChain) -> Justification:
     return Justification("m", ELEMENTS, RELATIONS, chain)
 
 
-def test_each_unknown_id_in_the_chain_is_a_warning() -> None:
+def test_a_chain_naming_unknown_ids_is_one_warning_that_names_them_all() -> None:
     placeholder = Placeholder("m:e", "e", ("m:y",))
     chain = TemplateChain(("m:x",), (Template("t", ("m:c", "m:s", "m:e"), (placeholder,)),))
+    rule, ctx = DanglingTemplateChain(), context(_with(chain), *STEPS)
 
-    assert reported(DanglingTemplateChain(), context(_with(chain), *STEPS)) == [
-        ("JP026", WARNING, None),
-        ("JP026", WARNING, None),
-    ]
+    assert reported(rule, ctx) == [("JP026", WARNING, None)]
+    assert "'m:x', 'm:y'" in next(rule.check(ctx)).message
+
+
+def test_an_alias_in_the_chain_is_unknown() -> None:
+    merged = (element("m:c", CONCLUSION), element("m:s", STRATEGY), element("m:e", EVIDENCE, "t:e"))
+    chain = TemplateChain(("t:e",), (Template("t", ("m:c", "m:s")),))
+    model = Justification("m", merged, RELATIONS, chain)
+
+    assert reported(DanglingTemplateChain(), context(model, *STEPS)) == [("JP026", WARNING, None)]
 
 
 def test_a_chain_that_names_only_elements_is_not_reported() -> None:
