@@ -27,25 +27,32 @@ A run's statuses are drawn over the elements, in the same palette, and each as a
 beside the label, so that the diagram reads without its colours:
 
 - **pass**: ✔, the element with a green border;
-- **fail**: ✘, filled vermillion, in white bold text;
+- **fail**: ✘, filled vermillion, in white text;
 - **skip**: ◌, filled light grey, with a dashed grey border, thicker when it is a root cause.
 
-The symbol is drawn in the label's colour, which contrasts with every fill, and the label
-of an element with a status is an HTML-like label, wrapped as the compiler wraps it. A
-file or variable drawn in vermillion is marked ⚠. A support edge takes the colour of the
-status of the element it comes from, or, from a placeholder, of the element that fills it,
-and is thicker from a failure, dashed from a skip. In SVG, a node's tooltip gives its status
-and reason. Without a report, the diagram is the argument
-alone; with the report of a run in which nothing ran, such as a dry run, it is the dataflow
-the steps declare, without statuses.
+The symbol is drawn in the label's colour, which contrasts with every fill. A status never
+moves the diagram (#186): drawn with a report, every node's label is an HTML-like label,
+wrapped as the compiler wraps it, beside a cell of fixed size for its symbol, empty when
+it has none, and a status changes no font. A dry run's diagram, and the diagrams of two
+runs with different statuses, therefore put every node in the same place. A file or
+variable drawn in vermillion is marked ⚠, in a cell of its own. A support edge takes the
+colour of the status of the element it comes from, or, from a placeholder, of the element
+that fills it, and is thicker from a failure, dashed from a skip. In SVG, a node's tooltip
+gives its status and reason. Without a report, the diagram is the argument alone; with the
+report of a run in which nothing ran, such as a dry run, it is the dataflow the steps
+declare, without statuses.
 
 Rendering pipes the DOT text to Graphviz's ``dot``: only the binary is needed. The ``dot``
 format is the text itself, written without it.
 """
 
 import html
+import os
 import re
+import secrets
+import shutil
 import subprocess
+import time
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -55,6 +62,10 @@ from jpipe_runner.model import Element, Justification, Kind, Template
 from jpipe_runner.report import ElementReport, RunReport
 
 FORMATS = ("dot", "gif", "jpeg", "jpg", "pdf", "png", "svg")
+
+_WINDOWS = os.name == "nt"
+_ATTEMPTS, _PAUSE = 10, 0.1
+"""How many times, and how far apart in seconds, a diagram is renamed into place."""
 
 _WRAP_WIDTH = 40
 
@@ -72,7 +83,13 @@ _BLUE = "#0072B2"
 _EDGE_COLOURS = {Status.PASS: _GREEN, Status.FAIL: _VERMILLION, Status.SKIP: _GREY}
 _SYMBOLS = {Status.PASS: "✔", Status.FAIL: "✘", Status.SKIP: "◌"}
 _WARNING = "⚠"
-_SYMBOL_SIZE, _DATA_SYMBOL_SIZE = "20", "14"
+
+# The cell a symbol is drawn in: its point size, then the cell's fixed width and height, in
+# points, wider and taller than any of its symbols, so that every node keeps its size
+# whatever the cell holds (#186).
+_Cell = tuple[str, str, str]
+_STATUS_CELL: _Cell = ("20", "28", "32")
+_DATA_CELL: _Cell = ("14", "22", "22")
 _DATA = {"fontname": "Courier", "fontsize": "10"}
 _PROBLEM = {"color": _VERMILLION, "penwidth": "2"}
 
@@ -96,7 +113,8 @@ def source(justification: Justification, report: RunReport | None = None) -> str
     if report is not None:
         _check_reports_on(report, justification)
     reported = {} if report is None else {e.id: e for e in report.elements}
-    return "".join(f"{line}\n" for line in _Diagram(justification, reported).lines())
+    drawn = _Diagram(justification, reported, overlaid=report is not None)
+    return "".join(f"{line}\n" for line in drawn.lines())
 
 
 def _check_reports_on(report: RunReport, model: Justification) -> None:
@@ -119,21 +137,66 @@ def write(
 ) -> Path:
     """Write the diagram to ``path``, in ``fmt``, by default its suffix, and return ``path``.
 
-    The directory is created if it does not exist. Raises ``ValueError`` for a format not
-    in ``FORMATS``, ``FileNotFoundError`` if Graphviz's ``dot`` is not installed, and
-    ``OSError`` if it fails.
+    The directory is created if it does not exist. The diagram is drawn in a temporary
+    file beside ``path``, then renamed to it, so that a program that reads ``path`` while
+    it is written, such as one that follows a run (ADR-0032), sees the previous drawing
+    or the new one, never half of one; a diagram that cannot be drawn leaves ``path`` as
+    it was. The file has the permissions of the one it replaces, or those a new file gets,
+    and a link at ``path`` is written through, to the file it links to. Raises
+    ``ValueError`` for a format not in ``FORMATS``, ``FileNotFoundError`` if Graphviz's
+    ``dot`` is not installed, and ``OSError`` if it fails.
     """
     fmt = (fmt or path.suffix.removeprefix(".")).lower()
     if fmt not in FORMATS:
         raise ValueError(f"a diagram is one of {', '.join(FORMATS)}, not {fmt!r}")
     text = source(justification, report)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    target = path.resolve() if path.is_symlink() else path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    drawing = _temporary(target)
+    try:
+        # Before anything is written, so that a private diagram is never readable by others.
+        if target.exists():
+            shutil.copymode(target, drawing)
+        _draw(text, fmt, drawing, path)
+        _replace(drawing, target)
+    finally:
+        drawing.unlink(missing_ok=True)
+    return path
+
+
+def _temporary(target: Path) -> Path:
+    """A new, empty file beside ``target``, with the permissions a new file gets."""
+    while True:
+        drawing = target.with_name(f".{target.name}.{secrets.token_hex(4)}.tmp")
+        try:
+            os.close(os.open(drawing, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666))
+        except FileExistsError:  # pragma: no cover - 32 random bits, taken already
+            continue
+        return drawing
+
+
+def _replace(drawing: Path, target: Path) -> None:
+    """Rename ``drawing`` to ``target``. On Windows, a file another program has open cannot
+    be replaced, as the reader of a run's diagram may have it for a moment: try again,
+    for about a second."""
+    for attempt in range(_ATTEMPTS):
+        try:
+            os.replace(drawing, target)
+            return
+        except PermissionError:
+            if not _WINDOWS or attempt == _ATTEMPTS - 1:
+                raise
+            time.sleep(_PAUSE)
+
+
+def _draw(text: str, fmt: str, drawing: Path, path: Path) -> None:
+    """Write ``text`` to ``drawing``, rendered in ``fmt``: the drawing of ``path``."""
     if fmt == "dot":
-        path.write_text(text, encoding="utf-8")
-        return path
+        drawing.write_text(text, encoding="utf-8")
+        return
     try:
         rendered = subprocess.run(
-            ["dot", f"-T{fmt}", "-o", str(path)],
+            ["dot", f"-T{fmt}", "-o", str(drawing)],
             input=text,
             text=True,
             capture_output=True,
@@ -146,15 +209,17 @@ def write(
         ) from None
     if rendered.returncode != 0:
         raise OSError(f"dot failed to draw {path}: {rendered.stderr.strip()}")
-    return path
 
 
 class _Diagram:
     """The DOT lines of one diagram."""
 
-    def __init__(self, model: Justification, reported: dict[str, ElementReport]) -> None:
+    def __init__(
+        self, model: Justification, reported: dict[str, ElementReport], *, overlaid: bool
+    ) -> None:
         self._model = model
         self._reported = reported
+        self._overlaid = overlaid
         self._dataflow = _Dataflow(reported)
         self._chain = model.template_chain
         templates = () if self._chain is None else self._chain.templates
@@ -220,13 +285,18 @@ class _Diagram:
         yield f"{indent}}}"
 
     def _node(self, element: Element, indent: str) -> str:
+        """An element, in its kind's style. Drawn with a report, its label has a cell for
+        its status, empty when it has none, so that a status changes its colours and
+        symbol, never its size: a run's diagrams line up whatever their statuses (#186)."""
         reported = self._reported.get(element.id)
         attributes = dict(_KIND_STYLES[element.kind])
         label = _wrapped(element.label)
-        if reported is not None and reported.status is not None:
-            attributes.update(_overlay(attributes, reported))
+        if self._overlaid:
+            status = None if reported is None else reported.status
+            if reported is not None and status is not None:
+                attributes.update(_overlay(attributes, reported))
             lines = [" ".join(line) for line in _wrap(element.label)]
-            label = _marked(lines, _SYMBOLS[reported.status], _SYMBOL_SIZE)
+            label = _marked(lines, None if status is None else _SYMBOLS[status], _STATUS_CELL)
         head = f"label={label}, id={_quoted(element.id)}"
         return f"{indent}{_quoted(element.id)} [{head}, {_attributes(attributes)}];"
 
@@ -373,7 +443,6 @@ def _overlay(style: dict[str, str], reported: ElementReport) -> dict[str, str]:
             "style": filled,
             "fillcolor": _VERMILLION,
             "fontcolor": "white",
-            "fontname": "Helvetica-Bold",
             "penwidth": "2",
             "tooltip": tooltip,
         }
@@ -391,11 +460,12 @@ def _styled(style: dict[str, str], *added: str) -> str:
 
 
 def _data_node(node: str, label: str, attributes: dict[str, str], problem: bool) -> str:
-    """A file or variable, in vermillion and marked ⚠ when it is a ``problem``."""
-    drawn = _quoted(label)
+    """A file or variable, in vermillion and marked ⚠ when it is a ``problem``. Its label
+    has a cell for the mark, empty when there is none: a file that turns out to be
+    unreachable moves nothing."""
     if problem:
         attributes = attributes | _PROBLEM
-        drawn = _marked([label], _WARNING, _DATA_SYMBOL_SIZE)
+    drawn = _marked([label], _WARNING if problem else None, _DATA_CELL)
     return f"{_INDENT}{_quoted(node)} [label={drawn}, {_attributes(attributes)}];"
 
 
@@ -467,11 +537,14 @@ def _dot_word(word: str) -> str:
     return _escaped(word).replace("_", "\\_")
 
 
-def _marked(lines: list[str], symbol: str, size: str) -> str:
-    """An HTML-like label: ``symbol``, at ``size`` points, beside ``lines``."""
+def _marked(lines: list[str], symbol: str | None, cell: _Cell) -> str:
+    """An HTML-like label: ``lines``, beside a ``cell`` of fixed size that holds
+    ``symbol``, or nothing."""
+    size, width, height = cell
     text = "<br/>".join(_html(line) for line in lines)
     table = '<table border="0" cellborder="0" cellspacing="0">'
-    symbol_cell = f'<td><font point-size="{size}">{symbol}</font></td>'
+    held = "" if symbol is None else f'<font point-size="{size}">{symbol}</font>'
+    symbol_cell = f'<td fixedsize="true" width="{width}" height="{height}">{held}</td>'
     return f"<{table}<tr>{symbol_cell}<td>{text}</td></tr></table>>"
 
 

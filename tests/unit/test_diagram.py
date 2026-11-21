@@ -5,7 +5,10 @@ The DOT text is checked as text, so these tests need no Graphviz. Only the tests
 an image call ``dot``, and are skipped where it is not installed; CI installs it.
 """
 
+import os
+import shlex
 import shutil
+import stat
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -22,6 +25,7 @@ from jpipe_runner import (
     Produced,
     Skip,
     conclusion,
+    diagram,
     engine,
     evidence,
     loader,
@@ -114,11 +118,15 @@ def _drawn(
     return {line.strip().partition(" [")[0].rstrip(";"): line.strip() for line in lines}
 
 
-def _marked(symbol: str, text: str, size: int = 20) -> str:
-    """The HTML-like label of a node marked with ``symbol``."""
+def _marked(symbol: str | None, text: str, size: int = 20) -> str:
+    """The HTML-like label of a node drawn with a report: ``text`` beside the cell of its
+    symbol, at ``size`` points, which holds ``symbol``, or nothing."""
+    width, height = (28, 32) if size == 20 else (22, 22)
+    held = "" if symbol is None else f'<font point-size="{size}">{symbol}</font>'
     return (
         '<<table border="0" cellborder="0" cellspacing="0"><tr>'
-        f'<td><font point-size="{size}">{symbol}</font></td><td>{text}</td></tr></table>>'
+        f'<td fixedsize="true" width="{width}" height="{height}">{held}</td>'
+        f"<td>{text}</td></tr></table>>"
     )
 
 
@@ -145,7 +153,7 @@ def test_a_failed_element_is_vermillion_with_a_cross_and_blocks_what_it_supports
 
     assert drawn['"e1"'] == (
         f'"e1" [label={_marked("✘", "e1")}, id="e1", shape=note, style=filled, '
-        'fillcolor="#D55E00", fontcolor=white, fontname="Helvetica-Bold", penwidth=2, '
+        'fillcolor="#D55E00", fontcolor=white, penwidth=2, '
         'tooltip="fail: two tests failed"];'
     )
     assert drawn['"s"'] == (
@@ -271,6 +279,47 @@ def test_a_report_of_another_justification_is_refused() -> None:
         source(RELEASE, other)
 
 
+def _layout(dot_source: str) -> dict[str, tuple[str, ...]]:
+    """Where ``dot`` puts each node, and how large it draws the graph, from ``-Tplain``."""
+    plain = subprocess.run(
+        [str(DOT), "-Tplain"], input=dot_source, capture_output=True, text=True, check=True
+    ).stdout
+    placed = {}
+    for line in plain.splitlines():
+        # An id with a space, such as "artifact e1.txt", is quoted.
+        kind, *fields = shlex.split(line)
+        if kind == "graph":
+            placed["graph"] = tuple(fields[1:3])
+        elif kind == "node":
+            placed[fields[0]] = tuple(fields[1:5])
+    return placed
+
+
+_OUTCOMES = {
+    "pass": (lambda: Pass(a="a"), lambda: Pass(b="b")),
+    "fail": (lambda: Fail("no"), lambda: Fail("no")),
+    "skip": (lambda: Skip("not here"), lambda: Skip("not here")),
+}
+
+
+@needs_dot
+@pytest.mark.parametrize("e1", list(_OUTCOMES))
+@pytest.mark.parametrize("e2", [*_OUTCOMES, "unreachable"])
+def test_a_status_never_moves_the_diagram(tmp_path: Path, e1: str, e2: str) -> None:
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    if e2 != "unreachable":
+        (tmp_path / "e2.log").write_text("two", encoding="utf-8")
+    second = _OUTCOMES["pass" if e2 == "unreachable" else e2][1]
+    registry = _steps(_OUTCOMES[e1][0], second)
+    planned = RunReport.of(run(RELEASE, registry, root=tmp_path, dry_run=True), tmp_path)
+    ran = RunReport.of(run(RELEASE, registry, root=tmp_path), tmp_path)
+    assert {e.status for e in ran.elements} - {None}, "the run decided nothing"
+
+    laid_out = _layout(source(RELEASE, planned))
+    assert {"artifact e1.txt", "artifact *.log", "variable a", "variable b"} < laid_out.keys()
+    assert _layout(source(RELEASE, ran)) == laid_out
+
+
 # --- The dataflow ---------------------------------------------------------------------------
 
 
@@ -280,10 +329,12 @@ def test_the_diagram_adds_the_files_and_variables_the_steps_declare(tmp_path: Pa
     drawn = _drawn(tmp_path, lambda: Pass(a="a"))
 
     assert drawn['"artifact e1.txt"'] == (
-        '"artifact e1.txt" [label="e1.txt", fontname=Courier, fontsize=10, shape=folder];'
+        f'"artifact e1.txt" [label={_marked(None, "e1.txt", 14)}, fontname=Courier, '
+        "fontsize=10, shape=folder];"
     )
     assert drawn['"variable a"'] == (
-        '"variable a" [label="a", fontname=Courier, fontsize=10, shape=ellipse];'
+        f'"variable a" [label={_marked(None, "a", 14)}, fontname=Courier, fontsize=10, '
+        "shape=ellipse];"
     )
     assert drawn['"artifact e1.txt" -> "e1"'] == (
         '"artifact e1.txt" -> "e1" [style=dotted, arrowhead=empty, label=" observes", fontsize=9];'
@@ -507,7 +558,7 @@ def test_two_producers_of_a_variable_are_two_values_each_with_its_consumers(
 
     for producer, consumer in (("a:e", "a:s"), ("b:e", "b:s")):
         (node,) = [line for line in lines if line.startswith(f'"variable x from {producer}" [')]
-        assert node.startswith(f'"variable x from {producer}" [label="x", ')
+        assert node.startswith(f'"variable x from {producer}" [label={_marked(None, "x", 14)}, ')
         assert "D55E00" not in node
         assert _consumes(f"variable x from {producer}", consumer) in lines
         assert _consumes(f"variable x from {producer}", "s") in lines
@@ -569,6 +620,130 @@ def test_a_failure_of_graphviz_is_an_os_error(
 
     with pytest.raises(OSError, match="syntax error"):
         write(tmp_path / "m.png", RELEASE)
+
+
+def test_a_diagram_that_cannot_be_drawn_leaves_the_previous_one_and_no_trace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    previous = tmp_path / "m.png"
+    previous.write_bytes(b"the previous drawing")
+
+    def failing(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        Path(command[command.index("-o") + 1]).write_bytes(b"half a drawing")
+        return subprocess.CompletedProcess(command, 1, "", "Error: syntax error\n")
+
+    monkeypatch.setattr(subprocess, "run", failing)
+
+    with pytest.raises(OSError, match="syntax error"):
+        write(previous, RELEASE)
+
+    assert previous.read_bytes() == b"the previous drawing"
+    assert [p.name for p in tmp_path.iterdir()] == ["m.png"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
+def test_a_diagram_keeps_the_permissions_of_the_file_it_replaces(tmp_path: Path) -> None:
+    drawn = tmp_path / "m.dot"
+    drawn.write_text("the previous drawing", encoding="utf-8")
+    drawn.chmod(0o640)
+
+    write(drawn, RELEASE)
+
+    assert stat.S_IMODE(drawn.stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
+def test_a_private_diagram_is_never_readable_by_others_while_it_is_drawn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drawn = tmp_path / "m.dot"
+    drawn.write_text("the previous drawing", encoding="utf-8")
+    drawn.chmod(0o600)
+    modes: list[int] = []
+    draw = diagram._draw
+
+    def watched(text: str, fmt: str, drawing: Path, path: Path) -> None:
+        modes.append(stat.S_IMODE(drawing.stat().st_mode))
+        draw(text, fmt, drawing, path)
+
+    monkeypatch.setattr(diagram, "_draw", watched)
+
+    write(drawn, RELEASE)
+
+    assert modes == [0o600]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
+def test_a_new_diagram_has_the_permissions_a_new_file_gets(tmp_path: Path) -> None:
+    umask = os.umask(0o022)
+    try:
+        write(tmp_path / "m.dot", RELEASE)
+        assert stat.S_IMODE((tmp_path / "m.dot").stat().st_mode) == 0o644
+    finally:
+        os.umask(umask)
+
+
+def test_a_link_to_a_diagram_is_written_through(tmp_path: Path) -> None:
+    (tmp_path / "site").mkdir()
+    target = tmp_path / "site" / "m.dot"
+    target.write_text("the previous drawing", encoding="utf-8")
+    link = tmp_path / "m.dot"
+    link.symlink_to(target)
+
+    assert write(link, RELEASE) == link
+
+    assert link.is_symlink()
+    assert target.read_text(encoding="utf-8") == source(RELEASE)
+    assert [p.name for p in target.parent.iterdir()] == ["m.dot"]
+
+
+def test_on_windows_a_diagram_a_reader_holds_open_is_replaced_once_it_is_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    replace, held = os.replace, [2]
+
+    def held_open(source: Any, destination: Any) -> None:
+        if held[0]:
+            held[0] -= 1
+            raise PermissionError(13, "The process cannot access the file")
+        replace(source, destination)
+
+    monkeypatch.setattr(diagram, "_WINDOWS", True)
+    monkeypatch.setattr(diagram.os, "replace", held_open)
+    monkeypatch.setattr(diagram.time, "sleep", lambda _: None)
+
+    write(tmp_path / "m.dot", RELEASE)
+
+    assert (tmp_path / "m.dot").read_text(encoding="utf-8") == source(RELEASE)
+
+
+def test_elsewhere_a_diagram_that_cannot_be_replaced_fails_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts: list[object] = []
+
+    def refused(source: Any, destination: Any) -> None:
+        attempts.append(destination)
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(diagram, "_WINDOWS", False)
+    monkeypatch.setattr(diagram.os, "replace", refused)
+
+    with pytest.raises(PermissionError):
+        write(tmp_path / "m.dot", RELEASE)
+    assert len(attempts) == 1
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_diagram_is_written_whole_under_its_name(tmp_path: Path) -> None:
+    drawn = tmp_path / "out" / "m.dot"
+    drawn.parent.mkdir()
+    drawn.write_text("the previous drawing", encoding="utf-8")
+
+    write(drawn, RELEASE)
+
+    assert drawn.read_text(encoding="utf-8") == source(RELEASE)
+    assert [p.name for p in drawn.parent.iterdir()] == ["m.dot"]
 
 
 @needs_dot

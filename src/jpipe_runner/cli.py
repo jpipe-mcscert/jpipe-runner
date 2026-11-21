@@ -19,7 +19,9 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import textwrap
+import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout
 from dataclasses import dataclass
@@ -29,13 +31,18 @@ from typing import Any, NoReturn
 
 from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
 from jpipe_runner.diagnostics import shown_path
-from jpipe_runner.engine import Verdict
-from jpipe_runner.events import EventStream
+from jpipe_runner.engine import RunResult, Verdict
+from jpipe_runner.events import EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
-from jpipe_runner.observables import is_glob
+from jpipe_runner.observables import is_glob, matches
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry
+
+_WINDOWS = os.name == "nt"
+_ATTEMPTS, _PAUSE = 10, 0.1
+"""How many times, and how far apart in seconds, the drawing made before the steps is
+deleted."""
 
 _LOG = logging.getLogger(__name__)
 
@@ -370,16 +377,23 @@ def _run(options: argparse.Namespace) -> int:
     _LOG.info("steps run with Python %s, in %s", sys.executable, Path.cwd())
     # Expanded before the events file is opened, which a glob could otherwise match.
     libraries = _libraries(options.library)
-    with _events(options.events, root) as stream:
-        justification, report = _report(options, root, libraries, stream)
-        _LOG.info("verdict: %s", report.verdict)
-        report, drawn = _draw(options, justification, report, root)
-        saved = _save(options.report, report)
-        code = exit_code(report.verdict, strict=options.strict) if drawn and saved else ExitCode.IO
-        _print(options, report)
-        if stream is not None:
-            # A stream that failed writes nothing more, so this exit code is never shown.
-            stream.run_ended(report, code, options.report if saved else None)
+    preview = None if options.events is None else _Preview(root)
+    try:
+        with _events(options.events, root, preview) as stream:
+            justification, report = _report(options, root, libraries, stream)
+            _LOG.info("verdict: %s", report.verdict)
+            report, drawn = _draw(options, justification, report, root)
+            saved = _save(options.report, report)
+            ok = drawn and saved
+            code = exit_code(report.verdict, strict=options.strict) if ok else ExitCode.IO
+            _print(options, report)
+            if stream is not None:
+                # A stream that failed writes nothing more, so this exit code is never shown.
+                stream.run_ended(report, code, options.report if saved else None)
+    finally:
+        # Once the run has ended, whatever ended it: the preview has had its use.
+        if preview is not None:
+            preview.discard()
     # Once the file is closed: closing it writes what it still holds, and may fail.
     return code if _streamed(stream) else ExitCode.IO
 
@@ -396,19 +410,96 @@ def _print(options: argparse.Namespace, report: RunReport) -> None:
 
 
 @contextmanager
-def _events(path: Path | None, root: Path) -> Iterator[EventStream | None]:
-    """The stream of the run's events, written to ``path``, if one is given. A file that
-    cannot be opened is an ``OSError``, before anything runs."""
+def _events(
+    path: Path | None, root: Path, preview: Preview | None = None
+) -> Iterator[EventStream | None]:
+    """The stream of the run's events, written to ``path``, if one is given, which draws
+    the diagram with ``preview`` before the first step. A file that cannot be opened is an
+    ``OSError``, before anything runs."""
     if path is None:
         yield None
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    stream = EventStream(path.open("w", encoding="utf-8", newline="\n"), root=root)
+    file = path.open("w", encoding="utf-8", newline="\n")
+    stream = EventStream(file, root=root, preview=preview)
     _LOG.info("writing the run's events to %s", path)
     try:
         yield stream
     finally:
         stream.close()
+
+
+class _Preview:
+    """What draws the diagram before the first step, as a dry run would draw it, for a
+    program that follows the run's events (ADR-0032): an SVG file in a directory of its own,
+    in the system's temporary directory, which ``discard`` deletes when the run ends. The
+    drawing is a preview: whatever keeps it from being drawn, Graphviz missing included, is
+    logged, and changes nothing else. ``--diagram`` holds only the run's own diagram."""
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self._directory: Path | None = None
+
+    def __call__(self, planned: RunResult) -> Path | None:
+        if shutil.which("dot") is None:
+            _LOG.warning(
+                "the diagram is not drawn before the steps run: Graphviz's dot is not "
+                "installed, or not on the PATH"
+            )
+            return None
+        try:
+            self._directory = Path(tempfile.mkdtemp(prefix="jpipe-runner-")).absolute()
+            drawn = self._directory / "diagram.svg"
+            report = RunReport.of(planned, self._root)
+            if observer := _observer(report, drawn, self._root):
+                # A temporary directory in the project, as TMPDIR may make it.
+                _LOG.warning(
+                    "the diagram is not drawn before the steps run: %s, so the steps "
+                    "could observe it at %s",
+                    observer,
+                    drawn,
+                )
+                self.discard()
+                return None
+            diagram.write(drawn, planned.justification, report)
+        # Whatever went wrong, from an observable of the library that cannot describe
+        # itself to dot, a preview never stops the run.
+        except Exception as error:  # NOSONAR
+            why = _reason(error) if isinstance(error, OSError) else f"{error!r}"
+            _LOG.warning("cannot draw the diagram before the steps run: %s", why)
+            return None
+        _LOG.info("drew the diagram at %s, before the steps run", drawn)
+        return drawn
+
+    def discard(self) -> None:
+        """Delete the drawing, and its directory, if it was drawn. On Windows, a file a
+        program has open cannot be deleted, as the reader of the drawing may have it for a
+        moment: try again, for about a second. What cannot be deleted is a warning."""
+        if self._directory is None:
+            return
+        directory, self._directory = self._directory, None
+        for attempt in range(_ATTEMPTS):
+            try:
+                shutil.rmtree(directory)
+                return
+            except FileNotFoundError:
+                return
+            except OSError as error:
+                if _WINDOWS and attempt < _ATTEMPTS - 1:
+                    time.sleep(_PAUSE)
+                    continue
+                _LOG.warning("cannot delete the diagram drawn before the steps run: %s", error)
+                return
+
+
+def _observer(report: RunReport, drawn: Path, root: Path) -> str | None:
+    """What an evidence observes that designates ``drawn``, if it is under ``root``."""
+    shown = shown_path(str(drawn), root)
+    for element in report.elements:
+        for observed in element.observes:
+            if matches(shown, observed):
+                return f"{element.id} observes {observed}"
+    return None
 
 
 def _streamed(stream: EventStream | None) -> bool:

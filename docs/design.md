@@ -356,6 +356,7 @@ classDiagram
     ElementResult "1" *-- "*" Received : inputs
     RunListener ..> ElementResult : told of
     RunListener ..> ValidationReport : told of
+    RunListener ..> RunResult : told of the planned
     RunListener <|.. EventStream
     EventStream ..> ElementReport : writes
     EventStream ..> RunReport : ends with
@@ -636,8 +637,13 @@ unless the template draws it from a placeholder.
 A report's statuses are drawn over the elements in the same palette: a green border for a
 pass, a vermillion fill for a failure, a dashed grey node for a skip. Each is also a symbol
 beside the label, ✔, ✘ or ◌, in the label's colour, so that the diagram reads without its
-colours; a file or variable drawn in vermillion is marked ⚠. `write` pipes the
-text to Graphviz's `dot`; only the `dot` format is written without it. A diagram is drawn
+colours; a file or variable drawn in vermillion is marked ⚠. **A status never moves the
+diagram** ([ADR-0032](adr/0032-a-run-previews-its-diagram.md)): drawn with a report, every
+node's label has a cell of fixed size for its symbol, empty when there is none, and a
+failure keeps its kind's font, so the diagrams of a dry run and of any execution put every
+node in the same place. `write` pipes the text to Graphviz's `dot`, only the `dot` format
+being written without it, into a temporary file beside the path, then renames it: a
+program reading the path never sees half a drawing. A diagram is drawn
 from the model and the report together, and a report whose elements, or what each
 supports, differ from the model's is refused.
 
@@ -655,7 +661,12 @@ and runs the engine inside `imported`, with the working directory as the root. E
 this ends gives a `RunReport`: `refused`, `not_imported` or `of`. It draws the diagram if
 asked for, recording where on the report (`with_diagram`), writes the
 JSON report to a file if asked, and prints the report on stdout: the text one, or the JSON
-one. Everything else goes to stderr, through the `jpipe_runner` logger, which `main`
+one. With `--events`, the `EventStream` is given a preview, which draws the diagram, in
+SVG, in a temporary directory, from the `RunResult` the engine passes its listener once
+validation passes and before the first step (`steps_starting`), as a dry run would draw
+it, and the stream announces it (`diagram.drawn`); the command line deletes it once the run
+has ended, however it ended. A preview that fails is logged, and changes nothing else.
+Everything else goes to stderr, through the `jpipe_runner` logger, which `main`
 configures for its duration only. A file that cannot be read or written is an `OSError`,
 logged, and the exit code `IO`; the exit code of a run is otherwise `exit_code(verdict)`.
 `python -m jpipe_runner` drops the working directory that Python puts on `sys.path`, so

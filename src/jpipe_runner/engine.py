@@ -22,7 +22,8 @@ The verdict is ``FAIL`` if an element failed, ``SKIP`` if one was skipped, and `
 otherwise; ``INVALID`` when validation stopped the run. A dry run validates and calls no
 step: its verdict is ``VALID`` when validation passed (ADR-0024).
 
-A ``RunListener`` is told as the run goes: when validation ends, when an element's step is
+A ``RunListener`` is told as the run goes: when validation ends, when the steps are about
+to run, with the result a dry run would have returned (ADR-0032), when an element's step is
 about to be called, and when each element is decided (ADR-0030). It is called from the
 thread that runs ``run``, an element after all its supporters, so it needs no lock.
 """
@@ -115,6 +116,11 @@ class RunListener(Protocol):
         """Validation is over: the steps run next, unless it reported an error or the run
         is a dry run."""
 
+    def steps_starting(self, planned: "RunResult") -> None:
+        """Validation passed, and the steps are about to run: ``planned`` is the result a
+        dry run of the same library would have returned, with no element decided. Told
+        once, before the first element starts, and never in a dry run."""
+
     def element_started(self, element: Element) -> None:
         """``element``'s supporters passed, and it is bound: the artifacts it observes are
         about to be observed, then its step called, unless one of them cannot be reached."""
@@ -127,6 +133,9 @@ class _Silent:
     """The listener of a run that nothing listens to."""
 
     def validation_ended(self, report: ValidationReport) -> None:
+        pass  # nothing listens
+
+    def steps_starting(self, planned: "RunResult") -> None:
         pass  # nothing listens
 
     def element_started(self, element: Element) -> None:
@@ -203,15 +212,20 @@ def run(
     ctx = ValidationContext.of(justification, registry)
     report = RULES.run(ctx, strict=strict)
     listener.validation_ended(report)
-    values = ValueStore()
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
-        return RunResult(justification, ctx.bindings, ctx.dataflow, report, (), values, strict)
+        return RunResult(
+            justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict
+        )
+    # What a dry run returns, and what a listener is told the run plans.
+    planned = RunResult(
+        justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict, dry_run=True
+    )
     if dry_run:
         _LOG.info("validation passed: a dry run calls no step")
-        return RunResult(
-            justification, ctx.bindings, ctx.dataflow, report, (), values, strict, dry_run=True
-        )
+        return planned
+    listener.steps_starting(planned)
+    values = ValueStore()
     elements = _Run(ctx, values, root, listener).execute()
     return RunResult(justification, ctx.bindings, ctx.dataflow, report, elements, values, strict)
 

@@ -42,6 +42,7 @@ and add a row to this table.
 | [0026](0026-dependency-ranges-and-freshness.md) | Runtime dependencies are tested ranges, and the lock file is kept fresh | accepted |
 | [0027](0027-one-pipeline-for-observed-artifacts.md) | One definition of what a glob designates, a report that keeps what each file was declared as, and observation in three steps | accepted, amended by [0028](0028-observables-and-file-relative-paths.md) |
 | [0028](0028-observables-and-file-relative-paths.md) | An evidence observes observables, and a path is relative to the file that declares its step | accepted |
-| [0029](0029-the-runner-draws-the-dataflow.md) | The runner draws one diagram, the dataflow | accepted |
-| [0030](0030-a-run-streams-its-events.md) | A run streams its events to a file, one JSON object per line | accepted |
+| [0029](0029-the-runner-draws-the-dataflow.md) | The runner draws one diagram, the dataflow | accepted, amended by [0032](0032-a-run-previews-its-diagram.md) |
+| [0030](0030-a-run-streams-its-events.md) | A run streams its events to a file, one JSON object per line | accepted, amended by [0032](0032-a-run-previews-its-diagram.md) |
 | [0031](0031-variables-resolve-among-supporters.md) | A consumed variable resolves among its consumer's supporters | accepted |
+| [0032](0032-a-run-previews-its-diagram.md) | A run draws its diagram before its first step, and a status never moves it | accepted |

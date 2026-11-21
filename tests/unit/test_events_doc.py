@@ -24,8 +24,18 @@ PAGE = (REPO_ROOT / "docs" / "events.md").read_text(encoding="utf-8")
 COMMON = ("event", "seq", "elapsed_ms")
 
 
+_PREVIEW = re.compile(r".*/jpipe-runner-[^/]+/diagram\.svg")
+
+
 def _timeless(found: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [{**event, "elapsed_ms": 0} for event in found]
+    """The events, without what changes from one run to the next: the time, and where the
+    preview is drawn, a temporary directory, once its path is checked to be one."""
+    events = [{**event, "elapsed_ms": 0} for event in found]
+    for event in events:
+        if event["event"] == "diagram.drawn":
+            assert _PREVIEW.fullmatch(event["path"].replace("\\", "/")), event["path"]
+            event["path"] = "<temporary>/diagram.svg"
+    return events
 
 
 @pytest.fixture

@@ -94,7 +94,12 @@ justification must be compiled by jPipe 4.0.0 or later, which writes the templat
 its JSON; an older one draws the argument flat. The suffix of the file is
 its format: `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png` or `svg`. Every format but `dot`
 needs Graphviz's `dot` command. The report records where the diagram was written, and the
-text report says so above the verdict.
+text report says so above the verdict. A status never moves a node: the elements and files
+are where a dry run puts them. With `--events`, a run that calls its steps also draws its
+diagram before the first step, without statuses, in a temporary SVG file it deletes once
+the run has ended, and says so in an event, for a program that colours it as the run goes
+([`events.md`](events.md#diagramdrawn)); the `--diagram` file holds only the run's own
+diagram.
 
 **Outputs are checked before anything runs.** An output whose suffix is not a format, that
 is a directory, that two options would both write, or that the run reads, the

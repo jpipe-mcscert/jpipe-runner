@@ -6,6 +6,9 @@ as it goes, such as the IDE. ``events.schema.json``, shipped in the package, des
 
 - ``run.started``, once the model is read or refused: every element's id;
 - ``validation.ended``, with what validation reported;
+- ``diagram.drawn``, when the run's diagram was drawn before the first step, as a dry run
+  would draw it, in a temporary file, for a program that colours it as the run goes
+  (ADR-0032);
 - ``element.started``, when an element's step is about to be called;
 - ``element.decided``, when an element is decided, as the report will write it;
 - ``run.ended``, last, with the verdict, the exit code and where the report is.
@@ -30,7 +33,7 @@ from typing import Any, TextIO
 
 from jpipe_runner import json_report
 from jpipe_runner.diagnostics import Diagnostic, shown_path
-from jpipe_runner.engine import ElementResult
+from jpipe_runner.engine import ElementResult, RunResult
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.validation import ValidationReport
@@ -50,9 +53,18 @@ that is not UTF-8 decodes to. Escaped, an event is one line however its reader s
 it can always be written."""
 
 
+Preview = Callable[[RunResult], Path | None]
+"""What draws a run's diagram before its first step, from the result a dry run would have
+returned: where it drew it, or ``None`` if it could not."""
+
+
 class EventStream:
     """A run's events, written to ``file`` as they happen. It is the engine's
-    ``RunListener``, and the command line tells it when the run starts and ends."""
+    ``RunListener``, and the command line tells it when the run starts and ends.
+
+    ``preview``, if given, is asked to draw the run's diagram once the steps are about to
+    run; the stream says where it was drawn, if it was.
+    """
 
     def __init__(
         self,
@@ -60,10 +72,12 @@ class EventStream:
         *,
         root: Path = Path(),
         clock: Callable[[], float] = time.monotonic,
+        preview: Preview | None = None,
     ) -> None:
         self._file = file
         self._root = root
         self._clock = clock
+        self._preview = preview
         self._opened = clock()
         self._seq = 0
         self._model: Justification | None = None
@@ -96,6 +110,15 @@ class EventStream:
             passed=report.passed,
             diagnostics=self._diagnostics(report.diagnostics),
         )
+
+    def steps_starting(self, planned: RunResult) -> None:
+        if self._preview is None or self._failed:
+            return
+        drawn = self._preview(planned)
+        if drawn is not None:
+            # Absolute, unlike the report's paths: the drawing is not the run's, and a program
+            # that runs elsewhere must find it.
+            self._write("diagram.drawn", path=str(drawn.absolute()))
 
     def element_started(self, element: Element) -> None:
         self._write("element.started", id=element.id)
