@@ -32,6 +32,7 @@ No rule can be disabled.
 | [JP016](#jp016-incompatiblekind) | `IncompatibleKind` | error | A step's kind differs from its element's, in a way composition cannot explain. |
 | [JP018](#jp018-evidenceobservesnothing) | `EvidenceObservesNothing` | error | An evidence observes no artifact. |
 | [JP025](#jp025-ambiguousconsumption) | `AmbiguousConsumption` | error | Several steps that support a step produce a variable it consumes. |
+| [JP026](#jp026-danglingtemplatechain) | `DanglingTemplateChain` | warning | The template chain names an element that does not exist: it is not drawn. |
 
 ### JP005 `UnboundElement`
 
@@ -244,6 +245,25 @@ one it means, nor picks the nearer.
 or an element it supports, such as the conclusion of its sub-argument. To take both
 values, map two parameters to the same variable, each with its own `by`.
 
+### JP026 `DanglingTemplateChain`
+
+Severity: **warning**.
+
+The template chain the compiler wrote names an element the model does not have.
+
+jPipe 4.0.0 writes, beside a justification that implements a template, how it draws
+the templates (`implements`): which elements each template holds, and the `@support`s
+filled further down. Only the diagram reads it. The run reads the elements and the
+relations, which already are the whole argument, so a chain that does not match them
+is set aside rather than refusing an argument that runs: the diagram draws it flat, as
+for a justification compiled by an earlier jPipe
+([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)). A chain that names an
+unknown element is not the compiler's usual output, so it is reported.
+
+**Fix:** compile the justification again, with jPipe 4.0.0 or later. If the warning
+stays, report it to the jPipe compiler. Until then, the run is unaffected: only the
+diagram's template clusters are missing.
+
 ## Codes reported outside validation
 
 A model or a step library that cannot be loaded is not validated, and nothing runs.
@@ -255,7 +275,7 @@ else.
 |---|---|---|---|---|
 | JP001 | `SchemaConformance` | error | loading the model | The file is not UTF-8 JSON in the compiler's format, or is a template. |
 | JP002 | `UniqueElementId` | error | loading the model | An id or alias designates several elements. |
-| JP003 | `RelationEndpointsExist` | error | loading the model | A relation, or the template chain, names an element that does not exist. |
+| JP003 | `RelationEndpointsExist` | error | loading the model | A relation names an element that does not exist. |
 | JP004 | `Acyclic` | error | loading the model | The relations form a cycle: an element supports itself, directly or not. |
 | JP017 | `NotAnOutcome` | error | running a step | A step returned something other than `Pass`, `Fail` or `Skip`. |
 | JP019 | `UnreachableArtifact` | error | running a step | An artifact an evidence observes is missing, unreadable or not a regular file, or a glob matches no file: the step is not called. |

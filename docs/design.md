@@ -215,6 +215,7 @@ classDiagram
         class IncompatibleKind
         class EvidenceObservesNothing
         class AmbiguousConsumption
+        class DanglingTemplateChain
     }
 
     namespace engine {
@@ -408,7 +409,8 @@ draws it, which jPipe writes since 4.0.0. It lists the elements drawn outside ev
 template, then each `Template` of the chain, the one implemented first, with the elements
 drawn in it and its `Placeholder`s, the `@support`s that elements further down fill. The
 run does not use it: the elements and relations are already the flattened argument. Only
-the diagram reads it.
+the diagram reads it. So a chain that names an element the model does not have is not
+kept: the diagram draws the argument flat, and validation warns (`JP026`).
 
 **Elements are designated by id.** A `Relation` holds the ids of its two ends, and a
 `Diagnostic` the id of the element it is about, not the `Element` objects; the dotted
@@ -429,7 +431,7 @@ and the graph is frozen once built.
 **A `Justification` is valid by construction.** A model that cannot be run is never
 loaded. The loader rejects a document that is not JSON or does not match the schema
 (`JP001`), and the `Justification` constructor rejects a duplicate element id (`JP002`) or
-a relation, or a template chain, naming an element that does not exist (`JP003`). An alias
+a relation naming an element that does not exist (`JP003`). An alias
 counts as an id: one that another element also answers to is `JP002` too. Each of these
 raises an `InvalidJustificationError` carrying every problem found, as diagnostics. So does
 a cycle in the relations (`JP004`), reported once the rest is sound: the compiler never

@@ -98,16 +98,25 @@ class TemplateChain:
 
     @property
     def ids(self) -> tuple[str, ...]:
-        """Every element id the chain names."""
-        return (
-            *self.elements,
-            *(i for template in self.templates for i in template.elements),
-            *(
-                i
-                for template in self.templates
-                for placeholder in template.placeholders
-                for i in (placeholder.id, *placeholder.supports)
-            ),
+        """Every element id the chain names, once each, in the order it first names them.
+
+        The compiler lists a placeholder's id among its template's elements too, but a
+        placeholder is still read for its id: the chain is checked against the model
+        without relying on how the compiler lays it out (#179).
+        """
+        return tuple(
+            dict.fromkeys(
+                (
+                    *self.elements,
+                    *(i for template in self.templates for i in template.elements),
+                    *(
+                        i
+                        for template in self.templates
+                        for placeholder in template.placeholders
+                        for i in (placeholder.id, *placeholder.supports)
+                    ),
+                )
+            )
         )
 
 
@@ -134,8 +143,11 @@ class Justification:
     invent the missing element. Binding resolution needs an id or alias to designate one
     element (#115). It also raises if the relations form a cycle (JP004), which the
     compiler never emits: an argument cannot support itself, and its steps would have no
-    order to run in (ADR-0010). A ``template_chain`` that names an element that does not
-    exist is JP003 too.
+    order to run in (ADR-0010).
+
+    A ``template_chain`` that names an element that does not exist is not kept: only the
+    diagram reads it, which then draws the argument flat, and the run does not depend on
+    it. Its unknown ids are kept instead, for validation to warn about (JP026, #177).
     """
 
     def __init__(
@@ -148,13 +160,13 @@ class Justification:
         self._name = name
         self._elements = tuple(elements)
         self._relations = tuple(relations)
-        self._template_chain = template_chain
+        self._unknown_in_template_chain = _unknown_in_chain(template_chain, self._elements)
+        self._template_chain = None if self._unknown_in_template_chain else template_chain
 
         problems = [
             *_duplicate_ids(self._elements),
             *_shared_aliases(self._elements),
             *_dangling(self._relations, self._elements),
-            *_dangling_in_chain(template_chain, self._elements),
         ]
         if problems:
             raise InvalidJustificationError(problems)
@@ -185,8 +197,15 @@ class Justification:
     @property
     def template_chain(self) -> TemplateChain | None:
         """How the compiler draws the templates this justification implements, or ``None``
-        if it implements none, or was compiled by a jPipe older than 4.0.0."""
+        if it implements none, was compiled by a jPipe older than 4.0.0, or its chain names
+        an element it does not have."""
         return self._template_chain
+
+    @property
+    def unknown_in_template_chain(self) -> tuple[str, ...]:
+        """The ids the compiler's template chain names that are not elements, in the order
+        the chain names them. If there is one, the chain was not kept."""
+        return self._unknown_in_template_chain
 
     def element(self, element_id: str) -> Element:
         """The element whose own id is ``element_id``. Aliases are not looked up here."""
@@ -290,18 +309,13 @@ def _dangling(
             )
 
 
-def _dangling_in_chain(
+def _unknown_in_chain(
     chain: TemplateChain | None, elements: tuple[Element, ...]
-) -> Iterator[Diagnostic]:
+) -> tuple[str, ...]:
     if chain is None:
-        return
+        return ()
     ids = {element.id for element in elements}
-    for missing in dict.fromkeys(i for i in chain.ids if i not in ids):
-        yield Diagnostic(
-            DANGLING_RELATION,
-            Severity.ERROR,
-            f"the template chain names {missing!r}, which is not an element",
-        )
+    return tuple(i for i in chain.ids if i not in ids)
 
 
 def _cyclic(cycle: tuple[str, ...]) -> Diagnostic:

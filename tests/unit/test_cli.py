@@ -305,6 +305,26 @@ def test_strict_counts_a_warning_as_an_error(
     assert _main(capsys, "--strict", *libraries)[0] == ExitCode.INVALID
 
 
+def test_a_template_chain_naming_an_unknown_element_warns_and_is_drawn_flat(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    workdir = scenario("templated")
+    path = workdir / "justification.json"
+    compiled = json.loads(path.read_text(encoding="utf-8"))
+    compiled["implements"]["elements"].append("readiness:gone")
+    path.write_text(json.dumps(compiled), encoding="utf-8")
+    argv = ["--diagram", "r.dot", "--json", "-l", "steps.py", "justification.json"]
+
+    code, out, _ = _main(capsys, *argv)
+
+    report = json.loads(out)
+    assert code == ExitCode.OK
+    assert report["verdict"] == "pass"
+    assert [d["code"] for d in report["diagnostics"]] == ["JP026"]
+    assert "subgraph" not in (workdir / "r.dot").read_text(encoding="utf-8")
+    assert _main(capsys, "--strict", *argv)[0] == ExitCode.INVALID
+
+
 def test_a_dry_run_is_valid_and_calls_no_step(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

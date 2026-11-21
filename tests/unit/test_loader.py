@@ -124,9 +124,13 @@ def test_a_template_chain_out_of_the_schema_is_refused() -> None:
     assert failure(edited(implements={"elements": []})) == [("JP001", None)]
 
 
-def test_a_template_chain_that_names_no_element_is_refused() -> None:
+def test_a_template_chain_that_names_no_element_is_set_aside() -> None:
     chain = {**CHAIN, "elements": ["release:x"]}
-    assert failure(edited(implements=chain)) == [("JP003", None)]
+
+    justification = loader.loads(edited(implements=chain))
+
+    assert justification.template_chain is None
+    assert justification.unknown_in_template_chain == ("release:x",)
 
 
 @pytest.mark.parametrize(
