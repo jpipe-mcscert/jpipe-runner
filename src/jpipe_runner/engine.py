@@ -212,19 +212,20 @@ def run(
     ctx = ValidationContext.of(justification, registry)
     report = RULES.run(ctx, strict=strict)
     listener.validation_ended(report)
-    values = ValueStore()
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
-        return RunResult(justification, ctx.bindings, ctx.dataflow, report, (), values, strict)
-    if dry_run:
-        _LOG.info("validation passed: a dry run calls no step")
         return RunResult(
-            justification, ctx.bindings, ctx.dataflow, report, (), values, strict, dry_run=True
+            justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict
         )
+    # What a dry run returns, and what a listener is told the run plans.
     planned = RunResult(
         justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict, dry_run=True
     )
+    if dry_run:
+        _LOG.info("validation passed: a dry run calls no step")
+        return planned
     listener.steps_starting(planned)
+    values = ValueStore()
     elements = _Run(ctx, values, root, listener).execute()
     return RunResult(justification, ctx.bindings, ctx.dataflow, report, elements, values, strict)
 

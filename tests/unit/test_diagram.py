@@ -5,7 +5,9 @@ The DOT text is checked as text, so these tests need no Graphviz. Only the tests
 an image call ``dot``, and are skipped where it is not installed; CI installs it.
 """
 
+import os
 import shutil
+import stat
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -22,6 +24,7 @@ from jpipe_runner import (
     Produced,
     Skip,
     conclusion,
+    diagram,
     engine,
     evidence,
     loader,
@@ -632,6 +635,79 @@ def test_a_diagram_that_cannot_be_drawn_leaves_the_previous_one_and_no_trace(
 
     assert previous.read_bytes() == b"the previous drawing"
     assert [p.name for p in tmp_path.iterdir()] == ["m.png"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
+def test_a_diagram_keeps_the_permissions_of_the_file_it_replaces(tmp_path: Path) -> None:
+    drawn = tmp_path / "m.dot"
+    drawn.write_text("the previous drawing", encoding="utf-8")
+    drawn.chmod(0o640)
+
+    write(drawn, RELEASE)
+
+    assert stat.S_IMODE(drawn.stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX permissions")
+def test_a_new_diagram_has_the_permissions_a_new_file_gets(tmp_path: Path) -> None:
+    umask = os.umask(0o022)
+    try:
+        write(tmp_path / "m.dot", RELEASE)
+        assert stat.S_IMODE((tmp_path / "m.dot").stat().st_mode) == 0o644
+    finally:
+        os.umask(umask)
+
+
+def test_a_link_to_a_diagram_is_written_through(tmp_path: Path) -> None:
+    (tmp_path / "site").mkdir()
+    target = tmp_path / "site" / "m.dot"
+    target.write_text("the previous drawing", encoding="utf-8")
+    link = tmp_path / "m.dot"
+    link.symlink_to(target)
+
+    assert write(link, RELEASE) == link
+
+    assert link.is_symlink()
+    assert target.read_text(encoding="utf-8") == source(RELEASE)
+    assert [p.name for p in target.parent.iterdir()] == ["m.dot"]
+
+
+def test_on_windows_a_diagram_a_reader_holds_open_is_replaced_once_it_is_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    replace, held = os.replace, [2]
+
+    def held_open(source: Any, destination: Any) -> None:
+        if held[0]:
+            held[0] -= 1
+            raise PermissionError(13, "The process cannot access the file")
+        replace(source, destination)
+
+    monkeypatch.setattr(diagram, "_WINDOWS", True)
+    monkeypatch.setattr(diagram.os, "replace", held_open)
+    monkeypatch.setattr(diagram.time, "sleep", lambda _: None)
+
+    write(tmp_path / "m.dot", RELEASE)
+
+    assert (tmp_path / "m.dot").read_text(encoding="utf-8") == source(RELEASE)
+
+
+def test_elsewhere_a_diagram_that_cannot_be_replaced_fails_at_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    attempts: list[object] = []
+
+    def refused(source: Any, destination: Any) -> None:
+        attempts.append(destination)
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(diagram, "_WINDOWS", False)
+    monkeypatch.setattr(diagram.os, "replace", refused)
+
+    with pytest.raises(PermissionError):
+        write(tmp_path / "m.dot", RELEASE)
+    assert len(attempts) == 1
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_a_diagram_is_written_whole_under_its_name(tmp_path: Path) -> None:

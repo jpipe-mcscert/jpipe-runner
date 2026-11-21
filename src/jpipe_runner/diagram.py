@@ -35,12 +35,12 @@ moves the diagram (#186): drawn with a report, every node's label is an HTML-lik
 wrapped as the compiler wraps it, beside a cell of fixed size for its symbol, empty when
 it has none, and a status changes no font. A dry run's diagram, and the diagrams of two
 runs with different statuses, therefore put every node in the same place. A file or
-variable drawn in vermillion is marked ⚠, in a cell of its own. A support edge takes the colour of the
-status of the element it comes from, or, from a placeholder, of the element that fills it,
-and is thicker from a failure, dashed from a skip. In SVG, a node's tooltip gives its status
-and reason. Without a report, the diagram is the argument
-alone; with the report of a run in which nothing ran, such as a dry run, it is the dataflow
-the steps declare, without statuses.
+variable drawn in vermillion is marked ⚠, in a cell of its own. A support edge takes the
+colour of the status of the element it comes from, or, from a placeholder, of the element
+that fills it, and is thicker from a failure, dashed from a skip. In SVG, a node's tooltip
+gives its status and reason. Without a report, the diagram is the argument alone; with the
+report of a run in which nothing ran, such as a dry run, it is the dataflow the steps
+declare, without statuses.
 
 Rendering pipes the DOT text to Graphviz's ``dot``: only the binary is needed. The ``dot``
 format is the text itself, written without it.
@@ -49,8 +49,10 @@ format is the text itself, written without it.
 import html
 import os
 import re
+import secrets
+import shutil
 import subprocess
-import tempfile
+import time
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -60,6 +62,10 @@ from jpipe_runner.model import Element, Justification, Kind, Template
 from jpipe_runner.report import ElementReport, RunReport
 
 FORMATS = ("dot", "gif", "jpeg", "jpg", "pdf", "png", "svg")
+
+_WINDOWS = os.name == "nt"
+_ATTEMPTS, _PAUSE = 10, 0.1
+"""How many times, and how far apart in seconds, a diagram is renamed into place."""
 
 _WRAP_WIDTH = 40
 
@@ -135,23 +141,51 @@ def write(
     file beside ``path``, then renamed to it, so that a program that reads ``path`` while
     it is written, such as one that follows a run (ADR-0032), sees the previous drawing
     or the new one, never half of one; a diagram that cannot be drawn leaves ``path`` as
-    it was. Raises ``ValueError`` for a format not in ``FORMATS``, ``FileNotFoundError`` if
-    Graphviz's ``dot`` is not installed, and ``OSError`` if it fails.
+    it was. The file has the permissions of the one it replaces, or those a new file gets,
+    and a link at ``path`` is written through, to the file it links to. Raises
+    ``ValueError`` for a format not in ``FORMATS``, ``FileNotFoundError`` if Graphviz's
+    ``dot`` is not installed, and ``OSError`` if it fails.
     """
     fmt = (fmt or path.suffix.removeprefix(".")).lower()
     if fmt not in FORMATS:
         raise ValueError(f"a diagram is one of {', '.join(FORMATS)}, not {fmt!r}")
     text = source(justification, report)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
-    os.close(handle)
-    drawing = Path(name)
+    target = path.resolve() if path.is_symlink() else path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    drawing = _temporary(target)
     try:
         _draw(text, fmt, drawing, path)
-        os.replace(drawing, path)
+        if target.exists():
+            shutil.copymode(target, drawing)
+        _replace(drawing, target)
     finally:
         drawing.unlink(missing_ok=True)
     return path
+
+
+def _temporary(target: Path) -> Path:
+    """A new, empty file beside ``target``, with the permissions a new file gets."""
+    while True:
+        drawing = target.with_name(f".{target.name}.{secrets.token_hex(4)}.tmp")
+        try:
+            os.close(os.open(drawing, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666))
+        except FileExistsError:  # pragma: no cover - 32 random bits, taken already
+            continue
+        return drawing
+
+
+def _replace(drawing: Path, target: Path) -> None:
+    """Rename ``drawing`` to ``target``. On Windows, a file another program has open cannot
+    be replaced, as the reader of a run's diagram may have it for a moment: try again,
+    for about a second."""
+    for attempt in range(_ATTEMPTS):
+        try:
+            os.replace(drawing, target)
+            return
+        except PermissionError:
+            if not _WINDOWS or attempt == _ATTEMPTS - 1:
+                raise
+            time.sleep(_PAUSE)
 
 
 def _draw(text: str, fmt: str, drawing: Path, path: Path) -> None:

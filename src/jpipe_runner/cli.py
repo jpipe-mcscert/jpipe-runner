@@ -370,11 +370,13 @@ def _run(options: argparse.Namespace) -> int:
     _LOG.info("steps run with Python %s, in %s", sys.executable, Path.cwd())
     # Expanded before the events file is opened, which a glob could otherwise match.
     libraries = _libraries(options.library)
-    preview = None if options.diagram is None else _previewer(options.diagram, root)
+    preview = None if options.diagram is None else _Preview(options.diagram, root)
     with _events(options.events, root, preview) as stream:
         justification, report = _report(options, root, libraries, stream)
         _LOG.info("verdict: %s", report.verdict)
         report, drawn = _draw(options, justification, report, root)
+        if not drawn and preview is not None:
+            preview.withdraw()
         saved = _save(options.report, report)
         code = exit_code(report.verdict, strict=options.strict) if drawn and saved else ExitCode.IO
         _print(options, report)
@@ -416,21 +418,42 @@ def _events(
         stream.close()
 
 
-def _previewer(path: Path, root: Path) -> Preview:
+class _Preview:
     """What draws the diagram at ``path`` before the first step, as a dry run would draw it,
-    for a program that follows the run's events (ADR-0032). The drawing is a preview: one
-    that cannot be drawn is logged, and changes nothing else."""
+    for a program that follows the run's events (ADR-0032). The drawing is a preview:
+    whatever keeps it from being drawn is logged, and changes nothing else."""
 
-    def preview(planned: RunResult) -> Path | None:
+    def __init__(self, path: Path, root: Path) -> None:
+        self._path = path
+        self._root = root
+        self._drawn = False
+
+    def __call__(self, planned: RunResult) -> Path | None:
         try:
-            diagram.write(path, planned.justification, RunReport.of(planned, root))
-        except OSError as error:
-            _LOG.warning("cannot draw the diagram before the steps run: %s", _reason(error))
+            report = RunReport.of(planned, self._root)
+            diagram.write(self._path, planned.justification, report)
+        # Whatever went wrong, from an observable of the library that cannot describe
+        # itself to dot, a preview never stops the run.
+        except Exception as error:  # NOSONAR
+            why = _reason(error) if isinstance(error, OSError) else f"{error!r}"
+            _LOG.warning("cannot draw the diagram before the steps run: %s", why)
             return None
-        _LOG.info("drew the diagram at %s, before the steps run", path)
-        return path
+        _LOG.info("drew the diagram at %s, before the steps run", self._path)
+        self._drawn = True
+        return self._path
 
-    return preview
+    def withdraw(self) -> None:
+        """Remove the drawing, if it was drawn: the run's own diagram could not be, and
+        a drawing without statuses would pass for it."""
+        if not self._drawn:
+            return
+        drawn = self._path.resolve() if self._path.is_symlink() else self._path
+        try:
+            drawn.unlink(missing_ok=True)
+        except OSError as error:
+            _LOG.warning("cannot remove the diagram drawn before the steps: %s", _reason(error))
+            return
+        _LOG.info("removed the diagram drawn before the steps run, at %s", self._path)
 
 
 def _streamed(stream: EventStream | None) -> bool:

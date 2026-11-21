@@ -267,6 +267,58 @@ def test_a_preview_that_cannot_be_drawn_is_logged_and_changes_nothing_else(
     assert "warning: cannot draw the diagram before the steps run" in capsys.readouterr().err
 
 
+def test_a_preview_that_raises_anything_is_logged_and_the_run_goes_on(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    write = cli.diagram.write
+    calls: list[Path] = []
+
+    def first_raises(path: Path, *arguments: Any, **options: Any) -> Path:
+        calls.append(path)
+        if len(calls) == 1:
+            raise UnicodeEncodeError("ascii", "✔", 0, 1, "ordinal not in range(128)")
+        return write(path, *arguments, **options)
+
+    monkeypatch.setattr(cli.diagram, "write", first_raises)
+
+    code = main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+
+    assert code == ExitCode.OK
+    assert of(read(directory / EVENTS), "diagram.drawn") == []
+    assert "cannot draw the diagram before the steps run: UnicodeEncodeError" in (
+        capsys.readouterr().err
+    )
+
+
+def test_a_final_diagram_that_cannot_be_drawn_withdraws_the_preview(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    write = cli.diagram.write
+    calls: list[Path] = []
+
+    def second_fails(path: Path, *arguments: Any, **options: Any) -> Path:
+        calls.append(path)
+        if len(calls) == 2:
+            raise OSError("dot failed to draw release.dot: killed")
+        return write(path, *arguments, **options)
+
+    monkeypatch.setattr(cli.diagram, "write", second_fails)
+
+    code = main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+
+    found = read(directory / EVENTS)
+    assert code == ExitCode.IO
+    assert len(of(found, "diagram.drawn")) == 1
+    assert found[-1]["diagram"] is None
+    assert not (directory / "release.dot").exists()
+
+
 def test_the_diagram_is_named_at_the_end(
     workdir: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
