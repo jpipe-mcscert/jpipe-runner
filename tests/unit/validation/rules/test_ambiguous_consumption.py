@@ -96,3 +96,46 @@ def test_a_variable_two_supporters_produce_is_ambiguous(
     steps: list[Step], expected: list[Reported]
 ) -> None:
     assert reported(AmbiguousConsumption(), context(MODEL, *steps)) == expected
+
+
+# A chain, e -> s -> c, in which e and s both produce `x`.
+CHAIN = model(
+    element("m:e", EVIDENCE),
+    element("m:s", STRATEGY),
+    element("m:c", CONCLUSION),
+    relations=[("m:e", "m:s"), ("m:s", "m:c")],
+)
+LINKS = [
+    step(EVIDENCE, "m:e", produces=["x"], name="e"),
+    step(STRATEGY, "m:s", consumes=["x"], produces=["x"], name="s"),
+]
+
+
+@pytest.mark.parametrize(
+    ("consumes", "expected"),
+    [
+        pytest.param(["x"], [("JP025", ERROR, "m:c")], id="both producers support it"),
+        pytest.param({"x": Produced("x", by="m:s")}, [], id="by the producer above"),
+        pytest.param({"x": Produced("x", by="m:e")}, [], id="by the producer below"),
+    ],
+)
+def test_by_designating_a_producer_selects_it_even_above_another(
+    consumes: list[str] | dict[str, Produced], expected: list[Reported]
+) -> None:
+    ctx = context(CHAIN, *LINKS, step(CONCLUSION, "m:c", consumes=consumes, name="c"))
+    assert reported(AmbiguousConsumption(), ctx) == expected
+
+
+def test_the_fix_it_suggests_resolves_the_ambiguity() -> None:
+    ctx = context(CHAIN, *LINKS, step(CONCLUSION, "m:c", consumes=["x"], name="c"))
+    (diagnostic,) = AmbiguousConsumption().check(ctx)
+    assert diagnostic.fix == 'Name the one it means: consumes={"x": Produced("x", by="m:e")}.'
+    fixed = step(CONCLUSION, "m:c", consumes={"x": Produced("x", by="m:e")}, name="c")
+    assert reported(AmbiguousConsumption(), context(CHAIN, *LINKS, fixed)) == []
+
+
+def test_two_parameters_receiving_one_ambiguous_variable_are_one_problem() -> None:
+    gates = step(STRATEGY, "m:s", consumes={"a": "x", "b": "x"}, name="s")
+    assert reported(AmbiguousConsumption(), context(MODEL, *SOURCES, gates)) == [
+        ("JP025", ERROR, "m:s")
+    ]

@@ -480,8 +480,9 @@ evidence the observed artifacts (a parameter with a default, or `**kwargs`, is a
 from a step that supports it, directly or not (`upstream`), because it runs only once its
 supporters have passed. So the `DataflowTable` resolves each `Input` of a bound step, a
 parameter and its variable, to its candidates: the bound steps that produce the variable
-and support the consumer, narrowed to those at or below the element its `by` designates,
-when the step consumes a `Produced(variable, by=id)`. Each input is a `Consumption`, with
+and support the consumer, narrowed, when the step consumes a `Produced(variable, by=id)`,
+to the step of the element `by` designates if it produces the variable, and otherwise to
+those below that element. Each input is a `Consumption`, with
 every producer of its variable, those reachable from `by`, and the candidates. Exactly one
 candidate is its producer. None is `JP009`, when nothing produces the variable, or `JP014`;
 several is `JP025`, which a `by` resolves. Two steps may therefore produce one variable, as

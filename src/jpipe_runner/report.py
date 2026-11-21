@@ -78,12 +78,12 @@ class ElementReport:
         binding: Binding | None = None,
         result: ElementResult | None = None,
         root: Path = Path(),
-        inputs: tuple[Received, ...] | None = None,
+        inputs: tuple[Received, ...] = (),
     ) -> "ElementReport":
-        """``element`` of ``model``, with the step ``binding`` binds to it and the run's
-        ``result`` for it, when it has them: an element of the report, built on its own,
-        as the run's events show it the moment it is decided. What its step's parameters
-        receive is ``inputs``, by default what ``result`` records."""
+        """``element`` of ``model``, with the step ``binding`` binds to it, what that step's
+        parameters receive, ``inputs``, and the run's ``result`` for it, when it has them:
+        an element of the report, built on its own, as the run's events show it the moment
+        it is decided."""
         report = cls(
             element.id,
             element.label,
@@ -103,7 +103,7 @@ class ElementReport:
                 observes=tuple(dict.fromkeys(files)),
                 sources=tuple(described(observable, context) for observable in observed),
                 consumes=step.consumes,
-                inputs=(() if result is None else result.inputs) if inputs is None else inputs,
+                inputs=inputs,
                 produces=step.produces,
             )
         if result is not None:
@@ -275,7 +275,7 @@ def _elements(
             bindings.get(element.id),
             results.get(element.id),
             root,
-            None if received is None else received(element.id),
+            () if received is None else received(element.id),
         )
         for element in model.topological_order()
     )

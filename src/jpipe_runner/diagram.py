@@ -253,7 +253,8 @@ class _Dataflow:
     producer too, ``variable coverage from m:e``, when several steps produce the variable.
     A consumed variable that resolves to no single producer has a node of its own, named
     after the variable, unless one step produces it: then it is drawn from that one, which
-    validation reports does not support the consumer (JP014).
+    validation reports does not support the consumer (JP014). Either way, the value is
+    drawn in vermillion.
     """
 
     def __init__(self, reported: dict[str, ElementReport]) -> None:
@@ -266,11 +267,15 @@ class _Dataflow:
                 self._producers.setdefault(name, []).append(element.id)
         self._produced_by: dict[str, str] = {}
         self._consumers: dict[str, set[str]] = {}
+        self._unresolved: set[str] = set()
         for element in self._elements:
             for name in element.produces:
                 self._produced_by[self._node(name, element.id)] = element.id
-            for received in _inputs(element):
-                self._consumers.setdefault(self._source(received), set()).add(element.id)
+            for received in self._inputs(element):
+                node = self._source(received)
+                self._consumers.setdefault(node, set()).add(element.id)
+                if received.produced_by is None:
+                    self._unresolved.add(node)
 
     def links(self, source: str, target: str) -> bool:
         """Whether a value links ``source`` to ``target``: ``source`` produces it and
@@ -293,7 +298,7 @@ class _Dataflow:
                 yield _data_edge(f"artifact {path}", element.id, "observes", dotted=True)
             for name in element.produces:
                 yield _data_edge(element.id, self._node(name, element.id), "produces")
-            for node in _unique(self._source(received) for received in _inputs(element)):
+            for node in _unique(self._source(received) for received in self._inputs(element)):
                 yield _data_edge(node, element.id, "consumes")
 
     def _node(self, name: str, producer: str | None) -> str:
@@ -304,10 +309,7 @@ class _Dataflow:
 
     def _source(self, received: Received) -> str:
         """The node a parameter receives its value from."""
-        producers = self._producers.get(received.variable, [])
-        producer = received.produced_by
-        if producer is None and len(producers) == 1:
-            producer = producers[0]
+        producer = received.produced_by or self._only(received.variable)
         return self._node(received.variable, producer)
 
     def _values(self) -> list[tuple[str, str]]:
@@ -316,7 +318,7 @@ class _Dataflow:
         for element in self._elements:
             for name in element.produces:
                 found.setdefault(self._node(name, element.id), name)
-            for received in _inputs(element):
+            for received in self._inputs(element):
                 found.setdefault(self._source(received), received.variable)
         return list(found.items())
 
@@ -330,8 +332,24 @@ class _Dataflow:
         return attributes
 
     def _broken(self, node: str) -> bool:
-        """Whether a value lacks a producer, or a consumer."""
-        return node not in self._produced_by or node not in self._consumers
+        """Whether a value lacks a producer, or a consumer, or is consumed by a step that
+        does not resolve to it."""
+        return (
+            node not in self._produced_by or node not in self._consumers or node in self._unresolved
+        )
+
+    def _inputs(self, element: ElementReport) -> tuple[Received, ...]:
+        """What ``element``'s step receives: its inputs, or, in a report that has none, each
+        variable it consumes, to a parameter of the same name, from its producer if only one
+        step produces it."""
+        if element.inputs or not element.consumes:
+            return element.inputs
+        return tuple(Received(name, name, self._only(name)) for name in element.consumes)
+
+    def _only(self, name: str) -> str | None:
+        """The one element that produces ``name``, if only one does."""
+        producers = self._producers.get(name, [])
+        return producers[0] if len(producers) == 1 else None
 
     def _unreachable(self, declared: str) -> bool:
         return any(
@@ -339,14 +357,6 @@ class _Dataflow:
             for element in self._elements
             for observation in element.artifacts
         )
-
-
-def _inputs(element: ElementReport) -> tuple[Received, ...]:
-    """What ``element``'s step receives: its inputs, or, in a report that has none, each
-    variable it consumes, to a parameter of the same name, from no known producer."""
-    if element.inputs or not element.consumes:
-        return element.inputs
-    return tuple(Received(name, name, None) for name in element.consumes)
 
 
 def _overlay(style: dict[str, str], reported: ElementReport) -> dict[str, str]:

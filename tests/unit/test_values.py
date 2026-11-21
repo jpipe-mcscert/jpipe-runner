@@ -62,7 +62,6 @@ def test_values_are_listed_in_the_order_produced() -> None:
     store.put("b", 2, produced_by="m:e2")
     store.put("a", 1, produced_by="m:e1")
     store.put("b", 3, produced_by="m:e3")
-    assert list(store) == ["b", "a"]
     assert list(store.entries()) == [
         ("b", ProducedValue(2, "m:e2")),
         ("a", ProducedValue(1, "m:e1")),

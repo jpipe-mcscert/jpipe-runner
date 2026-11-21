@@ -428,6 +428,19 @@ def test_a_variable_without_one_producer_and_a_consumer_is_vermillion() -> None:
         assert node.endswith('color="#D55E00", penwidth=2];')
 
 
+def test_a_value_its_consumer_does_not_resolve_to_is_vermillion() -> None:
+    @strategy("s", consumes=["a"], produces=["a"])
+    def loop(a: str) -> Outcome:
+        return Pass(a=a)
+
+    registry = StepRegistry(s for s in map(step_of, (loop,)) if s is not None)
+    report = RunReport.of(run(RELEASE, registry))  # invalid: JP014, s does not support s
+    lines = source(RELEASE, report).splitlines()
+
+    (node,) = [line for line in lines if line.startswith('  "variable a" [')]
+    assert node.startswith(f'  "variable a" [label={_marked("⚠", "a", 14)}, ')
+
+
 # Two sub-arguments, a:e -> a:s -> a:c and b:e -> b:s -> b:c, both supporting s -> c.
 BRANCHES = model(
     element("c", CONCLUSION),

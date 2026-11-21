@@ -103,7 +103,9 @@ class EventStream:
     def element_decided(self, result: ElementResult) -> None:
         if self._model is None:
             raise RuntimeError("an element was decided before the run started: a runner bug")
-        reported = ElementReport.of(self._model, result.element, result.binding, result, self._root)
+        reported = ElementReport.of(
+            self._model, result.element, result.binding, result, self._root, result.inputs
+        )
         self._write(
             "element.decided",
             element=json_report.element(reported, self._root),

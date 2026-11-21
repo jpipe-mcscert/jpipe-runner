@@ -171,7 +171,7 @@ class MissingProducer(Rule):
     summary = "A step consumes a variable that no step produces."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        for consumed in ctx.dataflow:
+        for consumed in _distinct(ctx):
             if not consumed.producers:
                 variable = consumed.input.variable
                 yield self.diagnostic(
@@ -293,7 +293,7 @@ class ConsumedBeforeProduced(Rule):
     summary = "A step consumes a variable that no step supporting it produces."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        for consumed in ctx.dataflow:
+        for consumed in _distinct(ctx):
             if consumed.designated and consumed.producers and not consumed.candidates:
                 yield self.diagnostic(
                     _unsupported(consumed),
@@ -381,7 +381,7 @@ class AmbiguousConsumption(Rule):
     summary = "Several steps that support a step produce a variable it consumes."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
-        for consumed in ctx.dataflow:
+        for consumed in _distinct(ctx):
             if len(consumed.candidates) > 1:
                 variable, parameter = consumed.input.variable, consumed.input.parameter
                 ids = ", ".join(repr(p.element.id) for p in consumed.candidates)
@@ -405,6 +405,17 @@ def _composed(bound: Binding) -> bool:
         Kind.EVIDENCE,
         Kind.CONCLUSION,
     )
+
+
+def _distinct(ctx: ValidationContext) -> Iterator[Consumption]:
+    """Each input of each bound step, once per source: two parameters that receive the same
+    variable from the same place are one problem, when there is one."""
+    seen: set[tuple[str, str, str | None]] = set()
+    for consumed in ctx.dataflow:
+        key = (consumed.consumer.element.id, consumed.input.variable, consumed.input.by)
+        if key not in seen:
+            seen.add(key)
+            yield consumed
 
 
 def _unsupported(consumed: Consumption) -> str:

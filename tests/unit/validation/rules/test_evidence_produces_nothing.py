@@ -4,7 +4,7 @@ import pytest
 
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.rules import EvidenceProducesNothing
-from jpipe_runner.steps import Step
+from jpipe_runner.steps import Produced, Step
 from tests.unit.validation.builders import (
     CONCLUSION,
     EVIDENCE,
@@ -53,6 +53,22 @@ ERROR = Severity.ERROR
             id="consumed further up",
         ),
         pytest.param([step(SUB_CONCLUSION, "m:sc")], [], id="not an evidence"),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e", produces=["x"]),
+                step(STRATEGY, "m:s", consumes={"x": Produced("x", by="m:nowhere")}),
+            ],
+            [],
+            id="consumed by a step whose by designates nothing: JP015",
+        ),
+        pytest.param(
+            [
+                step(EVIDENCE, "m:e", produces=["x"]),
+                step(STRATEGY, "m:s", consumes={"x": Produced("x", by="m:sc")}),
+            ],
+            [],
+            id="consumed by a step whose by names no producer: JP014",
+        ),
     ],
 )
 def test_an_evidence_whose_values_nothing_consumes_is_an_error(

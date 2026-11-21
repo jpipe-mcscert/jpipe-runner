@@ -93,8 +93,9 @@ A step whose consumption is ambiguous names the producer it means. `consumes` ke
 list form, and also accepts a mapping from each parameter to its source. This mirrors
 `observes` ([ADR-0028](0028-observables-and-file-relative-paths.md)). A source is either a
 variable name, resolved as above, or `Produced(variable, by=id)`, where `id` designates
-an element by the rules of [ADR-0007](0007-binding-resolution.md), and the candidates are
-narrowed to that element and its supporters:
+an element by the rules of [ADR-0007](0007-binding-resolution.md). The candidates are
+narrowed to that element's own step, if it produces the variable, and otherwise to the
+element's supporters:
 
 <!-- fmt:off -->
 ```python
@@ -115,7 +116,9 @@ def all_release_gates_pass(tests: float, docs: float) -> Outcome:
 <!-- fmt:on -->
 
 `by` may designate the producer itself, or any element above it, such as the conclusion
-of the sub-argument it comes from. The integrator names the part of the argument they
+of the sub-argument it comes from. Designating the producer selects it, even when another
+producer of the same variable supports it: a strategy that refines a value it consumes,
+under the same name, can still be named. The integrator names the part of the argument they
 mean, not the step inside it that happens to produce the value. A mapping also lets a
 step take two values of one name under two parameter names, which the list form cannot.
 

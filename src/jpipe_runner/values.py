@@ -69,7 +69,8 @@ class ValueStore:
         return tuple(producer for producer, produced in self._values if produced == name)
 
     def entries(self) -> Iterator[tuple[str, ProducedValue]]:
-        """Every produced variable and its value, in the order they were produced."""
+        """Every produced value and its variable, in the order produced: a variable two
+        elements produced appears twice, each time with its producer."""
         return ((name, value) for (_, name), value in self._values.items())
 
     def __contains__(self, name: object) -> bool:
@@ -77,11 +78,8 @@ class ValueStore:
         return any(produced == name for _, produced in self._values)
 
     def __len__(self) -> int:
+        """How many values were produced: one per variable and producer."""
         return len(self._values)
-
-    def __iter__(self) -> Iterator[str]:
-        """The produced variables, each once, in the order first produced."""
-        return iter(dict.fromkeys(name for _, name in self._values))
 
     def __repr__(self) -> str:
         return f"ValueStore({len(self._values)} values)"
