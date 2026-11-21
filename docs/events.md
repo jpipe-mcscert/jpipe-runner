@@ -70,6 +70,8 @@ is this, and nothing more:
 
 - `run.started` comes first, and `run.ended` last;
 - `validation.ended` comes before any element's event;
+- `diagram.drawn`, when there is one, comes after `validation.ended` and before any
+  element's event;
 - an element is decided after every element that supports it;
 - an element that starts is decided after it starts.
 
@@ -138,6 +140,25 @@ and has no `validation.ended`.
 |---|---|---|
 | `passed` | boolean | whether validation reported no error |
 | `diagnostics` | array | what validation reported, each a [diagnostic](report-schema.md#diagnostics) as the report writes it |
+
+### `diagram.drawn`
+
+The run's diagram was drawn before its first step, as a dry run of the same command would
+draw it: the dataflow, every element without a status
+([ADR-0032](adr/0032-a-run-previews-its-diagram.md)). A program that follows the run
+colours it as elements are decided, then shows the drawing `run.ended` names, at the same
+path, once the run is over: a status never moves a node, so the two line up.
+
+It is written once, when `--diagram` is given, validation passed, and the run calls its
+steps. A dry run draws its diagram once, at the end, without this event, and so does a run
+without `--events`. A drawing that cannot be written is logged on stderr, and changes
+nothing else: the event is not written, the run goes on, and the diagram is drawn again
+when it ends. The file is written whole each time, under another name then renamed, so a
+program that reads it never sees half a drawing.
+
+| Field | Type | |
+|---|---|---|
+| `path` | string | the path of the drawing, relative to the directory the runner ran in, as `run.ended` will give it |
 
 ### `element.started`
 

@@ -45,3 +45,4 @@ and add a row to this table.
 | [0029](0029-the-runner-draws-the-dataflow.md) | The runner draws one diagram, the dataflow | accepted |
 | [0030](0030-a-run-streams-its-events.md) | A run streams its events to a file, one JSON object per line | accepted |
 | [0031](0031-variables-resolve-among-supporters.md) | A consumed variable resolves among its consumer's supporters | accepted |
+| [0032](0032-a-run-previews-its-diagram.md) | A run draws its diagram before its first step, and a status never moves it | proposed |

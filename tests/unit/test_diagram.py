@@ -615,6 +615,36 @@ def test_a_failure_of_graphviz_is_an_os_error(
         write(tmp_path / "m.png", RELEASE)
 
 
+def test_a_diagram_that_cannot_be_drawn_leaves_the_previous_one_and_no_trace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    previous = tmp_path / "m.png"
+    previous.write_bytes(b"the previous drawing")
+
+    def failing(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        Path(command[command.index("-o") + 1]).write_bytes(b"half a drawing")
+        return subprocess.CompletedProcess(command, 1, "", "Error: syntax error\n")
+
+    monkeypatch.setattr(subprocess, "run", failing)
+
+    with pytest.raises(OSError, match="syntax error"):
+        write(previous, RELEASE)
+
+    assert previous.read_bytes() == b"the previous drawing"
+    assert [p.name for p in tmp_path.iterdir()] == ["m.png"]
+
+
+def test_a_diagram_is_written_whole_under_its_name(tmp_path: Path) -> None:
+    drawn = tmp_path / "out" / "m.dot"
+    drawn.parent.mkdir()
+    drawn.write_text("the previous drawing", encoding="utf-8")
+
+    write(drawn, RELEASE)
+
+    assert drawn.read_text(encoding="utf-8") == source(RELEASE)
+    assert [p.name for p in drawn.parent.iterdir()] == ["m.dot"]
+
+
 @needs_dot
 @pytest.mark.parametrize("fmt", [fmt for fmt in FORMATS if fmt != "dot"])
 def test_every_format_is_rendered_by_graphviz(tmp_path: Path, fmt: str) -> None:

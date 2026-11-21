@@ -29,8 +29,8 @@ from typing import Any, NoReturn
 
 from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
 from jpipe_runner.diagnostics import shown_path
-from jpipe_runner.engine import Verdict
-from jpipe_runner.events import EventStream
+from jpipe_runner.engine import RunResult, Verdict
+from jpipe_runner.events import EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
 from jpipe_runner.observables import is_glob
@@ -370,7 +370,8 @@ def _run(options: argparse.Namespace) -> int:
     _LOG.info("steps run with Python %s, in %s", sys.executable, Path.cwd())
     # Expanded before the events file is opened, which a glob could otherwise match.
     libraries = _libraries(options.library)
-    with _events(options.events, root) as stream:
+    preview = None if options.diagram is None else _previewer(options.diagram, root)
+    with _events(options.events, root, preview) as stream:
         justification, report = _report(options, root, libraries, stream)
         _LOG.info("verdict: %s", report.verdict)
         report, drawn = _draw(options, justification, report, root)
@@ -396,19 +397,40 @@ def _print(options: argparse.Namespace, report: RunReport) -> None:
 
 
 @contextmanager
-def _events(path: Path | None, root: Path) -> Iterator[EventStream | None]:
-    """The stream of the run's events, written to ``path``, if one is given. A file that
-    cannot be opened is an ``OSError``, before anything runs."""
+def _events(
+    path: Path | None, root: Path, preview: Preview | None = None
+) -> Iterator[EventStream | None]:
+    """The stream of the run's events, written to ``path``, if one is given, which draws
+    the diagram with ``preview`` before the first step. A file that cannot be opened is an
+    ``OSError``, before anything runs."""
     if path is None:
         yield None
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    stream = EventStream(path.open("w", encoding="utf-8", newline="\n"), root=root)
+    file = path.open("w", encoding="utf-8", newline="\n")
+    stream = EventStream(file, root=root, preview=preview)
     _LOG.info("writing the run's events to %s", path)
     try:
         yield stream
     finally:
         stream.close()
+
+
+def _previewer(path: Path, root: Path) -> Preview:
+    """What draws the diagram at ``path`` before the first step, as a dry run would draw it,
+    for a program that follows the run's events (ADR-0032). The drawing is a preview: one
+    that cannot be drawn is logged, and changes nothing else."""
+
+    def preview(planned: RunResult) -> Path | None:
+        try:
+            diagram.write(path, planned.justification, RunReport.of(planned, root))
+        except OSError as error:
+            _LOG.warning("cannot draw the diagram before the steps run: %s", _reason(error))
+            return None
+        _LOG.info("drew the diagram at %s, before the steps run", path)
+        return path
+
+    return preview
 
 
 def _streamed(stream: EventStream | None) -> bool:

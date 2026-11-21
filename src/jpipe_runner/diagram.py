@@ -47,8 +47,10 @@ format is the text itself, written without it.
 """
 
 import html
+import os
 import re
 import subprocess
+import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 
@@ -129,21 +131,37 @@ def write(
 ) -> Path:
     """Write the diagram to ``path``, in ``fmt``, by default its suffix, and return ``path``.
 
-    The directory is created if it does not exist. Raises ``ValueError`` for a format not
-    in ``FORMATS``, ``FileNotFoundError`` if Graphviz's ``dot`` is not installed, and
-    ``OSError`` if it fails.
+    The directory is created if it does not exist. The diagram is drawn in a temporary
+    file beside ``path``, then renamed to it, so that a program that reads ``path`` while
+    it is written, such as one that follows a run (ADR-0032), sees the previous drawing
+    or the new one, never half of one; a diagram that cannot be drawn leaves ``path`` as
+    it was. Raises ``ValueError`` for a format not in ``FORMATS``, ``FileNotFoundError`` if
+    Graphviz's ``dot`` is not installed, and ``OSError`` if it fails.
     """
     fmt = (fmt or path.suffix.removeprefix(".")).lower()
     if fmt not in FORMATS:
         raise ValueError(f"a diagram is one of {', '.join(FORMATS)}, not {fmt!r}")
     text = source(justification, report)
     path.parent.mkdir(parents=True, exist_ok=True)
+    handle, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    os.close(handle)
+    drawing = Path(name)
+    try:
+        _draw(text, fmt, drawing, path)
+        os.replace(drawing, path)
+    finally:
+        drawing.unlink(missing_ok=True)
+    return path
+
+
+def _draw(text: str, fmt: str, drawing: Path, path: Path) -> None:
+    """Write ``text`` to ``drawing``, rendered in ``fmt``: the drawing of ``path``."""
     if fmt == "dot":
-        path.write_text(text, encoding="utf-8")
-        return path
+        drawing.write_text(text, encoding="utf-8")
+        return
     try:
         rendered = subprocess.run(
-            ["dot", f"-T{fmt}", "-o", str(path)],
+            ["dot", f"-T{fmt}", "-o", str(drawing)],
             input=text,
             text=True,
             capture_output=True,
@@ -156,7 +174,6 @@ def write(
         ) from None
     if rendered.returncode != 0:
         raise OSError(f"dot failed to draw {path}: {rendered.stderr.strip()}")
-    return path
 
 
 class _Diagram:

@@ -19,11 +19,12 @@ from typing import Any, TextIO
 import pytest
 from jsonschema import Draft202012Validator
 
-from jpipe_runner import cli, events, json_report
+from jpipe_runner import cli, engine, events, json_report
 from jpipe_runner.cli import ExitCode, main
-from jpipe_runner.engine import ElementResult, Status
+from jpipe_runner.engine import ElementResult, RunResult, Status
 from jpipe_runner.events import EventStream
 from jpipe_runner.model import Element, Justification, Kind
+from jpipe_runner.steps import StepRegistry
 from tests.scenarios import (
     GOLDEN_FILE,
     REFUSED_LIBRARIES,
@@ -77,7 +78,8 @@ def test_the_events_of_every_scenario_preview_its_report(
 ) -> None:
     directory = workdir(scenario.name)
 
-    code = main(["--events", EVENTS, "--report", "report.json", *_arguments(scenario)])
+    drawing = ["--diagram", "out/diagram.dot"]
+    code = main(["--events", EVENTS, "--report", "report.json", *drawing, *_arguments(scenario)])
 
     capsys.readouterr()
     found = read(directory / EVENTS)
@@ -102,6 +104,12 @@ def test_the_events_of_every_scenario_preview_its_report(
     if not refused:
         streamed = [d for event in [*validated, *decided] for d in event["diagnostics"]]
         assert _canonical(streamed) == _canonical(report["diagnostics"])
+    # The diagram is drawn before the first step exactly when the steps run.
+    previewed = of(found, "diagram.drawn")
+    assert [event["path"] for event in previewed] == (["out/diagram.dot"] if ran else [])
+    first = min((e["seq"] for e in found if e["event"].startswith("element.")), default=None)
+    if previewed and first is not None:
+        assert validated[0]["seq"] < previewed[0]["seq"] < first
 
 
 @pytest.mark.parametrize("scenario", discover(), ids=lambda scenario: scenario.name)
@@ -164,6 +172,99 @@ def test_a_refused_model_streams_its_start_and_its_end(
     started, ended = read(directory / EVENTS)
     assert (started["justification"], started["elements"]) == (None, [])
     assert (ended["verdict"], ended["exit_code"]) == ("invalid", ExitCode.INVALID)
+
+
+def _drawings(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Each diagram the command line draws, as it was written, in order."""
+    drawn: list[str] = []
+    write = cli.diagram.write
+
+    def recorded(path: Path, *arguments: Any, **options: Any) -> Path:
+        written = write(path, *arguments, **options)
+        drawn.append(written.read_text(encoding="utf-8"))
+        return written
+
+    monkeypatch.setattr(cli.diagram, "write", recorded)
+    return drawn
+
+
+def test_the_diagram_is_drawn_before_the_first_step_as_a_dry_run_draws_it(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    drawn = _drawings(monkeypatch)
+
+    main(["--dry-run", "--diagram", "release.dot", *RELEASE])
+    main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+
+    dry, preview, final = drawn
+    assert preview == dry
+    assert final != preview
+    assert (directory / "release.dot").read_text(encoding="utf-8") == final
+    found = read(directory / EVENTS)
+    assert [e["event"] for e in found][:4] == [
+        "run.started",
+        "validation.ended",
+        "diagram.drawn",
+        "element.started",
+    ]
+    assert of(found, "diagram.drawn")[0]["path"] == "release.dot"
+    assert not list(directory.glob(".release.dot.*"))
+
+
+def test_a_dry_run_draws_its_diagram_once_and_announces_no_preview(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    drawn = _drawings(monkeypatch)
+
+    main(["--dry-run", "--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+
+    assert len(drawn) == 1
+    assert of(read(directory / EVENTS), "diagram.drawn") == []
+
+
+def test_without_events_the_diagram_is_drawn_once_at_the_end(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workdir("release_example")
+    drawn = _drawings(monkeypatch)
+
+    main(["--diagram", "release.dot", *RELEASE])
+
+    assert len(drawn) == 1
+
+
+def test_a_preview_that_cannot_be_drawn_is_logged_and_changes_nothing_else(
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    directory = workdir("release_example")
+    write = cli.diagram.write
+    calls: list[Path] = []
+
+    def first_fails(path: Path, *arguments: Any, **options: Any) -> Path:
+        calls.append(path)
+        if len(calls) == 1:
+            raise OSError("dot failed to draw release.svg: out of memory")
+        return write(path, *arguments, **options)
+
+    monkeypatch.setattr(cli.diagram, "write", first_fails)
+
+    code = main(["--events", EVENTS, "--diagram", "release.dot", *RELEASE])
+
+    found = read(directory / EVENTS)
+    assert code == ExitCode.OK
+    assert of(found, "diagram.drawn") == []
+    assert found[-1]["diagram"] == "release.dot"
+    assert "warning: cannot draw the diagram before the steps run" in capsys.readouterr().err
 
 
 def test_the_diagram_is_named_at_the_end(
@@ -282,6 +383,34 @@ def test_a_stream_that_cannot_be_written_stops_and_says_so_once(
     ]
 
 
+def _planned() -> RunResult:
+    lonely = model(element("c", CONCLUSION))
+    return engine.run(lonely, StepRegistry(()), dry_run=True)
+
+
+def test_a_preview_that_draws_nothing_is_not_announced() -> None:
+    file = io.StringIO()
+    asked: list[RunResult] = []
+    stream = EventStream(file, preview=lambda planned: asked.append(planned))
+
+    stream.steps_starting(_planned())
+
+    assert len(asked) == 1
+    assert file.getvalue() == ""
+
+
+def test_a_stream_that_failed_draws_no_preview() -> None:
+    asked: list[RunResult] = []
+    stream = EventStream(_Failing(lines=0), preview=lambda planned: asked.append(planned))
+    lonely = model(element("c", CONCLUSION))
+    stream.run_started(lonely, strict=False, dry_run=False)
+
+    stream.steps_starting(_planned())
+
+    assert stream.failed
+    assert asked == []
+
+
 class _Faulty:
     """The events file, which takes ``lines`` lines, then fails to write, and to close."""
 
@@ -311,7 +440,9 @@ def test_a_run_whose_stream_fails_still_reports_and_exits_4(
 ) -> None:
     workdir("release_example")
     monkeypatch.setattr(
-        cli, "EventStream", lambda file, root: EventStream(_Faulty(file, lines=2), root=root)
+        cli,
+        "EventStream",
+        lambda file, root, preview: EventStream(_Faulty(file, lines=2), root=root, preview=preview),
     )
 
     code = main(["--events", EVENTS, *RELEASE])

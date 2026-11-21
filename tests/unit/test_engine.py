@@ -34,6 +34,7 @@ from jpipe_runner.engine import (
 from jpipe_runner.libraries import imported
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.outcomes import NOT_AN_OUTCOME
+from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry, step_of
 from jpipe_runner.validation import RuleSet, ValidationReport
 from tests.anchored import run
@@ -653,6 +654,10 @@ class Listener:
     def validation_ended(self, report: ValidationReport) -> None:
         self.heard.append(("validated", report.passed))
 
+    def steps_starting(self, planned: RunResult) -> None:
+        nothing_decided = (planned.verdict, planned.elements, len(planned.values))
+        self.heard.append(("planned", nothing_decided))
+
     def element_started(self, element: Element) -> None:
         # Its step has not been called yet.
         called = None if self._release is None else element.id in self._release.called()
@@ -672,6 +677,7 @@ def test_a_listener_hears_validation_then_each_element_started_then_decided(
 
     assert listener.heard == [
         ("validated", True),
+        ("planned", (Verdict.VALID, (), 0)),
         ("started", ("e1", False)),
         ("decided", ("e1", Status.FAIL)),
         ("started", ("e2", False)),
@@ -689,7 +695,7 @@ def test_an_element_whose_artifact_cannot_be_reached_is_started_and_its_step_not
 
     result = release.run(listener=listener)
 
-    assert listener.heard[1:3] == [("started", ("e1", False)), ("decided", ("e1", Status.FAIL))]
+    assert listener.heard[2:4] == [("started", ("e1", False)), ("decided", ("e1", Status.FAIL))]
     assert result.result("e1").ran is False
 
 
@@ -712,3 +718,18 @@ def test_a_listener_of_a_dry_run_hears_only_validation(release: Release) -> None
     release.run(dry_run=True, listener=listener)
 
     assert listener.heard == [("validated", True)]
+
+
+def test_the_planned_run_reports_as_a_dry_run_of_the_same_library(release: Release) -> None:
+    class Planned(Listener):
+        planned: RunResult | None = None
+
+        def steps_starting(self, planned: RunResult) -> None:
+            self.planned = planned
+
+    listener = Planned()
+    release.run(listener=listener)
+    dry = release.run(dry_run=True)
+
+    assert listener.planned is not None
+    assert RunReport.of(listener.planned, release.root) == RunReport.of(dry, release.root)
