@@ -86,24 +86,45 @@ def type_name(kind: type) -> str:
 
 
 def _public_module(kind: type) -> str:
-    """The module ``kind`` is defined in, without its trailing private parts, as long as
-    the module left, already imported, exports ``kind`` under the same name."""
-    module = kind.__module__
-    while "." in module and module.rpartition(".")[2].startswith("_"):
-        parent = module.rpartition(".")[0]
-        if _exported(sys.modules.get(parent), kind.__qualname__) is not kind:
+    """The module ``kind`` is defined in, or the outermost of its parents that exports it
+    under the same name, already imported, reached by leaving out private parts only."""
+    module = public = kind.__module__
+    while "." in module:
+        module, _, left_out = module.rpartition(".")
+        if not left_out.startswith("_"):
             break
-        module = parent
-    return module
+        if _exported(sys.modules.get(module), kind.__qualname__) is kind:
+            public = module
+    return public
+
+
+_MRO = type.__dict__["__mro__"]
+_NAMESPACE = type.__dict__["__dict__"]
 
 
 def _exported(module: object, qualname: str) -> object:
     """What ``module`` holds under ``qualname``, read without running any of its code: no
-    module ``__getattr__``, no descriptor, no metaclass."""
+    module ``__getattr__``, no descriptor, no metaclass hook. A lookup that fails anyway is
+    no export."""
     found: object = module
-    for part in qualname.split("."):
-        found = inspect.getattr_static(found, part, None)
+    try:
+        for part in qualname.split("."):
+            found = _member(found, part)
+    except Exception:  # whatever a library's object does, it exports nothing
+        return None
     return found
+
+
+def _member(holder: object, name: str) -> object:
+    """``holder``'s attribute ``name``, read from the namespaces themselves: a class's, and
+    its bases', through ``type``'s own descriptors."""
+    if issubclass(type(holder), type):
+        for entry in _MRO.__get__(holder):
+            namespace = _NAMESPACE.__get__(entry)
+            if name in namespace:
+                return namespace[name]
+        return None
+    return inspect.getattr_static(holder, name, None)
 
 
 class _Canonical:
