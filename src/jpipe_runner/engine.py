@@ -298,8 +298,9 @@ class _Run:
         for source, reachable in observed.sources:
             self._listener.source_observed(element, source, reachable)
         result = self._called(binding, observed)
-        result = replace(result, reached=observed.sources)
-        return result
+        # SonarCloud types dataclasses.replace as returning any dataclass (S5886); mypy
+        # --strict checks that this is an ElementResult.
+        return replace(result, reached=observed.sources)  # NOSONAR
 
     def _called(self, binding: Binding, observed: Observed) -> ElementResult:
         """The result of ``binding``'s step, called with what it ``observed``, unless
