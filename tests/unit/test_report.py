@@ -51,7 +51,7 @@ def second(logs: list[Path]) -> Outcome:
 
 @strategy("s", consumes=["a", "b"])
 def gates(a: str, b: int) -> Outcome:
-    return Pass()
+    return Pass() if a and b else Fail(f"{a!r} with {b} logs")
 
 
 @pytest.fixture
@@ -209,7 +209,8 @@ def broken(log: Path) -> Outcome:
 
 
 def test_a_step_that_raised_is_reported_with_its_trace(root: Path) -> None:
-    (diagnostic, *_) = run(RELEASE, _registry(broken, second, gates), root=root).diagnostics
+    result = run(RELEASE, _registry(broken, second, gates), root=root)
+    (diagnostic,) = (d for d in result.diagnostics if d.code == STEP_RAISED)
     report = RunReport(None, Verdict.FAIL, diagnostics=(diagnostic,), root=HERE)
 
     trace = report.trace(diagnostic)

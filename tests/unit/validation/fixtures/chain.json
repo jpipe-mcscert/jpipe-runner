@@ -1,0 +1,155 @@
+{
+  "elements": [
+    {
+      "origins": [
+        {
+          "model": "mid",
+          "id": "mid:draft:ready",
+          "type": "conclusion"
+        },
+        {
+          "model": "draft",
+          "id": "draft:ready",
+          "type": "conclusion"
+        }
+      ],
+      "id": "top:mid:draft:ready",
+      "label": "Ready",
+      "type": "conclusion"
+    },
+    {
+      "origins": [
+        {
+          "model": "mid",
+          "id": "mid:draft:gates",
+          "type": "strategy"
+        },
+        {
+          "model": "draft",
+          "id": "draft:gates",
+          "type": "strategy"
+        }
+      ],
+      "id": "top:mid:draft:gates",
+      "label": "Gates pass",
+      "type": "strategy"
+    },
+    {
+      "aliases": [
+        "top:mid:draft:tests",
+        "top:mid:tested:tested"
+      ],
+      "origins": [
+        {
+          "model": "mid",
+          "id": "mid:hook",
+          "type": "sub-conclusion"
+        },
+        {
+          "model": "draft",
+          "id": "draft:tests",
+          "type": "evidence"
+        },
+        {
+          "model": "tested",
+          "id": "tested:tested",
+          "type": "conclusion"
+        }
+      ],
+      "id": "top:mid:hook",
+      "label": "Tested",
+      "type": "sub-conclusion"
+    },
+    {
+      "origins": [
+        {
+          "model": "mid",
+          "id": "mid:tested:testing",
+          "type": "strategy"
+        },
+        {
+          "model": "tested",
+          "id": "tested:testing",
+          "type": "strategy"
+        }
+      ],
+      "id": "top:mid:tested:testing",
+      "label": "Testing",
+      "type": "strategy"
+    },
+    {
+      "aliases": [
+        "top:mid:tested:suite",
+        "top:covered:covered"
+      ],
+      "origins": [
+        {
+          "model": "mid",
+          "id": "mid:tested:suite",
+          "type": "evidence"
+        },
+        {
+          "model": "covered",
+          "id": "covered:covered",
+          "type": "conclusion"
+        },
+        {
+          "model": "tested",
+          "id": "tested:suite",
+          "type": "evidence"
+        }
+      ],
+      "id": "top:hook",
+      "label": "Suite passes",
+      "type": "sub-conclusion"
+    },
+    {
+      "origins": [{
+        "model": "covered",
+        "id": "covered:measuring",
+        "type": "strategy"
+      }],
+      "id": "top:covered:measuring",
+      "label": "Measuring",
+      "type": "strategy"
+    },
+    {
+      "origins": [{
+        "model": "covered",
+        "id": "covered:coverage",
+        "type": "evidence"
+      }],
+      "id": "top:covered:coverage",
+      "label": "Coverage is high",
+      "type": "evidence"
+    }
+  ],
+  "name": "top",
+  "type": "justification",
+  "relations": [
+    {
+      "source": "top:mid:draft:gates",
+      "target": "top:mid:draft:ready"
+    },
+    {
+      "source": "top:mid:tested:testing",
+      "target": "top:mid:hook"
+    },
+    {
+      "source": "top:covered:measuring",
+      "target": "top:hook"
+    },
+    {
+      "source": "top:mid:hook",
+      "target": "top:mid:draft:gates"
+    },
+    {
+      "source": "top:hook",
+      "target": "top:mid:tested:testing"
+    },
+    {
+      "source": "top:covered:coverage",
+      "target": "top:covered:measuring"
+    }
+  ]
+}

@@ -73,7 +73,7 @@ EXPECTED_SCENARIOS = {
 
 # The cross-checks of the composed scenarios: the element bound by a step written against
 # a source model before composition, and the root of the argument below it, which runs
-# first (ADR-0013, ADR-0021).
+# first (ADR-0036, ADR-0021).
 CROSS_CHECKS = {
     "composed": ("readiness:hook", "readiness:tested:testing"),
     "unified": ("release:unified_0", "release:argued:testing"),

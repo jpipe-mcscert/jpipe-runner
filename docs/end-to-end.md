@@ -536,12 +536,16 @@ Two things happened:
   binds, to an element that is now argued in full below it. It runs as an independent
   cross-check of that sub-argument.
 
-Validation points the change of kind out, as a warning rather than an error
-([ADR-0013](adr/0013-kind-divergence-under-composition.md)). It is the only thing it
+The compiler records what composition did: `readiness:hook` lists its origins, the
+evidence `draft:tests` in `draft` and the conclusion `tested:tested` in `tested`. The
+draft's check is declared as evidence and binds through `draft:tests`, so it was written
+for that origin. Validation points the change of kind out, as a warning rather than an
+error ([ADR-0036](adr/0036-a-step-runs-on-the-kind-it-was-written-for.md)); declared as
+evidence for `readiness:hook` itself, it would be an error. It is the only thing it
 reports on the refined model, so the run goes on:
 
 ```
-JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
+JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, for 'draft:tests' in 'draft', which composition made the sub-conclusion 'readiness:hook': it runs as a cross-check of the argument below it
   fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
 ```
 
@@ -562,7 +566,7 @@ Justification: readiness
   ✔ Strategy        All release gates pass                    # readiness:draft:gates
   ✔ Conclusion      Version 2.0 is ready to ship              # readiness:draft:ready
 
-JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
+JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, for 'draft:tests' in 'draft', which composition made the sub-conclusion 'readiness:hook': it runs as a cross-check of the argument below it
   fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
 
 9 elements (9 passed)

@@ -3,9 +3,9 @@
 Their ids are the ones the compiler exports for `draft` alone (`jpipe process -m draft
 -f PYTHON`). In the composed `readiness` model the hook `tests` became the sub-conclusion
 `readiness:hook`, and `draft:tests` now reaches it only through its alias
-`readiness:draft:tests`. `the_test_suite_passes` is still declared as evidence, so it
-runs as an independent cross-check of a claim that `tested` also argues (JP008, a
-warning).
+`readiness:draft:tests`. `the_test_suite_passes` is still declared as evidence, the kind
+the element had in `draft`, its origin, so it runs as an independent cross-check of a
+claim that `tested` also argues (JP008, a warning).
 """
 
 from pathlib import Path

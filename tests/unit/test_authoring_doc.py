@@ -21,7 +21,7 @@ from jpipe_runner import evidence, libraries, loader, strategy
 from jpipe_runner.diagnostics import Diagnostic
 from jpipe_runner.engine import Status
 from jpipe_runner.outcomes import NotAnOutcomeError, as_outcome
-from jpipe_runner.rules import RULES
+from jpipe_runner.rules import RULES, UnreadInput
 from jpipe_runner.steps import StepRegistry, step_of
 from jpipe_runner.validation import ValidationContext
 from tests.anchored import run
@@ -77,6 +77,26 @@ def test_the_page_quotes_what_a_pass_without_a_declared_value_reports(tmp_path: 
 
     assert result.result("release:s").status is Status.SKIP
     (diagnostic,) = result.diagnostics
+    assert _quoted(diagnostic) in PAGE
+
+
+def test_the_page_quotes_what_a_step_that_never_reads_an_input_reports() -> None:
+    model = loader.loads(
+        json.dumps(
+            {
+                "name": "release",
+                "type": "justification",
+                "elements": [{"id": "release:s", "type": "strategy", "label": "Gates pass"}],
+                "relations": [],
+            }
+        )
+    )
+    step = step_of(_examples()["the_gates_pass"])
+    assert step is not None
+    registry = StepRegistry([step])
+
+    (diagnostic,) = UnreadInput().check(ValidationContext.of(model, registry))
+
     assert _quoted(diagnostic) in PAGE
 
 

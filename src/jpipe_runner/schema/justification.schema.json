@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "jPipe justification",
-  "description": "A justification model as the jPipe compiler emits it (ADR-0001). The runner only runs justifications, not templates. Properties not listed here are allowed and ignored, such as the `origins` of a composed element.",
+  "description": "A justification model as the jPipe compiler emits it (ADR-0001). The runner only runs justifications, not templates. Properties not listed here are allowed and ignored.",
   "type": "object",
   "required": ["name", "type", "elements", "relations"],
   "properties": {
@@ -36,19 +36,35 @@
   },
   "$defs": {
     "id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["evidence", "strategy", "sub-conclusion", "conclusion"]},
     "element": {
       "type": "object",
       "required": ["id", "label", "type"],
       "properties": {
         "id": {"$ref": "#/$defs/id"},
         "label": {"type": "string"},
-        "type": {"enum": ["evidence", "strategy", "sub-conclusion", "conclusion"]},
+        "type": {"$ref": "#/$defs/kind"},
         "aliases": {
           "description": "The ids of the elements that composition merged into this one.",
           "type": "array",
           "items": {"$ref": "#/$defs/id"},
           "uniqueItems": true
+        },
+        "origins": {
+          "description": "The element in each model it was composed from, nearest first (jPipe 4.0.0 and later). Validation reads it to tell a kind that composition changed from an authoring mistake (ADR-0036).",
+          "type": "array",
+          "items": {"$ref": "#/$defs/origin"}
         }
+      }
+    },
+    "origin": {
+      "description": "An element as it was in a model that composition built this one from.",
+      "type": "object",
+      "required": ["model", "id", "type"],
+      "properties": {
+        "model": {"description": "The name of that model.", "type": "string", "minLength": 1},
+        "id": {"description": "The element's full id in that model.", "$ref": "#/$defs/id"},
+        "type": {"description": "The element's kind in that model: one of the kinds of an element, or one no step implements, such as a template's abstract-support.", "type": "string", "minLength": 1}
       }
     },
     "relation": {

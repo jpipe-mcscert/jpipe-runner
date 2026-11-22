@@ -22,6 +22,7 @@ from jpipe_runner.model import (
     InvalidJustificationError,
     Justification,
     Kind,
+    Origin,
     Placeholder,
     Relation,
     Template,
@@ -91,12 +92,22 @@ def loads(text: str) -> Justification:
             label=element["label"],
             kind=Kind(element["type"]),
             aliases=tuple(element.get("aliases", ())),
+            origins=_origins(element.get("origins", ())),
         )
         for element in document["elements"]
     )
     relations = (Relation(r["source"], r["target"]) for r in document["relations"])
     return Justification(
         document["name"], elements, relations, _template_chain(document.get("implements"))
+    )
+
+
+def _origins(origins: list[dict[str, str]]) -> tuple[Origin, ...]:
+    """The origins a step can have been written for: not a template's abstract support,
+    which no step implements."""
+    kinds = {kind.value: kind for kind in Kind}
+    return tuple(
+        Origin(o["model"], o["id"], kinds[o["type"]]) for o in origins if o["type"] in kinds
     )
 
 

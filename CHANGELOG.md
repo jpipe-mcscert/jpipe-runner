@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`JP027`, a warning: a step never reads a value it consumes or an artifact it
+  observes.** The runner passes every input to its parameter, but nothing checked that the
+  function looked at it, so a strategy could judge without its evidence while the argument,
+  `JP013` and `jpipe-runner impact` all took the dependency for granted. Validation now reads
+  each bound step's bytecode, which needs no source, so a step typed at a prompt or built by
+  `exec` is checked too; a step that takes an input only through `**kwargs` is reported as
+  unchecked. **Existing step libraries may see new warnings**; `--strict` makes them errors
+  ([ADR-0037](docs/adr/0037-a-step-reads-what-it-is-passed.md), #190).
+
+### Changed
+- **Breaking: a step bound to an element of another kind is an error, unless composition
+  changed the element's kind and the step was written for the element it came from.**
+  `@evidence` or `@conclusion` on a sub-conclusion was a warning (`JP008`), and the step
+  ran, whatever the sub-conclusion was before: an `@evidence` on an element written as a
+  sub-conclusion observed files and produced values outside what the model argues. The
+  runner now reads each composed element's `origins`, which the jPipe compiler exports
+  since 4.0.0: the warning is kept only when one of the step's ids designates an origin of
+  the step's kind, as a library written against a source model does
+  (`@evidence("draft:tests")` on the refined `readiness:hook`); its message names that
+  origin. Anything else is `JP016`, an error, including a step bound by the composed id
+  (`@evidence("readiness:hook")`), whose fix names the id to bind instead. **A model
+  composed by a jPipe older than 4.0.0 has no origins: recompile it**, or its libraries
+  stop with `JP016` where they ran with `JP008`
+  ([ADR-0036](docs/adr/0036-a-step-runs-on-the-kind-it-was-written-for.md), #172).
+
 ## [4.2.0] - 2026-11-21
 
 ### Changed

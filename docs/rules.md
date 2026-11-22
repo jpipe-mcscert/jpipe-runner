@@ -22,17 +22,18 @@ No rule can be disabled.
 | [JP005](#jp005-unboundelement) | `UnboundElement` | error | An evidence or a strategy has no step. |
 | [JP006](#jp006-ambiguousbinding) | `AmbiguousBinding` | error | An id designates several elements. |
 | [JP007](#jp007-conflictingbinding) | `ConflictingBinding` | error | An element is bound by several steps, or a step to several elements. |
-| [JP008](#jp008-refinedelement) | `RefinedElement` | warning | A step declared as evidence or conclusion is bound to a sub-conclusion. |
+| [JP008](#jp008-refinedelement) | `RefinedElement` | warning | A step keeps the kind its element had before composition changed it. |
 | [JP009](#jp009-missingproducer) | `MissingProducer` | error | A step consumes a variable that no step produces. |
 | [JP011](#jp011-unconsumedoutput) | `UnconsumedOutput` | warning | A step produces a variable that no step consumes. |
 | [JP012](#jp012-evidenceproducesnothing) | `EvidenceProducesNothing` | error | An evidence produces no value that another step consumes. |
 | [JP013](#jp013-strategyignoresupstreamoutput) | `StrategyIgnoresUpstreamOutput` | warning | A strategy ignores a value its supporters produce for another step. |
 | [JP014](#jp014-consumedbeforeproduced) | `ConsumedBeforeProduced` | error | A step consumes a variable that no step supporting it produces. |
 | [JP015](#jp015-unknownbindingtarget) | `UnknownBindingTarget` | error | An id designates no element of the model. |
-| [JP016](#jp016-incompatiblekind) | `IncompatibleKind` | error | A step's kind differs from its element's, in a way composition cannot explain. |
+| [JP016](#jp016-incompatiblekind) | `IncompatibleKind` | error | A step's kind differs from its element's, and composition does not explain it. |
 | [JP018](#jp018-evidenceobservesnothing) | `EvidenceObservesNothing` | error | An evidence observes no artifact. |
 | [JP025](#jp025-ambiguousconsumption) | `AmbiguousConsumption` | error | Several steps that support a step produce a variable it consumes. |
 | [JP026](#jp026-danglingtemplatechain) | `DanglingTemplateChain` | warning | The template chain names an element that does not exist: it is not drawn. |
+| [JP027](#jp027-unreadinput) | `UnreadInput` | warning | A step never reads a value it consumes or an artifact it observes. |
 
 ### JP005 `UnboundElement`
 
@@ -87,25 +88,24 @@ share the code in a helper, not the step.
 
 Severity: **warning**.
 
-A step declared as evidence or conclusion is bound to what the model calls a
-sub-conclusion.
+A step is bound to an element whose kind composition changed, with the kind the
+element had in the model the step was written for.
 
-Composition changes kinds, in one direction only
-([ADR-0013](adr/0013-kind-divergence-under-composition.md)):
-
-- `refine` merges the hook evidence and the refinement's conclusion into one
-  sub-conclusion;
-- `assemble` turns the conclusion of each source into a sub-conclusion;
-- unification merges an evidence into a sub-conclusion with the same label.
-
-A step written against the model before it was composed keeps binding, to an element
-that is now argued in full below it. That is the intended workflow: the step runs
-after the sub-argument, as an independent cross-check of the same claim. It is
-reported so that the change is seen. It is not an error because the same library
-often still serves the model it was written for, where the element has its old kind.
+Composition changes kinds: `refine` merges the hook evidence and the refinement's
+conclusion into one sub-conclusion, `assemble` turns the conclusion of each source into
+a sub-conclusion, and unification merges an evidence into a sub-conclusion with the
+same label. The compiler names each composed element's origins, the element as it was
+in each model it was composed from, with its kind there
+([ADR-0036](adr/0036-a-step-runs-on-the-kind-it-was-written-for.md)). A step whose id
+designates one of them, and whose kind is that origin's, was written against the model
+before it was composed. It keeps binding, to an element that is now argued in full
+below it, and runs after that argument, as an independent cross-check of the same
+claim. It is reported so that the change is seen. It is not an error, because the same
+library often still serves the model it was written for, where the element has its
+old kind, and composing models must not turn a library that ran into one that does not.
 
 **Fix:** none, when the step is meant as a cross-check. When the library serves only
-the composed model, declare the step with `@sub_conclusion`, which may also consume
+the composed model, declare the step with the element's kind, which may also consume
 what the sub-argument produces.
 
 ### JP009 `MissingProducer`
@@ -199,16 +199,24 @@ tail of it.
 
 Severity: **error**.
 
-A step's decorator declares a kind that its element cannot have become by
-composition.
+A step's decorator declares another kind than its element's, and composition does
+not explain it.
 
-Composition only ever turns an evidence or a conclusion into a sub-conclusion
-(`JP008`). Any other difference between a step's kind and its element's, such as a
-`@strategy` bound to an evidence, is an authoring mistake: the step's signature is
-built for another kind of element.
+A step runs only on an element of the kind it is declared with: its signature is built
+for that kind of element, a `@strategy` consuming its supporters' values and an
+`@evidence` observing the world. The one exception is an element whose kind
+composition changed, bound by a step written against the model it came from (`JP008`).
+Anything else is an authoring mistake, including a step bound by the element's
+composed id with the kind the element had before: that step was written against the
+composed model, where the element has its new kind
+([ADR-0036](adr/0036-a-step-runs-on-the-kind-it-was-written-for.md)).
+
+The runner reads what composition changed from each element's origins, which jPipe
+exports since 4.0.0. In a model compiled by an older jPipe, every difference of kind
+is this error.
 
 **Fix:** use the decorator of the element's kind, or bind the step to the element it
-was written for.
+was written for. If the model was composed by a jPipe older than 4.0.0, recompile it.
 
 ### JP018 `EvidenceObservesNothing`
 
@@ -265,6 +273,30 @@ counts it as an error.
 **Fix:** compile the justification again from its jPipe source. If the warning stays,
 report it to the jPipe compiler. Until then, only the diagram's template clusters are
 missing.
+
+### JP027 `UnreadInput`
+
+Severity: **warning**.
+
+A step never reads a value it consumes or an artifact it observes.
+
+A step's declaration is what the argument claims: a strategy that consumes `coverage`
+judges from the coverage, and an evidence that observes `CHANGELOG.md` looks at it.
+The signature check makes each such input reach the function as a parameter; this rule
+checks that the function reads it. A step that never does claims a dependency it does
+not have, `StrategyIgnoresUpstreamOutput` (`JP013`) is satisfied by the declaration
+alone, and `jpipe-runner impact` reports the step as affected by changes that cannot
+affect it.
+
+The function's bytecode is read, not its source, so a step typed at a prompt or built
+by `exec` is checked too ([ADR-0037](adr/0037-a-step-reads-what-it-is-passed.md)). A
+parameter is read when the function, or a function nested in it, loads it; passing it
+to a helper counts, whatever the helper does with it. A step that takes an input only
+through `**kwargs` cannot be checked by name, and is reported too.
+
+**Fix:** read each input in the step, or remove it from `consumes` or `observes` and
+from the function's parameters. Name as a parameter each input taken through
+`**kwargs`.
 
 ## Codes reported outside validation
 

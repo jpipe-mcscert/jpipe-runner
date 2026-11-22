@@ -1,8 +1,10 @@
+import dis
 import functools
 import importlib
 import inspect
 import sys
 import textwrap
+import types
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
@@ -14,7 +16,7 @@ import jpipe_runner
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence, strategy, sub_conclusion
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import Context, Env, File, Observable, Sighting
-from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry, step_of
+from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry, Unread, step_of
 
 HERE = Path(__file__).parent
 """Where the steps of these tests are declared: what their paths are relative to."""
@@ -523,3 +525,163 @@ def test_the_v3_api_says_what_replaced_it() -> None:
         importlib.import_module("jpipe_runner.framework.decorators.jpipe_decorator")
     assert raised.value.name == "jpipe_runner.framework"
     assert "jpipe_runner.framework" not in sys.modules
+
+
+# --- What a step reads (JP027, ADR-0037) -----------------------------------------------------
+
+coverage = 0.9
+"""A global with the name of a parameter: reading it is not reading the parameter."""
+
+
+def _declared(function: Callable[..., Outcome]) -> Step:
+    found = step_of(function)
+    assert found is not None
+    return found
+
+
+def test_a_parameter_never_read_is_unread() -> None:
+    @strategy("s", consumes=["coverage", "threshold"])
+    def ignores(coverage: float, threshold: float) -> Outcome:
+        return Pass() if threshold else Fail("no threshold")
+
+    assert _declared(ignores).unread.never == ("coverage",)
+
+
+def test_an_observed_artifact_never_read_is_unread() -> None:
+    @evidence("e", observes={"log": "CHANGELOG.md", "other": "README.md"}, produces=["x"])
+    def unread(log: Path, other: Path) -> Outcome:
+        return Pass(x=other.name)
+
+    assert _declared(unread).unread.never == ("log",)
+
+
+def test_a_global_of_the_same_name_is_not_the_parameter() -> None:
+    @strategy("s", consumes=["coverage"])
+    def reads_the_global(coverage: float) -> Outcome:
+        return Pass() if globals()["coverage"] > 0.8 else Fail("low")
+
+    assert _declared(reads_the_global).unread.never == ("coverage",)
+
+
+def _helper(value: object) -> bool:
+    return value is not None
+
+
+@pytest.mark.parametrize(
+    "function",
+    [
+        pytest.param(lambda a, b: Pass() if a > b else Fail("no"), id="directly"),
+        pytest.param(lambda a, b: Pass() if (a, b) else Fail("no"), id="together"),
+        pytest.param(lambda a, b: Pass() if [a + x for x in b] else Fail("no"), id="comprehension"),
+        pytest.param(lambda a, b: Pass() if (lambda: a + b)() else Fail("no"), id="nested"),
+        pytest.param(lambda a, b: Pass() if _helper(a) and _helper(b) else Fail("no"), id="helper"),
+    ],
+)
+def test_a_parameter_read_in_any_way_is_read(function: Callable[..., Outcome]) -> None:
+    declared = strategy("s", consumes=["a", "b"])(function)
+
+    assert _declared(declared).unread.never == ()
+
+
+def test_a_step_built_by_exec_is_checked_without_its_source() -> None:
+    namespace: dict[str, Any] = {"Pass": Pass, "strategy": strategy}
+    # A function with no source file, as one typed at a prompt.
+    exec(
+        '@strategy("s", consumes=["a", "b"])\ndef made(a, b):\n    return Pass(b=b)\n',
+        namespace,
+    )
+
+    assert _declared(namespace["made"]).unread.never == ("a",)
+
+
+def test_the_function_checked_is_the_one_declared_under_its_wrappers() -> None:
+    def logged(function: Callable[..., Outcome]) -> Callable[..., Outcome]:
+        @functools.wraps(function)
+        def wrapper(**kwargs: Any) -> Outcome:
+            return function(**kwargs)
+
+        return wrapper
+
+    @logged
+    @strategy("above", consumes=["a"])
+    def wrapped_above(a: int) -> Outcome:
+        return Pass()
+
+    @strategy("below", consumes=["a"])
+    @logged
+    def wrapped_below(a: int) -> Outcome:
+        return Pass()
+
+    assert _declared(wrapped_above).unread.never == ("a",)
+    assert _declared(wrapped_below).unread.never == ("a",)
+
+
+def test_what_only_kwargs_takes_is_unnamed_not_unread() -> None:
+    @strategy("s", consumes=["a", "b"])
+    def swallows(a: int, **kwargs: Any) -> Outcome:
+        return Pass() if a else Fail("no")
+
+    assert _declared(swallows).unread == Unread((), ("b",))
+
+
+def test_a_callable_without_code_is_not_checked() -> None:
+    @strategy("s", consumes=["a"])
+    def plain(a: int) -> Outcome:
+        return Pass()
+
+    hidden = Step(Kind.STRATEGY, ("s",), plain, (Input("a", "a"),))
+    plain.__wrapped__ = print  # type: ignore[attr-defined]
+
+    assert hidden.unread == Unread()
+
+
+def test_locals_hands_every_parameter_on() -> None:
+    @strategy("s", consumes=["a", "b"])
+    def forwards(a: int, b: int) -> Outcome:
+        return Pass() if all(locals().values()) else Fail("no")
+
+    assert _declared(forwards).unread.never == ()
+
+
+def test_eval_may_read_every_parameter() -> None:
+    @strategy("s", consumes=["coverage"])
+    def evaluates(coverage: float) -> Outcome:
+        return Pass() if eval("coverage > 0.8") else Fail("low")
+
+    assert _declared(evaluates).unread.never == ()
+
+
+def test_a_positional_only_parameter_does_not_receive_its_keyword() -> None:
+    @strategy("s", consumes=["a"])
+    def shadowed(a: int = 0, /, **kwargs: Any) -> Outcome:
+        return Pass() if a else Fail("no")
+
+    assert _declared(shadowed).unread == Unread((), ("a",))
+
+
+def test_unwrapping_stops_where_the_signature_does() -> None:
+    def inner(x: int) -> Outcome:
+        return Pass()
+
+    @functools.wraps(inner)
+    def adapted(a: int) -> Outcome:
+        return inner(x=a)
+
+    adapted.__signature__ = inspect.signature(adapted, follow_wrapped=False)  # type: ignore[attr-defined]
+
+    assert _declared(strategy("s", consumes=["a"])(adapted)).unread == Unread()
+
+
+def test_an_instruction_the_check_does_not_know_counts_as_a_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @strategy("s", consumes=["a"])
+    def judged(a: int) -> Outcome:
+        return Pass()
+
+    unknown = types.SimpleNamespace(
+        opname="FUTURE_FAST", opcode=dis.opmap["STORE_FAST"], argval="a"
+    )
+    monkeypatch.setattr(dis, "get_instructions", lambda code: iter([unknown]))
+
+    assert _declared(judged).unread == Unread()

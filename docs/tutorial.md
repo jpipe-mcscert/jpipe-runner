@@ -308,7 +308,7 @@ Justification: readiness
   ✔ Strategy        All release gates pass                    # readiness:draft:gates
   ✔ Conclusion      Version 2.0 is ready to ship              # readiness:draft:ready
 
-JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it
+JP008 warning [readiness:hook]: draft_steps.the_test_suite_passes is declared as evidence, for 'draft:tests' in 'draft', which composition made the sub-conclusion 'readiness:hook': it runs as a cross-check of the argument below it
   fix: Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.
 
 9 elements (9 passed)

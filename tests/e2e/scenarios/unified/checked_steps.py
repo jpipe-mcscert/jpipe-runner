@@ -4,8 +4,8 @@ In `checked`, "The code is tested" is an evidence, `checked:tests`. The model `a
 argues the same claim as a sub-conclusion, so the composition unified the two by their
 label into the sub-conclusion `release:unified_0`, which keeps both old ids as aliases.
 `checked:tests` still binds through its alias `release:checked:tests`, and its step,
-declared as evidence, runs as a cross-check after the argument below it (JP008, a
-warning).
+declared as evidence, the kind of its origin `checked:tests`, runs as a cross-check after
+the argument below it (JP008, a warning).
 """
 
 from pathlib import Path
