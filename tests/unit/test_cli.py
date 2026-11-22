@@ -423,6 +423,97 @@ def test_a_wrong_command_line_exits_2_before_anything_runs(
     assert "usage: jpipe-runner" in err
 
 
+# --- An output never overwrites what the run observes (#183) ---------------------------------
+
+
+@pytest.mark.parametrize(
+    ("flag", "observed", "step"),
+    [
+        pytest.param("--events", "mock/junit.xml", "the_test_suite_passes", id="events"),
+        pytest.param("--report", "mock/CHANGELOG.md", "the_changelog_is_up_to_date", id="report"),
+        pytest.param("--diagram", "mock/junit.xml", "the_test_suite_passes", id="diagram"),
+    ],
+)
+@pytest.mark.parametrize("dry_run", [False, True], ids=["run", "dry run"])
+def test_an_output_that_names_an_observed_file_is_refused_and_leaves_it_as_it_was(
+    release: Path,
+    capsys: pytest.CaptureFixture[str],
+    flag: str,
+    observed: str,
+    step: str,
+    dry_run: bool,
+) -> None:
+    if flag == "--diagram":  # its suffix must be a format
+        (release / "mock" / "junit.dot").write_bytes((release / observed).read_bytes())
+        observed = "mock/junit.dot"
+        _observing(release, "junit.xml", "junit.dot")
+    before = (release / observed).read_bytes()
+
+    code, out, err = _main(capsys, *(["--dry-run"] if dry_run else []), flag, observed, *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert out == ""
+    assert f"{flag} {observed}: {observed}, which steps.{step} observes" in err
+    assert (release / observed).read_bytes() == before
+
+
+def _observing(release: Path, old: str, new: str) -> None:
+    """Make the release library observe ``new`` where it observes ``old``."""
+    steps = release / "steps.py"
+    steps.write_text(steps.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
+
+
+def test_an_output_a_glob_would_match_is_refused_before_it_exists(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _observing(release, '"mock/CHANGELOG.md"', '"mock/*.md"')
+
+    code, _, err = _main(capsys, "--report", "mock/report.md", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert "--report mock/report.md: mock/*.md, which steps.the_changelog_is_up_to_date" in err
+    assert not (release / "mock" / "report.md").exists()
+
+
+def test_an_events_file_the_run_created_is_removed_when_it_is_refused(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _observing(release, '"mock/CHANGELOG.md"', '"mock/*.jsonl"')
+    (release / "mock" / "old.jsonl").write_text("{}\n", encoding="utf-8")
+
+    code, _, _ = _main(capsys, "--events", "mock/run.jsonl", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert not (release / "mock" / "run.jsonl").exists()
+
+
+@pytest.mark.skipif(not hasattr(os, "link"), reason="no hard links here")
+def test_an_output_that_links_to_an_observed_file_is_refused(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    os.link(release / "mock" / "junit.xml", release / "linked.json")
+
+    code, _, err = _main(capsys, "--report", "linked.json", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert "--report linked.json: mock/junit.xml, which steps.the_test_suite_passes" in err
+
+
+def test_an_output_that_names_the_file_of_a_json_value_is_refused(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    directory = scenario("observables")
+    before = (directory / "mock" / "package.json").read_bytes()
+
+    code, _, err = _main(
+        capsys, "--report", "mock/package.json", "-l", "checks/steps.py", "justification.json"
+    )
+
+    assert code == ExitCode.USAGE
+    assert "--report mock/package.json: mock/package.json, which steps." in err
+    assert (directory / "mock" / "package.json").read_bytes() == before
+
+
 def test_version_prints_the_version(capsys: pytest.CaptureFixture[str]) -> None:
     assert _main(capsys, "--version") == (ExitCode.OK, f"jpipe-runner {__version__}\n", "")
 

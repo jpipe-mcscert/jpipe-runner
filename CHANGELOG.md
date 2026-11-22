@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   #176).
 
 ### Fixed
+- **An output never overwrites a file the run observes.** `--report`, `--diagram` or
+  `--events` naming a file an evidence observes, one its glob matches, the file of a
+  `JsonValue`, or a link to one, is a usage error (exit code 2), and the file is left as it
+  was. `--events mock/junit.xml` emptied the test report before the evidence read it, and
+  `--report` and `--diagram` overwrote such a file when the run ended. The check runs once
+  the step libraries are imported, before validation: the events file is opened at once, as
+  before, but emptied only then, so `run.started` reaches it once the libraries are
+  imported ([ADR-0035](docs/adr/0035-an-output-never-overwrites-what-the-run-observes.md),
+  #183).
 - **A value that cannot be copied, such as a lock or an open file, is recorded as it was
   when it was produced or observed**, as every other value is. The report kept it by
   reference, so a step that changed it later changed what the report said was produced,

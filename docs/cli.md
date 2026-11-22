@@ -123,6 +123,24 @@ $ echo $?
 2
 ```
 
+**An output never overwrites what the run observes.** Once the step libraries are imported,
+before validation and before any step, an output that names a file a step observes is a
+usage error too: a file it names, one its glob matches, even if the output does not exist
+yet, the file of a `JsonValue`, a path a library's observable depends on, or a link to one
+of those. The file is left as it was, and an events file the run created is removed
+([ADR-0035](adr/0035-an-output-never-overwrites-what-the-run-observes.md)):
+
+```console
+$ jpipe-runner --library steps.py --events mock/junit.xml justification.json
+usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
+                    [--report PATH] [--events PATH] [--diagram PATH]
+                    [--colour {auto,always,never}] [-v | -q] [--version]
+                    JUSTIFICATION
+jpipe-runner: error: --events mock/junit.xml: mock/junit.xml, which steps.the_test_suite_passes observes
+$ echo $?
+2
+```
+
 A diagram that needs Graphviz when it is not installed stops the command before any step
 runs, with exit code 4: draw a `.dot` file instead, or install Graphviz.
 

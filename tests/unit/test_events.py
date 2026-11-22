@@ -679,6 +679,12 @@ class _Faulty:
     def flush(self) -> None:
         self._file.flush()
 
+    def truncate(self, size: int) -> int:
+        return self._file.truncate(size)
+
+    def seek(self, offset: int) -> int:
+        return self._file.seek(offset)
+
     def close(self) -> None:
         self._file.close()
         if self._lines == 0:
@@ -694,7 +700,9 @@ def test_a_run_whose_stream_fails_still_reports_and_exits_4(
     monkeypatch.setattr(
         cli,
         "EventStream",
-        lambda file, root, preview: EventStream(_Faulty(file, lines=2), root=root, preview=preview),
+        lambda file, root, preview, held: EventStream(
+            _Faulty(file, lines=2), root=root, preview=preview, held=held
+        ),
     )
 
     code = main(["--events", EVENTS, *RELEASE])

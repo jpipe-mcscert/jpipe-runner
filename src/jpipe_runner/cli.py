@@ -35,7 +35,15 @@ from jpipe_runner.engine import RunResult, Verdict
 from jpipe_runner.events import EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
-from jpipe_runner.observables import is_glob, matches
+from jpipe_runner.observables import (
+    Context,
+    dependencies,
+    designates_one,
+    files,
+    is_glob,
+    matches,
+    unescape,
+)
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry
 
@@ -357,6 +365,38 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
         seen[identity] = flag
 
 
+def _check_observed(options: argparse.Namespace, registry: StepRegistry, root: Path) -> None:
+    """Refuse, once the step libraries are imported and before anything else runs, an
+    output that names a file a step observes: one it names, one its glob matches, or one a
+    library's observable depends on. The run would overwrite it, or read what it wrote
+    there (ADR-0035)."""
+    outputs = {  # impact, which shares the import, writes none
+        "--report": getattr(options, "report", None),
+        "--events": getattr(options, "events", None),
+        "--diagram": getattr(options, "diagram", None),
+    }
+    for step in registry:
+        context = Context(step.directory, root)
+        for artifact in step.observes:
+            for shown in dependencies(artifact.observable, context):
+                for flag, path in outputs.items():
+                    if path is not None and _designated(path, shown, root):
+                        parser().error(f"{flag} {path}: {shown}, which {step.name} observes")
+
+
+def _designated(path: Path, shown: str, root: Path) -> bool:
+    """Whether the file at ``path`` is one that ``shown``, a path or a glob relative to
+    ``root`` as the report shows it, designates: by its name, even if it does not exist
+    yet, or as a link to a file it designates."""
+    if designates_one(shown):
+        return _identity(path) == _identity(root / unescape(shown))
+    relative = Path(os.path.relpath(os.path.abspath(path), os.path.abspath(root))).as_posix()
+    if matches(relative, shown):
+        return True
+    identity = _identity(path)
+    return any(_identity(found) == identity for found in files(shown, root))
+
+
 def _identity(path: Path) -> object:
     """What tells ``path``'s file from any other: its device and its inode if it exists,
     so that a link is the file it links to, and its absolute path otherwise."""
@@ -381,6 +421,8 @@ def _run(options: argparse.Namespace) -> int:
     try:
         with _events(options.events, root, preview) as stream:
             justification, report = _report(options, root, libraries, stream)
+            if stream is not None:
+                stream.release()  # the model was refused, or a library not imported
             _LOG.info("verdict: %s", report.verdict)
             report, drawn = _draw(options, justification, report, root)
             saved = _save(options.report, report)
@@ -420,13 +462,24 @@ def _events(
         yield None
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    file = path.open("w", encoding="utf-8", newline="\n")
-    stream = EventStream(file, root=root, preview=preview)
+    existed = path.exists()
+    # Opened without emptying it: the file may be one the run observes, which is known only
+    # once the step libraries are imported. The stream holds its events until then.
+    file = path.open("a", encoding="utf-8", newline="\n")
+    stream = EventStream(file, root=root, preview=preview, held=True)
     _LOG.info("writing the run's events to %s", path)
+    refused = False
     try:
         yield stream
+    except _Stop:  # an output names a file the run observes: leave that file as it was
+        refused = True
+        raise
     finally:
+        if not refused:
+            stream.release()  # whatever else ended the run, as the events said
         stream.close()
+        if refused and not existed:
+            path.unlink(missing_ok=True)
 
 
 class _Preview:
@@ -545,6 +598,9 @@ def _report(
             _LOG.debug("sys.path: %s", sys.path)
             registry = StepRegistry.from_modules(modules)
             _LOG.info("step libraries imported: %d (%d steps)", len(modules), len(registry))
+            _check_observed(options, registry, root)
+            if stream is not None:
+                stream.release()
             result = engine.run(
                 justification,
                 registry,

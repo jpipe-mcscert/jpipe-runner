@@ -66,6 +66,11 @@ class EventStream:
 
     ``preview``, if given, is asked to draw the run's diagram once the steps are about to
     run; the stream says where it was drawn, if it was.
+
+    A ``held`` stream keeps its events until ``release``, which empties the file first: the
+    command line opens the file before the step libraries are imported, so that one that
+    cannot be opened stops it before anything runs, and empties it only once no output
+    names a file the run observes (ADR-0035).
     """
 
     def __init__(
@@ -75,8 +80,10 @@ class EventStream:
         root: Path = Path(),
         clock: Callable[[], float] = time.monotonic,
         preview: Preview | None = None,
+        held: bool = False,
     ) -> None:
         self._file = file
+        self._held: list[str] | None = [] if held else None
         self._root = root
         self._clock = clock
         self._preview = preview
@@ -84,6 +91,26 @@ class EventStream:
         self._seq = 0
         self._model: Justification | None = None
         self._failed = False
+
+    @property
+    def held(self) -> bool:
+        """Whether the events are still held: the file has not been emptied or written."""
+        return self._held is not None
+
+    def release(self) -> None:
+        """Empty the file, and write the events held so far; from now on, each is written as
+        it happens. A stream that is not held is left as it is."""
+        if self._held is None:
+            return
+        lines, self._held = self._held, None
+        try:
+            self._file.truncate(0)
+            self._file.seek(0)
+            for line in lines:
+                self._file.write(line)
+            self._file.flush()
+        except OSError as error:
+            self._fail(error)
 
     @property
     def failed(self) -> bool:
@@ -167,8 +194,13 @@ class EventStream:
             return
         elapsed = max(0, round((self._clock() - self._opened) * 1000))
         line = {"event": event, "seq": self._seq, "elapsed_ms": elapsed, **payload}
+        text = _one_line(json.dumps(line, ensure_ascii=False)) + "\n"
+        if self._held is not None:
+            self._held.append(text)
+            self._seq += 1
+            return
         try:
-            self._file.write(_one_line(json.dumps(line, ensure_ascii=False)) + "\n")
+            self._file.write(text)
             self._file.flush()
         except OSError as error:
             self._fail(error)
