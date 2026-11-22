@@ -251,7 +251,7 @@ order that depends only on the model
   it, however far below: what a step that did not pass would have produced does not
   exist. A check meant to be optional should pass with what it found, rather than skip.
 - **A conclusion or sub-conclusion without a step** passes when what supports it passes.
-  One that has a step runs after everything below it, even a step declared as evidence
+  One that has a step runs after everything below it, even a step written for an evidence
   that composition turned into a sub-conclusion (a cross-check, `JP008`).
 - **The justification fails** if an element failed, **is skipped** if none failed and one
   was skipped, and **passes** when every element passed.
@@ -391,7 +391,12 @@ others, the library keeps binding:
   An `@evidence("draft:tests")` written against the draft still binds, now to an element that
   is argued in full below it. It runs after that sub-argument, as an independent
   cross-check of the same claim, and validation reports the change of kind as a warning
-  (`JP008`), not an error ([ADR-0013](adr/0013-kind-divergence-under-composition.md)).
+  (`JP008`), not an error ([ADR-0036](adr/0036-a-step-runs-on-the-kind-it-was-written-for.md)).
+  The compiler records that the element was the evidence `draft:tests` in `draft`, among
+  its origins, and only an id that designates such an origin, with the step's kind, is
+  excused: `@evidence("readiness:hook")`, written against the composed model, is an error
+  (`JP016`). The origins are in the JSON of jPipe 4.0.0 and later; recompile a model
+  composed by an older jPipe.
 - The refinement's conclusion is aliased onto the same element. Binding both the hook's id
   and the refinement's conclusion is two functions for one element: `JP007`.
 
@@ -533,7 +538,8 @@ and the run continues. [`rules.md`](rules.md) describes every check; in short:
 - every evidence and every strategy has a step (`JP005`), and ids bind one to one
   (`JP006`, `JP007`, `JP015`);
 - a step's decorator is its element's kind (`JP016`), unless composition changed the
-  element's kind (`JP008`, a warning);
+  element's kind and the step was written for the element it came from (`JP008`, a
+  warning);
 - every consumed variable is produced by a step that supports its consumer, directly or
   not (`JP009`, `JP014`): a step runs only after its supporters pass, so a value from
   another branch might never exist; and by one only (`JP025`), unless the step names the

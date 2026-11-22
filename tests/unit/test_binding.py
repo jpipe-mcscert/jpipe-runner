@@ -259,7 +259,7 @@ def test_every_scenario_binds_each_step_to_one_element(scenario: Scenario) -> No
 
 def test_a_refined_hook_keeps_its_id_as_an_alias() -> None:
     # #116: `refine(draft, tested) { hook: "tests" }` merges draft's evidence `tests` and
-    # tested's conclusion into one sub-conclusion. jPipe 2.5.0 keeps both ids as aliases,
+    # tested's conclusion into one sub-conclusion. The compiler keeps both ids as aliases,
     # so a step written against the standalone `draft` still binds after the refine.
     composed = loader.load(SCENARIOS_ROOT / "composed" / "justification.json")
     hook = composed.element("readiness:hook")

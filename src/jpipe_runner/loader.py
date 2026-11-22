@@ -22,6 +22,7 @@ from jpipe_runner.model import (
     InvalidJustificationError,
     Justification,
     Kind,
+    Origin,
     Placeholder,
     Relation,
     Template,
@@ -91,6 +92,9 @@ def loads(text: str) -> Justification:
             label=element["label"],
             kind=Kind(element["type"]),
             aliases=tuple(element.get("aliases", ())),
+            origins=tuple(
+                Origin(o["model"], o["id"], Kind(o["type"])) for o in element.get("origins", ())
+            ),
         )
         for element in document["elements"]
     )

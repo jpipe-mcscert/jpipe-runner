@@ -43,8 +43,10 @@ again, and an element merged from several keeps the ids it had in each source, a
 Building a justification from others: `refine` grafts a justification in place of an
 evidence, `assemble` puts justifications under a new strategy and conclusion, and
 unification merges elements that two justifications share. Composition prefixes ids, and
-may turn an evidence or a conclusion into a sub-conclusion. The step libraries written for
-the source justifications keep working on the composed one: see
+may turn an evidence or a conclusion into a sub-conclusion. The compiler records each
+composed element's origins: what it was, and its id, in each justification it came from.
+The step libraries written for the source justifications keep working on the composed one:
+see
 [When the model is composed](authoring.md#when-the-model-is-composed).
 
 ## The step library
@@ -95,8 +97,9 @@ See [Returning an outcome](authoring.md#returning-an-outcome).
 
 ### Cross-check
 
-A step declared as evidence and bound, after [composition](#composition), to a
-sub-conclusion that is argued in full below it. It runs after that argument, and only if it
+A step written for an evidence or a conclusion and bound, after
+[composition](#composition), to the sub-conclusion composition made of it, which is argued
+in full below it. It runs after that argument, and only if it
 passed, as an independent check of the same claim; validation points it out with `JP008`.
 
 ## A run

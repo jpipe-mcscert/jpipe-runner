@@ -302,7 +302,7 @@
       "code": "JP008",
       "severity": "warning",
       "element": "release:unified_0",
-      "message": "checked_steps.the_code_is_tested is declared as evidence, and is bound to a sub-conclusion: it runs as a cross-check of the argument below it",
+      "message": "checked_steps.the_code_is_tested is declared as evidence, for 'checked:tests' in 'checked', which composition made the sub-conclusion 'release:unified_0': it runs as a cross-check of the argument below it",
       "fix": "Nothing to do for a cross-check. If the library serves only the composed model, declare the step with @sub_conclusion.",
       "traceback": null
     },

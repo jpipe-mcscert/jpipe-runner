@@ -117,41 +117,43 @@ class UnboundElement(Rule):
 
 
 class RefinedElement(Rule):
-    """A step declared as evidence or conclusion is bound to what the model calls a
-    sub-conclusion.
+    """A step is bound to an element whose kind composition changed, with the kind the
+    element had in the model the step was written for.
 
-    Composition changes kinds, in one direction only
-    ([ADR-0013](adr/0013-kind-divergence-under-composition.md)):
-
-    - `refine` merges the hook evidence and the refinement's conclusion into one
-      sub-conclusion;
-    - `assemble` turns the conclusion of each source into a sub-conclusion;
-    - unification merges an evidence into a sub-conclusion with the same label.
-
-    A step written against the model before it was composed keeps binding, to an element
-    that is now argued in full below it. That is the intended workflow: the step runs
-    after the sub-argument, as an independent cross-check of the same claim. It is
-    reported so that the change is seen. It is not an error because the same library
-    often still serves the model it was written for, where the element has its old kind.
+    Composition changes kinds: `refine` merges the hook evidence and the refinement's
+    conclusion into one sub-conclusion, `assemble` turns the conclusion of each source into
+    a sub-conclusion, and unification merges an evidence into a sub-conclusion with the
+    same label. The compiler names each composed element's origins, the element as it was
+    in each model it was composed from, with its kind there
+    ([ADR-0036](adr/0036-a-step-runs-on-the-kind-it-was-written-for.md)). A step whose id
+    designates one of them, and whose kind is that origin's, was written against the model
+    before it was composed. It keeps binding, to an element that is now argued in full
+    below it, and runs after that argument, as an independent cross-check of the same
+    claim. It is reported so that the change is seen. It is not an error, because the same
+    library often still serves the model it was written for, where the element has its
+    old kind, and composing models must not turn a library that ran into one that does not.
 
     **Fix:** none, when the step is meant as a cross-check. When the library serves only
-    the composed model, declare the step with `@sub_conclusion`, which may also consume
+    the composed model, declare the step with the element's kind, which may also consume
     what the sub-argument produces.
     """
 
     code = "JP008"
     severity = Severity.WARNING
-    summary = "A step declared as evidence or conclusion is bound to a sub-conclusion."
+    summary = "A step keeps the kind its element had before composition changed it."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
         for bound in ctx.bindings:
-            if _composed(bound):
+            if bound.step.kind is bound.element.kind:
+                continue
+            if (origin := ctx.bindings.resolver.origin(bound)) is not None:
                 yield self.diagnostic(
-                    f"{bound.step.name} is declared as {bound.step.kind}, and is bound to "
-                    f"a sub-conclusion: it runs as a cross-check of the argument below it",
+                    f"{bound.step.name} is declared as {bound.step.kind}, for {origin.id!r} in "
+                    f"{origin.model!r}, which composition made the {bound.element.kind} "
+                    f"{bound.element.id!r}: it runs as a cross-check of the argument below it",
                     element=bound.element.id,
                     fix="Nothing to do for a cross-check. If the library serves only the "
-                    "composed model, declare the step with @sub_conclusion.",
+                    f"composed model, declare the step with {bound.element.kind.decorator}.",
                 )
 
 
@@ -303,31 +305,49 @@ class ConsumedBeforeProduced(Rule):
 
 
 class IncompatibleKind(Rule):
-    """A step's decorator declares a kind that its element cannot have become by
-    composition.
+    """A step's decorator declares another kind than its element's, and composition does
+    not explain it.
 
-    Composition only ever turns an evidence or a conclusion into a sub-conclusion
-    (`JP008`). Any other difference between a step's kind and its element's, such as a
-    `@strategy` bound to an evidence, is an authoring mistake: the step's signature is
-    built for another kind of element.
+    A step runs only on an element of the kind it is declared with: its signature is built
+    for that kind of element, a `@strategy` consuming its supporters' values and an
+    `@evidence` observing the world. The one exception is an element whose kind
+    composition changed, bound by a step written against the model it came from (`JP008`).
+    Anything else is an authoring mistake, including a step bound by the element's
+    composed id with the kind the element had before: that step was written against the
+    composed model, where the element has its new kind
+    ([ADR-0036](adr/0036-a-step-runs-on-the-kind-it-was-written-for.md)).
+
+    The runner reads what composition changed from each element's origins, which jPipe
+    exports since 4.0.0. In a model compiled by an older jPipe, every difference of kind
+    is this error.
 
     **Fix:** use the decorator of the element's kind, or bind the step to the element it
-    was written for.
+    was written for. If the model was composed by a jPipe older than 4.0.0, recompile it.
     """
 
     code = "JP016"
     severity = Severity.ERROR
-    summary = "A step's kind differs from its element's, in a way composition cannot explain."
+    summary = "A step's kind differs from its element's, and composition does not explain it."
 
     def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
+        composed = any(element.origins for element in ctx.justification)
         for bound in ctx.bindings:
-            if bound.step.kind is not bound.element.kind and not _composed(bound):
-                yield self.diagnostic(
-                    f"{bound.step.name} is declared as {bound.step.kind}, but is bound to "
-                    f"the {bound.element.kind} {bound.element.id!r}",
-                    element=bound.element.id,
-                    fix=f"Declare it with {bound.element.kind.decorator}.",
+            step, element = bound.step, bound.element
+            if step.kind is element.kind or ctx.bindings.resolver.origin(bound) is not None:
+                continue
+            fix = f"Declare it with {element.kind.decorator}"
+            if written := next((o for o in element.origins if o.kind is step.kind), None):
+                fix += (
+                    f", or bind it by the id the element had in {written.model!r}: {written.id!r}"
                 )
+            elif not composed:
+                fix += ". If the model was composed by a jPipe older than 4.0.0, recompile it"
+            yield self.diagnostic(
+                f"{step.name} is declared as {step.kind}, but is bound to "
+                f"the {element.kind} {element.id!r}",
+                element=element.id,
+                fix=f"{fix}.",
+            )
 
 
 class EvidenceObservesNothing(Rule):
@@ -406,14 +426,6 @@ def _naming(consumed: Consumption, ctx: ValidationContext) -> str:
     entries = ", ".join(f'"{p}": Produced("{variable}", by="{example}")' for p in parameters)
     which = "the one it means" if len(parameters) == 1 else "the one each parameter means"
     return f"Name {which}, keeping the other entries of consumes: {entries}."
-
-
-def _composed(bound: Binding) -> bool:
-    """Whether composition explains the kinds: evidence or conclusion turned sub-conclusion."""
-    return bound.element.kind is Kind.SUB_CONCLUSION and bound.step.kind in (
-        Kind.EVIDENCE,
-        Kind.CONCLUSION,
-    )
 
 
 def _distinct(ctx: ValidationContext) -> Iterator[Consumption]:

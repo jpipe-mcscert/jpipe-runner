@@ -172,6 +172,7 @@ classDiagram
     namespace model {
         class Justification
         class Element
+        class Origin
         class Relation
         class Kind
         class TemplateChain
@@ -303,6 +304,8 @@ classDiagram
     Justification "1" *-- "*" Relation : relations
     Relation ..> Element : source, target
     Element --> Kind : kind
+    Element "1" *-- "*" Origin : origins
+    Origin --> Kind : kind
     Justification "1" *-- "0..1" TemplateChain : template_chain
     TemplateChain "1" *-- "*" Template : templates
     Template "1" *-- "*" Placeholder : placeholders
@@ -469,9 +472,9 @@ unrunnable (`JP001` to `JP004`) is not a rule: the loader refuses it first.
 rule is a subclass of `Rule`. The rules about binding (`JP006`, `JP007`, `JP015`) report
 what the `BindingTable` found, under their own code, and what the `DataflowTable` found of
 the ids given as `by`. The rules about data read the `DataflowTable`. A step's
-kind is compared with its element's: an evidence or a conclusion turned into a
-sub-conclusion is what composition does, and is a warning (`JP008`); any other difference
-is an error (`JP016`). [`rules.md`](rules.md), the reference
+kind is compared with its element's: a difference is a warning (`JP008`) when one of the
+step's ids designates an `Origin` of the element, the element as it was in a model it was
+composed from, with the step's kind there, and an error (`JP016`) otherwise. [`rules.md`](rules.md), the reference
 of every diagnostic code, is rendered from the rules' classes, and a test fails when the
 committed page differs.
 

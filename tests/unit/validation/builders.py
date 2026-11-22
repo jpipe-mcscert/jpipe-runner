@@ -4,6 +4,7 @@ A case builds a small model and a few steps, and asserts what one rule reports: 
 severities and elements, never messages.
 """
 
+import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -16,13 +17,15 @@ from jpipe_runner.validation import Rule, ValidationContext
 
 Reported = tuple[str, Severity, str | None]
 
-# Models composed by jPipe 2.5.0, kept verbatim: `jpipe process -i <name>.jd -m <model>
+# Models composed by jPipe 4.0.0, kept verbatim: `jpipe process -i <name>.jd -m <model>
 # -f JSON`. Refine is the `composed` scenario's; assemble.jd is jpipe-examples'
-# release-example/assemble.jd; dominance.jd unifies an evidence with a sub-conclusion.
+# release-example/assemble.jd; dominance.jd unifies an evidence with a sub-conclusion;
+# chain.jd refines a refined model.
 COMPOSED = {
     "refine": Path(__file__).parents[2] / "e2e" / "scenarios" / "composed" / "justification.json",
     "assemble": Path(__file__).parent / "fixtures" / "assemble.json",
     "dominance": Path(__file__).parent / "fixtures" / "dominance.json",
+    "chain": Path(__file__).parent / "fixtures" / "chain.json",
 }
 
 EVIDENCE, STRATEGY = Kind.EVIDENCE, Kind.STRATEGY
@@ -38,9 +41,14 @@ def model(*elements: Element, relations: Iterable[tuple[str, str]] = ()) -> Just
     return Justification("m", elements, (Relation(s, t) for s, t in relations))
 
 
-def composed(name: str) -> Justification:
-    """One of the ``COMPOSED`` models."""
-    return loader.load(COMPOSED[name])
+def composed(name: str, *, origins: bool = True) -> Justification:
+    """One of the ``COMPOSED`` models; without ``origins``, as a jPipe older than 4.0.0
+    compiled it."""
+    document = json.loads(COMPOSED[name].read_text(encoding="utf-8"))
+    if not origins:
+        for compiled in document["elements"]:
+            compiled.pop("origins", None)
+    return loader.loads(json.dumps(document))
 
 
 def step(

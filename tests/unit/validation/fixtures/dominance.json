@@ -1,59 +1,92 @@
 {
   "elements": [
     {
-      "escaped": "version_2_0_can_be_released",
       "id": "release:assembleConclusion",
       "label": "Version 2.0 can be released",
       "type": "conclusion"
     },
     {
-      "escaped": "version_2_0_is_ready_to_ship",
+      "origins": [{
+        "model": "checked",
+        "id": "checked:ready",
+        "type": "conclusion"
+      }],
       "id": "release:checked:ready",
       "label": "Version 2.0 is ready to ship",
       "type": "sub-conclusion"
     },
     {
-      "escaped": "all_release_gates_pass",
+      "origins": [{
+        "model": "checked",
+        "id": "checked:gates",
+        "type": "strategy"
+      }],
       "id": "release:checked:gates",
       "label": "All release gates pass",
       "type": "strategy"
     },
     {
-      "escaped": "the_code_is_tested",
       "aliases": [
         "release:checked:tests",
         "release:argued:tested"
+      ],
+      "origins": [
+        {
+          "model": "checked",
+          "id": "checked:tests",
+          "type": "evidence"
+        },
+        {
+          "model": "argued",
+          "id": "argued:tested",
+          "type": "sub-conclusion"
+        }
       ],
       "id": "release:unified_0",
       "label": "The code is tested",
       "type": "sub-conclusion"
     },
     {
-      "escaped": "the_release_is_documented",
+      "origins": [{
+        "model": "argued",
+        "id": "argued:done",
+        "type": "conclusion"
+      }],
       "id": "release:argued:done",
       "label": "The release is documented",
       "type": "sub-conclusion"
     },
     {
-      "escaped": "the_changelog_and_api_docs_are_current",
+      "origins": [{
+        "model": "argued",
+        "id": "argued:docs",
+        "type": "strategy"
+      }],
       "id": "release:argued:docs",
       "label": "The changelog and API docs are current",
       "type": "strategy"
     },
     {
-      "escaped": "the_test_suite_passes_with_high_coverage",
+      "origins": [{
+        "model": "argued",
+        "id": "argued:testing",
+        "type": "strategy"
+      }],
       "id": "release:argued:testing",
       "label": "The test suite passes with high coverage",
       "type": "strategy"
     },
     {
-      "escaped": "the_test_suite_passes",
+      "origins": [{
+        "model": "argued",
+        "id": "argued:suite",
+        "type": "evidence"
+      }],
       "id": "release:argued:suite",
       "label": "The test suite passes",
       "type": "evidence"
     },
     {
-      "escaped": "both_arguments_hold",
       "id": "release:assembleStrategy",
       "label": "Both arguments hold",
       "type": "strategy"

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0036
 date: 2026-10-08
 decision-makers: Sébastien Mosser
 ---

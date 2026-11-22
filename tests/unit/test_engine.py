@@ -32,7 +32,7 @@ from jpipe_runner.engine import (
     Verdict,
 )
 from jpipe_runner.libraries import imported
-from jpipe_runner.model import Element, Justification
+from jpipe_runner.model import Element, Justification, Origin
 from jpipe_runner.outcomes import NOT_AN_OUTCOME
 from jpipe_runner.records import Uncopied
 from jpipe_runner.report import RunReport
@@ -543,11 +543,18 @@ def test_a_strict_run_stops_on_a_warning(release: Release) -> None:
     assert run(RELEASE, registry, root=release.root, strict=True).verdict is Verdict.INVALID
 
 
-# A cross-check (JP008): an evidence step bound to a sub-conclusion argued below it.
+# A cross-check (JP008): an evidence step, written for the evidence `draft:hook`, bound to
+# the sub-conclusion composition made of it, argued below it.
 REFINED = model(
     element("c", CONCLUSION),
     element("top", STRATEGY),
-    element("hook", SUB_CONCLUSION),
+    Element(
+        "hook",
+        "hook",
+        SUB_CONCLUSION,
+        ("m:draft:hook",),
+        (Origin("draft", "draft:hook", EVIDENCE),),
+    ),
     element("below", STRATEGY),
     element("e", EVIDENCE),
     relations=[("top", "c"), ("hook", "top"), ("below", "hook"), ("e", "below")],
@@ -565,7 +572,7 @@ def _refined_library(order: list[str], below_outcome: Outcome) -> StepRegistry:
         order.append("below")
         return below_outcome
 
-    @evidence("hook", observes={"log": "log.txt"}, produces=["checked"])
+    @evidence("draft:hook", observes={"log": "log.txt"}, produces=["checked"])
     def cross_check(log: Path) -> Outcome:
         order.append("hook")
         return Pass(checked=True)
