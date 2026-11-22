@@ -480,10 +480,12 @@ def _events(
 def _put_back(target: Path, kept: bytes | None, existed: bool, created: list[Path]) -> None:
     """Leave the events file of a refused run as it was: its ``kept`` content written back,
     or, if the run ``created`` it, removed, with the directories made for it."""
+    # The path is the --events option the user gave, which the run writes anyway: what it
+    # writes back is that file's own content, and what it removes, the file it created.
     if kept is not None:
-        target.write_bytes(kept)
+        target.write_bytes(kept)  # NOSONAR
     elif not existed:
-        target.unlink(missing_ok=True)
+        target.unlink(missing_ok=True)  # NOSONAR
         for directory in created:
             with suppress(OSError):
                 directory.rmdir()
