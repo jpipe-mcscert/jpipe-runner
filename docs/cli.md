@@ -124,10 +124,11 @@ $ echo $?
 ```
 
 **An output never overwrites what the run observes.** Once the step libraries are imported,
-before validation and before any step, an output that names a file a step observes is a
-usage error too: a file it names, one its glob matches, even if the output does not exist
-yet, the file of a `JsonValue`, a path a library's observable depends on, or a link to one
-of those. The file is left as it was, and an events file the run created is removed
+before validation and before any step, an output that names a file a step of the
+justification observes is a usage error too: a file it names, one its glob matches, even if
+the output does not exist yet, the file of a `JsonValue`, a path a library's observable
+depends on, or a link to one of those. The file is left as it was, and an events file the
+run created is removed
 ([ADR-0035](adr/0035-an-output-never-overwrites-what-the-run-observes.md)):
 
 ```console

@@ -18,6 +18,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.engine import Status, Verdict
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import HIDDEN, Observation
+from jpipe_runner.records import Uncopied
 from jpipe_runner.report import ElementReport, RunReport, Trace
 
 _SYMBOLS = {Status.PASS: "✔", Status.FAIL: "✘", Status.SKIP: "-"}
@@ -124,7 +125,11 @@ class _Text:
         if seen.path:
             digest = f"sha256 {(seen.sha256 or '')[:12]}{self._ellipsis}"
             return f"{named} ({digest}, {seen.size} bytes)"
-        return f"{named} (hidden)" if seen.value is HIDDEN else f"{named} = {seen.value!r}"
+        if seen.value is HIDDEN:
+            return f"{named} (hidden)"
+        # A value that could not be copied is recorded as its repr, taken then (ADR-0033).
+        shown = seen.value.repr if isinstance(seen.value, Uncopied) else repr(seen.value)
+        return f"{named} = {shown}"
 
     def _diagnostics(self) -> Iterator[str]:
         for diagnostic in self._report.diagnostics:

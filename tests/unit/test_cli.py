@@ -514,6 +514,110 @@ def test_an_output_that_names_the_file_of_a_json_value_is_refused(
     assert (directory / "mock" / "package.json").read_bytes() == before
 
 
+def test_a_step_bound_to_no_element_is_not_checked(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    steps = release / "steps.py"
+    steps.write_text(
+        steps.read_text(encoding="utf-8")
+        + '\n\n@evidence("other:e", observes={"log": "elsewhere.log"}, produces=["x"])\n'
+        + "def elsewhere(log):\n    return Pass(x=1)\n",
+        encoding="utf-8",
+    )
+
+    code, _, err = _main(capsys, "--report", "elsewhere.log", *RELEASE)
+
+    assert code != ExitCode.USAGE, err  # validation then refuses the library: JP015
+
+
+def test_an_output_outside_the_root_is_not_taken_for_a_glob_s(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _observing(release, '"mock/CHANGELOG.md"', '"**/*.md"')
+
+    code, _, err = _main(capsys, "--dry-run", "--report", "../outside.md", *RELEASE)
+
+    assert code == ExitCode.OK, err
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="no symbolic links here")
+def test_an_output_through_a_linked_directory_is_refused_before_it_exists(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _observing(release, '"mock/CHANGELOG.md"', '"mock/*.md"')
+    (release / "build").symlink_to(release / "mock", target_is_directory=True)
+
+    code, _, err = _main(capsys, "--report", "build/new.md", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert "--report build/new.md: mock/*.md, which" in err
+    assert not (release / "mock" / "new.md").exists()
+
+
+def test_a_refused_events_file_leaves_no_directory_behind(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _observing(release, '"mock/CHANGELOG.md"', '"new/**"')
+
+    code, _, _ = _main(capsys, "--events", "new/dir/run.jsonl", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert not (release / "new").exists()
+
+
+def test_a_file_with_other_content_is_left_as_it_was_when_the_run_cannot_check_it(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (release / "notes.txt").write_text("not events\n", encoding="utf-8")
+    (release / "justification.json").write_text("{", encoding="utf-8")  # refused: JP001
+
+    code, _, err = _main(capsys, "--events", "notes.txt", *RELEASE)
+
+    assert code == ExitCode.IO
+    assert "notes.txt holds something other than a run's events" in err
+    assert (release / "notes.txt").read_text(encoding="utf-8") == "not events\n"
+
+
+def test_a_previous_run_s_events_are_emptied_at_once(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _main(capsys, "--events", "run.jsonl", *RELEASE)
+    steps = release / "steps.py"
+    steps.write_text(  # what the events file holds while the library is imported
+        "from pathlib import Path\n"
+        "Path('seen.jsonl').write_text(Path('run.jsonl').read_text(encoding='utf-8'),"
+        " encoding='utf-8')\n" + steps.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    code, _, _ = _main(capsys, "--events", "run.jsonl", *RELEASE)
+
+    seen = [json.loads(line)["event"] for line in (release / "seen.jsonl").read_text().splitlines()]
+    assert code == ExitCode.OK
+    assert seen == ["run.started"]  # this run's, not the previous run's
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="no named pipes here")
+def test_events_go_to_a_named_pipe(release: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    import threading
+
+    os.mkfifo(release / "events.pipe")
+    received: list[str] = []
+    reader = threading.Thread(
+        target=lambda: received.extend(
+            (release / "events.pipe").read_text(encoding="utf-8").splitlines()
+        )
+    )
+    reader.start()
+
+    code, _, err = _main(capsys, "--events", "events.pipe", *RELEASE)
+    reader.join(timeout=10)
+
+    assert code == ExitCode.OK, err
+    assert json.loads(received[0])["event"] == "run.started"
+    assert json.loads(received[-1])["event"] == "run.ended"
+
+
 def test_version_prints_the_version(capsys: pytest.CaptureFixture[str]) -> None:
     assert _main(capsys, "--version") == (ExitCode.OK, f"jpipe-runner {__version__}\n", "")
 

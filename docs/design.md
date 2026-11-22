@@ -82,6 +82,7 @@ flowchart LR
     events --> validation
     events -.->|described by| eventsschema
     eventsschema -.->|refers to| reportschema
+    text_report --> records
     text_report --> diagnostics
     text_report --> engine
     text_report --> model
@@ -89,6 +90,7 @@ flowchart LR
     text_report --> report
     impact --> observables
     impact --> json_report
+    cli --> binding
     cli --> diagnostics
     cli --> diagram
     cli --> impact
@@ -674,9 +676,10 @@ its step and what that step declares, so its dataflow can be drawn.
 outputs it could not write before anything runs (a diagram whose suffix is not a format,
 or that needs a `dot` that is not installed), then loads the model, imports the libraries
 and runs the engine inside `imported`, with the working directory as the root. Between the
-import and the engine, it refuses an output that names a file a step observes
-([ADR-0035](adr/0035-an-output-never-overwrites-what-the-run-observes.md)): the events file,
-opened before the import without being emptied, holds its events until then. Each way
+import and the engine, it refuses an output that names a file a bound step observes
+([ADR-0035](adr/0035-an-output-never-overwrites-what-the-run-observes.md)): an events file
+that holds something other than a run's events is opened without being emptied, and holds
+its events until then. Each way
 this ends gives a `RunReport`: `refused`, `not_imported` or `of`. It draws the diagram if
 asked for, recording where on the report (`with_diagram`), writes the
 JSON report to a file if asked, and prints the report on stdout: the text one, or the JSON

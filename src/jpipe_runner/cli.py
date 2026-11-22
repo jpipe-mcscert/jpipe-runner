@@ -14,6 +14,7 @@ report shows, are relative to the working directory.
 
 import argparse
 import glob
+import json
 import logging
 import os
 import re
@@ -23,13 +24,14 @@ import tempfile
 import textwrap
 import time
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import contextmanager, redirect_stdout
+from contextlib import contextmanager, redirect_stdout, suppress
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, NoReturn
 
 from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
+from jpipe_runner.binding import BindingTable
 from jpipe_runner.diagnostics import shown_path
 from jpipe_runner.engine import RunResult, Verdict
 from jpipe_runner.events import EventStream, Preview
@@ -48,6 +50,9 @@ from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry
 
 _WINDOWS = os.name == "nt"
+
+_FIRST_LINE = 1 << 16
+"""How much of an existing events file is read to tell a run's events from anything else."""
 _ATTEMPTS, _PAUSE = 10, 0.1
 """How many times, and how far apart in seconds, the drawing made before the steps is
 deleted."""
@@ -365,36 +370,72 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
         seen[identity] = flag
 
 
-def _check_observed(options: argparse.Namespace, registry: StepRegistry, root: Path) -> None:
+def _check_observed(
+    options: argparse.Namespace, justification: Justification, registry: StepRegistry, root: Path
+) -> None:
     """Refuse, once the step libraries are imported and before anything else runs, an
-    output that names a file a step observes: one it names, one its glob matches, or one a
-    library's observable depends on. The run would overwrite it, or read what it wrote
-    there (ADR-0035)."""
+    output that names a file a step bound to ``justification`` observes: one it names, one
+    its glob matches, or one a library's observable depends on. The run would overwrite it,
+    or read what it wrote there (ADR-0035)."""
     outputs = {  # impact, which shares the import, writes none
         "--report": getattr(options, "report", None),
         "--events": getattr(options, "events", None),
         "--diagram": getattr(options, "diagram", None),
     }
-    for step in registry:
-        context = Context(step.directory, root)
-        for artifact in step.observes:
-            for shown in dependencies(artifact.observable, context):
-                for flag, path in outputs.items():
-                    if path is not None and _designated(path, shown, root):
-                        parser().error(f"{flag} {path}: {shown}, which {step.name} observes")
+    if all(path is None for path in outputs.values()):
+        return
+    observed = [
+        (shown, f"{binding.step.name} observes")
+        for binding in BindingTable(justification, registry).bindings
+        for artifact in binding.step.observes
+        for shown in dependencies(artifact.observable, Context(binding.step.directory, root))
+    ]
+    collisions = _Collisions(observed, root)
+    for flag, path in outputs.items():
+        if path is not None and (found := collisions.of(path)) is not None:
+            shown, who = found
+            parser().error(f"{flag} {path}: {shown}, which {who}")
 
 
-def _designated(path: Path, shown: str, root: Path) -> bool:
-    """Whether the file at ``path`` is one that ``shown``, a path or a glob relative to
-    ``root`` as the report shows it, designates: by its name, even if it does not exist
-    yet, or as a link to a file it designates."""
-    if designates_one(shown):
-        return _identity(path) == _identity(root / unescape(shown))
-    relative = Path(os.path.relpath(os.path.abspath(path), os.path.abspath(root))).as_posix()
-    if matches(relative, shown):
-        return True
-    identity = _identity(path)
-    return any(_identity(found) == identity for found in files(shown, root))
+class _Collisions:
+    """Whether a file is one of ``observed``, each a path or a glob relative to ``root`` as
+    the report shows it, with who observes it: by its name, once resolved under ``root``,
+    even if it does not exist yet, or as a link to a file a glob matches. Each glob is
+    expanded once."""
+
+    def __init__(self, observed: list[tuple[str, str]], root: Path) -> None:
+        self._observed = observed
+        self._root = root
+        self._matched: dict[str, set[object]] = {}
+
+    def of(self, path: Path) -> tuple[str, str] | None:
+        """The first of the observed that designates ``path``, if one does."""
+        identity = _identity(path)
+        relative = _under(path, self._root)
+        for shown, who in self._observed:
+            if designates_one(shown):
+                if identity == _identity(self._root / unescape(shown)):
+                    return shown, who
+            elif (relative is not None and matches(relative, shown)) or identity in self._found(
+                shown
+            ):
+                return shown, who
+        return None
+
+    def _found(self, pattern: str) -> set[object]:
+        if pattern not in self._matched:
+            self._matched[pattern] = {_identity(found) for found in files(pattern, self._root)}
+        return self._matched[pattern]
+
+
+def _under(path: Path, root: Path) -> str | None:
+    """``path`` relative to ``root``, in POSIX form, once both are resolved, so that a
+    directory reached through a link is the one it links to; ``None`` if it is not under
+    ``root``, on another drive included."""
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return None
 
 
 def _identity(path: Path) -> object:
@@ -421,8 +462,13 @@ def _run(options: argparse.Namespace) -> int:
     try:
         with _events(options.events, root, preview) as stream:
             justification, report = _report(options, root, libraries, stream)
-            if stream is not None:
-                stream.release()  # the model was refused, or a library not imported
+            if stream is not None and stream.held:
+                # The model was refused, or a library not imported: nothing tells whether
+                # the run would observe the file, so it is left as it was.
+                stream.abandon(
+                    f"{options.events} holds something other than a run's events, and the "
+                    "run ended before it could check that no step observes it"
+                )
             _LOG.info("verdict: %s", report.verdict)
             report, drawn = _draw(options, justification, report, root)
             saved = _save(options.report, report)
@@ -461,25 +507,54 @@ def _events(
     if path is None:
         yield None
         return
+    created = _missing_directories(path.parent)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existed = path.exists()
-    # Opened without emptying it: the file may be one the run observes, which is known only
-    # once the step libraries are imported. The stream holds its events until then.
-    file = path.open("a", encoding="utf-8", newline="\n")
-    stream = EventStream(file, root=root, preview=preview, held=True)
+    existed = os.path.lexists(path)
+    # A file that holds something other than a run's events may be one the run observes,
+    # which is known only once the step libraries are imported: it is opened without being
+    # emptied, and the stream holds its events until then (ADR-0035). Anything else, a new
+    # file, a previous run's events, a pipe, is emptied and written at once, as ever.
+    held = _foreign(path)
+    file = path.open("a" if held else "w", encoding="utf-8", newline="\n")
+    stream = EventStream(file, root=root, preview=preview, held=held)
     _LOG.info("writing the run's events to %s", path)
     refused = False
     try:
         yield stream
-    except _Stop:  # an output names a file the run observes: leave that file as it was
+    except _Stop:  # an output names a file the run observes: leave it as it was
         refused = True
         raise
     finally:
-        if not refused:
-            stream.release()  # whatever else ended the run, as the events said
         stream.close()
         if refused and not existed:
             path.unlink(missing_ok=True)
+            for directory in created:
+                with suppress(OSError):
+                    directory.rmdir()
+
+
+def _missing_directories(directory: Path) -> list[Path]:
+    """The directories ``mkdir(parents=True)`` would create for ``directory``, deepest
+    first."""
+    missing = []
+    while not directory.exists() and directory != directory.parent:
+        missing.append(directory)
+        directory = directory.parent
+    return missing
+
+
+def _foreign(path: Path) -> bool:
+    """Whether ``path`` is a regular file that holds something other than a run's events:
+    not empty, and its first line not a ``run.started`` event. One that cannot be read is
+    taken for one."""
+    try:
+        if not path.is_file() or path.stat().st_size == 0:
+            return False
+        with path.open("rb") as file:
+            first = json.loads(file.readline(_FIRST_LINE))
+    except (OSError, ValueError):
+        return True
+    return not (isinstance(first, dict) and first.get("event") == "run.started")
 
 
 class _Preview:
@@ -546,13 +621,14 @@ class _Preview:
 
 
 def _observer(report: RunReport, drawn: Path, root: Path) -> str | None:
-    """What an evidence observes that designates ``drawn``, if it is under ``root``."""
-    shown = shown_path(str(drawn), root)
-    for element in report.elements:
-        for observed in element.observes:
-            if matches(shown, observed):
-                return f"{element.id} observes {observed}"
-    return None
+    """What an evidence observes that designates ``drawn``, if one does."""
+    observed = [
+        (shown, f"{element.id} observes")
+        for element in report.elements
+        for shown in element.observes
+    ]
+    found = _Collisions(observed, root).of(drawn)
+    return None if found is None else f"{found[1]} {found[0]}"
 
 
 def _streamed(stream: EventStream | None) -> bool:
@@ -598,7 +674,7 @@ def _report(
             _LOG.debug("sys.path: %s", sys.path)
             registry = StepRegistry.from_modules(modules)
             _LOG.info("step libraries imported: %d (%d steps)", len(modules), len(registry))
-            _check_observed(options, registry, root)
+            _check_observed(options, justification, registry, root)
             if stream is not None:
                 stream.release()
             result = engine.run(

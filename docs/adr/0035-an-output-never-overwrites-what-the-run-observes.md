@@ -39,7 +39,8 @@ events written before the import?
 
 1. Leave it as a user error, and say so in `docs/cli.md`.
 2. Check the outputs once the libraries are imported, before validation; open the events
-   file early without emptying it, and hold the events until the check passes.
+   file at once, and hold its events until the check passes when emptying it could destroy
+   something.
 3. A validation rule, a new `JPnnn`, that refuses a run whose outputs overlap what it
    observes.
 
@@ -49,22 +50,32 @@ Chosen option: **2, check after the import**, because it is the only one that pr
 file while keeping ADR-0030's promise.
 
 Once the step libraries are imported, and before validation, the command line compares each
-output with what every step declares it observes, as the report names it: a path designates
-its file, and a glob every file it matches, by name, so that an output that does not exist
-yet is caught too, and by identity, so that a link is. `Env` observes no file; a library's
-observable designates what `depends_on` returns. An output that names one is a usage error,
-exit code 2, which names the output, what it designates and the step that observes it. A dry
-run is refused the same way: it writes its outputs.
+output with what every step bound to the justification declares it observes, as the report
+names it: a path designates its file, and a glob every file it matches, by name, once the
+output is resolved under the run's root, so that an output that does not exist yet, or is
+reached through a linked directory, is caught, and by identity, so that a link is. An output
+outside the root matches no glob. `Env` observes no file; a library's observable designates
+what `depends_on` returns. A step bound to no element observes nothing in this run, and is
+not checked. An output that names an observed file is a usage error, exit code 2, which names
+the output, what it designates and the step that observes it. A dry run is refused the same
+way: it writes its outputs. The diagram drawn before the first step
+([ADR-0032](0032-a-run-previews-its-diagram.md)) is checked by the same rule.
 
-The events file is opened when the command starts, in append mode, so that one that cannot be
-opened still stops it before anything runs, and is not emptied then. The stream holds its
-events, `run.started` first, until the check passes: it then empties the file and writes them.
-When the check refuses an output, the file is left as it was, and removed if the run created
-it. A run that ends otherwise before the check, because the model is refused, a library
-cannot be imported, or an input cannot be read, writes its events as before.
+The events file is opened when the command starts, so that one that cannot be opened still
+stops it before anything runs. A new file, an empty one, a previous run's events (its first
+line a `run.started` event), and anything that is not a regular file, such as a pipe, are
+emptied and written at once, as before: a program that follows the file never reads a
+previous run's events as this one's, and `run.started` arrives before the libraries are
+imported. Only a regular file that holds something else, which can only be a mistake, is
+opened without being emptied: the stream holds its events until the check passes, then
+empties the file and writes them. When the check refuses an output, the events file is left
+as it was, and removed, with the directories made for it, if the run created it. When the run
+ends before the check, because the model is refused or a library cannot be imported, nothing
+tells whether a step would observe a held file: it is left as it was, the error says so, and
+the command exits with code 4.
 
 This amends ADR-0023, whose outputs were all checked before anything ran, and ADR-0030, whose
-file was emptied, and whose `run.started` written, before the libraries were imported.
+file was always emptied before the libraries were imported.
 
 ### Consequences
 
@@ -72,8 +83,10 @@ file was emptied, and whose `run.started` written, before the libraries were imp
 - Good, because a file that cannot be opened still stops the command before anything runs.
 - Neutral, because the check runs after the libraries are imported, so a library's import
   runs before it, as it did before a validation error.
-- Bad, because `run.started` reaches the file once the libraries are imported, not before: a
-  program that follows the run sees nothing while they load.
+- Neutral, because a file that holds something other than events gets its events only once
+  the libraries are imported, and none if the run ends before the check.
+- Bad, because a run that ends before the check, its model refused or a library not
+  imported, writes `--report` and `--diagram` unchecked: nothing says what it would observe.
 - Bad, because an observable of a library whose `depends_on` says nothing is not covered: the
   runner cannot see what it reads.
 
@@ -82,8 +95,10 @@ file was emptied, and whose `run.started` written, before the libraries were imp
 `test_cli.py` checks that each output naming an observed file, a glob's future match, a
 `JsonValue`'s file and a link to an observed file is refused with exit code 2, in a run and in
 a dry run, and that the file is left as it was; and that a refused events file the run created
-is removed. `test_events.py` checks that a run that cannot read an input still writes its
-events.
+is removed, with its directories. It also checks that a step bound to no element, and an
+output outside the root, are not refused; that an output through a linked directory is; that
+a previous run's events are emptied before the libraries are imported; that events reach a
+named pipe; and that a file with other content is left as it was when the model is refused.
 
 ## Pros and Cons of the Options
 
@@ -95,7 +110,7 @@ events.
 ### 2. Check after the import
 
 - Good, because it covers every output, every observable that names its files, and dry runs.
-- Bad, because the first events wait for the import.
+- Bad, because the first events of a file that holds something else wait for the import.
 
 ### 3. A validation rule
 

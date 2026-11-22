@@ -67,10 +67,9 @@ class EventStream:
     ``preview``, if given, is asked to draw the run's diagram once the steps are about to
     run; the stream says where it was drawn, if it was.
 
-    A ``held`` stream keeps its events until ``release``, which empties the file first: the
-    command line opens the file before the step libraries are imported, so that one that
-    cannot be opened stops it before anything runs, and empties it only once no output
-    names a file the run observes (ADR-0035).
+    A ``held`` stream keeps its events until ``release``, which empties the file first, or
+    ``abandon``, which writes none: the command line holds a file that holds something
+    other than a run's events until it has checked that no step observes it (ADR-0035).
     """
 
     def __init__(
@@ -111,6 +110,14 @@ class EventStream:
             self._file.flush()
         except OSError as error:
             self._fail(error)
+
+    def abandon(self, reason: str) -> None:
+        """Write none of the events, held or to come, and leave the file as it was: the
+        stream has failed, for ``reason``, which is logged."""
+        self._held = None
+        if not self._failed:
+            _LOG.error("cannot write the run's events: %s", reason)  # NOSONAR
+        self._failed = True
 
     @property
     def failed(self) -> bool:
