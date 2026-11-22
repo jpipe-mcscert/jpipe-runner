@@ -124,9 +124,18 @@ def identity(path: Path) -> object:
     try:
         status = path.stat()
     except OSError:
-        return path.resolve()
+        return _absolute(path)
     # A file system that has no inodes gives 0 for every file.
-    return (status.st_dev, status.st_ino) if status.st_ino else path.resolve()
+    return (status.st_dev, status.st_ino) if status.st_ino else _absolute(path)
+
+
+def _absolute(path: Path) -> Path:
+    """``path`` resolved, or only made absolute if it cannot be: a symbolic link loop is a
+    ``RuntimeError`` before Python 3.13."""
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError):
+        return Path(os.path.abspath(path))
 
 
 def designates(pattern: str, file: Path, root: Path) -> bool:
@@ -145,7 +154,11 @@ def designates(pattern: str, file: Path, root: Path) -> bool:
     if not file.exists():  # only its name could designate it
         return False
     target = identity(file)
-    return any(identity(found) == target for found in files(pattern, root))
+    try:
+        found = files(pattern, root)
+    except (NotImplementedError, ValueError):  # on Windows, a glob on another drive
+        return False
+    return any(identity(each) == target for each in found)
 
 
 def _through_links(pattern: str, root: Path) -> str:

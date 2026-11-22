@@ -33,7 +33,7 @@ from jpipe_runner import __version__, diagram, engine, impact, json_report, load
 from jpipe_runner.binding import BindingTable
 from jpipe_runner.diagnostics import shown_path
 from jpipe_runner.engine import RunResult, Verdict
-from jpipe_runner.events import EventStream, Preview
+from jpipe_runner.events import RUN_STARTED, EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
 from jpipe_runner.observables import (
@@ -46,8 +46,6 @@ from jpipe_runner.steps import StepRegistry
 
 _WINDOWS = os.name == "nt"
 
-_RUN_STARTED = b'{"event": "run.started"'
-"""How a run's events begin, as ``EventStream`` writes them."""
 _ATTEMPTS, _PAUSE = 10, 0.1
 """How many times, and how far apart in seconds, the drawing made before the steps is
 deleted."""
@@ -448,12 +446,15 @@ def _events(
         return
     created = _missing_directories(path.parent)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existed = os.path.lexists(path)
+    target = Path(os.path.realpath(path))  # what a link names, the file the run writes
+    existed = target.exists()
     # A file that holds something other than a run's events may be one the run observes,
     # which is known only once the step libraries are imported: it is opened without being
     # emptied, and the stream holds its events until then (ADR-0035). Anything else, a new
-    # file, a previous run's events, a pipe, is emptied and written at once, as ever.
+    # file, a previous run's events, a pipe, is emptied and written at once, as ever; a
+    # regular file's content is kept, to be put back if an output is refused.
     held = _foreign(path)
+    kept = target.read_bytes() if existed and not held and target.is_file() else None
     file = path.open("a" if held else "w", encoding="utf-8", newline="\n")
     stream = EventStream(file, root=root, preview=preview, held=held)
     _LOG.info("writing the run's events to %s", path)
@@ -472,11 +473,20 @@ def _events(
                 "before it could check that no step observes it"
             )
         stream.close()
-        if refused and not existed:
-            path.unlink(missing_ok=True)
-            for directory in created:
-                with suppress(OSError):
-                    directory.rmdir()
+        if refused:
+            _put_back(target, kept, existed, created)
+
+
+def _put_back(target: Path, kept: bytes | None, existed: bool, created: list[Path]) -> None:
+    """Leave the events file of a refused run as it was: its ``kept`` content written back,
+    or, if the run ``created`` it, removed, with the directories made for it."""
+    if kept is not None:
+        target.write_bytes(kept)
+    elif not existed:
+        target.unlink(missing_ok=True)
+        for directory in created:
+            with suppress(OSError):
+                directory.rmdir()
 
 
 def _missing_directories(directory: Path) -> list[Path]:
@@ -497,7 +507,7 @@ def _foreign(path: Path) -> bool:
         if not path.is_file() or path.stat().st_size == 0:
             return False
         with path.open("rb") as file:
-            return file.read(len(_RUN_STARTED)) != _RUN_STARTED
+            return file.read(len(RUN_STARTED)) != RUN_STARTED
     except OSError:
         return True
 

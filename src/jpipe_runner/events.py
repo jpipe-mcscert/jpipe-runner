@@ -48,6 +48,10 @@ SCHEMA: dict[str, Any] = json.loads(
 
 _LOG = logging.getLogger(__name__)
 
+RUN_STARTED = json.dumps({"event": "run.started"}, ensure_ascii=False)[:-1].encode("utf-8")
+"""How a stream's first line begins, as ``_write`` serializes it: what tells a previous
+run's events from any other file."""
+
 _ESCAPED = re.compile("[\x85\u2028\u2029\ud800-\udfff]")
 """What JSON leaves as it is but a line of UTF-8 cannot hold: the characters that end a line
 for some readers, such as Python's ``splitlines``, and a lone surrogate, which a file name

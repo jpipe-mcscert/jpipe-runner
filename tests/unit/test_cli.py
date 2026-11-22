@@ -568,6 +568,34 @@ def test_an_output_a_glob_through_a_linked_directory_would_match_is_refused(
     assert not (release / "mock" / "new.md").exists()
 
 
+def test_a_previous_run_s_events_a_step_observes_are_put_back_when_refused(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _main(capsys, "--events", "mock/stage.jsonl", *RELEASE)
+    before = (release / "mock" / "stage.jsonl").read_bytes()
+    _observing(release, '"mock/CHANGELOG.md"', '"mock/stage.jsonl"')
+
+    code, _, _ = _main(capsys, "--events", "mock/stage.jsonl", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert (release / "mock" / "stage.jsonl").read_bytes() == before
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="no symbolic links here")
+def test_a_refused_events_file_through_a_dangling_link_is_removed_and_the_link_kept(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _observing(release, '"mock/CHANGELOG.md"', '"mock/*.jsonl"')
+    (release / "mock" / "old.jsonl").write_text("{}\n", encoding="utf-8")
+    (release / "latest.jsonl").symlink_to(release / "mock" / "run.jsonl")
+
+    code, _, _ = _main(capsys, "--events", "latest.jsonl", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert (release / "latest.jsonl").is_symlink()
+    assert not (release / "mock" / "run.jsonl").exists()
+
+
 def test_a_refused_events_file_leaves_no_directory_behind(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

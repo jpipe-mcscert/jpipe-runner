@@ -314,6 +314,19 @@ def test_a_value_whose_repr_exits_is_recorded_without_ending_the_run(release: Re
     assert "repr() raised SystemExit" in recorded.repr
 
 
+def test_a_value_too_deep_to_show_is_recorded_without_ending_the_run(release: Release) -> None:
+    deep: list[object] = [threading.Lock()]
+    for _ in range(10_000):
+        deep = [deep]
+    release.returns["e1"] = lambda: Pass(a=deep)
+
+    result = release.run()
+
+    recorded = result.result("e1").produced["a"]
+    assert isinstance(recorded, Uncopied)
+    assert recorded.repr == "<list object: too deep to show>"
+
+
 def test_jp022_names_where_the_step_raised_relative_to_the_root(tmp_path: Path) -> None:
     (tmp_path / "log.txt").write_text("", encoding="utf-8")
     library = tmp_path / "broken_steps.py"

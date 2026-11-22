@@ -545,3 +545,11 @@ def test_a_glob_designates_a_link_to_a_file_it_matches(tmp_path: Path) -> None:
     os.link(tmp_path / "logs" / "a.log", tmp_path / "elsewhere.txt")
 
     assert designates("logs/*.log", tmp_path / "elsewhere.txt", tmp_path)
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="no symbolic links here")
+def test_a_symbolic_link_loop_designates_nothing_and_raises_nothing(tmp_path: Path) -> None:
+    (tmp_path / "loop").symlink_to(tmp_path / "loop")
+
+    assert not designates("loop", tmp_path / "out.json", tmp_path)
+    assert not designates("*.json", tmp_path / "loop", tmp_path)

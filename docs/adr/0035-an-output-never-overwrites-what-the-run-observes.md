@@ -69,7 +69,8 @@ previous run's events as this one's, and `run.started` arrives before the librar
 imported. Only a regular file that holds something else, which can only be a mistake, is
 opened without being emptied: the stream holds its events until the check passes, then
 empties the file and writes them. When the check refuses an output, the events file is left
-as it was, and removed, with the directories made for it, if the run created it. When the run
+as it was: a regular file emptied at once gets its content back, and one the run created is
+removed, with the directories made for it. When the run
 ends before the check, because the model is refused or a library cannot be imported, nothing
 tells whether a step would observe a held file: it is left as it was, the error says so, and
 the command exits with code 4.

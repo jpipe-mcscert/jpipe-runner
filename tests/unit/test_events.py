@@ -804,3 +804,10 @@ def test_a_value_that_cannot_be_copied_reads_the_same_in_its_event_and_the_repor
     (written,) = [e for e in report["elements"] if e["id"] == "e"]
     assert decided["element"]["produced"] == written["produced"]
     assert "unlocked" in written["produced"]["guard"]["repr"]
+
+
+def test_a_stream_begins_as_the_command_line_recognizes_a_previous_one() -> None:
+    file = io.StringIO()
+    EventStream(file).run_started(model(element("c", CONCLUSION)), strict=False, dry_run=False)
+
+    assert file.getvalue().encode("utf-8").startswith(events.RUN_STARTED)

@@ -65,10 +65,11 @@ def shown_path(filename: str, root: Path) -> str:
 def under_root(path: Path, root: Path) -> str | None:
     """``path`` relative to ``root``, in POSIX form, once both are resolved, so that a
     directory reached through a link is the one it links to; ``None`` if it is not under
-    ``root``, on another drive included, or cannot be resolved."""
+    ``root``, on another drive included, or cannot be resolved, as a symbolic link loop
+    cannot before Python 3.13."""
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
-    except (OSError, ValueError):
+    except (OSError, RuntimeError, ValueError):
         return None
 
 
