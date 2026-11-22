@@ -33,7 +33,7 @@ from types import ModuleType
 from typing import Any, TypeVar
 
 from jpipe_runner.model import Kind
-from jpipe_runner.observables import File, Observable
+from jpipe_runner.observables import File, Observable, checked_shape
 from jpipe_runner.outcomes import Outcome
 
 StepFunction = TypeVar("StepFunction", bound=Callable[..., Outcome])
@@ -267,8 +267,17 @@ def _artifacts(kind: Kind, observes: Mapping[str, str | Observable]) -> tuple[Ar
                 f"{decorator}(observes=...) takes observables that can be hashed, as a "
                 f"frozen dataclass is, not {observable!r}"
             ) from None
+        _check_shape(decorator, observable)
         artifacts.append(Artifact(name, observable))
     return tuple(artifacts)
+
+
+def _check_shape(decorator: str, observable: Observable) -> None:
+    """Refuse an observable the diagram cannot draw as it asks (``checked_shape``)."""
+    try:
+        checked_shape(observable)
+    except ValueError as error:
+        raise TypeError(f"{decorator}(observes=...) {error}") from None
 
 
 def _declared_in(function: Callable[..., Any]) -> Path:

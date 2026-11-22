@@ -382,7 +382,8 @@ already shows is not drawn twice: `e1` and `e2` support `s` through `tests_pass`
 `changelog_ok`, and only `s` supports `c` with a plain arrow. Each element's status is drawn
 over it, as a colour and as a symbol beside its label: the failed evidence in vermillion,
 marked ✘, what it blocked dashed and grey, marked ◌, and the evidence that passed with a
-green border, marked ✔. `tests_pass` is dashed: `e1` failed, so it was
+green border, marked ✔. Each file is drawn as a tab, marked ✔: the run read both, even
+`mock/junit.xml`, whose tests failed. `tests_pass` is dashed: `e1` failed, so it was
 never produced, and `s`, which consumes it, could not run
 ([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)).
 

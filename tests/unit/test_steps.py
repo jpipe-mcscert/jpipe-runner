@@ -334,6 +334,55 @@ def test_evidence_observes_any_observable_and_a_string_is_a_file() -> None:
     assert step.observes == (Artifact("ci", Env("CI")), Artifact("log", File("build/tests.log")))
 
 
+class _Drawn(Observable):
+    """An observable that asks to be drawn as ``shape``, or raises it."""
+
+    def __init__(self, shape: object) -> None:
+        self._shape = shape
+
+    def __hash__(self) -> int:
+        return 0
+
+    @property
+    def shape(self) -> str:
+        if isinstance(self._shape, Exception):
+            raise self._shape
+        return self._shape  # type: ignore[return-value]
+
+    def describe(self, context: Context) -> str:
+        return "drawn"
+
+    def observe(self, context: Context) -> Sighting:
+        return Sighting.of("drawn", None)
+
+
+@pytest.mark.parametrize(
+    ("shape", "message"),
+    [
+        pytest.param("note", r"cannot draw _Drawn as 'note': .* box3d, cds", id="an evidence's"),
+        pytest.param("circle", "cannot draw _Drawn as 'circle'", id="grows with its label"),
+        pytest.param(RuntimeError("no"), "its shape raised RuntimeError", id="raises"),
+        pytest.param(["tab"], r"cannot draw _Drawn as \['tab'\]", id="not a string"),
+    ],
+)
+def test_an_observable_the_diagram_cannot_draw_is_refused_at_import(
+    shape: object, message: str
+) -> None:
+    with pytest.raises(TypeError, match=message):
+
+        @evidence("m:e", observes={"a": _Drawn(shape)})
+        def observing(a: object) -> Outcome:
+            return Pass()
+
+
+def test_an_observable_in_one_of_the_shapes_is_accepted() -> None:
+    @evidence("m:e", observes={"a": _Drawn("cylinder")})
+    def observing(a: object) -> Outcome:
+        return Pass()
+
+    assert step_of(observing) is not None
+
+
 def test_a_step_typed_at_a_prompt_is_declared_in_the_working_directory() -> None:
     namespace: dict[str, Any] = {"evidence": evidence, "Pass": Pass}
     exec('@evidence("m:e", observes={"a": "a.txt"})\ndef typed(a): return Pass()', namespace)

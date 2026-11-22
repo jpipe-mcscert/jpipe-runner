@@ -663,6 +663,11 @@ class Listener:
         called = None if self._release is None else element.id in self._release.called()
         self.heard.append(("started", (element.id, called)))
 
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
+        # Observed before its step is called.
+        called = None if self._release is None else element.id in self._release.called()
+        self.heard.append(("observed", (element.id, source, reachable, called)))
+
     def element_decided(self, result: ElementResult) -> None:
         self.heard.append(("decided", (result.element.id, result.status)))
 
@@ -679,8 +684,10 @@ def test_a_listener_hears_validation_then_each_element_started_then_decided(
         ("validated", True),
         ("planned", (Verdict.VALID, (), 0)),
         ("started", ("e1", False)),
+        ("observed", ("e1", "e1.txt", True, False)),
         ("decided", ("e1", Status.FAIL)),
         ("started", ("e2", False)),
+        ("observed", ("e2", "*.txt", True, False)),
         ("decided", ("e2", Status.PASS)),
         ("decided", ("s", Status.SKIP)),
         ("decided", ("c", Status.SKIP)),
@@ -695,7 +702,11 @@ def test_an_element_whose_artifact_cannot_be_reached_is_started_and_its_step_not
 
     result = release.run(listener=listener)
 
-    assert listener.heard[2:4] == [("started", ("e1", False)), ("decided", ("e1", Status.FAIL))]
+    assert listener.heard[2:5] == [
+        ("started", ("e1", False)),
+        ("observed", ("e1", "e1.txt", False, False)),
+        ("decided", ("e1", Status.FAIL)),
+    ]
     assert result.result("e1").ran is False
 
 

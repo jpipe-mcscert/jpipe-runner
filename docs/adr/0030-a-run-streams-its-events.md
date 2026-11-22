@@ -65,8 +65,10 @@ every event in agreement with the report.
 
 **The events.** `run.started` gives the versions and every element's id, once the model is
 read or refused; `validation.ended`, what validation reported; `element.started`, that an
-element's step is about to be called; `element.decided`, the element as the report will
-write it, with its diagnostics; `run.ended`, the verdict, the exit code, the summary, and
+element's step is about to be called; `source.observed`, for each source the step declares
+it observes, whether it was reached, once all are observed and before the step is called,
+so that a program marks the sources while a slow step runs; `element.decided`, the element
+as the report will write it, with its diagnostics; `run.ended`, the verdict, the exit code, the summary, and
 where the report and the diagram were written. Each event has `seq`, its place in the file,
 and `elapsed_ms`, the milliseconds since the file was opened. The report holds no time, so
 that it is deterministic; the events do, since a program that shows a run as it goes has
@@ -89,7 +91,8 @@ with exit code 4. An event that cannot be written once the run has started is lo
 stream stops, the run goes on to its report, and the command exits with code 4.
 
 **In the code**, the engine tells a `RunListener` as it goes, from the thread that runs it:
-validation ended, an element started, an element decided. `events.EventStream` is that
+validation ended, an element started, a source observed, an element decided.
+`events.EventStream` is that
 listener, and writes the events; the command line tells it when the run starts and ends.
 The listener is not part of the public API (`from jpipe_runner import …`): `--events` is
 the contract.

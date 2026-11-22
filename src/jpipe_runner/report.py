@@ -27,7 +27,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind
-from jpipe_runner.observables import Context, Observation, dependencies, described
+from jpipe_runner.observables import Context, Observation, dependencies, described, drawn_as
 
 _NOTHING: Mapping[str, Any] = MappingProxyType({})
 
@@ -58,6 +58,12 @@ class ElementReport:
     depends on."""
     sources: tuple[str, ...] = ()
     """Everything its step declares it observes, as each observable describes itself."""
+    shapes: Mapping[str, str] = field(default_factory=lambda: _NOTHING)
+    """The shape the diagram draws each of its ``sources`` in, as its observable says.
+    Only the diagram reads it: the JSON report does not write it."""
+    reached: Mapping[str, bool] = field(default_factory=lambda: _NOTHING)
+    """Whether each of its ``sources`` was reached, once its step observed them: what the
+    diagram marks ✔ or ⚠, and ``source.observed`` says. Empty until then."""
     consumes: tuple[str, ...] = ()
     """The variables its step declares it consumes, each once."""
     inputs: tuple[Received, ...] = ()
@@ -95,13 +101,15 @@ class ElementReport:
             step = binding.step
             context = Context(step.directory, root)
             observed = [artifact.observable for artifact in step.observes]
+            named = [(described(observable, context), observable) for observable in observed]
             files = (path for observable in observed for path in dependencies(observable, context))
             report = replace(
                 report,
                 step=step.name,
                 designators=binding.designators,
                 observes=tuple(dict.fromkeys(files)),
-                sources=tuple(described(observable, context) for observable in observed),
+                sources=tuple(name for name, _ in named),
+                shapes=MappingProxyType({name: drawn_as(o) for name, o in named}),
                 consumes=step.consumes,
                 inputs=inputs,
                 produces=step.produces,
@@ -115,8 +123,18 @@ class ElementReport:
                 ran=result.ran,
                 produced=result.produced,
                 artifacts=result.observed,
+                reached=MappingProxyType(_reached(result.reached)),
             )
         return report
+
+
+def _reached(sources: tuple[tuple[str, bool], ...]) -> dict[str, bool]:
+    """Whether each source was reached, by its name. Two parameters may observe the same
+    source: it was reached only if it was each time, so one that was not is never hidden."""
+    reached: dict[str, bool] = {}
+    for source, each in sources:
+        reached[source] = reached.get(source, True) and each
+    return reached
 
 
 @dataclass(frozen=True)

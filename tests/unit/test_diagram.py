@@ -11,6 +11,7 @@ import shutil
 import stat
 import subprocess
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
@@ -18,11 +19,15 @@ from xml.etree import ElementTree
 import pytest
 
 from jpipe_runner import (
+    Context,
     Env,
     Fail,
+    JsonValue,
+    Observable,
     Outcome,
     Pass,
     Produced,
+    Sighting,
     Skip,
     conclusion,
     diagram,
@@ -329,12 +334,15 @@ def test_the_diagram_adds_the_files_and_variables_the_steps_declare(tmp_path: Pa
     drawn = _drawn(tmp_path, lambda: Pass(a="a"))
 
     assert drawn['"artifact e1.txt"'] == (
-        f'"artifact e1.txt" [label={_marked(None, "e1.txt", 14)}, fontname=Courier, '
+        f'"artifact e1.txt" [label={_marked("✔", "e1.txt", 14)}, fontname=Courier, '
+        "fontsize=10, shape=tab];"
+    )
+    assert drawn['"artifact *.log"'] == (
+        f'"artifact *.log" [label={_marked("✔", "*.log", 14)}, fontname=Courier, '
         "fontsize=10, shape=folder];"
     )
     assert drawn['"variable a"'] == (
-        f'"variable a" [label={_marked(None, "a", 14)}, fontname=Courier, fontsize=10, '
-        "shape=ellipse];"
+        '"variable a" [label="a", fontname=Courier, fontsize=10, shape=ellipse];'
     )
     assert drawn['"artifact e1.txt" -> "e1"'] == (
         '"artifact e1.txt" -> "e1" [style=dotted, arrowhead=empty, label=" observes", fontsize=9];'
@@ -401,6 +409,138 @@ def test_the_diagram_draws_what_is_observed_that_is_no_file(
     (node,) = [line for line in drawn.splitlines() if '"artifact env:JPIPE_STAGE" [' in line]
     assert 'color="#D55E00"' in node  # it is not set
     assert '"artifact env:JPIPE_STAGE" -> "e"' in drawn
+
+
+def test_a_source_is_drawn_in_the_shape_its_observable_says(tmp_path: Path) -> None:
+    @dataclass(frozen=True)
+    class Database(Observable):
+        shape = "cylinder"
+
+        def describe(self, context: Context) -> str:
+            return "db:releases"
+
+        def observe(self, context: Context) -> Sighting:
+            return Sighting.of("db:releases", 1)
+
+    @dataclass(frozen=True)
+    class Opaque(Observable):
+        def describe(self, context: Context) -> str:
+            return "opaque"
+
+        def observe(self, context: Context) -> Sighting:
+            return Sighting.of("opaque", 2)
+
+    (tmp_path / "package.json").write_text('{"version": "2.0"}', encoding="utf-8")
+    observes = {
+        "file": "e1.txt",
+        "logs": "*.log",
+        "version": JsonValue("package.json", "/version"),
+        "path": Env("PATH"),
+        "db": Database(),
+        "opaque": Opaque(),
+    }
+
+    @evidence("e", observes=observes, produces=["a"])
+    def reads(**_: Any) -> Outcome:
+        return Pass(a="a")
+
+    @strategy("s", consumes=["a"])
+    def judges(a: str) -> Outcome:
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (reads, judges)) if s is not None)
+    report = RunReport.of(run(small, registry, root=tmp_path, dry_run=True), tmp_path)
+    lines = source(small, report).splitlines()
+
+    def shape(declared: str) -> str:
+        (node,) = [line for line in lines if f'"artifact {declared}" [' in line]
+        return node.rpartition("shape=")[2].partition("]")[0].partition(",")[0]
+
+    assert shape("e1.txt") == "tab"
+    assert shape("*.log") == "folder"
+    assert shape("package.json#/version") == "component"
+    assert shape("env:PATH") == "house"
+    assert shape("db:releases") == "cylinder"
+    assert shape("opaque") == "box3d"
+
+
+@pytest.mark.parametrize("reachable", [True, False])
+def test_a_source_is_marked_as_the_run_reached_it_whatever_it_records(
+    tmp_path: Path, reachable: bool
+) -> None:
+    @dataclass(frozen=True)
+    class Host(Observable):
+        """Records its sighting under a name of its own, not the one it describes."""
+
+        def describe(self, context: Context) -> str:
+            return "host:localhost"
+
+        def observe(self, context: Context) -> Sighting:
+            if reachable:
+                return Sighting.of("localhost", "127.0.0.1")
+            return Sighting.unreachable("localhost", "the host", "does not resolve")
+
+    @evidence("e", observes={"address": Host()}, produces=["a"])
+    def resolves(address: str) -> Outcome:
+        return Pass(a=address)
+
+    @strategy("s", consumes=["a"])
+    def judges(a: str) -> Outcome:
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (resolves, judges)) if s is not None)
+    report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
+
+    lines = source(small, report).splitlines()
+    (node,) = [line for line in lines if line.strip().startswith('"artifact host:localhost" [')]
+    assert _marked("✔" if reachable else "⚠", "host:localhost", 14) in node
+    assert ('color="#D55E00"' in node) is not reachable
+
+
+def test_a_source_observed_twice_is_unreachable_if_it_was_once(tmp_path: Path) -> None:
+    answers = iter([False, True])
+
+    @dataclass(frozen=True)
+    class Flaky(Observable):
+        """Unreachable the first time it is observed, then reachable."""
+
+        def describe(self, context: Context) -> str:
+            return "flaky"
+
+        def observe(self, context: Context) -> Sighting:
+            if next(answers):
+                return Sighting.of("flaky", 1)
+            return Sighting.unreachable("flaky", "flaky", "is not there yet")
+
+    @evidence("e", observes={"first": Flaky(), "again": Flaky()}, produces=["a"])
+    def reads(first: int, again: int) -> Outcome:
+        return Pass(a="a")
+
+    @strategy("s", consumes=["a"])
+    def judges(a: str) -> Outcome:
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (reads, judges)) if s is not None)
+    report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
+
+    lines = source(small, report).splitlines()
+    (node,) = [line for line in lines if line.strip().startswith('"artifact flaky" [')]
+    assert _marked("⚠", "flaky", 14) in node
+    assert 'color="#D55E00"' in node
+
+
+def test_a_source_has_an_empty_cell_until_it_is_observed(tmp_path: Path) -> None:
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    registry = _steps(lambda: Pass(a="a"), lambda: Pass(b="b"))
+    planned = RunReport.of(run(RELEASE, registry, root=tmp_path, dry_run=True), tmp_path)
+
+    lines = [line.strip() for line in source(RELEASE, planned).splitlines()]
+
+    assert f'"artifact e1.txt" [label={_marked(None, "e1.txt", 14)}, ' in "\n".join(lines)
+    assert f'"artifact *.log" [label={_marked(None, "*.log", 14)}, ' in "\n".join(lines)
 
 
 def test_a_support_a_variable_already_links_is_not_drawn(tmp_path: Path) -> None:
@@ -475,7 +615,7 @@ def test_a_variable_without_one_producer_and_a_consumer_is_vermillion() -> None:
 
     for name in ("a", "unread", "missing"):
         (node,) = [line for line in lines if line.startswith(f'  "variable {name}" [')]
-        assert node.startswith(f'  "variable {name}" [label={_marked("⚠", name, 14)}, ')
+        assert node.startswith(f'  "variable {name}" [label="{name}", ')
         assert node.endswith('color="#D55E00", penwidth=2];')
 
 
@@ -489,7 +629,8 @@ def test_a_value_its_consumer_does_not_resolve_to_is_vermillion() -> None:
     lines = source(RELEASE, report).splitlines()
 
     (node,) = [line for line in lines if line.startswith('  "variable a" [')]
-    assert node.startswith(f'  "variable a" [label={_marked("⚠", "a", 14)}, ')
+    assert node.startswith('  "variable a" [label="a", ')
+    assert 'color="#D55E00"' in node
 
 
 # Two sub-arguments, a:e -> a:s -> a:c and b:e -> b:s -> b:c, both supporting s -> c.
@@ -558,7 +699,7 @@ def test_two_producers_of_a_variable_are_two_values_each_with_its_consumers(
 
     for producer, consumer in (("a:e", "a:s"), ("b:e", "b:s")):
         (node,) = [line for line in lines if line.startswith(f'"variable x from {producer}" [')]
-        assert node.startswith(f'"variable x from {producer}" [label={_marked(None, "x", 14)}, ')
+        assert node.startswith(f'"variable x from {producer}" [label="x", ')
         assert "D55E00" not in node
         assert _consumes(f"variable x from {producer}", consumer) in lines
         assert _consumes(f"variable x from {producer}", "s") in lines
@@ -572,7 +713,8 @@ def test_a_variable_that_resolves_to_no_single_producer_is_a_vermillion_value(
     lines = _branches(tmp_path, x="x")  # JP025: both sub-arguments produce x
 
     (node,) = [line for line in lines if line.startswith('"variable x" [')]
-    assert node.startswith(f'"variable x" [label={_marked("⚠", "x", 14)}, ')
+    assert node.startswith('"variable x" [label="x", ')
+    assert 'color="#D55E00"' in node
     assert _consumes("variable x", "s") in lines
     assert _consumes("variable x from a:e", "a:s") in lines
 

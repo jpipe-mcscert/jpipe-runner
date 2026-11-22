@@ -147,6 +147,38 @@ def test_an_element_is_started_then_decided_after_its_supporters(
     assert all(seq < decided[element_id]["seq"] for element_id, seq in started.items())
 
 
+@pytest.mark.parametrize("scenario", discover(), ids=lambda scenario: scenario.name)
+def test_each_source_is_observed_between_its_element_s_start_and_decision(
+    scenario: Scenario,
+    workdir: Callable[[str], Path],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    directory = workdir(scenario.name)
+
+    main(["--events", EVENTS, *_arguments(scenario)])
+
+    capsys.readouterr()
+    found = read(directory / EVENTS)
+    started = {event["id"]: event["seq"] for event in of(found, "element.started")}
+    decided = {event["element"]["id"]: event for event in of(found, "element.decided")}
+    observed: dict[str, list[dict[str, Any]]] = {}
+    for event in of(found, "source.observed"):
+        observed.setdefault(event["id"], []).append(event)
+    assert observed.keys() <= started.keys()
+    for element_id in started:
+        element = decided[element_id]["element"]
+        events = observed.get(element_id, [])
+        assert [event["source"] for event in events] == element["sources"]
+        for event in events:
+            assert started[element_id] < event["seq"] < decided[element_id]["seq"]
+            recorded = [
+                entry["reachable"]
+                for entry in [*element["artifacts"], *element["observations"]]
+                if entry["declared"] == event["source"]
+            ]
+            assert event["reachable"] == (bool(recorded) and all(recorded))
+
+
 def test_the_schema_is_valid_and_names_its_versions() -> None:
     Draft202012Validator.check_schema(events.SCHEMA)
     started = events.SCHEMA["$defs"]["run.started"]["properties"]

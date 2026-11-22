@@ -39,22 +39,24 @@ verdict: fail
 While it ran, `run.jsonl` received one line per event:
 
 ```jsonl
-{"event": "run.started", "seq": 0, "elapsed_ms": 1, "schema_version": "1.0", "report_schema_version": "2.0", "justification": "release", "elements": ["release:e1", "release:e2", "release:s", "release:c"], "strict": false, "dry_run": false}
+{"event": "run.started", "seq": 0, "elapsed_ms": 0, "schema_version": "1.0", "report_schema_version": "2.0", "justification": "release", "elements": ["release:e1", "release:e2", "release:s", "release:c"], "strict": false, "dry_run": false}
 {"event": "validation.ended", "seq": 1, "elapsed_ms": 1, "passed": true, "diagnostics": []}
-{"event": "diagram.drawn", "seq": 2, "elapsed_ms": 49, "path": "/tmp/jpipe-runner-q8l2v0xd/diagram.svg"}
-{"event": "element.started", "seq": 3, "elapsed_ms": 49, "id": "release:e1"}
-{"event": "element.decided", "seq": 4, "elapsed_ms": 49, "element": {"id": "release:e1", "label": "The test suite passes", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "fail", "reason": "mock/junit.xml: 2 tests failed", "blocked_by": [], "ran": true, "bound_to": "steps.the_test_suite_passes", "bound_by": ["release:e1"], "observes": ["mock/junit.xml"], "sources": ["mock/junit.xml"], "consumes": [], "inputs": {}, "produces": ["tests_pass"], "produced": {}, "artifacts": [{"path": "mock/junit.xml", "declared": "mock/junit.xml", "reachable": true, "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b", "size": 187}], "observations": []}, "diagnostics": []}
-{"event": "element.started", "seq": 5, "elapsed_ms": 49, "id": "release:e2"}
-{"event": "element.decided", "seq": 6, "elapsed_ms": 50, "element": {"id": "release:e2", "label": "The changelog is up to date", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "pass", "reason": null, "blocked_by": [], "ran": true, "bound_to": "steps.the_changelog_is_up_to_date", "bound_by": ["release:e2"], "observes": ["mock/CHANGELOG.md"], "sources": ["mock/CHANGELOG.md"], "consumes": [], "inputs": {}, "produces": ["changelog_ok"], "produced": {"changelog_ok": {"value": true}}, "artifacts": [{"path": "mock/CHANGELOG.md", "declared": "mock/CHANGELOG.md", "reachable": true, "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402", "size": 4}], "observations": []}, "diagnostics": []}
-{"event": "element.decided", "seq": 7, "elapsed_ms": 50, "element": {"id": "release:s", "label": "All release gates pass", "kind": "strategy", "aliases": [], "supports": ["release:c"], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": "steps.all_release_gates_pass", "bound_by": ["release:s"], "observes": [], "sources": [], "consumes": ["tests_pass", "changelog_ok"], "inputs": {"tests_pass": {"variable": "tests_pass", "produced_by": "release:e1"}, "changelog_ok": {"variable": "changelog_ok", "produced_by": "release:e2"}}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
-{"event": "element.decided", "seq": 8, "elapsed_ms": 50, "element": {"id": "release:c", "label": "Version 2.0 is ready to ship", "kind": "conclusion", "aliases": [], "supports": [], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": null, "bound_by": [], "observes": [], "sources": [], "consumes": [], "inputs": {}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
-{"event": "run.ended", "seq": 9, "elapsed_ms": 50, "verdict": "fail", "exit_code": 1, "summary": {"elements": 4, "pass": 1, "fail": 1, "skip": 2, "not_run": 0, "errors": 0, "warnings": 0}, "report": "report.json", "diagram": null}
+{"event": "diagram.drawn", "seq": 2, "elapsed_ms": 71, "path": "/tmp/jpipe-runner-i7ba5753/diagram.svg"}
+{"event": "element.started", "seq": 3, "elapsed_ms": 71, "id": "release:e1"}
+{"event": "source.observed", "seq": 4, "elapsed_ms": 71, "id": "release:e1", "source": "mock/junit.xml", "reachable": true}
+{"event": "element.decided", "seq": 5, "elapsed_ms": 71, "element": {"id": "release:e1", "label": "The test suite passes", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "fail", "reason": "mock/junit.xml: 2 tests failed", "blocked_by": [], "ran": true, "bound_to": "steps.the_test_suite_passes", "bound_by": ["release:e1"], "observes": ["mock/junit.xml"], "sources": ["mock/junit.xml"], "consumes": [], "inputs": {}, "produces": ["tests_pass"], "produced": {}, "artifacts": [{"path": "mock/junit.xml", "declared": "mock/junit.xml", "reachable": true, "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b", "size": 187}], "observations": []}, "diagnostics": []}
+{"event": "element.started", "seq": 6, "elapsed_ms": 71, "id": "release:e2"}
+{"event": "source.observed", "seq": 7, "elapsed_ms": 72, "id": "release:e2", "source": "mock/CHANGELOG.md", "reachable": true}
+{"event": "element.decided", "seq": 8, "elapsed_ms": 72, "element": {"id": "release:e2", "label": "The changelog is up to date", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "pass", "reason": null, "blocked_by": [], "ran": true, "bound_to": "steps.the_changelog_is_up_to_date", "bound_by": ["release:e2"], "observes": ["mock/CHANGELOG.md"], "sources": ["mock/CHANGELOG.md"], "consumes": [], "inputs": {}, "produces": ["changelog_ok"], "produced": {"changelog_ok": {"value": true}}, "artifacts": [{"path": "mock/CHANGELOG.md", "declared": "mock/CHANGELOG.md", "reachable": true, "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402", "size": 4}], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 9, "elapsed_ms": 72, "element": {"id": "release:s", "label": "All release gates pass", "kind": "strategy", "aliases": [], "supports": ["release:c"], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": "steps.all_release_gates_pass", "bound_by": ["release:s"], "observes": [], "sources": [], "consumes": ["tests_pass", "changelog_ok"], "inputs": {"tests_pass": {"variable": "tests_pass", "produced_by": "release:e1"}, "changelog_ok": {"variable": "changelog_ok", "produced_by": "release:e2"}}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 10, "elapsed_ms": 72, "element": {"id": "release:c", "label": "Version 2.0 is ready to ship", "kind": "conclusion", "aliases": [], "supports": [], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": null, "bound_by": [], "observes": [], "sources": [], "consumes": [], "inputs": {}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
+{"event": "run.ended", "seq": 11, "elapsed_ms": 73, "verdict": "fail", "exit_code": 1, "summary": {"elements": 4, "pass": 1, "fail": 1, "skip": 2, "not_run": 0, "errors": 0, "warnings": 0}, "report": "report.json", "diagram": null}
 ```
 
 Once validation has ended, the runner draws the diagram, which takes most of this short
 run's time, and `diagram.drawn` says where: in a directory of the system's temporary
 directory, whose name changes from one run to the next. `release:e1` and `release:e2`
-each start, then are decided. `release:s` and `release:c`
+each start, observe their file, which `source.observed` says was reached, then are decided. `release:s` and `release:c`
 are decided without starting: their step is not called, since `release:e1`, which they
 depend on, failed. The last line gives the verdict, the exit code, and the report to read
 for the rest.
@@ -77,7 +79,9 @@ is this, and nothing more:
 - `diagram.drawn`, when there is one, comes after `validation.ended` and before any
   element's event;
 - an element is decided after every element that supports it;
-- an element that starts is decided after it starts.
+- an element that starts is decided after it starts;
+- the sources an element observes come between its `element.started` and its
+  `element.decided`, one `source.observed` each, in the order its step declares them.
 
 The events of two elements may come in any order, and one element's may come between
 another's `element.started` and `element.decided`: do not count on the elements coming in
@@ -169,6 +173,10 @@ of its globs designates the drawing: drawn there, it could change what that evid
 receives. A drawing that cannot be deleted at the end, on Windows because a program still
 has it open after a second of trying, is a warning, and changes nothing either.
 
+In the drawing, an element's node has the element's id as its SVG `id`. A source's node,
+whose name may hold characters an `id` cannot, has none: its `<title>` is `artifact `
+followed by the source, as `source.observed` names it, such as `artifact mock/junit.xml`.
+
 | Field | Type | |
 |---|---|---|
 | `path` | string | the absolute path of the drawing, an SVG file, deleted once the run has ended |
@@ -183,6 +191,22 @@ or because an element it depends on did not pass, does not start.
 | Field | Type | |
 |---|---|---|
 | `id` | string | the element's id |
+
+### `source.observed`
+
+A source the element's step declares it observes was observed: a file, a glob, a value in
+a JSON file, an environment variable, or what an observable of the step library observes.
+One is written for each source the step declares, in the order it declares them, once
+they are all observed and before the step is called: a program can mark each source as the
+diagram does, ✔ or ⚠, while a slow step runs. If one is not reachable, the step is not
+called, and the element is decided next, failed with `JP019`. The element's
+`element.decided` holds what was observed, as the report will write it.
+
+| Field | Type | |
+|---|---|---|
+| `id` | string | the id of the element whose step observes it |
+| `source` | string | the source, as the element's `sources` name it: `mock/junit.xml`, `build/*.xml`, `package.json#/version`, `env:CI` |
+| `reachable` | boolean | whether it was reached: a file that exists and can be read, a glob that matches files that all can, a value the pointer designates, a variable that is set |
 
 ### `element.decided`
 

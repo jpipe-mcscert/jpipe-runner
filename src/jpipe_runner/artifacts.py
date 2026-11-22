@@ -33,6 +33,9 @@ class Observed:
     arguments: Mapping[str, Any]
     """What the step receives, by parameter name. Complete only when ``reachable``."""
     diagnostics: tuple[Diagnostic, ...]
+    sources: tuple[tuple[str, bool], ...] = ()
+    """Each artifact, as the report names it in ``sources``, and whether it was reached, in
+    the order the step declares them."""
 
     @property
     def reachable(self) -> bool:
@@ -45,12 +48,18 @@ def observe(artifacts: Iterable[Artifact], context: Context, element: str) -> Ob
     observations: list[Observation] = []
     arguments: dict[str, Any] = {}
     diagnostics: list[Diagnostic] = []
+    sources: list[tuple[str, bool]] = []
     for artifact in artifacts:
-        sighting = _sighted(artifact, context)
+        declared = described(artifact.observable, context)
+        sighting = _sighted(artifact, declared, context)
         arguments[artifact.name] = sighting.value
         observations.extend(map(_recorded, sighting.observations))
         diagnostics.extend(_unreachable(artifact, sighting, element))
-    return Observed(tuple(observations), MappingProxyType(arguments), tuple(diagnostics))
+        reached = all(observation.reachable for observation in sighting.observations)
+        sources.append((declared, reached))
+    return Observed(
+        tuple(observations), MappingProxyType(arguments), tuple(diagnostics), tuple(sources)
+    )
 
 
 def _recorded(observation: Observation) -> Observation:
@@ -70,11 +79,11 @@ def _recorded(observation: Observation) -> Observation:
     )
 
 
-def _sighted(artifact: Artifact, context: Context) -> Sighting:
-    """What ``artifact`` is now. An observable is code of the step library: one that
-    raises, or answers anything but a sighting, could not be observed."""
+def _sighted(artifact: Artifact, declared: str, context: Context) -> Sighting:
+    """What ``artifact``, which the report names ``declared``, is now. An observable is
+    code of the step library: one that raises, or answers anything but a sighting, could
+    not be observed."""
     what = f"{type(artifact.observable).__name__}"
-    declared = described(artifact.observable, context)
     try:
         sighting = artifact.observable.observe(context)
     # Whatever a library's observable raises, even SystemExit, as a step's call does.

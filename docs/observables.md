@@ -179,6 +179,33 @@ the variable was observed. `Env("DEPLOY_STAGE", display=True)` records its value
 SHA-256. [Hiding has a price](#checking-a-report-later-status), paid when a report is
 checked later.
 
+## How the diagram draws them
+
+The [diagram](cli.md#outputs) draws what each evidence observes below it, in the shape
+its observable says, so that a file, a value in a file and an environment variable read
+apart at a glance:
+
+| Observable | Shape | Why |
+|---|---|---|
+| `File`, one file | `tab` | a page; the `note` is the evidence's |
+| `File`, a glob | `folder` | several files |
+| `JsonValue` | `component` | a part of a file |
+| `Env` | `house` | it points up, into what it comes in to from outside the repository |
+| your own | `box3d`, unless it says otherwise | a closed box, whose content the runner does not know |
+
+```python
+from jpipe_runner import Env, File, JsonValue
+
+assert File("CHANGELOG.md").shape == "tab"
+assert File("docs/*.md").shape == "folder"
+assert JsonValue("package.json", "/version").shape == "component"
+assert Env("CI").shape == "house"
+```
+
+Once the run has observed it, a source is marked ✔ beside its label, or ⚠ with a vermillion border
+when it could not be reached. A dry run observes nothing, and leaves the place of the mark
+empty, so the two diagrams put every node in the same place.
+
 ## What the report records
 
 Everything observed is recorded. For each element, the JSON report
@@ -313,6 +340,7 @@ To observe what the runner has no class for, derive `Observable`. It has three m
 | `describe(context)` | how the report names it, in `sources` |
 | `observe(context)` | what it is now, as a `Sighting`: the value the step receives, and what the report records |
 | `depends_on(context)` | the files a change to which reaches it, for `impact`; none unless you say so |
+| `shape` | the [shape the diagram draws it in](#how-the-diagram-draws-them); a `box3d` unless you say so, with a class attribute: `shape = "cylinder"` |
 
 `context` is where the observation is made from. `context.shown(path)` turns a path
 relative to the file that declares the step into the one the report shows, and
@@ -428,6 +456,13 @@ with tempfile.TemporaryDirectory() as directory:
   holds the SHA-256 of what was seen or says that it is hidden. The classes refuse
   anything else, so an observable cannot observe off the record.
 - **It describes itself the same way at every run**, so that two reports can be compared.
+- **It is drawn in a shape that means nothing else.** `shape` is one of `box3d`, `cds`,
+  `component`, `cylinder`, `doubleoctagon`, `folder`, `house`, `invhouse`, `invtrapezium`,
+  `larrow`, `lpromoter`, `octagon`, `parallelogram`, `pentagon`, `rarrow`, `rpromoter`,
+  `septagon`, `signature`, `tab`, `trapezium` or `tripleoctagon`, as
+  [Graphviz](https://graphviz.org/doc/info/shapes.html) draws them. The others are the
+  argument's (`note`, `hexagon`, `box`) or a variable's (`ellipse`), or cannot hold a
+  label. Another shape is refused when the library is imported.
 - **It raises nothing.** An exception in `observe`, such as the `KeyError` of a missing
   key in `TomlValue`, does not stop the run: the evidence fails with `JP019`, which names
   the exception. Return `Sighting.unreachable` to say what is wrong in your own words.

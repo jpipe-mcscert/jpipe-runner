@@ -110,10 +110,11 @@ ships with 4.1.0, so no program has to handle a 1.0 stream without it.
 no `diagram.drawn`, and the run goes on. One that cannot be deleted at the end, on Windows
 after a second of trying while a program has it open, is a warning too.
 
-**The layout.** Drawn with a report, every node's label is an HTML-like label, wrapped as
-the compiler wraps it, beside a cell of fixed size for its symbol (`fixedsize="true"`),
-empty when there is none: 28×32 pt for a status, at 20 points, and 22×22 pt for ⚠ on a
-file or variable, at 14 points, wider and taller than the symbols need, so that no
+**The layout.** Drawn with a report, every element's and observed source's label is an
+HTML-like label, wrapped as the compiler wraps it, beside a cell of fixed size for its
+symbol (`fixedsize="true"`),
+empty when there is none: 28×32 pt for a status, at 20 points, and 22×22 pt for ✔ or ⚠ on
+what an evidence observes, at 14 points, wider and taller than the symbols need, so that no
 symbol overflows on a platform whose fonts are larger. A failure keeps its kind's font:
 the vermillion fill, the white text, the thicker border and ✘ already set it apart. This
 amends ADR-0029, under which an element without a status kept the compiler's plain label,
@@ -143,8 +144,8 @@ of an element decided.
   release example, about 50 ms, most of a run that short.
 - Bad, because a program must read the drawing while the run goes on: a run that ends
   before it does leaves it nothing to colour, only the `--diagram` file.
-- Bad, because every node drawn with a report is a little wider, by the symbol's cell,
-  and its label is HTML-like, even when it has no status: the diagram no longer reuses the
+- Bad, because every element and observed source drawn with a report is a little wider,
+  by the symbol's cell, and its label is HTML-like, even when it has no status: the diagram no longer reuses the
   compiler's label for an element without a status.
 - Neutral, because the golden files change once: the diagram on the end-to-end page.
 
@@ -224,7 +225,7 @@ of an element decided.
 #### 2. A reserved cell, and a failure's font kept
 
 - Good, because a status changes colours and symbols, never a node's size.
-- Bad, because every node is a little wider, by its cell.
+- Bad, because every element and observed source is a little wider, by its cell.
 
 ## More Information
 

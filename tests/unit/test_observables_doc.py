@@ -31,7 +31,7 @@ QUOTED = ["version", "environment"]
 
 
 def test_the_page_has_its_examples() -> None:
-    assert (len(PYTHON), len(SESSIONS), len(FRAGMENTS)) == (5, 3, len(QUOTED))
+    assert (len(PYTHON), len(SESSIONS), len(FRAGMENTS)) == (6, 3, len(QUOTED))
 
 
 def test_the_page_shows_the_library_of_the_scenario() -> None:
