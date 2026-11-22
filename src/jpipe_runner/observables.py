@@ -20,7 +20,9 @@ runner puts in front of the path is escaped, so that it designates that director
 
 What a glob designates is defined here, and nowhere else: ``files`` lists the files it
 matches under a root, and ``matches`` says whether it would match a path, without the file
-system. A property test holds them to the same answer.
+system. A property test holds them to the same answer. ``designates`` says whether a path or
+a glob, as the report shows it, designates a given file, which may not exist yet: what an
+output of the runner must not be (ADR-0035).
 """
 
 import glob
@@ -35,6 +37,8 @@ from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any, Final
+
+from jpipe_runner.diagnostics import under_root
 
 _CHUNK = 1 << 16
 _INDEX = re.compile(r"0|[1-9]\d*", re.ASCII)
@@ -112,6 +116,46 @@ def files(pattern: str, root: Path) -> list[Path]:
     if PurePosixPath(pattern).name == _RECURSIVE:
         pattern += "/*"
     return sorted(path for path in root.glob(pattern) if path.is_file())
+
+
+def identity(path: Path) -> object:
+    """What tells ``path``'s file from any other: its device and its inode if it exists,
+    so that a link is the file it links to, and its absolute path otherwise."""
+    try:
+        status = path.stat()
+    except OSError:
+        return path.resolve()
+    # A file system that has no inodes gives 0 for every file.
+    return (status.st_dev, status.st_ino) if status.st_ino else path.resolve()
+
+
+def designates(pattern: str, file: Path, root: Path) -> bool:
+    """Whether ``pattern``, a path or a glob relative to ``root`` as the report shows it,
+    designates the file at ``file``, which need not exist yet: by its name, once ``file``
+    and the directories in front of ``pattern``'s first wildcard are resolved under
+    ``root``, so that a directory reached through a link is the one it links to; or, for a
+    file that exists, as a link to one of the files ``pattern`` matches."""
+    if designates_one(pattern):
+        return identity(file) == identity(Context(root, root).file(pattern))
+    relative = under_root(file, root)
+    if relative is not None and (
+        matches(relative, pattern) or matches(relative, _through_links(pattern, root))
+    ):
+        return True
+    if not file.exists():  # only its name could designate it
+        return False
+    target = identity(file)
+    return any(identity(found) == target for found in files(pattern, root))
+
+
+def _through_links(pattern: str, root: Path) -> str:
+    """``pattern`` with the directories in front of its first wildcard resolved, as
+    ``Context.shown`` resolves the directory of a step: a glob through a linked directory
+    then names the directory it links to."""
+    parts = pattern.split("/")
+    first = next(i for i, part in enumerate(parts) if not designates_one(part))
+    directory = root.joinpath(*(unescape(part) for part in parts[:first]))
+    return Context(directory, root).shown("/".join(parts[first:]))
 
 
 def digest(file: Path) -> tuple[str, int]:

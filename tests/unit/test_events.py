@@ -700,9 +700,7 @@ def test_a_run_whose_stream_fails_still_reports_and_exits_4(
     monkeypatch.setattr(
         cli,
         "EventStream",
-        lambda file, root, preview, held: EventStream(
-            _Faulty(file, lines=2), root=root, preview=preview, held=held
-        ),
+        lambda file, **options: EventStream(_Faulty(file, lines=2), **options),
     )
 
     code = main(["--events", EVENTS, *RELEASE])

@@ -19,7 +19,7 @@ from typing import Any
 
 from jpipe_runner.diagnostics import shown_path
 
-REPR_LIMIT = 1000
+_REPR_LIMIT = 1000
 """The longest ``repr`` recorded for a value, in characters."""
 
 _ADDRESS = re.compile(r" at 0x[0-9A-Fa-f]+")
@@ -34,17 +34,21 @@ _RECURSION: dict[type, str] = {
 }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class Uncopied:
-    """A value that could not be copied, recorded as it was when the run saw it."""
+    """A value that could not be copied, recorded as it was when the run saw it. Its
+    ``repr`` is the one the value had then, so that what shows a value shows it."""
 
     repr: str
     """Its canonical ``repr``, then."""
     type: str
     """Its type's qualified name."""
 
+    def __repr__(self) -> str:
+        return self.repr
 
-def snapshot(value: Any, root: Path = Path()) -> Any:
+
+def snapshot(value: Any, root: Path) -> Any:
     """``value`` as it is now, for the report: a deep copy, or, if it cannot be copied, an
     ``Uncopied`` holding its canonical ``repr`` (paths shown relative to ``root``) and its
     type."""
@@ -55,12 +59,12 @@ def snapshot(value: Any, root: Path = Path()) -> Any:
         return Uncopied(canonical_repr(value, root), type_name(type(value)))
 
 
-def canonical_repr(value: Any, root: Path = Path()) -> str:
+def canonical_repr(value: Any, root: Path) -> str:
     """The canonical ``repr`` of ``value``, with paths shown relative to ``root``, cut at
-    ``REPR_LIMIT`` characters."""
+    ``_REPR_LIMIT`` characters."""
     text = _Canonical(root)(value)
-    if len(text) > REPR_LIMIT:
-        return text[: REPR_LIMIT - 1] + "…"
+    if len(text) > _REPR_LIMIT:
+        return text[: _REPR_LIMIT - 1] + "…"
     return text
 
 

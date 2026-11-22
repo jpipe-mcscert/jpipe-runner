@@ -43,6 +43,7 @@ flowchart LR
     artifacts --> steps
     artifacts --> observables
     artifacts --> diagnostics
+    observables --> diagnostics
     artifacts --> records
     libraries --> diagnostics
     engine --> artifacts
@@ -82,7 +83,6 @@ flowchart LR
     events --> validation
     events -.->|described by| eventsschema
     eventsschema -.->|refers to| reportschema
-    text_report --> records
     text_report --> diagnostics
     text_report --> engine
     text_report --> model

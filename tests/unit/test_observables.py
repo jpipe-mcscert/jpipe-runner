@@ -24,6 +24,7 @@ from jpipe_runner.observables import (
     Observation,
     Obstacle,
     Sighting,
+    designates,
     designates_one,
     drawn_as,
     escape,
@@ -503,3 +504,44 @@ def test_the_diagram_draws_an_observable_in_its_shape_or_the_default(
     shape: object, expected: str
 ) -> None:
     assert drawn_as(_Shaped(shape)) == expected
+
+
+# --- What a path or a glob designates (ADR-0035) ---------------------------------------------
+
+
+def test_a_path_designates_its_file_and_a_link_to_it(tmp_path: Path) -> None:
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    os.link(tmp_path / "a.txt", tmp_path / "linked.txt")
+
+    assert designates("a.txt", tmp_path / "a.txt", tmp_path)
+    assert designates("a.txt", tmp_path / "linked.txt", tmp_path)
+    assert not designates("a.txt", tmp_path / "b.txt", tmp_path)
+
+
+def test_a_glob_designates_a_file_by_name_before_it_exists(tmp_path: Path) -> None:
+    assert designates("build/*.xml", tmp_path / "build" / "new.xml", tmp_path)
+    assert not designates("build/*.xml", tmp_path / "build" / "new.json", tmp_path)
+
+
+def test_a_glob_designates_nothing_outside_the_root(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+
+    assert not designates("**/*.md", tmp_path / "outside.md", root)
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="no symbolic links here")
+def test_a_glob_designates_through_a_linked_directory_both_ways(tmp_path: Path) -> None:
+    (tmp_path / "mock").mkdir()
+    (tmp_path / "build").symlink_to(tmp_path / "mock", target_is_directory=True)
+
+    assert designates("mock/*.md", tmp_path / "build" / "new.md", tmp_path)
+    assert designates("build/*.md", tmp_path / "mock" / "new.md", tmp_path)
+
+
+def test_a_glob_designates_a_link_to_a_file_it_matches(tmp_path: Path) -> None:
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "a.log").write_text("a", encoding="utf-8")
+    os.link(tmp_path / "logs" / "a.log", tmp_path / "elsewhere.txt")
+
+    assert designates("logs/*.log", tmp_path / "elsewhere.txt", tmp_path)

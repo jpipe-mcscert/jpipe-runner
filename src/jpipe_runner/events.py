@@ -91,11 +91,6 @@ class EventStream:
         self._model: Justification | None = None
         self._failed = False
 
-    @property
-    def held(self) -> bool:
-        """Whether the events are still held: the file has not been emptied or written."""
-        return self._held is not None
-
     def release(self) -> None:
         """Empty the file, and write the events held so far; from now on, each is written as
         it happens. A stream that is not held is left as it is."""
@@ -109,15 +104,16 @@ class EventStream:
                 self._file.write(line)
             self._file.flush()
         except OSError as error:
-            self._fail(error)
+            self._fail(error.strerror or str(error))
 
     def abandon(self, reason: str) -> None:
-        """Write none of the events, held or to come, and leave the file as it was: the
-        stream has failed, for ``reason``, which is logged."""
+        """Write none of the events of a held stream, and leave the file as it was: the
+        stream has failed, for ``reason``, which is logged. A stream that is not held is
+        left as it is."""
+        if self._held is None:
+            return
         self._held = None
-        if not self._failed:
-            _LOG.error("cannot write the run's events: %s", reason)  # NOSONAR
-        self._failed = True
+        self._fail(reason)
 
     @property
     def failed(self) -> bool:
@@ -194,7 +190,7 @@ class EventStream:
         try:
             self._file.close()
         except OSError as error:
-            self._fail(error)
+            self._fail(error.strerror or str(error))
 
     def _write(self, event: str, **payload: Any) -> None:
         if self._failed:
@@ -204,21 +200,20 @@ class EventStream:
         text = _one_line(json.dumps(line, ensure_ascii=False)) + "\n"
         if self._held is not None:
             self._held.append(text)
-            self._seq += 1
-            return
-        try:
-            self._file.write(text)
-            self._file.flush()
-        except OSError as error:
-            self._fail(error)
-            return
+        else:
+            try:
+                self._file.write(text)
+                self._file.flush()
+            except OSError as error:
+                self._fail(error.strerror or str(error))
+                return
         self._seq += 1
 
-    def _fail(self, error: OSError) -> None:
+    def _fail(self, reason: str) -> None:
         """Nothing more is written: the first error is logged, and only the first."""
         if not self._failed:
             # An error is one line on stderr, not a traceback (ADR-0023).
-            _LOG.error("cannot write the run's events: %s", error.strerror or error)  # NOSONAR
+            _LOG.error("cannot write the run's events: %s", reason)  # NOSONAR
         self._failed = True
 
 
