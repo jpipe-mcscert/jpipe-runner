@@ -56,7 +56,12 @@ def snapshot(value: Any, root: Path) -> Any:
         return copy.deepcopy(value)
     # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does, even SystemExit.
     except (Exception, SystemExit):  # NOSONAR
-        return Uncopied(canonical_repr(value, root), type_name(type(value)))
+        kind = type_name(type(value))
+        try:
+            shown = canonical_repr(value, root)
+        except RecursionError:  # nested deeper than a repr can follow
+            shown = f"<{kind} object: too deep to show>"
+        return Uncopied(shown, kind)
 
 
 def canonical_repr(value: Any, root: Path) -> str:

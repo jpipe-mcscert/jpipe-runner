@@ -15,7 +15,7 @@ from enum import StrEnum
 
 import networkx as nx
 
-from jpipe_runner.diagnostics import Diagnostic, Severity
+from jpipe_runner.diagnostics import Diagnostic, DiagnosticsError, Severity
 
 DUPLICATE_ID = "JP002"
 DANGLING_RELATION = "JP003"
@@ -29,6 +29,11 @@ class Kind(StrEnum):
     STRATEGY = "strategy"
     SUB_CONCLUSION = "sub-conclusion"
     CONCLUSION = "conclusion"
+
+    @property
+    def decorator(self) -> str:
+        """The decorator that declares a step of this kind: ``@sub_conclusion``."""
+        return f"@{self.value.replace('-', '_')}"
 
 
 @dataclass(frozen=True)
@@ -120,12 +125,8 @@ class TemplateChain:
         )
 
 
-class InvalidJustificationError(Exception):
+class InvalidJustificationError(DiagnosticsError):
     """A model that cannot be run. It carries every problem found, as diagnostics."""
-
-    def __init__(self, diagnostics: Iterable[Diagnostic]) -> None:
-        self.diagnostics = tuple(diagnostics)
-        super().__init__("\n".join(str(diagnostic) for diagnostic in self.diagnostics))
 
 
 class Justification:
@@ -216,15 +217,15 @@ class Justification:
 
     def supporters(self, element_id: str) -> tuple[Element, ...]:
         """The elements that directly support ``element_id``, in model order."""
-        return self._in_model_order(self._graph.predecessors(self.element(element_id).id))
+        return self.in_model_order(self._graph.predecessors(self.element(element_id).id))
 
     def supported(self, element_id: str) -> tuple[Element, ...]:
         """The elements that ``element_id`` directly supports, in model order."""
-        return self._in_model_order(self._graph.successors(self.element(element_id).id))
+        return self.in_model_order(self._graph.successors(self.element(element_id).id))
 
     def upstream(self, element_id: str) -> tuple[Element, ...]:
         """The elements that support ``element_id``, directly or not, in model order."""
-        return self._in_model_order(nx.ancestors(self._graph, self.element(element_id).id))
+        return self.in_model_order(nx.ancestors(self._graph, self.element(element_id).id))
 
     def topological_order(self) -> tuple[Element, ...]:
         """Every element after all of its supporters, ties broken by model order."""
@@ -245,7 +246,8 @@ class Justification:
         start = cycle.index(min(cycle, key=self._rank.__getitem__))
         return (*cycle[start:], *cycle[:start])
 
-    def _in_model_order(self, element_ids: Iterable[str]) -> tuple[Element, ...]:
+    def in_model_order(self, element_ids: Iterable[str]) -> tuple[Element, ...]:
+        """The elements whose ids are ``element_ids``, in model order."""
         return tuple(self._by_id[i] for i in sorted(element_ids, key=self._rank.__getitem__))
 
     def __contains__(self, element_id: object) -> bool:

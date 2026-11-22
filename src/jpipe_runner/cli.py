@@ -21,8 +21,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
-import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout, suppress
 from dataclasses import dataclass
 from enum import IntEnum
@@ -33,7 +32,7 @@ from jpipe_runner import __version__, diagram, engine, impact, json_report, load
 from jpipe_runner.binding import BindingTable
 from jpipe_runner.diagnostics import shown_path
 from jpipe_runner.engine import RunResult, Verdict
-from jpipe_runner.events import EventStream, Preview
+from jpipe_runner.events import RUN_STARTED, EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
 from jpipe_runner.observables import (
@@ -43,14 +42,6 @@ from jpipe_runner.observables import (
 )
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.steps import StepRegistry
-
-_WINDOWS = os.name == "nt"
-
-_RUN_STARTED = b'{"event": "run.started"'
-"""How a run's events begin, as ``EventStream`` writes them."""
-_ATTEMPTS, _PAUSE = 10, 0.1
-"""How many times, and how far apart in seconds, the drawing made before the steps is
-deleted."""
 
 _LOG = logging.getLogger(__name__)
 
@@ -379,14 +370,14 @@ def _check_observed(
     if not given:
         return
     observed = [
-        (shown, binding.step.name)
+        (binding.step.name, shown)
         for binding in BindingTable(justification, registry).bindings
         for shown in ElementReport.of(justification, binding.element, binding, root=root).observes
     ]
     for flag, path in given.items():
-        for shown, step in observed:
-            if designates(shown, path, root):
-                parser().error(f"{flag} {path}: {shown}, which {step} observes")
+        if (found := _observing(observed, path, root)) is not None:
+            observer, shown = found
+            parser().error(f"{flag} {path}: {shown}, which {observer} observes")
 
 
 def _run(options: argparse.Namespace) -> int:
@@ -448,12 +439,15 @@ def _events(
         return
     created = _missing_directories(path.parent)
     path.parent.mkdir(parents=True, exist_ok=True)
-    existed = os.path.lexists(path)
+    target = Path(os.path.realpath(path))  # what a link names, the file the run writes
+    existed = target.exists()
     # A file that holds something other than a run's events may be one the run observes,
     # which is known only once the step libraries are imported: it is opened without being
     # emptied, and the stream holds its events until then (ADR-0035). Anything else, a new
-    # file, a previous run's events, a pipe, is emptied and written at once, as ever.
+    # file, a previous run's events, a pipe, is emptied and written at once, as ever; a
+    # regular file's content is kept, to be put back if an output is refused.
     held = _foreign(path)
+    kept = _kept(target) if existed and not held and target.is_file() else None
     file = path.open("a" if held else "w", encoding="utf-8", newline="\n")
     stream = EventStream(file, root=root, preview=preview, held=held)
     _LOG.info("writing the run's events to %s", path)
@@ -472,11 +466,33 @@ def _events(
                 "before it could check that no step observes it"
             )
         stream.close()
-        if refused and not existed:
-            path.unlink(missing_ok=True)
-            for directory in created:
-                with suppress(OSError):
-                    directory.rmdir()
+        if refused:
+            _put_back(target, kept, existed, created)
+        if kept is not None:
+            kept.unlink(missing_ok=True)
+
+
+def _kept(target: Path) -> Path:
+    """A copy of ``target``, in a temporary file of the system's temporary directory, to
+    put back if an output is refused: the file may be large, so it is not kept in memory."""
+    handle, copy = tempfile.mkstemp(prefix="jpipe-runner-events-")
+    os.close(handle)
+    shutil.copyfile(target, copy)
+    return Path(copy)
+
+
+def _put_back(target: Path, kept: Path | None, existed: bool, created: list[Path]) -> None:
+    """Leave the events file of a refused run as it was: its ``kept`` copy put back, or, if
+    the run ``created`` it, removed, with the directories made for it."""
+    # The path is the --events option the user gave, which the run writes anyway: what it
+    # puts back is that file's own content, and what it removes, the file it created.
+    if kept is not None:
+        shutil.copyfile(kept, target)  # NOSONAR
+    elif not existed:
+        target.unlink(missing_ok=True)  # NOSONAR
+        for directory in created:
+            with suppress(OSError):
+                directory.rmdir()
 
 
 def _missing_directories(directory: Path) -> list[Path]:
@@ -497,7 +513,7 @@ def _foreign(path: Path) -> bool:
         if not path.is_file() or path.stat().st_size == 0:
             return False
         with path.open("rb") as file:
-            return file.read(len(_RUN_STARTED)) != _RUN_STARTED
+            return file.read(len(RUN_STARTED)) != RUN_STARTED
     except OSError:
         return True
 
@@ -551,27 +567,30 @@ class _Preview:
         if self._directory is None:
             return
         directory, self._directory = self._directory, None
-        for attempt in range(_ATTEMPTS):
-            try:
+
+        def remove() -> None:
+            with suppress(FileNotFoundError):
                 shutil.rmtree(directory)
-                return
-            except FileNotFoundError:
-                return
-            except OSError as error:
-                if _WINDOWS and attempt < _ATTEMPTS - 1:
-                    time.sleep(_PAUSE)
-                    continue
-                _LOG.warning("cannot delete the diagram drawn before the steps run: %s", error)
-                return
+
+        try:
+            diagram.retried(remove, OSError)
+        except OSError as error:
+            _LOG.warning("cannot delete the diagram drawn before the steps run: %s", error)
 
 
 def _observer(report: RunReport, drawn: Path, root: Path) -> str | None:
     """What an evidence observes that designates ``drawn``, if one does."""
-    for element in report.elements:
-        for shown in element.observes:
-            if designates(shown, drawn, root):
-                return f"{element.id} observes {shown}"
-    return None
+    observed = [(element.id, shown) for element in report.elements for shown in element.observes]
+    found = _observing(observed, drawn, root)
+    return None if found is None else f"{found[0]} observes {found[1]}"
+
+
+def _observing(
+    observed: Iterable[tuple[str, str]], path: Path, root: Path
+) -> tuple[str, str] | None:
+    """The first of ``observed``, each who observes what, as the report shows it, that
+    designates the file at ``path``, if one does (ADR-0035)."""
+    return next(((who, shown) for who, shown in observed if designates(shown, path, root)), None)
 
 
 def _streamed(stream: EventStream | None) -> bool:

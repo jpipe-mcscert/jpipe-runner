@@ -112,7 +112,7 @@ class UnboundElement(Rule):
                 yield self.diagnostic(
                     f"the {element.kind} {element.label!r} has no step, so nothing checks it",
                     element=element.id,
-                    fix=f'Write its step: {_decorator(element.kind)}("{element.id}").',
+                    fix=f'Write its step: {element.kind.decorator}("{element.id}").',
                 )
 
 
@@ -326,7 +326,7 @@ class IncompatibleKind(Rule):
                     f"{bound.step.name} is declared as {bound.step.kind}, but is bound to "
                     f"the {bound.element.kind} {bound.element.id!r}",
                     element=bound.element.id,
-                    fix=f"Declare it with {_decorator(bound.element.kind)}.",
+                    fix=f"Declare it with {bound.element.kind.decorator}.",
                 )
 
 
@@ -406,10 +406,6 @@ def _naming(consumed: Consumption, ctx: ValidationContext) -> str:
     entries = ", ".join(f'"{p}": Produced("{variable}", by="{example}")' for p in parameters)
     which = "the one it means" if len(parameters) == 1 else "the one each parameter means"
     return f"Name {which}, keeping the other entries of consumes: {entries}."
-
-
-def _decorator(kind: Kind) -> str:
-    return f"@{kind.value.replace('-', '_')}"
 
 
 def _composed(bound: Binding) -> bool:

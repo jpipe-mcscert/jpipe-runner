@@ -8,6 +8,7 @@ while the steps run, an ``ERROR`` fails the element it is about, and the run goe
 ``WARNING`` is reported and changes nothing else.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -53,6 +54,15 @@ def user_traceback(error: BaseException) -> TracebackException:
     return trace
 
 
+class DiagnosticsError(Exception):
+    """What cannot go on, for every problem found: each a diagnostic, and the message
+    their lines."""
+
+    def __init__(self, diagnostics: Iterable[Diagnostic]) -> None:
+        self.diagnostics = tuple(diagnostics)
+        super().__init__("\n".join(str(diagnostic) for diagnostic in self.diagnostics))
+
+
 def shown_path(filename: str, root: Path) -> str:
     """``filename`` as a report shows it: relative to ``root`` in POSIX form when it is a file
     under ``root``, so that it reads the same on every machine; unchanged otherwise."""
@@ -65,10 +75,11 @@ def shown_path(filename: str, root: Path) -> str:
 def under_root(path: Path, root: Path) -> str | None:
     """``path`` relative to ``root``, in POSIX form, once both are resolved, so that a
     directory reached through a link is the one it links to; ``None`` if it is not under
-    ``root``, on another drive included, or cannot be resolved."""
+    ``root``, on another drive included, or cannot be resolved, as a symbolic link loop
+    cannot before Python 3.13."""
     try:
         return path.resolve().relative_to(root.resolve()).as_posix()
-    except (OSError, ValueError):
+    except (OSError, RuntimeError, ValueError):
         return None
 
 

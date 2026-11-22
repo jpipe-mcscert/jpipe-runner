@@ -11,7 +11,7 @@ and the step is not called: an observed artifact is never optional.
 """
 
 from collections.abc import Iterable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -70,16 +70,9 @@ def _recorded(observation: Observation, root: Path) -> Observation:
     records."""
     if observation.value is HIDDEN:
         return observation
-    return Observation(
-        observation.declared,
-        observation.path,
-        observation.sha256,
-        observation.size,
-        obstacle=observation.obstacle,
-        value=snapshot(observation.value, root),
-        variable=observation.variable,
-        hidden=observation.hidden,
-    )
+    # SonarCloud types dataclasses.replace as returning any dataclass (S5886); mypy --strict
+    # checks the type.
+    return replace(observation, value=snapshot(observation.value, root))  # NOSONAR
 
 
 def _sighted(artifact: Artifact, declared: str, context: Context) -> Sighting:

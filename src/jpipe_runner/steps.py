@@ -208,7 +208,7 @@ def _declare(
     produces: Iterable[str],
     observes: tuple[Artifact, ...] = (),
 ) -> Callable[[StepFunction], StepFunction]:
-    decorator = _decorator(kind)
+    decorator = kind.decorator
     if len(ids) == 1 and callable(ids[0]):
         raise TypeError(
             f'{decorator} takes the ids of the elements it implements: {decorator}("id")'
@@ -240,12 +240,8 @@ def _declare(
     return declare
 
 
-def _decorator(kind: Kind) -> str:
-    return f"@{kind.value.replace('-', '_')}"
-
-
 def _artifacts(kind: Kind, observes: Mapping[str, str | Observable]) -> tuple[Artifact, ...]:
-    decorator = _decorator(kind)
+    decorator = kind.decorator
     example = "observes={'changelog': 'CHANGELOG.md'}"
     if not isinstance(observes, Mapping):
         raise TypeError(
@@ -344,7 +340,7 @@ def _check_signature(
 ) -> None:
     """The function takes each input and observed artifact as a keyword argument, and needs
     no other."""
-    decorator = _decorator(kind)
+    decorator = kind.decorator
     parameters = inspect.signature(function).parameters.values()
     by_keyword = {p.name for p in parameters if p.kind in _KEYWORD_ARGUMENT}
     takes_any_keyword = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters)

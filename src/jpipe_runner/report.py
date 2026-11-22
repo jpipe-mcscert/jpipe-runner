@@ -14,7 +14,7 @@ and produced; then every diagnostic, in the order found. A report is plain data,
 once: the renderers are pure functions of it, and the engine prints nothing.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from traceback import FrameSummary, TracebackException
@@ -123,14 +123,15 @@ class ElementReport:
                 ran=result.ran,
                 produced=result.produced,
                 artifacts=result.observed,
-                reached=MappingProxyType(_reached(result.reached)),
+                reached=MappingProxyType(reached_every_time(result.reached)),
             )
         return report
 
 
-def _reached(sources: tuple[tuple[str, bool], ...]) -> dict[str, bool]:
-    """Whether each source was reached, by its name. Two parameters may observe the same
-    source: it was reached only if it was each time, so one that was not is never hidden."""
+def reached_every_time(sources: Iterable[tuple[str, bool]]) -> dict[str, bool]:
+    """Whether each source was reached, by its name. Two parameters, or two elements, may
+    observe the same source: it was reached only if it was each time, so one that was not
+    is never hidden."""
     reached: dict[str, bool] = {}
     for source, each in sources:
         reached[source] = reached.get(source, True) and each
@@ -176,6 +177,11 @@ class Trace:
     """The exception this one was raised from, or while handling, if any."""
 
     @classmethod
+    def carried_by(cls, diagnostic: Diagnostic, root: Path = Path()) -> "Trace | None":
+        """The traceback ``diagnostic`` carries, as the report shows it, if it carries one."""
+        return None if diagnostic.traceback is None else cls.of(diagnostic.traceback, root)
+
+    @classmethod
     def of(cls, trace: TracebackException, root: Path = Path()) -> "Trace":
         cause = trace.__cause__
         if cause is None and not trace.__suppress_context__:
@@ -210,12 +216,17 @@ class RunReport:
     @classmethod
     def of(cls, result: RunResult, root: Path = Path()) -> "RunReport":
         """The report of ``result``, a run whose artifacts were observed under ``root``."""
-        bindings = {binding.element.id: binding for binding in result.bindings}
         results = {element.element.id: element for element in result.elements}
         return cls(
             result.justification.name,
             result.verdict,
-            _elements(result.justification, bindings, results, root, result.dataflow.received),
+            _elements(
+                result.justification,
+                result.bindings.binding_for,
+                results,
+                root,
+                result.dataflow.received,
+            ),
             result.diagnostics,
             result.strict,
             root=root,
@@ -240,7 +251,7 @@ class RunReport:
         return cls(
             justification.name,
             Verdict.INVALID,
-            _elements(justification, {}, {}, root),
+            _elements(justification, lambda _: None, {}, root),
             error.diagnostics,
             strict,
             root=root,
@@ -264,13 +275,11 @@ class RunReport:
     def ran(self) -> bool:
         """Whether the steps were run: the model loaded, the libraries were imported,
         validation reported no error, and the run was not a dry run."""
-        return self.verdict not in (Verdict.INVALID, Verdict.VALID)
+        return self.verdict.ran
 
     def trace(self, diagnostic: Diagnostic) -> Trace | None:
         """The traceback ``diagnostic`` carries, as the report shows it, if it carries one."""
-        if diagnostic.traceback is None:
-            return None
-        return Trace.of(diagnostic.traceback, self.root)
+        return Trace.carried_by(diagnostic, self.root)
 
     def with_diagram(self, path: str) -> "RunReport":
         """This report, recording that its diagram was written at ``path``."""
@@ -279,7 +288,7 @@ class RunReport:
 
 def _elements(
     model: Justification,
-    bindings: Mapping[str, Binding],
+    binding_for: Callable[[str], Binding | None],
     results: Mapping[str, ElementResult],
     root: Path,
     received: Callable[[str], tuple[Received, ...]] | None = None,
@@ -290,7 +299,7 @@ def _elements(
         ElementReport.of(
             model,
             element,
-            bindings.get(element.id),
+            binding_for(element.id),
             results.get(element.id),
             root,
             () if received is None else received(element.id),

@@ -24,7 +24,7 @@ from pathlib import Path
 from traceback import TracebackException
 from types import ModuleType
 
-from jpipe_runner.diagnostics import Diagnostic, Severity, user_traceback
+from jpipe_runner.diagnostics import Diagnostic, DiagnosticsError, Severity, user_traceback
 
 LIBRARY_IMPORT_FAILED = "JP020"
 UNUSABLE_LIBRARY_NAME = "JP021"
@@ -34,13 +34,9 @@ _LOG = logging.getLogger(__name__)
 _RENAME = "Rename the library's file: its name, without '.py', is the name of its module."
 
 
-class LibraryLoadError(Exception):
+class LibraryLoadError(DiagnosticsError):
     """Step libraries that cannot be imported. It carries every problem, as diagnostics:
     the ``JP020`` of a library whose import raised carries its traceback."""
-
-    def __init__(self, diagnostics: Iterable[Diagnostic]) -> None:
-        self.diagnostics = tuple(diagnostics)
-        super().__init__("\n".join(str(diagnostic) for diagnostic in self.diagnostics))
 
 
 @contextmanager
@@ -174,7 +170,8 @@ def _forget(added: set[str], libraries: set[str], entries: list[Path]) -> None:
     """Drop from ``sys.modules`` the libraries, and the modules among ``added`` that were
     imported from a ``python_path`` entry. Other modules, such as third-party packages
     a step imported, stay cached: a C extension cannot be imported twice in a process."""
-    tops = {name.partition(".")[0] for name in added if _from_entries(name, entries)}
+    # Without python path entries, no module was found in one: none is resolved.
+    tops = {name.partition(".")[0] for name in added if entries and _from_entries(name, entries)}
     for name in added:
         if name in libraries or name.partition(".")[0] in tops:
             sys.modules.pop(name, None)

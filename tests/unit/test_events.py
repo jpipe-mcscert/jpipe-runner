@@ -365,9 +365,9 @@ def test_on_windows_a_preview_a_reader_holds_open_is_deleted_once_it_is_closed(
             raise PermissionError(13, "The process cannot access the file")
         remove(path)
 
-    monkeypatch.setattr(cli, "_WINDOWS", True)
+    monkeypatch.setattr(diagram, "_WINDOWS", True)
     monkeypatch.setattr(cli.shutil, "rmtree", held_open)
-    monkeypatch.setattr(cli.time, "sleep", lambda _: None)
+    monkeypatch.setattr(diagram.time, "sleep", lambda _: None)
     preview = cli._Preview(tmp_path)
     preview._directory = drawn
 
@@ -385,7 +385,7 @@ def test_a_preview_that_cannot_be_deleted_is_a_warning(
     def refused(path: Path) -> None:
         raise PermissionError(13, "Permission denied")
 
-    monkeypatch.setattr(cli, "_WINDOWS", False)
+    monkeypatch.setattr(diagram, "_WINDOWS", False)
     monkeypatch.setattr(cli.shutil, "rmtree", refused)
     preview = cli._Preview(tmp_path)
     preview._directory = drawn
@@ -804,3 +804,10 @@ def test_a_value_that_cannot_be_copied_reads_the_same_in_its_event_and_the_repor
     (written,) = [e for e in report["elements"] if e["id"] == "e"]
     assert decided["element"]["produced"] == written["produced"]
     assert "unlocked" in written["produced"]["guard"]["repr"]
+
+
+def test_a_stream_begins_as_the_command_line_recognizes_a_previous_one() -> None:
+    file = io.StringIO()
+    EventStream(file).run_started(model(element("c", CONCLUSION)), strict=False, dry_run=False)
+
+    assert file.getvalue().encode("utf-8").startswith(events.RUN_STARTED)

@@ -129,7 +129,7 @@ def _observation(observation: Observation, root: Path) -> dict[str, Any]:
 def diagnostic(diagnostic: Diagnostic, root: Path = Path()) -> dict[str, Any]:
     """A diagnostic, as the report writes it, with its traceback's paths relative to
     ``root``."""
-    trace = None if diagnostic.traceback is None else Trace.of(diagnostic.traceback, root)
+    trace = Trace.carried_by(diagnostic, root)
     return {
         "code": diagnostic.code,
         "severity": str(diagnostic.severity),
