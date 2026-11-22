@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.2.0;
+`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.3.0;
 v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
 argues a claim from evidence and strategies; a **step library** binds a Python function to
 each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The runner
