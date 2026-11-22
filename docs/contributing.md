@@ -15,7 +15,8 @@ before the code is written.
 
 You need:
 
-* **Python 3.11 or later.** CI tests on 3.11.
+* **Python 3.11 or later.** CI tests on 3.11 to 3.15, and on 3.12 with the oldest
+  dependencies too.
 * **[Poetry](https://python-poetry.org) 2.x**, installed with [pipx](https://pipx.pypa.io):
   `pipx install poetry`. Avoid Homebrew's Poetry, which leaks system packages into its
   resolver.

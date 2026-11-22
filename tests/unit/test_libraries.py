@@ -225,7 +225,7 @@ def test_the_traceback_of_a_failed_import_starts_in_the_library(tmp_path: Path) 
     trace = diagnostic.traceback
     assert trace is not None
     assert [frame.filename for frame in trace.stack] == [str(library.resolve())]
-    assert trace.exc_type is TypeError
+    assert "".join(trace.format_exception_only()).startswith("TypeError:")
 
 
 def test_every_library_is_tried_and_every_failure_reported(tmp_path: Path) -> None:
