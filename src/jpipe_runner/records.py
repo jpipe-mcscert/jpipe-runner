@@ -12,6 +12,7 @@ is left out, at any depth. The report writes a value that is not JSON with it.
 """
 
 import copy
+import inspect
 import re
 import sys
 from dataclasses import dataclass
@@ -77,7 +78,8 @@ def canonical_repr(value: Any, root: Path) -> str:
 def type_name(kind: type) -> str:
     """``kind``'s qualified name, without ``builtins.``, and from the public module that
     exports it when it is defined in a private one: ``pathlib.PosixPath``, which Python 3.13
-    defines in ``pathlib._local``, so that a report names it the same on every version."""
+    defines in ``pathlib._local``, so that a report names it the same on every version, and
+    ``concurrent.futures.Future``, not ``concurrent.futures._base.Future``."""
     if kind.__module__ == "builtins":
         return kind.__qualname__
     return f"{_public_module(kind)}.{kind.__qualname__}"
@@ -96,9 +98,11 @@ def _public_module(kind: type) -> str:
 
 
 def _exported(module: object, qualname: str) -> object:
+    """What ``module`` holds under ``qualname``, read without running any of its code: no
+    module ``__getattr__``, no descriptor, no metaclass."""
     found: object = module
     for part in qualname.split("."):
-        found = getattr(found, part, None)
+        found = inspect.getattr_static(found, part, None)
     return found
 
 

@@ -34,10 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([ADR-0036](docs/adr/0036-a-step-runs-on-the-kind-it-was-written-for.md), #172).
 
 ### Fixed
-- **On Python 3.13, the report names a path's type `pathlib.PosixPath`**, as on every other
-  version, not `pathlib._local.PosixPath`: a type defined in a private module is named by the
-  public module that exports it. The `type` of a value written as its `repr` depended on the
-  Python that ran.
+- **The report names a value's type by the public module that exports it**, when the type
+  is defined in a private one: on Python 3.13, a path's type is `pathlib.PosixPath`, as on
+  every other version, not `pathlib._local.PosixPath`. The `type` of a value written as its
+  `repr` depended on the Python that ran. **On every version, a type that a package
+  re-exports from a private module changes name** in the report: `concurrent.futures.Future`,
+  not `concurrent.futures._base.Future`, and a library's `kit.Thing`, not
+  `kit._impl.Thing`. Exceptions in tracebacks keep the name Python gives them.
 
 ## [4.2.0] - 2026-11-21
 

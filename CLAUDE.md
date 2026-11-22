@@ -240,5 +240,5 @@ no milestone and three design questions to settle first.
   change to `pyproject.toml`), and `test-floor` runs the suite on the floors, on Python
   3.12. Dependabot updates the lock file weekly, never a floor or a cap: a major is a
   branch of its own. Raise a floor when a supported series stops shipping it.
-- Python is `>=3.11`: `test` runs on 3.11, 3.13, 3.14 and 3.15, `test-floor` on 3.12, the
-  other jobs on 3.11. Add a version to `test`'s matrix when a channel installs it.
+- Python is `>=3.11`: `test` runs on 3.11 to 3.15, `test-floor` on 3.12, the other jobs on
+  3.11. Add each new Python release to `test`'s matrix.

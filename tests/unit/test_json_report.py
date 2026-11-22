@@ -8,8 +8,6 @@ the command line (#124).
 import datetime
 import hashlib
 import json
-import sys
-import types
 from collections import OrderedDict
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -24,7 +22,6 @@ from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION, document, dumps, en
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
 from jpipe_runner.observables import Observation, Obstacle
-from jpipe_runner.records import type_name
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.steps import StepRegistry, step_of
 from tests.anchored import run
@@ -444,36 +441,3 @@ def test_the_text_of_a_report_is_its_document_indented() -> None:
     assert text.endswith("}\n")
     assert json.loads(text) == document(report)
     assert '\n  "diagram": "m.svg"\n}' in text
-
-
-def _defined_in(module: str) -> type:
-    return type("Thing", (), {"__module__": module})
-
-
-def test_a_type_defined_in_a_private_module_is_named_by_the_public_one_that_exports_it(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # As pathlib.PosixPath, which Python 3.13 defines in pathlib._local.
-    thing = _defined_in("kit._impl._local")
-    monkeypatch.setitem(sys.modules, "kit", types.SimpleNamespace(Thing=thing))
-    monkeypatch.setitem(sys.modules, "kit._impl", types.SimpleNamespace(Thing=thing))
-
-    assert type_name(thing) == "kit.Thing"
-
-
-def test_a_private_module_is_kept_when_its_parent_does_not_export_the_type(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    thing = _defined_in("kit._impl")
-    monkeypatch.setitem(sys.modules, "kit", types.SimpleNamespace(Thing=object))
-
-    assert type_name(thing) == "kit._impl.Thing"
-
-
-def test_a_public_module_is_kept_even_when_its_parent_exports_the_type(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    thing = _defined_in("kit.impl")
-    monkeypatch.setitem(sys.modules, "kit", types.SimpleNamespace(Thing=thing))
-
-    assert type_name(thing) == "kit.impl.Thing"

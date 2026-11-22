@@ -13,19 +13,21 @@ runs:
   using: composite
   steps:
     - name: Set up Python
+      id: setup-python
       uses: actions/setup-python@v6
       with:
         python-version: ${{ inputs.python-version }}
 
-    # Per Python version: Poetry's own environment, under ~/.local, runs on the interpreter
-    # that installed it, which a job on another version does not have.
+    # Per Python version, to the patch: Poetry's own environment, under ~/.local, runs on
+    # the interpreter that installed it, which a job on another version does not have, nor
+    # one on a runner image that has moved to the next patch release.
     - name: Cache Poetry
       id: cache-poetry
       uses: actions/cache@v6
       with:
         path: ~/.local
-        key: ${{ runner.os }}-poetry-${{ inputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
-        restore-keys: ${{ runner.os }}-poetry-${{ inputs.python-version }}-
+        key: ${{ runner.os }}-poetry-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: ${{ runner.os }}-poetry-${{ steps.setup-python.outputs.python-version }}-
 
     - name: Install Poetry
       if: steps.cache-poetry.outputs.cache-hit != 'true'
