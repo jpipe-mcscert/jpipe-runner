@@ -3,7 +3,8 @@
 The page is the reference of every diagnostic code. Validation rules are rendered from
 their classes: code, name, severity and summary in the table, then each docstring. The
 codes reported outside validation, when a model or a library is loaded or a step runs,
-are listed below from the constants that define them. ``poetry run pytest --update-goldens``
+are listed below from the constants that define them, then the retired codes, from
+``rules.RETIRED``. ``poetry run pytest --update-goldens``
 rewrites the page; ``tests/unit/test_rules_doc.py`` fails when it is out of date.
 """
 
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from jpipe_runner import artifacts, engine, libraries, loader, model, outcomes
 from jpipe_runner.diagnostics import Severity
+from jpipe_runner.rules import RETIRED
 from jpipe_runner.validation import Rule, RuleSet
 from tests.conftest import REPO_ROOT
 
@@ -128,7 +130,13 @@ No rule can be disabled.
 
 def render(rules: RuleSet) -> str:
     """The text of ``docs/rules.md`` for ``rules``."""
-    parts = [_INTRODUCTION, _rule_table(rules), *map(_rule_section, rules), _other_codes()]
+    parts = [
+        _INTRODUCTION,
+        _rule_table(rules),
+        *map(_rule_section, rules),
+        _other_codes(),
+        _retired_codes(),
+    ]
     return "\n".join(parts)
 
 
@@ -165,6 +173,23 @@ def _other_codes() -> str:
             "",
             "| Code | Name | Severity | Reported when | Reports |",
             "|---|---|---|---|---|",
+            *rows,
+            "",
+        ]
+    )
+
+
+def _retired_codes() -> str:
+    rows = [f"| {code} | `{name}` | {why} |" for code, (name, why) in sorted(RETIRED.items())]
+    return "\n".join(
+        [
+            "## Retired codes",
+            "",
+            "A code never changes meaning, so a code no rule reports any more is retired, and",
+            "never reused.",
+            "",
+            "| Code | Name | Why |",
+            "|---|---|---|",
             *rows,
             "",
         ]

@@ -102,29 +102,30 @@ after its model: `tested_steps.py`, `documented_steps.py`
 
 ### Every evidence fails: its file does not exist
 
-The paths an evidence observes are relative to the directory the command runs in, not to
-the step library. Run from the wrong directory, every file is missing:
+The paths an evidence observes are relative to the file that declares its step, not to the
+directory the command runs in. A library moved to another directory, here `checks/`, looks
+for its files from there:
 
 ```console
-$ jpipe-runner --library release/steps.py release/justification.json
+$ jpipe-runner --library checks/steps.py justification.json
 Justification: release
   Version 2.0 is ready to ship
 
   ✘ Evidence    The test suite passes         # release:e1
-      steps.the_test_suite_passes: mock/junit.xml, observed as 'report', does not exist
-      observed mock/junit.xml (unreachable)
+      steps.the_test_suite_passes: checks/mock/junit.xml, observed as 'report', does not exist
+      observed checks/mock/junit.xml (unreachable)
   ✘ Evidence    The changelog is up to date   # release:e2
-      steps.the_changelog_is_up_to_date: mock/CHANGELOG.md, observed as 'changelog', does not exist
-      observed mock/CHANGELOG.md (unreachable)
+      steps.the_changelog_is_up_to_date: checks/mock/CHANGELOG.md, observed as 'changelog', does not exist
+      observed checks/mock/CHANGELOG.md (unreachable)
   - Strategy    All release gates pass        # release:s
       not run: release:e1, release:e2 did not pass
   - Conclusion  Version 2.0 is ready to ship  # release:c
       not run: release:e1, release:e2 did not pass
 
-JP019 error [release:e1]: mock/junit.xml, observed as 'report', does not exist
-  fix: Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.
-JP019 error [release:e2]: mock/CHANGELOG.md, observed as 'changelog', does not exist
-  fix: Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.
+JP019 error [release:e1]: checks/mock/junit.xml, observed as 'report', does not exist
+  fix: Make sure it exists when the runner runs. A path in observes={...} is relative to the file that declares the step.
+JP019 error [release:e2]: checks/mock/CHANGELOG.md, observed as 'changelog', does not exist
+  fix: Make sure it exists when the runner runs. A path in observes={...} is relative to the file that declares the step.
 
 4 elements (2 failed, 2 skipped)
 2 diagnostics (2 errors)
@@ -133,10 +134,13 @@ $ echo $?
 1
 ```
 
-`cd` into the directory the paths start from, here `release/`, and run from there. When
-only one evidence fails this way, its file has not been made yet (run the build or the
-tests first), or the path in its `observes` is wrong. To check the library before the
-files exist, use `--dry-run`, which observes nothing.
+The message names each file as the report shows it, relative to the directory the command
+runs in: `checks/mock/junit.xml` is where the library looked. Write the path from the
+library's file, here `"../mock/junit.xml"`. A library written for jpipe-runner 4.0, whose
+paths were relative to the directory the command ran in, fails this way when it is not in
+that directory. When only one evidence fails this way, its file has not been made yet
+(run the build or the tests first), or the path in its `observes` is wrong. To check the
+library before the files exist, use `--dry-run`, which observes nothing.
 
 ### The justification is a `.jd` file
 
@@ -163,7 +167,7 @@ and nothing runs:
 ```console
 $ jpipe-runner --library steps.py --diagram release.txt justification.json
 usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
-                    [--report PATH] [--diagram PATH] [--dataflow PATH]
+                    [--report PATH] [--events PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
 jpipe-runner: error: --diagram release.txt: the suffix of the file is its format, one of dot, gif, jpeg, jpg, pdf, png, svg

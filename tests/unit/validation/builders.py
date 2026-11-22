@@ -11,7 +11,7 @@ from jpipe_runner import loader
 from jpipe_runner.diagnostics import Severity
 from jpipe_runner.model import Element, Justification, Kind, Relation
 from jpipe_runner.outcomes import Outcome, Pass
-from jpipe_runner.steps import Artifact, Step, StepRegistry
+from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry
 from jpipe_runner.validation import Rule, ValidationContext
 
 Reported = tuple[str, Severity, str | None]
@@ -46,7 +46,7 @@ def composed(name: str) -> Justification:
 def step(
     kind: Kind,
     *ids: str,
-    consumes: Iterable[str] = (),
+    consumes: Iterable[str] | Mapping[str, str | Produced] = (),
     produces: Iterable[str] = (),
     observes: Mapping[str, str] | None = None,
     name: str = "f",
@@ -58,7 +58,19 @@ def step(
 
     function.__qualname__ = name
     artifacts = tuple(Artifact(n, path) for n, path in (observes or {}).items())
-    return Step(kind, ids, function, tuple(consumes), tuple(produces), artifacts)
+    return Step(kind, ids, function, inputs(consumes), tuple(produces), artifacts)
+
+
+def inputs(consumes: Iterable[str] | Mapping[str, str | Produced]) -> tuple[Input, ...]:
+    """What a step consumes, from a list of variables or a map of its parameters."""
+    if not isinstance(consumes, Mapping):
+        return tuple(Input(name, name) for name in consumes)
+    return tuple(
+        Input(parameter, source.variable, source.by)
+        if isinstance(source, Produced)
+        else Input(parameter, source)
+        for parameter, source in consumes.items()
+    )
 
 
 def context(justification: Justification, *steps: Step) -> ValidationContext:

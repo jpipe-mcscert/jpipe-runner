@@ -91,7 +91,7 @@ $ echo $?
 Every check passed, so the claim holds, and the exit code is 0. Had the test report
 recorded a failure, the evidence would fail, the strategy and the conclusion above it
 would be skipped, and the exit code would be 1. `--report report.json` writes the same run
-as JSON for programs, and `--diagram release.svg` draws it.
+as JSON for programs, and `--diagram release.svg` draws its dataflow.
 
 For GitHub Actions, an action that runs a justification on every pull request, and
 comments with what holds and what does not, is built in [`jpipe-ci-actions`](https://github.com/jpipe-mcscert/jpipe-ci-actions). Its

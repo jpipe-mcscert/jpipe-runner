@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "string_operations",
   "verdict": "invalid",
   "strict": false,
@@ -30,10 +30,13 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -50,12 +53,20 @@
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "processed_string"
       ],
+      "inputs": {
+        "processed_string": {
+          "variable": "processed_string",
+          "produced_by": null
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -68,6 +79,5 @@
       "traceback": null
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

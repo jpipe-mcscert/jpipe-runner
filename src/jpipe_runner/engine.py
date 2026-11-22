@@ -8,7 +8,8 @@ error was reported. Each element is then taken in topological order:
   account. Its step is not called. A failure and a skip propagate alike: what a step
   that did not pass would have produced does not exist;
 - otherwise, a **bound** element's step is called, whatever its kind, with the values it
-  consumes and the artifacts it observes, and what it returns is the element's status;
+  consumes, each from the supporter validation resolved it to (ADR-0031), and the
+  artifacts it observes, and what it returns is the element's status;
 - an **unbound** conclusion or sub-conclusion passes, since all its supporters passed.
   One that nothing supports is skipped: nothing judges it.
 
@@ -20,22 +21,29 @@ without declaring it is dropped, with a warning (``JP024``).
 The verdict is ``FAIL`` if an element failed, ``SKIP`` if one was skipped, and ``PASS``
 otherwise; ``INVALID`` when validation stopped the run. A dry run validates and calls no
 step: its verdict is ``VALID`` when validation passed (ADR-0024).
+
+A ``RunListener`` is told as the run goes: when validation ends, when the steps are about
+to run, with the result a dry run would have returned (ADR-0032), when an element's step is
+about to be called, when each source it observes was observed, and when each element is
+decided (ADR-0030). It is called from the
+thread that runs ``run``, an element after all its supporters, so it needs no lock.
 """
 
-import copy
 import logging
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from traceback import TracebackException
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Protocol
 
-from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, Observation, observe
+from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, Observed, observe
 from jpipe_runner.binding import Binding, BindingTable
+from jpipe_runner.dataflow import Consumption, DataflowTable, Received
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
 from jpipe_runner.model import Element, Justification
+from jpipe_runner.observables import Context, Observation, snapshot
 from jpipe_runner.outcomes import Fail, NotAnOutcomeError, Outcome, Pass, Skip, as_outcome
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
@@ -93,10 +101,62 @@ class ElementResult:
     """The values it produced, as they were when it returned: a copy, so that a step it
     supports cannot change the record by changing the value it receives."""
     observed: tuple[Observation, ...] = ()
-    """The files its step observed, recorded just before the call."""
+    """What its step observed, recorded just before the call."""
+    reached: tuple[tuple[str, bool], ...] = ()
+    """Each source its step declares it observes, as the report names it in ``sources``,
+    and whether it was reached, in the order the step declares them; empty when the step
+    observed nothing, or was not called."""
     diagnostics: tuple[Diagnostic, ...] = ()
     """What went wrong while running it. A step that raised is reported with ``JP022``,
     which carries the traceback."""
+    inputs: tuple[Received, ...] = ()
+    """What each parameter of its step receives, and from which element: whether the step
+    was called or not."""
+
+
+class RunListener(Protocol):
+    """What is told of a run as it goes, before ``run`` returns its ``RunResult``."""
+
+    def validation_ended(self, report: ValidationReport) -> None:
+        """Validation is over: the steps run next, unless it reported an error or the run
+        is a dry run."""
+
+    def steps_starting(self, planned: "RunResult") -> None:
+        """Validation passed, and the steps are about to run: ``planned`` is the result a
+        dry run of the same library would have returned, with no element decided. Told
+        once, before the first element starts, and never in a dry run."""
+
+    def element_started(self, element: Element) -> None:
+        """``element``'s supporters passed, and it is bound: the artifacts it observes are
+        about to be observed, then its step called, unless one of them cannot be reached."""
+
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
+        """What ``element``'s step declares it observes was observed: ``source``, as the
+        report names it in ``sources``, and whether it was ``reachable``. Told for each,
+        in the order the step declares them, once all are observed and before the step is
+        called, if it is."""
+
+    def element_decided(self, result: ElementResult) -> None:
+        """``result.element`` is decided: after every element that supports it."""
+
+
+class _Silent:
+    """The listener of a run that nothing listens to."""
+
+    def validation_ended(self, report: ValidationReport) -> None:
+        pass  # nothing listens
+
+    def steps_starting(self, planned: "RunResult") -> None:
+        pass  # nothing listens
+
+    def element_started(self, element: Element) -> None:
+        pass  # nothing listens
+
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
+        pass  # nothing listens
+
+    def element_decided(self, result: ElementResult) -> None:
+        pass  # nothing listens
 
 
 @dataclass(frozen=True)
@@ -105,6 +165,8 @@ class RunResult:
 
     justification: Justification
     bindings: BindingTable
+    dataflow: DataflowTable
+    """Where each value a bound step consumes comes from."""
     validation: ValidationReport
     elements: tuple[ElementResult, ...]
     """One per element, in topological order. Empty when validation stopped the run."""
@@ -149,43 +211,62 @@ def run(
     strict: bool = False,
     root: Path = Path(),
     dry_run: bool = False,
+    listener: RunListener | None = None,
 ) -> RunResult:
     """Validate ``registry`` against ``justification``, then run it if nothing is an error.
 
-    ``strict`` counts validation warnings as errors. The paths that evidence observes are
-    relative to ``root``, by default the working directory. A ``dry_run`` stops after
+    ``strict`` counts validation warnings as errors. ``root``, by default the working
+    directory, is what the paths of the report are relative to; the paths an evidence
+    observes are relative to the file that declares its step. A ``dry_run`` stops after
     validation, and calls no step. The steps run in this process: a run of libraries
-    imported with ``libraries.imported`` happens inside that context.
+    imported with ``libraries.imported`` happens inside that context. ``listener`` is told
+    of the run as it goes.
     """
+    listener = _Silent() if listener is None else listener
     ctx = ValidationContext.of(justification, registry)
     report = RULES.run(ctx, strict=strict)
-    values = ValueStore()
+    listener.validation_ended(report)
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
-        return RunResult(justification, ctx.bindings, report, (), values, strict)
+        return RunResult(
+            justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict
+        )
+    # What a dry run returns, and what a listener is told the run plans.
+    planned = RunResult(
+        justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict, dry_run=True
+    )
     if dry_run:
         _LOG.info("validation passed: a dry run calls no step")
-        return RunResult(justification, ctx.bindings, report, (), values, strict, dry_run=True)
-    elements = _Run(ctx, values, root).execute()
-    return RunResult(justification, ctx.bindings, report, elements, values, strict)
+        return planned
+    listener.steps_starting(planned)
+    values = ValueStore()
+    elements = _Run(ctx, values, root, listener).execute()
+    return RunResult(justification, ctx.bindings, ctx.dataflow, report, elements, values, strict)
 
 
 class _Run:
     """One execution of a validated library: the results so far, and the values produced."""
 
-    def __init__(self, ctx: ValidationContext, values: ValueStore, root: Path) -> None:
+    def __init__(
+        self, ctx: ValidationContext, values: ValueStore, root: Path, listener: RunListener
+    ) -> None:
         self._model = ctx.justification
         self._bindings = {binding.element.id: binding for binding in ctx.bindings}
+        self._dataflow = ctx.dataflow
         self._rank = {element.id: rank for rank, element in enumerate(self._model)}
         self._values = values
         self._root = root
+        self._listener = listener
         self._results: dict[str, ElementResult] = {}
 
     def execute(self) -> tuple[ElementResult, ...]:
         for element in self._model.topological_order():
             result = self._result_of(element)
+            if result.binding is not None:
+                result = replace(result, inputs=self._dataflow.received(element.id))
             _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
             self._results[element.id] = result
+            self._listener.element_decided(result)
         return tuple(self._results.values())
 
     def _result_of(self, element: Element) -> ElementResult:
@@ -198,6 +279,7 @@ class _Run:
             return ElementResult(element, Status.SKIP, binding, reason, blocked_by)
         if binding is None:
             return ElementResult(element, Status.PASS)
+        self._listener.element_started(element)
         return self._call(binding)
 
     def _blocking(self, supporters: tuple[Element, ...]) -> tuple[str, ...]:
@@ -212,10 +294,21 @@ class _Run:
 
     def _call(self, binding: Binding) -> ElementResult:
         element, step = binding.element, binding.step
-        observed = observe(step.observes, self._root, element.id)
+        observed = observe(step.observes, Context(step.directory, self._root), element.id)
+        for source, reachable in observed.sources:
+            self._listener.source_observed(element, source, reachable)
+        result = self._called(binding, observed)
+        # SonarCloud types dataclasses.replace as returning any dataclass (S5886); mypy
+        # --strict checks that this is an ElementResult.
+        return replace(result, reached=observed.sources)  # NOSONAR
+
+    def _called(self, binding: Binding, observed: Observed) -> ElementResult:
+        """The result of ``binding``'s step, called with what it ``observed``, unless
+        something could not be reached."""
+        element, step = binding.element, binding.step
         if not observed.reachable:
             return _failed(binding, observed.diagnostics, observed=observed.observations)
-        arguments = {name: self._consumed(name, element) for name in step.consumes}
+        arguments = {c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)}
         arguments.update(observed.arguments)
         _LOG.debug("calling %s for %s", step.name, element.id)
         try:
@@ -231,12 +324,15 @@ class _Run:
             return _failed(binding, (error.diagnostic,), observed=observed.observations)
         return self._judged(binding, outcome, observed.observations)
 
-    def _consumed(self, name: str, element: Element) -> Any:
-        value = self._values.get(name)
+    def _consumed(self, consumed: Consumption) -> Any:
+        # Validation guarantees one producer among the consumer's supporters (JP009, JP014,
+        # JP025), and an element runs only once its supporters passed, which stored what
+        # they declare (JP023).
+        producer, name = consumed.producer, consumed.input.variable
+        value = UNSET if producer is None else self._values.get(name, producer.element.id)
         if value is UNSET:
-            # Validation guarantees a producer upstream (JP009, JP014), and an element runs
-            # only once its supporters passed, which stored what they declare (JP023).
-            raise RuntimeError(f"{element.id!r} consumes {name!r}, which is unset: a runner bug")
+            element = consumed.consumer.element.id
+            raise RuntimeError(f"{element!r} consumes {name!r}, which is unset: a runner bug")
         return value
 
     def _judged(
@@ -274,19 +370,10 @@ class _Run:
             binding,
             ran=True,
             outcome=outcome,
-            produced=MappingProxyType({name: _snapshot(v) for name, v in produced.items()}),
+            produced=MappingProxyType({name: snapshot(v) for name, v in produced.items()}),
             observed=observed,
             diagnostics=tuple(problems),
         )
-
-
-def _snapshot(value: Any) -> Any:
-    """A deep copy of ``value``, or ``value`` itself if it cannot be copied (a lock, an open
-    file): what a step produced is recorded as it was when the step returned."""
-    try:
-        return copy.deepcopy(value)
-    except Exception:  # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does
-        return value
 
 
 def _failed(

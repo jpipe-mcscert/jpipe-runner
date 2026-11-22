@@ -151,7 +151,7 @@ What each part says:
   strategy; there are also `@sub_conclusion` and `@conclusion`. Its first arguments are the
   ids of the element the function implements, here as the compiler exported them.
 - **`observes` declares the artifacts an evidence reads.** It maps each of the function's
-  parameters to a path, relative to where the runner runs; the runner passes the
+  parameters to a path, relative to the step library's file; the runner passes the
   `Path`. An evidence must observe something: one that observes nothing checks nothing in
   the world (`JP018`).
 - **`produces` and `consumes` declare the data that flows along the argument.** Each
@@ -202,8 +202,9 @@ Before running anything, the runner checks that the library fits the model:
 - each function's kind agrees with its element's;
 - each piece of evidence observes an artifact, and produces a value that another step
   consumes;
-- every consumed variable is produced by one step, which supports its consumer, so the
-  value exists by the time it is needed.
+- every consumed variable is produced by a step that supports its consumer, so the value
+  exists by the time it is needed, and by only one of its supporters, so that the
+  consumer receives the value it means.
 
 [`rules.md`](rules.md) lists every check. All the problems are reported at once. An error
 stops the run before any step executes; a warning is reported, and the run continues.
@@ -303,7 +304,7 @@ Justification: release
       not run: release:e1 did not pass
 
 JP019 error [release:e1]: mock/junit.xml, observed as 'report', does not exist
-  fix: Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.
+  fix: Make sure it exists when the runner runs. A path in observes={...} is relative to the file that declares the step.
 
 4 elements (1 failed, 2 skipped, 1 passed)
 1 diagnostic (1 error)
@@ -343,7 +344,11 @@ where two tests fail:
   "observes": [
     "mock/junit.xml"
   ],
+  "sources": [
+    "mock/junit.xml"
+  ],
   "consumes": [],
+  "inputs": {},
   "produces": [
     "tests_pass"
   ],
@@ -351,11 +356,13 @@ where two tests fail:
   "artifacts": [
     {
       "path": "mock/junit.xml",
+      "declared": "mock/junit.xml",
       "reachable": true,
       "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
       "size": 187
     }
-  ]
+  ],
+  "observations": []
 }
 ```
 
@@ -368,23 +375,24 @@ each after what supports it; `s` and `c` give `release:e1` as what blocked them.
 report is the same on every run over the same files: it records no time, and its paths are
 relative to where the runner runs.
 
-The runner can also draw the run. The diagram is the argument as the jPipe compiler draws
-it (`jpipe process -f SVG`), with each element's status over it: here, the failed evidence
-in vermillion, what it blocked dashed and grey, and the evidence that passed with a green
-border ([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)).
+The runner can also draw the run. Its diagram is the dataflow: the argument, in the jPipe
+compiler's notation, with what the functions declare, the file each evidence observes and
+the variables that flow from the evidence to the strategy. A support that a variable
+already shows is not drawn twice: `e1` and `e2` support `s` through `tests_pass` and
+`changelog_ok`, and only `s` supports `c` with a plain arrow. Each element's status is drawn
+over it, as a colour and as a symbol beside its label: the failed evidence in vermillion,
+marked ✘, what it blocked dashed and grey, marked ◌, and the evidence that passed with a
+green border, marked ✔. Each file is drawn as a tab, marked ✔: the run read both, even
+`mock/junit.xml`, whose tests failed. `tests_pass` is dashed: `e1` failed, so it was
+never produced, and `s`, which consumes it, could not run
+([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)).
 
-![The release argument after the run: e1 failed, e2 passed, s and c were skipped](images/release-fail.svg)
-
-Its dataflow view adds what the functions declare: the file each evidence observes, and
-the variables that flow from the evidence to the strategy. `tests_pass` is dashed: `e1`
-failed, so it was never produced, and `s`, which consumes it, could not run.
-
-![The same run, with the files observed and the variables produced and consumed](images/release-fail-dataflow.svg)
+![The release run's dataflow: e1 failed, so tests_pass was never produced; e2 passed; s and c were skipped](images/release-fail.svg)
 
 ### From the command line
 
-Everything this page has done, from reading the model to the verdict, is one command. It
-runs in the directory the evidence observes its files from, here the example's own:
+Everything this page has done, from reading the model to the verdict, is one command,
+here run in the example's own directory:
 
 ```console
 $ jpipe-runner --library steps.py justification.json
@@ -428,11 +436,23 @@ $ echo $?
 ```
 
 The text report is for the person at the terminal; `report.json` holds the JSON report
-quoted above, and `release.svg` the first diagram (`--dataflow` draws the second). The
-exit code is for a CI pipeline: 0 when the justification holds, 1 when it fails, 3 when
-nothing could run (a refused model, a library that cannot be imported, a validation
-error), and 4 when a file could not be read or written. A skipped justification exits 0,
-unless the run is `--strict`. [`cli.md`](cli.md) describes every option.
+quoted above, and `release.svg` the diagram. The exit code is for a CI pipeline: 0 when
+the justification holds, 1 when it fails, 3 when nothing could run (a refused model, a
+library that cannot be imported, a validation error), and 4 when a file could not be read
+or written. A skipped justification exits 0, unless the run is `--strict`.
+[`cli.md`](cli.md) describes every option.
+
+The report arrives when the run ends. A program that shows the run while it runs, as the
+IDE's Run panel does, adds `--events run.jsonl`: the runner then writes a line to
+`run.jsonl` as each thing happens, validation ended, `release:e1` started, `release:e1`
+decided with its status, and so on until the run ended. Each element in it is the one the
+JSON report will hold. Once validation has ended, before `release:e1` starts, the runner
+also draws the diagram as a dry run would, without statuses, in a temporary SVG file, and
+says so (`diagram.drawn`): the panel colours that drawing as each element is decided. A
+status never moves a node, so it lines up with `release.svg`, the run's own diagram, which
+the panel shows once the run has ended, when the runner deletes the temporary drawing
+([ADR-0032](adr/0032-a-run-previews-its-diagram.md)).
+[`events.md`](events.md) quotes the events of this very run.
 
 ## When something is wrong
 

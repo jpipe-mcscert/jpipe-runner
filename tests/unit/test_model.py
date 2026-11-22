@@ -1,7 +1,16 @@
 import pytest
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
-from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind, Relation
+from jpipe_runner.model import (
+    Element,
+    InvalidJustificationError,
+    Justification,
+    Kind,
+    Placeholder,
+    Relation,
+    Template,
+    TemplateChain,
+)
 
 EVIDENCE = Element("m:e", "The tests pass", Kind.EVIDENCE)
 OTHER_EVIDENCE = Element("m:o", "The linter passes", Kind.EVIDENCE)
@@ -181,3 +190,52 @@ def test_the_error_message_lists_the_diagnostics() -> None:
     assert str(InvalidJustificationError(problems)) == (
         "JP002 error [m:e]: first\nJP003 error: second"
     )
+
+
+@pytest.mark.parametrize(
+    "chain",
+    [
+        pytest.param(TemplateChain(("m:x",), ()), id="outside"),
+        pytest.param(TemplateChain((), (Template("t", ("m:x",)),)), id="in a template"),
+        pytest.param(
+            TemplateChain((), (Template("t", ("m:e",), (Placeholder("m:x", "x"),)),)),
+            id="placeholder",
+        ),
+        pytest.param(
+            TemplateChain((), (Template("t", ("m:e",), (Placeholder("m:e", "e", ("m:x",)),)),)),
+            id="supports",
+        ),
+    ],
+)
+def test_a_template_chain_naming_an_unknown_element_is_set_aside(chain: TemplateChain) -> None:
+    justification = Justification("m", (CONCLUSION, STRATEGY, EVIDENCE), RELATIONS, chain)
+
+    assert justification.template_chain is None
+    assert justification.unknown_in_template_chain == ("m:x",)
+    assert [e.id for e in justification.topological_order()] == ["m:e", "m:s", "m:c"]
+
+
+def test_an_unknown_id_is_listed_once_however_often_the_chain_names_it() -> None:
+    placeholder = Placeholder("m:x", "x", ("m:y",))
+    chain = TemplateChain(("m:x",), (Template("t", ("m:x", "m:y"), (placeholder,)),))
+
+    justification = Justification("m", (CONCLUSION, STRATEGY, EVIDENCE), RELATIONS, chain)
+
+    assert justification.unknown_in_template_chain == ("m:x", "m:y")
+
+
+def test_a_chain_lists_each_id_it_names_once() -> None:
+    placeholder = Placeholder("m:e", "e", ("m:s",))
+    chain = TemplateChain(("m:e",), (Template("t", ("m:c", "m:s", "m:e"), (placeholder,)),))
+
+    assert chain.ids == ("m:e", "m:c", "m:s")
+
+
+def test_a_model_keeps_its_template_chain() -> None:
+    chain = TemplateChain(("m:e",), (Template("t", ("m:c", "m:s", "m:e")),))
+    assert (
+        Justification("m", (CONCLUSION, STRATEGY, EVIDENCE), RELATIONS, chain).template_chain
+        == chain
+    )
+    assert model().template_chain is None
+    assert model().unknown_in_template_chain == ()

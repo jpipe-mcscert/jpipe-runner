@@ -36,8 +36,9 @@ def _imports_a_module_of_its_own(workdir: Path, *_: object) -> None:
     steps.write_text(source.replace(old, "from release_checks import RELEASE\n"), "utf-8")
 
 
-def _from_the_parent(workdir: Path, monkeypatch: pytest.MonkeyPatch, _: object) -> None:
-    monkeypatch.chdir(workdir.parent)
+def _library_moved(workdir: Path, *_: object) -> None:
+    (workdir / "checks").mkdir()
+    (workdir / "steps.py").rename(workdir / "checks" / "steps.py")
 
 
 def _after_a_dry_run(
@@ -52,7 +53,7 @@ def _after_a_dry_run(
 SETUP: dict[str, Setup] = {
     "jpipe-runner --library steps.py --diagram release.svg justification.json": _no_graphviz,
     "jpipe-runner --library steps.py justification.json": _imports_a_module_of_its_own,
-    "jpipe-runner --library release/steps.py release/justification.json": _from_the_parent,
+    "jpipe-runner --library checks/steps.py justification.json": _library_moved,
     "jpipe-runner status report.json": _after_a_dry_run,
 }
 

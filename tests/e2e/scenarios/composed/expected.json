@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "readiness",
   "verdict": "pass",
   "strict": false,
@@ -32,7 +32,11 @@
       "observes": [
         "mock/CHANGELOG.md"
       ],
+      "sources": [
+        "mock/CHANGELOG.md"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "changelog_ok"
       ],
@@ -44,11 +48,13 @@
       "artifacts": [
         {
           "path": "mock/CHANGELOG.md",
+          "declared": "mock/CHANGELOG.md",
           "reachable": true,
           "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
           "size": 4
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "readiness:draft:docs",
@@ -67,9 +73,16 @@
         "draft:docs"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "changelog_ok"
       ],
+      "inputs": {
+        "changelog_ok": {
+          "variable": "changelog_ok",
+          "produced_by": "readiness:draft:changelog"
+        }
+      },
       "produces": [
         "docs_current"
       ],
@@ -78,7 +91,8 @@
           "value": true
         }
       },
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:draft:documented",
@@ -95,10 +109,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:tested:suite",
@@ -119,7 +136,11 @@
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "suite_passes"
       ],
@@ -131,11 +152,13 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "readiness:tested:coverage",
@@ -156,7 +179,11 @@
       "observes": [
         "mock/coverage.txt"
       ],
+      "sources": [
+        "mock/coverage.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "coverage"
       ],
@@ -168,11 +195,13 @@
       "artifacts": [
         {
           "path": "mock/coverage.txt",
+          "declared": "mock/coverage.txt",
           "reachable": true,
           "sha256": "83a6261049265dba411398dbfdd2117e86e1f8ead030f979074be9c8839f4e74",
           "size": 5
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "readiness:tested:testing",
@@ -191,13 +220,25 @@
         "tested:testing"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "suite_passes",
         "coverage"
       ],
+      "inputs": {
+        "suite_passes": {
+          "variable": "suite_passes",
+          "produced_by": "readiness:tested:suite"
+        },
+        "coverage": {
+          "variable": "coverage",
+          "produced_by": "readiness:tested:coverage"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:hook",
@@ -221,7 +262,11 @@
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tests_pass"
       ],
@@ -233,11 +278,13 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "readiness:draft:gates",
@@ -256,13 +303,25 @@
         "draft:gates"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "tests_pass",
         "docs_current"
       ],
+      "inputs": {
+        "tests_pass": {
+          "variable": "tests_pass",
+          "produced_by": "readiness:hook"
+        },
+        "docs_current": {
+          "variable": "docs_current",
+          "produced_by": "readiness:draft:docs"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "readiness:draft:ready",
@@ -277,10 +336,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -293,6 +355,5 @@
       "traceback": null
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

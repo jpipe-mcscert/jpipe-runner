@@ -8,6 +8,7 @@ its own status and a bound one is called; an element not reached is skipped, blo
 the reached elements upstream of it that did not pass.
 """
 
+import io
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -24,15 +25,19 @@ from jpipe_runner import (
     Skip,
     conclusion,
     evidence,
+    json_report,
     loader,
     strategy,
     sub_conclusion,
 )
-from jpipe_runner.engine import Status, Verdict, run
+from jpipe_runner.engine import Status, Verdict
+from jpipe_runner.events import EventStream
 from jpipe_runner.model import Element, Justification, Kind
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry, step_of
+from tests.anchored import run
 from tests.strategies import FAIL, PASS, RAISE, SKIP, justifications, step_plans
+from tests.streams import VALIDATOR, of
 
 Plan = dict[str, str | None]
 Calls = list[tuple[str, dict[str, Any]]]
@@ -255,3 +260,36 @@ def test_the_report_lists_every_element_as_run_and_adds_up(
     assert summary.passed + summary.failed + summary.skipped + summary.not_run == len(justification)
     assert summary.errors == sum(d.severity == "error" for d in result.diagnostics)
     assert report.verdict is result.verdict
+
+
+@given(planned)
+def test_the_events_preview_the_report_each_element_after_its_supporters(
+    root: Path, drawn: tuple[dict[str, Any], Plan]
+) -> None:
+    model, plan = drawn
+    justification = _load(model)
+    calls: Calls = []
+    written = io.StringIO()
+    stream = EventStream(written, root=root)
+    stream.run_started(justification, strict=False, dry_run=False)
+
+    result = run(justification, _library(justification, plan, calls), root=root, listener=stream)
+
+    found = [json.loads(line) for line in written.getvalue().splitlines()]
+    for event in found:
+        VALIDATOR.validate(event)
+    assert [event["seq"] for event in found] == list(range(len(found)))
+    report = json_report.document(RunReport.of(result, root))
+    decided = [event["element"] for event in of(found, "element.decided")]
+    assert sorted(decided, key=lambda e: e["id"]) == sorted(
+        report["elements"], key=lambda e: e["id"]
+    )
+    seen: set[str] = set()
+    for event in found:
+        if event["event"] == "element.decided":
+            element_id = event["element"]["id"]
+            assert {s.id for s in justification.supporters(element_id)} <= seen
+            seen.add(element_id)
+    assert [event["id"] for event in of(found, "element.started")] == [
+        element_id for element_id, _ in calls
+    ]

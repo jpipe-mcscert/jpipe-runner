@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "error_prone",
   "verdict": "fail",
   "strict": false,
@@ -30,12 +30,15 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "result"
       ],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -54,12 +57,20 @@
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "result"
       ],
+      "inputs": {
+        "result": {
+          "variable": "result",
+          "produced_by": "S1"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -84,6 +95,5 @@
       }
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

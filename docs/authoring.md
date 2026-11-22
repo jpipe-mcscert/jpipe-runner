@@ -60,7 +60,11 @@ def all_release_gates_pass(tests_pass: bool) -> Outcome:
   observes, which the runner passes by name. A parameter with a default value, or
   `**kwargs`, is allowed in addition.
 - **`produces` and `consumes` are lists of names**, each a Python identifier, each given
-  once. A variable is produced by one step and may be consumed by several.
+  once. A step receives a variable from the step among its supporters that produces it,
+  and a value may be consumed by several steps (see
+  [A variable comes from the step's own supporters](#a-variable-comes-from-the-steps-own-supporters)).
+  `consumes` may also map each parameter to what it receives, to name where a value comes
+  from.
 - **The decorator returns the function unchanged.** A step is a plain function, and can be
   called directly, in a unit test for instance:
 
@@ -85,8 +89,8 @@ every other library that failed to import, and runs nothing:
 | a name that is not an identifier | `@evidence(produces=...) takes variable names that are Python identifiers, not 'tests-pass'` |
 | a parameter that is not consumed | `@strategy gates: its parameters ['changelog_ok'] are not consumed, so nothing would pass them. …` |
 | an observed artifact that is not a parameter | `@evidence the_changelog_is_up_to_date: it observes ['changelog'] but has no parameter for them. …` |
-| a list instead of a mapping | `@evidence(observes=...) maps each parameter to the path it receives: observes={'changelog': 'CHANGELOG.md'}` |
-| an absolute path | `@evidence(observes=...) takes paths relative to the run's working directory, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
+| a list instead of a mapping | `@evidence(observes=...) maps each parameter to what it receives: observes={'changelog': 'CHANGELOG.md'}` |
+| an absolute path | `@evidence(observes=...) takes paths relative to the file that declares the step, so that the library works on every machine, not '/home/me/CHANGELOG.md'` |
 | a directory | `@evidence(observes=...) takes files, and 'src/' names a directory. Observe the files it holds, with a glob such as 'src/**/*'.` |
 | `**` inside a name | `@evidence(observes=...): '**' matches any depth only as a whole part of a path, as in 'build/**/*.xml', not 'build/**.xml'` |
 | `..` after a wildcard | `@evidence(observes=...) takes '..' only before the first wildcard, as in '../shared/*.yml', not 'build/*/../x.xml'` |
@@ -126,10 +130,13 @@ def every_module_has_a_report(reports: list[Path], sources: list[Path]) -> Outco
 - **An evidence observes files.** A directory, written `"src/"`, is refused when the
   library is imported: observe the files it holds, with a glob such as `"src/**/*"`
   ([ADR-0019](adr/0019-evidence-observes-files.md)).
-- **Paths are relative** to the directory the runner runs in. An absolute path is refused
-  when the library is imported: the library must work on every machine. `.` and `..` are
-  resolved as the decorator reads the path, so `"mock/../mock/junit.xml"` is recorded as
-  `"mock/junit.xml"`, the name a changed file has; a `..` after a wildcard is refused.
+- **Paths are relative to the file that declares the step**, as a link in a Markdown
+  page is relative to the page: `"CHANGELOG.md"` is the file beside the library, and a
+  library in `justifications/` reaches the one at the root of the repository with
+  `"../CHANGELOG.md"`. The library therefore observes the same files wherever the runner
+  is started. The report shows each file relative to the directory the runner runs in,
+  the name a changed file has. An absolute path is refused when the library is imported:
+  the library must work on every machine. A `..` after a wildcard is refused.
 - **An observed artifact is never optional.** When the steps run, an artifact that is not
   there or cannot be read, or a glob that matches nothing, fails the evidence without
   calling it (`JP019`). A check that a file is *absent* does not declare it.
@@ -153,6 +160,31 @@ with tempfile.TemporaryDirectory() as directory:
     log.write_text("42 passed\n", encoding="utf-8")
     assert the_test_suite_passes(log) == Pass(tests_pass=True)
 ```
+
+### More than files
+
+A string in `observes` is a file. An evidence also observes a value in a JSON file, an
+environment variable, or anything an observable of your own reaches:
+
+```python
+from jpipe_runner import Env, JsonValue
+
+
+@evidence(
+    "release:e4",
+    observes={
+        "version": JsonValue("package.json", "/version"),
+        "stage": Env("DEPLOY_STAGE", display=True),
+    },
+    produces=["releasable"],
+)
+def the_release_is_configured(version: str, stage: str) -> Outcome:
+    return Pass(releasable=version == "2.0" and stage == "production")
+```
+
+[`observables.md`](observables.md) is the reference: each built-in observable, what a path
+is relative to, what the report records, what `jpipe-runner status` can check later, and
+how to write an observable.
 
 ## Returning an outcome
 
@@ -373,35 +405,58 @@ When models are composed, the step libraries written against each source model r
 together, against the composed model, in one run. Their ids keep binding (see
 [When the model is composed](#when-the-model-is-composed)), but what was separate is now
 shared, and a library may need a change for it. The
-[`assembled`](../tests/e2e/scenarios/assembled/) and
-[`unified`](../tests/e2e/scenarios/unified/) scenarios run such libraries.
+[`assembled`](../tests/e2e/scenarios/assembled/),
+[`unified`](../tests/e2e/scenarios/unified/) and
+[`shared_names`](../tests/e2e/scenarios/shared_names/) scenarios run such libraries.
 
-### Variable names are shared by every library of a run
+### A variable comes from the step's own supporters
 
-A run has one set of variables. A value one library produces can be consumed by another,
-and two libraries that produce the same name are two producers of one variable (`JP010`).
-Name a variable after what it means in its own model, rather than with a word every model
-would use, such as `ok` or `tests_pass`:
+A step receives a value only from a step that supports it, directly or not: it runs after
+its supporters, and is skipped if one of them does not pass. So a consumed variable is
+looked for among the consumer's supporters, not across the model
+([ADR-0031](adr/0031-variables-resolve-among-supporters.md)). Libraries written apart can
+therefore use the same name: in the [`shared_names`](../tests/e2e/scenarios/shared_names/)
+scenario, the evidence of `tested_steps.py` and that of `documented_steps.py` both produce
+`coverage`, and the strategy above each receives its own.
+
+A step above both sub-arguments, such as the strategy `assemble` adds, sees both values.
+The runner does not guess which one it means, nor picks the nearer:
+
+```
+JP025 error [readiness:assembleStrategy]: readiness_steps.both_coverages_clear_the_release_bar consumes 'coverage', which 2 of its supporters produce: 'readiness:tested:coverage', 'readiness:documented:coverage'
+  fix: Name the one it means, keeping the other entries of consumes: "coverage": Produced("coverage", by="readiness:tested:coverage").
+```
+
+Name the part of the argument each value comes from. `consumes` then maps each parameter
+to what it receives: a variable name, or `Produced(variable, by=id)`, where `by`
+designates an element as a step's ids do ([Binding](#binding-how-an-id-designates-an-element)).
+It may designate the producer itself, or an element it supports, such as the conclusion
+of the sub-argument the value comes from, which spares the integrator from knowing which
+step inside it produces the value. Two parameters may receive the same variable this way:
 
 ```python
-from pathlib import Path
+from jpipe_runner import Fail, Outcome, Pass, Produced, strategy
 
-from jpipe_runner import Outcome, evidence
-
-
-# tested_steps.py, written against the model `tested`
-@evidence("tested:suite", observes={"report": "build/junit.xml"}, produces=["suite_passes"])
-def the_test_suite_passes(report: Path) -> Outcome: ...
+RELEASE_BAR = 80.0
 
 
-# documented_steps.py, written against the model `documented`
-@evidence(
-    "documented:changelog",
-    observes={"changelog": "CHANGELOG.md"},
-    produces=["documented_release"],
+@strategy(
+    "readiness:assembleStrategy",
+    consumes={
+        "tests": Produced("coverage", by="tested:tested"),
+        "docs": Produced("coverage", by="documented:documented"),
+    },
 )
-def the_changelog_is_up_to_date(changelog: Path) -> Outcome: ...
+def both_coverages_clear_the_release_bar(tests: float, docs: float) -> Outcome:
+    """[strategy] Both coverages clear the release bar"""
+    if min(tests, docs) > RELEASE_BAR:
+        return Pass()
+    return Fail(f"coverage is {tests}% for the tests and {docs}% for the documentation")
 ```
+
+The JSON report says where each parameter's value came from, in each element's `inputs`
+([The JSON report](report-schema.md#elements)), and the diagram draws one node per value,
+each linked to the steps that receive it.
 
 ### Library file names must differ
 
@@ -479,9 +534,10 @@ and the run continues. [`rules.md`](rules.md) describes every check; in short:
   (`JP006`, `JP007`, `JP015`);
 - a step's decorator is its element's kind (`JP016`), unless composition changed the
   element's kind (`JP008`, a warning);
-- every consumed variable is produced by one step (`JP009`, `JP010`), which supports its
-  consumer, directly or not (`JP014`): a step runs only after its supporters pass, so a
-  value from another branch might never exist;
+- every consumed variable is produced by a step that supports its consumer, directly or
+  not (`JP009`, `JP014`): a step runs only after its supporters pass, so a value from
+  another branch might never exist; and by one only (`JP025`), unless the step names the
+  part of the argument it comes from, with `Produced(variable, by=id)`;
 - an evidence produces a value another step consumes (`JP012`); a strategy consumes what
   its supporters produce for other steps (`JP013`, a warning), and a produced value is
   consumed somewhere (`JP011`, a warning).

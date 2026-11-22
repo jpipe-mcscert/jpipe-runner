@@ -72,16 +72,20 @@ bound; a conclusion or a sub-conclusion left **unbound** takes its
 ### Variable
 
 A named value that flows up the argument: a step **produces** it, by returning it in a
-`Pass`, and the steps above it **consume** it, as parameters of the same name. A variable
-has one producer in a run, and the producer must support each consumer, so that the value
-exists when the consumer runs.
+`Pass`, and the steps above it **consume** it, as parameters of the same name, or of the
+name `consumes` maps it to. A consumer receives a variable from the one step among its
+supporters that produces it, so that the value exists when the consumer runs. Two steps
+may produce the same name, as libraries written for separate models do, as long as no
+consumer sees both; one that does names the part of the argument the value comes from,
+with `Produced(variable, by=id)`.
 
 ### Artifact
 
-A file an evidence **observes**: declared with `observes`, as a path or a glob, relative to
-the [working directory](#working-directory), and passed to the step as a parameter. The
-runner records each file it observed, with its SHA-256 and size, just before the step is
-called. See [Observing artifacts](authoring.md#observing-artifacts).
+What an evidence **observes**: a file or a glob of files, a value in a JSON file, an
+environment variable, or what an observable of the step library reaches. It is declared
+with `observes` and passed to the step as a parameter. A path is relative to the file that
+declares the step. The runner records what it observed, a file with its SHA-256 and size,
+just before the step is called. See [`observables.md`](observables.md).
 
 ### Outcome
 
@@ -99,8 +103,9 @@ passed, as an independent check of the same claim; validation points it out with
 
 ### Working directory
 
-The directory the runner runs in, and the root of the run: the paths an evidence observes,
-and the paths a report shows, are relative to it.
+The directory the runner runs in, and the root of the run: the paths a report shows are
+relative to it. The paths an evidence observes are not: they are relative to the file that
+declares its step, so that a library observes the same files wherever the runner runs.
 
 ### Validation
 
@@ -138,3 +143,10 @@ report**, the versioned contract for programs, described in
 and its diagnostics, even when the model is refused or validation stops it; only a file
 that cannot be read at all, such as a missing justification, leaves an error on stderr
 and no report.
+
+### Event
+
+What a run tells a program while it runs, with `--events`: that validation ended, that an
+element's step is about to be called, that an element is decided, that the run ended. The
+events preview the report, which stays the authority; they are described in
+[`events.md`](events.md).

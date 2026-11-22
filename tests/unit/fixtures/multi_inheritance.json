@@ -1,0 +1,100 @@
+{
+  "implements": {
+    "elements": [
+      "leaf_intermediate:intermediate:abs_i",
+      "leaf_intermediate:root:abs2"
+    ],
+    "templates": [
+      {
+        "elements": [
+          "leaf_intermediate:intermediate:s",
+          "leaf_intermediate:intermediate:abs_i",
+          "leaf_intermediate:root:abs1"
+        ],
+        "name": "intermediate",
+        "placeholders": [{
+          "supports": ["leaf_intermediate:intermediate:s"],
+          "id": "leaf_intermediate:intermediate:abs_i",
+          "label": "An intermediate abstract support #3"
+        }]
+      },
+      {
+        "elements": [
+          "leaf_intermediate:root:c",
+          "leaf_intermediate:root:s",
+          "leaf_intermediate:root:abs1",
+          "leaf_intermediate:root:abs2"
+        ],
+        "name": "root",
+        "placeholders": [
+          {
+            "supports": ["leaf_intermediate:root:s"],
+            "id": "leaf_intermediate:root:abs1",
+            "label": "A root abstract support #1"
+          },
+          {
+            "supports": ["leaf_intermediate:root:s"],
+            "id": "leaf_intermediate:root:abs2",
+            "label": "A root abstract support #2"
+          }
+        ]
+      }
+    ]
+  },
+  "elements": [
+    {
+      "id": "leaf_intermediate:root:c",
+      "label": "A root conclusion",
+      "type": "conclusion"
+    },
+    {
+      "id": "leaf_intermediate:root:s",
+      "label": "A root strategy",
+      "type": "strategy"
+    },
+    {
+      "id": "leaf_intermediate:root:abs1",
+      "label": "an intermediate sub conclusion #1",
+      "type": "sub-conclusion"
+    },
+    {
+      "id": "leaf_intermediate:intermediate:s",
+      "label": "An intermediate strategy",
+      "type": "strategy"
+    },
+    {
+      "id": "leaf_intermediate:intermediate:abs_i",
+      "label": "A leaf support  #3",
+      "type": "evidence"
+    },
+    {
+      "id": "leaf_intermediate:root:abs2",
+      "label": "A leaf evidence #2",
+      "type": "evidence"
+    }
+  ],
+  "name": "leaf_intermediate",
+  "type": "justification",
+  "relations": [
+    {
+      "source": "leaf_intermediate:root:s",
+      "target": "leaf_intermediate:root:c"
+    },
+    {
+      "source": "leaf_intermediate:intermediate:s",
+      "target": "leaf_intermediate:root:abs1"
+    },
+    {
+      "source": "leaf_intermediate:root:abs1",
+      "target": "leaf_intermediate:root:s"
+    },
+    {
+      "source": "leaf_intermediate:root:abs2",
+      "target": "leaf_intermediate:root:s"
+    },
+    {
+      "source": "leaf_intermediate:intermediate:abs_i",
+      "target": "leaf_intermediate:intermediate:s"
+    }
+  ]
+}

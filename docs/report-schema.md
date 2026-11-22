@@ -18,9 +18,19 @@ instead.
 
 ## Versioning
 
-`schema_version` is the first field, `"1.0"`. Within a major version, a minor version only
-adds optional fields: **ignore the fields you do not know**. Renaming or removing a field,
-or changing what one means, is a new major version.
+`schema_version` is the first field, `"2.0"`. Within a major version, a minor version only
+adds optional fields: **ignore the fields you do not know**, and do not count on one that
+an earlier minor version lacks. Renaming or removing a field, or changing what one means,
+is a new major version.
+
+| Version | Runner | Changed |
+|---|---|---|
+| 1.0 | 4.0.0 | |
+| 2.0 | 4.1.0 | added an element's `sources`, `inputs` and `observations`, and `declared`, `value` and `read` on each of its [artifacts](#artifacts); removed `dataflow`, as the runner draws one diagram, the dataflow, whose path is `diagram` |
+
+`jpipe-runner impact` and `jpipe-runner status` read a report of version 1.x as well: the
+one field 2.0 removed is one they never read, so a report saved by an earlier runner, such
+as a baseline, still works.
 
 The schema is strict: it lists every field the runner writes, so the runner cannot add one
 without documenting it.
@@ -37,15 +47,14 @@ committed, compared with `diff`, or archived with the artifacts it lists.
 
 | Field | Type | |
 |---|---|---|
-| `schema_version` | string | `"1.0"` |
+| `schema_version` | string | `"2.0"` |
 | `justification` | string or null | the justification's name; null if the model was refused before it could be read |
 | `verdict` | `pass`, `fail`, `skip`, `invalid` or `valid` | `fail` if an element failed; `skip` if none failed and one was skipped; `pass` if every element passed; `invalid` if nothing ran; `valid` if a dry run found nothing wrong |
 | `strict` | boolean | whether the run was strict: validation counted warnings as errors, and the command line failed a skipped verdict (`--strict`) |
 | `summary` | object | see [Summary](#summary) |
 | `elements` | array | every element of the justification, each after the elements that support it; see [Elements](#elements) |
 | `diagnostics` | array | every problem found, in the order found; see [Diagnostics](#diagnostics) |
-| `diagram` | string or null | the path of the diagram drawn for the run, if one was |
-| `dataflow` | string or null | the path of the dataflow diagram drawn for the run, if one was |
+| `diagram` | string or null | the path of the diagram drawn for the run, its dataflow, if one was |
 
 **Every way a run ends has a report**, but for a file that cannot be read at all, such
 as a missing justification, which is an error on stderr ([`cli.md`](cli.md#exit-codes)).
@@ -62,8 +71,8 @@ error, its verdict is `valid`, and every element is listed with its step and wha
 step declares, with `status` null; the diagnostics are validation's warnings. When
 validation reports an error, it is `invalid`, as any other run would be.
 
-The paths of `diagram` and `dataflow` are relative to the directory the runner runs in,
-when the diagram was drawn under it.
+The path of `diagram` is relative to the directory the runner runs in, when the diagram
+was drawn under it.
 
 ## Elements
 
@@ -80,10 +89,13 @@ when the diagram was drawn under it.
 | `ran` | boolean | whether its step was called |
 | `bound_to` | string or null | its step, `module.function`; null if it has none |
 | `bound_by` | array of strings | the step's ids that designate this element, as the step names them |
-| `observes` | array of strings | the paths and globs its step declares it observes |
-| `consumes`, `produces` | arrays of strings | the variables its step declares |
+| `observes` | array of strings | the files, as globs, that what its step observes depends on: a change to one reaches the element. A wildcard in the name of a directory the runner put in front of a declared path is escaped: `app/[[]slug]/*.md` |
+| `sources` | array of strings | everything its step declares it observes: a path or a glob, escaped as in `observes`, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
+| `consumes`, `produces` | arrays of strings | the variables its step declares, each once |
+| `inputs` | object | what each parameter of its step receives, by parameter: its `variable`, and `produced_by`, the id of the element whose step produced it, among the element's supporters, or null when it resolves to no single one ([ADR-0031](adr/0031-variables-resolve-among-supporters.md)) |
 | `produced` | object | the values its step produced, by variable; see [Produced values](#produced-values) |
 | `artifacts` | array | the files its step observed; see [Artifacts](#artifacts) |
+| `observations` | array | what its step observed that is not a file; see [Observations](#observations) |
 
 On a composed model, `aliases` and `bound_by` answer the first question a surprising
 binding raises: where did this element come from, and which of its ids did my step name?
@@ -115,14 +127,40 @@ Each file an evidence observed, recorded just before its step was called
 | Field | Type | |
 |---|---|---|
 | `path` | string | the file; for a glob, one entry per file it matched |
-| `reachable` | boolean | whether the file could be read |
+| `declared` | string | the one of the element's `sources` that designates the file; absent before 2.0 |
+| `value` | [value](#produced-values) | the value observed in the file, when what was observed is a value in it (`JsonValue`); absent otherwise |
+| `reachable` | boolean | whether the file could be read, and the `value` in it found |
 | `sha256` | string or null | the SHA-256 of its content, as `sha256sum` prints it; null if unreachable |
 | `size` | integer or null | its size in bytes; null if unreachable |
+| `read` | object | `sha256` and `size`, as above, of a file that was read and is unreachable all the same, because what was observed in it was not found, such as a JSON Pointer that designates nothing; absent otherwise |
 
 An unreachable artifact is listed, and the report's diagnostics include its `JP019`, about
-that element. A glob that matched nothing is listed once, under its pattern. An element whose step was not
+that element. `jpipe-runner status` compares a file that has a `read` as it compares a
+reachable one, by its SHA-256. A glob that matched nothing is listed once, under its pattern: its `path` is its
+`declared`. A file that several of the `sources` designate is listed once under each. An element whose step was not
 called observed nothing, and its `artifacts` is empty; what its step would have observed
 is in `observes`.
+
+## Observations
+
+What an evidence observed that is not a file, such as an environment variable, recorded
+just before its step was called ([`observables.md`](observables.md),
+[ADR-0028](adr/0028-observables-and-file-relative-paths.md)):
+
+| Field | Type | |
+|---|---|---|
+| `declared` | string | the one of the element's `sources` that designates it, such as `env:CI` |
+| `variable` | string or null | the environment variable it is the value of; null if it is not one |
+| `reachable` | boolean | whether it could be observed |
+| `hidden` | boolean | whether what was observed is kept out of the report |
+| `sha256` | string or null | the SHA-256 of the value written as JSON; null if it was not reached, or is hidden |
+| `value` | [value](#produced-values) or null | the value observed; null if it was not reached, or is hidden |
+
+Everything observed is recorded: a reachable observation has a `sha256`, or is `hidden`.
+An environment variable is hidden unless its step says `Env("CI", display=True)`: the
+report then says only that it was observed. `jpipe-runner status` reads a `variable`
+again and compares it; it cannot confirm a report that holds a hidden observation, or one
+that is neither a file nor a variable, and says that a new run is needed.
 
 ## Diagnostics
 
@@ -164,7 +202,7 @@ failures:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "release",
   "verdict": "fail",
   "strict": false,
@@ -197,7 +235,11 @@ failures:
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tests_pass"
       ],
@@ -205,11 +247,13 @@ failures:
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b",
           "size": 187
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:e2",
@@ -230,7 +274,11 @@ failures:
       "observes": [
         "mock/CHANGELOG.md"
       ],
+      "sources": [
+        "mock/CHANGELOG.md"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "changelog_ok"
       ],
@@ -242,11 +290,13 @@ failures:
       "artifacts": [
         {
           "path": "mock/CHANGELOG.md",
+          "declared": "mock/CHANGELOG.md",
           "reachable": true,
           "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
           "size": 4
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:s",
@@ -267,13 +317,25 @@ failures:
         "release:s"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "tests_pass",
         "changelog_ok"
       ],
+      "inputs": {
+        "tests_pass": {
+          "variable": "tests_pass",
+          "produced_by": "release:e1"
+        },
+        "changelog_ok": {
+          "variable": "changelog_ok",
+          "produced_by": "release:e2"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:c",
@@ -290,15 +352,17 @@ failures:
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }
 ```
 
@@ -306,7 +370,7 @@ A step that raises (the `exception_handling` scenario):
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "error_prone",
   "verdict": "fail",
   "strict": false,
@@ -337,12 +401,15 @@ A step that raises (the `exception_handling` scenario):
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "result"
       ],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -361,12 +428,20 @@ A step that raises (the `exception_handling` scenario):
         "C1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "result"
       ],
+      "inputs": {
+        "result": {
+          "variable": "result",
+          "produced_by": "S1"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -391,8 +466,7 @@ A step that raises (the `exception_handling` scenario):
       }
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }
 ```
 
@@ -400,7 +474,7 @@ A model the loader refuses (the `circular_dependency` scenario):
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": null,
   "verdict": "invalid",
   "strict": false,
@@ -424,7 +498,6 @@ A model the loader refuses (the `circular_dependency` scenario):
       "traceback": null
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }
 ```

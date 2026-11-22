@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator
 
 from jpipe_runner import loader
 from jpipe_runner.diagnostics import Severity
-from jpipe_runner.model import InvalidJustificationError, Kind
+from jpipe_runner.model import InvalidJustificationError, Kind, Placeholder, Template, TemplateChain
 from tests.strategies import justifications
 
 VALID: dict[str, Any] = {
@@ -87,6 +87,50 @@ def test_properties_the_runner_does_not_use_are_ignored() -> None:
     relations = [{**r, "kind": "support"} for r in VALID["relations"]]
     justification = loader.loads(edited(elements=elements, relations=relations, version="2"))
     assert len(justification) == 3
+
+
+CHAIN = {
+    "elements": ["release:e"],
+    "templates": [
+        {
+            "name": "base",
+            "elements": ["release:c", "release:s", "release:e"],
+            "placeholders": [{"id": "release:e", "label": "Tested", "supports": ["release:s"]}],
+        }
+    ],
+}
+
+
+def test_the_template_chain_is_read_for_the_diagram() -> None:
+    justification = loader.loads(edited(implements=CHAIN))
+
+    assert justification.template_chain == TemplateChain(
+        elements=("release:e",),
+        templates=(
+            Template(
+                "base",
+                ("release:c", "release:s", "release:e"),
+                (Placeholder("release:e", "Tested", ("release:s",)),),
+            ),
+        ),
+    )
+
+
+def test_a_model_that_implements_no_template_has_no_chain() -> None:
+    assert loader.loads(json.dumps(VALID)).template_chain is None
+
+
+def test_a_template_chain_out_of_the_schema_is_refused() -> None:
+    assert failure(edited(implements={"elements": []})) == [("JP001", None)]
+
+
+def test_a_template_chain_that_names_no_element_is_set_aside() -> None:
+    chain = {**CHAIN, "elements": ["release:x"]}
+
+    justification = loader.loads(edited(implements=chain))
+
+    assert justification.template_chain is None
+    assert justification.unknown_in_template_chain == ("release:x",)
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "math_operations",
   "verdict": "pass",
   "strict": false,
@@ -32,7 +32,11 @@
       "observes": [
         "mock/number_a.txt"
       ],
+      "sources": [
+        "mock/number_a.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_a"
       ],
@@ -44,11 +48,13 @@
       "artifacts": [
         {
           "path": "mock/number_a.txt",
+          "declared": "mock/number_a.txt",
           "reachable": true,
           "sha256": "917df3320d778ddbaa5c5c7742bc4046bf803c36ed2b050f30844ed206783469",
           "size": 3
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "E2",
@@ -69,7 +75,11 @@
       "observes": [
         "mock/number_b.txt"
       ],
+      "sources": [
+        "mock/number_b.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "number_b"
       ],
@@ -81,11 +91,13 @@
       "artifacts": [
         {
           "path": "mock/number_b.txt",
+          "declared": "mock/number_b.txt",
           "reachable": true,
           "sha256": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06",
           "size": 2
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "S1",
@@ -104,10 +116,21 @@
         "S1"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "number_a",
         "number_b"
       ],
+      "inputs": {
+        "number_a": {
+          "variable": "number_a",
+          "produced_by": "E1"
+        },
+        "number_b": {
+          "variable": "number_b",
+          "produced_by": "E2"
+        }
+      },
       "produces": [
         "total"
       ],
@@ -116,7 +139,8 @@
           "value": 15
         }
       },
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "C1",
@@ -131,10 +155,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -147,6 +174,5 @@
       "traceback": null
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

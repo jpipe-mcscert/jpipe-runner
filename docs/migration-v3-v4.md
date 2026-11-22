@@ -1,7 +1,8 @@
 # Migrating from v3 to v4
 
-v4 is a rewrite of jpipe-runner ([ADR-0002](adr/0002-rewrite-from-scratch.md)), and every
-v3 step library needs changes to run on it. This page says what changed, in the order a
+v4 is a rewrite of jpipe-runner
+([ADR-0002](https://github.com/jpipe-mcscert/jpipe-runner/blob/v4.0.0/docs/adr/0002-rewrite-from-scratch.md)),
+and every v3 step library needs changes to run on it. This page says what changed, in the order a
 port meets it: the step library, then the command line, the packages, and the GitHub
 Action. The [CHANGELOG](../CHANGELOG.md) lists every change; [`concepts.md`](concepts.md)
 defines the words used here.
@@ -171,13 +172,13 @@ for another step, an error in v3, is now a warning (`JP013`).
 | `-l`, `--library`, optional | `-l`, `--library`, required; a file or a quoted glob |
 | `-p`, `--python-path`, the working directory by default | no default: pass `-p .` to import modules from the working directory |
 | `-d`, `--diagram PATTERN`, which was ignored | `--diagram PATH`, the file to draw |
-| `-f`, `--format`, and `-o`, `--output-path DIR` | the suffix of `--diagram PATH` or `--dataflow PATH` is the format |
+| `-f`, `--format`, and `-o`, `--output-path DIR` | the suffix of `--diagram PATH` is the format |
 | `--dry-run`, which reported a pass | `--dry-run` validates, calls no step, and reports `valid` |
 | a justification ending in `.json` | any file name: its content is checked, and a `.jd` file is refused with a fix |
 
-v4 adds `--json` and `--report PATH` (the JSON report), `--dataflow PATH`, `--strict`,
-`--colour`, `--version`, and the `impact` and `status` subcommands: [`cli.md`](cli.md)
-describes them all.
+v4 adds `--json` and `--report PATH` (the JSON report), `--strict`, `--colour`,
+`--version`, and the `impact` and `status` subcommands: [`cli.md`](cli.md) describes them
+all.
 
 **Exit codes.** v3 exited 1 for every problem. v4 exits 0 when the justification holds, 1
 when it fails, 2 for a usage error, 3 when nothing could run, and 4 when a file could not

@@ -7,7 +7,129 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-21
+
+### ⚠️ Breaking
+- **A path an evidence observes is relative to the file that declares its step**, no
+  longer to the directory `jpipe-runner` runs in, so a library observes the same files
+  wherever the command is typed. This corrects 4.0.0
+  ([ADR-0028](docs/adr/0028-observables-and-file-relative-paths.md)). A library that sits
+  beside the files it observes and is run from its own directory is unaffected. **One in
+  a subdirectory, run from elsewhere, must have its paths rewritten from its own
+  directory**: `observes={"changelog": "CHANGELOG.md"}` in `justifications/steps.py`
+  becomes `"../CHANGELOG.md"`. Until then its evidence fails with `JP019`, which names
+  where the file was looked for. The report still shows every file relative to the
+  directory the command runs in, so `impact` and `status` work as before. A declared
+  path is shown as a glob there: a wildcard in the name of the library's directory is
+  escaped, so a library in `app/[slug]/` that observes `"*.md"` is shown as
+  `app/[[]slug]/*.md`, and observes the files in that directory only.
+- **The runner draws one diagram, the dataflow, and `--diagram PATH` draws it.**
+  `--dataflow` is removed: pass `--diagram` instead. The diagram is the justification, in
+  the jPipe compiler's notation, with the files each evidence observes, the variables the
+  steps produce and consume, and the run's statuses over its elements. The argument alone,
+  with the run's colours over it, is no longer drawn: `jpipe process -f SVG` draws the
+  argument ([ADR-0029](docs/adr/0029-the-runner-draws-the-dataflow.md)). The GitHub
+  Action's `dataflow` input and the Run panel of the VS Code extension pass `--dataflow`:
+  they need a release that passes `--diagram` before they use this version.
+- **The JSON report is version `2.0`, without its `dataflow` field.** `diagram` is the
+  path of the one diagram. A program that checks `schema_version` must accept `2.0`, and
+  one that read `dataflow` must read `diagram`. `jpipe-runner impact` and
+  `jpipe-runner status` still read reports of version `1.x`, such as a saved baseline.
+
+### Added
+- **`--events PATH` streams a run's events as it goes**, for a program that shows the run
+  while it runs, such as the IDE's Run panel (#169,
+  [ADR-0030](docs/adr/0030-a-run-streams-its-events.md)). The file receives one JSON
+  object per line, each flushed as written: the run started, with every element's id;
+  validation ended; an element's step is about to be called; each source it observes was
+  observed, and whether it was reached, before the step is called; an element is decided,
+  as the JSON report will write it; the run ended, with its verdict, its exit code and where the
+  report is. The report stays the authority. The events are described by
+  `events.schema.json`, shipped in the package, with a version of their own, and in
+  [`docs/events.md`](docs/events.md). Their order promises only that an element is
+  decided after the elements that support it, and that the sources it observes come
+  between its start and its decision, so that a consumer still works when steps run
+  concurrently (#174). A file that cannot be opened stops the command before anything
+  runs, and one that cannot be written to during the run makes it exit 4 after its report.
+- **With `--events`, the diagram is drawn before the first step**, as a dry run would draw
+  it, in a temporary SVG file, and the `diagram.drawn` event gives its path, so that a
+  program can colour the drawing as the run goes without running a dry run first (#185,
+  [ADR-0032](docs/adr/0032-a-run-previews-its-diagram.md)). The runner deletes it once the
+  run has ended. `--diagram` is not needed for it, and its file holds only the run's own
+  diagram, drawn at the end as before; a status never moves a node, so the two line up.
+  The drawing needs Graphviz's `dot`; without it, a warning says it is not drawn, and the
+  run goes on. A diagram is now written whole, under another name then renamed, so a
+  reader never sees half of one.
+- **The diagram draws the templates a justification implements**, as the jPipe compiler
+  does: each template a `<<template>>` cluster, each `@support` a dotted placeholder
+  linked to the element that fills it, and the template's supports drawn from the
+  placeholders. The diagram drew the argument flat, so nothing showed which elements came
+  from a template. This needs a justification compiled by jPipe 4.0.0 or later, which
+  writes the template chain to its JSON (`implements`); one compiled earlier is still
+  drawn flat (#171). A chain that names an element the justification does not have is
+  set aside with a warning, `JP026`, and the diagram is drawn flat: the run does not read
+  the chain, so only a strict run, which counts every warning as an error, refuses the
+  argument for it (#177).
+- **The diagram shows each status as a symbol, not only as a colour**, so it reads with a
+  colour vision deficiency and in greyscale: ✔ beside the label of an element that passed,
+  ✘ of one that failed, ◌ of one that was skipped. What an evidence observes is marked ✔
+  once observed, or ⚠ when it could not be reached. A variable has no mark: one without
+  one producer and a consumer is drawn in vermillion. A support edge from a failure is
+  drawn thicker. The colours are unchanged, and a failure keeps its font. **A
+  status never moves the diagram** (#186): each symbol sits in a cell of fixed size, empty
+  when there is none, so a dry run's diagram and the diagrams of runs with different
+  statuses put every node in the same place. A PNG or PDF diagram needs a font
+  with these symbols where Graphviz runs, such as DejaVu Sans; an SVG leaves them to the
+  browser.
+- **An evidence observes more than files.** Beside a path, `observes` takes
+  `JsonValue("package.json", "/version")`, a value in a JSON file, and `Env("CI")`, an
+  environment variable; the step receives the value. Both are imported from
+  `jpipe_runner`, with `File`, which a path stands for. An environment variable is not
+  shown in the report unless its step says `Env("CI", display=True)`
+  ([`docs/observables.md`](docs/observables.md)). The diagram draws each kind in a shape
+  of its own: a file as a tab, a glob as a folder, a value in a JSON file as a component,
+  an environment variable as a house
+  ([`docs/observables.md`](docs/observables.md#how-the-diagram-draws-them)).
+- **A step library defines what else to observe**, by deriving `Observable`: how the
+  report names it, what it is now, the files a change to which reaches it, and the shape
+  the diagram draws it in, a `box3d` unless it says otherwise. A shape that means
+  something else in the diagram, such as an evidence's `note`, is refused when the library
+  is imported ([`docs/observables.md`](docs/observables.md#writing-your-own-observable)).
+- **The JSON report says more about what was observed**, in `schema_version` `2.0`. An
+  element has `sources`, everything its step declares it observes, and `observations`,
+  what it observed that is not a file. Each of its `artifacts` has `declared`, the source
+  that designates the file, so a reader no longer matches files to globs itself, and the
+  `value` observed in it, if one was. A file that was read and is unreachable all the
+  same, such as one where a `JsonValue`'s pointer designates nothing, has `read`, its
+  SHA-256 and size, so that `status` sees whether it changed. These fields are added:
+  `observes` still lists paths and globs, and `jpipe-runner status` still reads the `1.0`
+  reports of 4.0.0
+  ([ADR-0027](docs/adr/0027-one-pipeline-for-observed-artifacts.md)).
+- **Step libraries written apart can use the same variable name** (#187,
+  [ADR-0031](docs/adr/0031-variables-resolve-among-supporters.md)). A step receives a
+  variable from the step among its supporters that produces it, so two libraries for
+  separate models, each producing `coverage` for its own strategy, now run together once
+  the models are composed, without renaming. A step that sees both, such as the strategy
+  `assemble` adds, names where each value comes from with the new
+  `Produced(variable, by=id)`, in a `consumes` that maps each parameter to its source:
+  `consumes={"tests": Produced("coverage", by="tested:tested")}`. `by` designates the
+  producer, or an element it supports, as a step's ids do. Without it, validation reports
+  the ambiguity (`JP025`). Each element of the JSON report has `inputs`: what each
+  parameter of its step received, and from which element. The diagram draws one node per
+  value, so two values of one name are two nodes.
+- **`jpipe-runner status` compares environment variables too**, and answers for
+  everything a run observed or not at all. A report that hides a value (an `Env` without
+  `display=True`), or holds what only an observable of the step library can observe
+  again, cannot be confirmed: `status` says that a new run is needed, and exits 1.
+
 ### Changed
+- **`JP010` is retired.** Two steps producing the same variable are no longer an error in
+  themselves, only when one consumer sees both, which `JP025` reports. `JP014` reports a
+  consumer none of whose supporters produces the variable, and no longer a namesake on
+  another branch. A library valid in 4.0.0 resolves every variable as before.
+- **The diagram draws a support once.** When an element produces a variable that the
+  element it supports consumes, the path through the variable shows the support, and the
+  direct arrow between them is left out.
 - **networkx and jsonschema are ranges, not pins**: `networkx >=2.8.8,<4` and
   `jsonschema >=4.10.3,<5`. 4.0.0 required networkx 3.5 exactly, so pip could not install
   it beside a package that needs another networkx. The floors are the versions Ubuntu
@@ -20,10 +142,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--help` lists the exit codes one per line, each with its meaning, instead of in a
   paragraph. `jpipe-runner impact --help` now lists them too.
 
+### Fixed
+- **A glob that ends with `**`, such as `observes={"sources": "src/**"}`, observes the
+  files below it on every version of Python.** On Python 3.11 and 3.12 it matched
+  directories only, so the evidence failed with `JP019` while `jpipe-runner impact`
+  reported it as affected by changes to those files.
+- The dataflow diagram no longer draws a glob as unreachable when its evidence also
+  observes a file, in a directory below, that could not be reached: `build/*.xml` took
+  `build/old/a.xml` for one of its files.
+- `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
+  read then and can be now, when its name holds `*`, `?` or `[`.
+- `--report` or `--diagram` naming the justification or a step library, a file a
+  library's glob matches, or a link to one, is a usage error (exit code 2), and nothing
+  runs. The file was overwritten when the run ended.
+- A step that produces an integer too long for Python to write in decimal (more than 4300
+  digits, by default) no longer crashes the run when the report is written: the value is
+  written as its `repr` and its type, as a value that is not JSON is.
+
+_Contributors: Sébastien Mosser._
+
 ## [4.0.0] - 2026-11-10
 
 _v4 is a from-scratch rewrite and a breaking release for every v3 user
-([ADR-0002](docs/adr/0002-rewrite-from-scratch.md)). v3 stays installable as 3.6.0._
+([ADR-0002](https://github.com/jpipe-mcscert/jpipe-runner/blob/v4.0.0/docs/adr/0002-rewrite-from-scratch.md)).
+v3 stays installable as 3.6.0._
 
 ### ⚠️ Breaking
 [`docs/migration-v3-v4.md`](docs/migration-v3-v4.md) takes a v3 step library and command
@@ -610,7 +752,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
-[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.6.0...v4.0.0
 [3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
 [3.5.3]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.2...v3.5.3

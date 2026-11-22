@@ -10,7 +10,7 @@ every exit code. [`tutorial.md`](tutorial.md) walks through a first run,
 
 ```
 jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...
-             [--json] [--report PATH] [--diagram PATH] [--dataflow PATH]
+             [--json] [--report PATH] [--events PATH] [--diagram PATH]
              [--strict] [--dry-run] [--colour {auto,always,never}]
              [-v | -vv | -q] [--version]  JUSTIFICATION
 jpipe-runner impact -l … [-p …]... (--changed PATH [--changed …]... | --since REF) JUSTIFICATION
@@ -56,8 +56,8 @@ $ echo $?
 | `--dry-run` | Validate the step libraries against the justification, and call no step: the verdict is `valid`, or `invalid`. |
 | `--json` | Print the JSON report on stdout, instead of the text report. |
 | `--report PATH` | Write the JSON report to `PATH`, whatever stdout shows. |
-| `--diagram PATH` | Draw the justification, with the run over it, to `PATH`. |
-| `--dataflow PATH` | Draw the justification with the files and variables its steps declare to `PATH`. |
+| `--events PATH` | Write the run's events to `PATH` as the run goes, one JSON object per line, for a program that shows the run while it runs: see [`events.md`](events.md). |
+| `--diagram PATH` | Draw the dataflow, with the run over it, to `PATH`: the justification, and the files and variables its steps declare. |
 | `--colour WHEN` | Colour the text report: `auto` (the default) on a terminal unless `NO_COLOR` is set, `always`, or `never`. |
 | `-v`, `--verbose` | Log what the run does, on stderr; `-vv` logs details. |
 | `-q`, `--quiet` | Log errors only. |
@@ -73,25 +73,50 @@ the JSON report instead, the contract for programs, described in
 [`report-schema.md`](report-schema.md). `--report PATH` writes the JSON report to a file
 as well, so that one run gives the text to a person and the JSON to a program.
 
-**Diagrams** are drawn as the jPipe compiler draws them, with the run's statuses over them
-([ADR-0022](adr/0022-diagrams-follow-the-compiler.md)). `--diagram` draws the argument,
-`--dataflow` adds the files each evidence observes and the variables the steps produce
-and consume; both can be drawn in one run. The suffix of the file is its format: `dot`,
-`gif`, `jpeg`, `jpg`, `pdf`, `png` or `svg`. Every format but `dot` needs Graphviz's `dot`
-command. The report records where each diagram was written, and the text report says so
-above the verdict.
+**The events** let a program follow a run while it runs, as the IDE does: `--events PATH`
+writes one JSON object per line to `PATH` as the run goes, each flushed as it is written.
+A line says that validation ended, that a step is about to be called, or that an element
+is decided, as the report will show it; the last says the run ended, and where its report
+is. The report stays the authority. [`events.md`](events.md) describes every event
+([ADR-0030](adr/0030-a-run-streams-its-events.md)). A file that cannot be opened stops the
+command before anything runs, with exit code 4; one that cannot be written to while the run
+goes on lets it end, and its exit code is 4.
+
+**The diagram** is the run's dataflow
+([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)): the justification, in the jPipe
+compiler's notation, with the files each evidence observes and the variables the steps
+produce and consume, and the run's statuses over its elements. A support is not drawn when
+a variable already links its two ends: the variable shows it. A justification that
+implements a template is drawn as the compiler draws it: each template a cluster, each
+`@support` a dotted placeholder linked to the element that fills it, and the template's
+supports drawn from the placeholders, even when a variable links their ends. The
+justification must be compiled by jPipe 4.0.0 or later, which writes the template chain to
+its JSON; an older one draws the argument flat, as does one whose chain names an element
+it does not have, with a warning ([`JP026`](rules.md#jp026-danglingtemplatechain)). The suffix of the file is
+its format: `dot`, `gif`, `jpeg`, `jpg`, `pdf`, `png` or `svg`. Every format but `dot`
+needs Graphviz's `dot` command. The report records where the diagram was written, and the
+text report says so above the verdict. A status never moves a node: the elements and files
+are where a dry run puts them. With `--events`, a run that calls its steps also draws its
+diagram before the first step, without statuses, in a temporary SVG file it deletes once
+the run has ended, and says so in an event, for a program that colours it as the run goes
+([`events.md`](events.md#diagramdrawn)); the `--diagram` file holds only the run's own
+diagram. What an evidence observes is drawn in the shape of its kind, a file as a tab, a
+glob as a folder, a value in a JSON file as a component, an environment variable as a
+house ([`observables.md`](observables.md#how-the-diagram-draws-them)), and marked ✔ once
+observed, or ⚠ when it could not be. A variable has no mark: whether one lacks a producer
+or a consumer is known before the run, and it is then drawn in vermillion.
 
 **Outputs are checked before anything runs.** An output whose suffix is not a format, that
-is a directory, or that two options would both write, is a usage error, and so nothing
-runs:
+is a directory, that two options would both write, or that the run reads, the
+justification or a step library, is a usage error, and so nothing runs:
 
 ```console
-$ jpipe-runner --library steps.py --diagram release.png --dataflow release.png justification.json
+$ jpipe-runner --library steps.py --diagram release.png --report release.png justification.json
 usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
-                    [--report PATH] [--diagram PATH] [--dataflow PATH]
+                    [--report PATH] [--events PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
-jpipe-runner: error: --diagram and --dataflow both write release.png
+jpipe-runner: error: --report and --diagram both write release.png
 $ echo $?
 2
 ```
@@ -115,7 +140,7 @@ terminal: use `--colour always` there. `always` and `never` override `NO_COLOR`.
 | 1 | The justification does not hold: an element failed (`fail`), or, with `--strict`, one was skipped. |
 | 2 | The command line is wrong: an unknown option, no `--library`, an output that cannot be written. Nothing ran. |
 | 3 | Nothing could run (`invalid`): the justification was refused, a step library could not be imported, or validation reported an error. The report says why. |
-| 4 | A file could not be read or written: the justification, a step library, a python path, the JSON report or a diagram. |
+| 4 | A file could not be read or written: the justification, a step library, a python path, the JSON report, the events or a diagram. |
 
 When a file the command was asked to write cannot be written after the run, the report is
 still printed, and the exit code is 4: the verdict is in the report.
@@ -147,7 +172,7 @@ $ echo $?
 ```
 
 Its JSON report lists every element, with its step and what that step declares, and a
-null status. `--dry-run --dataflow flow.svg` draws the dataflow the library declares
+null status. `--dry-run --diagram flow.svg` draws the dataflow the library declares
 without running it. A library that does not validate gives `invalid`, and exit code 3, as
 any run would.
 
@@ -218,7 +243,7 @@ $ echo $?
 | `-h`, `--help` | Print the options. |
 
 One of `--changed` and `--since` is required. A file matches what an evidence declares as
-`Path.glob` matches it: a glob such as `docs/**/*.md` matches every Markdown file under
+a run observes it: a glob such as `docs/**/*.md` matches every Markdown file under
 `docs/`. A changed file no evidence observes is listed, with "(no evidence)": a change
 the argument does not cover. The exit code is 0 whatever the change reaches, 3 when the
 step libraries declare nothing to analyze (a refused justification, a library that cannot
@@ -226,9 +251,9 @@ be imported), and 4 when git cannot list the changes.
 
 ## Staleness
 
-`jpipe-runner status` reads the JSON report of a run (`--report`), and compares the files
-the run observed with the files as they are now: what it lists no longer holds as the
-report says. Run it from the directory the run ran in, where the report's paths start. If
+`jpipe-runner status` reads the JSON report of a run (`--report`), and compares what the
+run observed, files and environment variables, with what they are now: what it lists no
+longer holds as the report says. Run it from the directory the run ran in, where the report's paths start. If
 the changelog changed since a run of the release example:
 
 ```console
@@ -255,8 +280,19 @@ $ echo $?
 
 A file is `changed` when its SHA-256 differs from the one recorded, `vanished` when the
 run read it and it is gone, `appeared` when the run could not read it and it can be now,
-and `added` when a glob an evidence observes matches it and the run did not see it. The
-exit code is 0 when nothing changed, 1 when something is stale, 3 when the file is not a
+and `added` when a glob an evidence observes matches it and the run did not see it. A file
+the run read without finding what was observed in it, such as a `JsonValue` whose pointer
+designates nothing, is compared by its SHA-256 as well: it is stale once it changes. An
+environment variable is `changed`, `vanished` or `appeared` in the same way.
+
+`status` answers for everything the run observed, or does not answer. What the report
+hides, such as a variable observed without `display=True`, cannot be compared: the command
+says that information was hidden and that a new run is needed, and never that the report
+holds. The same goes for what an observable of the step library reached that is neither a
+file nor a variable: only that library can observe it again.
+
+The exit code is 0 when everything the run observed is as it was, 1 when something is
+stale or needs a new run to be checked, 3 when the file is not a
 report, or is the report of a run in which no step ran (`invalid`, or a dry run), and 4
 when it cannot be read. Nothing runs: to judge the stale elements again, run the
 justification.

@@ -16,12 +16,13 @@ not by a rule: a ``Justification`` that exists is valid.
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from functools import cached_property
 from typing import ClassVar
 
-from jpipe_runner.binding import Binding, BindingTable
+from jpipe_runner.binding import BindingTable
+from jpipe_runner.dataflow import DataflowTable
 from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.model import Justification
 from jpipe_runner.steps import StepRegistry
@@ -31,7 +32,8 @@ _CODE = re.compile(r"JP\d{3}")
 
 @dataclass(frozen=True)
 class ValidationContext:
-    """What a rule checks: a model, a step library, and the binding of one to the other."""
+    """What a rule checks: a model, a step library, the binding of one to the other, and
+    where each value a step consumes comes from."""
 
     justification: Justification
     registry: StepRegistry
@@ -43,18 +45,14 @@ class ValidationContext:
         return cls(justification, registry, BindingTable(justification, registry))
 
     @cached_property
-    def producers(self) -> Mapping[str, tuple[Binding, ...]]:
-        """The bound steps that produce each variable, in model order.
+    def dataflow(self) -> DataflowTable:
+        """Every input of every bound step, resolved among the step's supporters
+        (ADR-0031).
 
         Only bound steps count: a step that binds no element never runs, so nothing it
-        declares is ever produced.
+        declares is ever produced or consumed.
         """
-        return _index(self.bindings, lambda binding: binding.step.produces)
-
-    @cached_property
-    def consumers(self) -> Mapping[str, tuple[Binding, ...]]:
-        """The bound steps that consume each variable, in model order."""
-        return _index(self.bindings, lambda binding: binding.step.consumes)
+        return DataflowTable(self.justification, self.bindings)
 
 
 class Rule(ABC):
@@ -155,16 +153,6 @@ class RuleSet:
 
     def __repr__(self) -> str:
         return f"RuleSet({', '.join(rule.code for rule in self._rules)})"
-
-
-def _index(
-    bindings: BindingTable, variables: Callable[[Binding], tuple[str, ...]]
-) -> Mapping[str, tuple[Binding, ...]]:
-    index: dict[str, list[Binding]] = {}
-    for binding in bindings:
-        for variable in variables(binding):
-            index.setdefault(variable, []).append(binding)
-    return {variable: tuple(found) for variable, found in index.items()}
 
 
 def _check_metadata(rule: Rule) -> None:

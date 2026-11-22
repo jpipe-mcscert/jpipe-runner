@@ -1,10 +1,15 @@
 # Contributing
 
-jPipe Runner is part of the [jPipe](https://www.jpipe.org) project. Bug reports and pull
-requests are welcome: open an [issue](https://github.com/jpipe-mcscert/jpipe-runner/issues)
-first for anything larger than a fix, so that we can agree on the approach before you
-write the code. A pull request from outside the maintainer team goes through
-[review](#other-pull-requests) like any other.
+jPipe Runner is part of the [jPipe](https://www.jpipe.org) project. Bug reports, questions
+and proposals are welcome as [issues](https://github.com/jpipe-mcscert/jpipe-runner/issues).
+
+Pull requests are invite-only, as in every jPipe repository
+([contributions are by invitation](https://github.com/jpipe-mcscert/.github/blob/main/CONTRIBUTING.md#contributions-are-by-invitation)):
+only the maintainers and the collaborators they invite open one, and an unsolicited pull
+request is closed without review. To contribute, open an issue first and discuss the
+change there; if we agree on it, a maintainer invites you. Collaborators, too, open an
+issue before starting anything larger than a fix, so that we can agree on the approach
+before the code is written.
 
 ## Development setup
 
@@ -87,9 +92,10 @@ before committing it. Pull requests go through a SonarCloud quality gate
 
 The documentation is Markdown under `docs/`, indexed in reading order by
 [`docs/README.md`](README.md) ([ADR-0003](adr/0003-drop-sphinx-markdown-docs.md)). A
-change that users can see is documented in the same pull request
-([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)), and the
-[CHANGELOG](../CHANGELOG.md) says what it changes for them. Every code example and quoted
+change that users can see is documented in the same pull request, with a page under
+`docs/` for a new feature, and the [CHANGELOG](../CHANGELOG.md) says what it changes for
+them. [`end-to-end.md`](end-to-end.md) follows one example through every stage: a change
+to a stage updates its description there, with real output. Every code example and quoted
 output on a page is checked by a test (`tests/unit/test_*_doc.py`), and so is every link:
 an example that stops matching the code fails the build.
 
@@ -108,68 +114,44 @@ CHANGELOG, docstrings, comments, messages and identifiers. Third-party text kept
 and the keys of external formats (`license` in `pyproject.toml`) are left as they are.
 [`tests/unit/test_spelling.py`](../tests/unit/test_spelling.py) checks it.
 
-## Branches
+## Branches and pull requests
 
-There is one long-lived branch, `main`. The reasons are recorded in
-[ADR-0014](adr/0014-trunk-with-milestone-branches.md).
+Branches, pull requests, releases and hotfixes follow the
+[jPipe workflow](https://github.com/jpipe-mcscert/.github/blob/main/CONTRIBUTING.md),
+shared by every repository of the organization: work branches are cut from `dev` and come
+back through a pull request into `dev`, and a release is a pull request from `dev` into
+`main`. This section adds only what is specific to jpipe-runner.
 
-| Branch | Role |
-|--------|------|
-| `main` | The trunk and the default branch. Releases are tags on it (`vX.Y.Z`). |
-| a milestone's branch | One per milestone, cut from `main` and named after it. |
-| `jpipe-runner-diagrams` | Written by the v3 GitHub Action's tests (generated diagram images). Not a development branch. |
-
-### Working on a milestone
-
-1. Work on the milestone's branch. Cut it from `main` if it does not exist yet. When it is
-   first pushed, open its pull request into `main` **as a draft**, on the milestone's GitHub
-   milestone, so that SonarCloud analyzes every push
-   ([ADR-0015](adr/0015-draft-pull-request-per-milestone.md)).
-2. Commit each ticket as one or more commits. End the message of the commit that completes
-   the ticket with `Closes #N`.
-3. Push often. CI runs on every push to every branch, and the quality gate on every push to
-   a branch with an open pull request.
-4. Document what the milestone adds for users, in the milestone: a page under `docs/` for
-   each new feature ([ADR-0017](adr/0017-document-in-the-milestone-that-builds-it.md)).
-   Then update [`end-to-end.md`](end-to-end.md), which follows one example through every
-   stage: describe the stages the milestone changed as they now work, with real output.
-5. When the milestone is complete, mark its pull request **ready for review**. The maintainer
-   merges it with a merge commit, which keeps the per-ticket commits and closes their issues.
-
-Work on one milestone at a time. If the next one has to start before the previous pull
-request is merged, cut its branch from the previous milestone's branch. GitHub retargets
-the second pull request to `main` once the first branch is deleted.
-
-### Other pull requests
-
-Open a separate pull request, from a short-lived branch, only when a change does not belong
-to a milestone or needs a review of its own. Contributions from outside the maintainer team
-always go through one. These pull requests are squash-merged.
+- **CI** (`ci.yml`: lint, types, tests) runs on every push to every branch.
+- **The quality gate** is SonarCloud ([ADR-0004](adr/0004-sonarcloud-quality-gate.md)).
+  The organization's plan analyzes pull requests and `main`, not other branches, so the
+  `SonarQube` check appears once the draft pull request is open. A pull request from a
+  fork gets no check, because it has no access to the token; a maintainer reviews its
+  quality by hand.
 
 ### Releases
 
-A release is a tag on `main`; it never needs a pull request of its own. Only a maintainer
-pushes a release tag.
-
-1. **Set the version** in `pyproject.toml`, the only place it is defined (`setup.py`
-   reads it from there). Between releases the trunk carries a development version,
-   `X.Y.Z.devN` (such as `4.1.0.dev0`), which the release workflow refuses to tag; replace it
-   with the release's version: `X.Y.Z`, or `X.Y.ZaN` / `X.Y.ZrcN` for a pre-release.
-   Follow [SemVer](https://semver.org): patch for fixes, minor for backward-compatible
-   features, major for breaking changes.
+1. **Set the version** in `pyproject.toml`, the only place it is defined (`setup.py` reads
+   it from there). Between releases `dev` carries a development version, `X.Y.Z.devN`
+   (such as `4.1.0.dev0`), which the release workflow refuses to tag; replace it with the
+   release's version: `X.Y.Z`, or `X.Y.ZaN` / `X.Y.ZrcN` for a pre-release. Follow
+   [SemVer](https://semver.org): patch for fixes, minor for backward-compatible features,
+   major for breaking changes.
 2. **Update `CHANGELOG.md`**: move the `[Unreleased]` notes under a new
    `## [x.y.z] - YYYY-MM-DD` heading. Check what the dependency caps hold back with
    `poetry show --outdated`: Dependabot keeps `poetry.lock` fresh within the ranges, and a
    major is taken on a branch of its own
    ([ADR-0026](adr/0026-dependency-ranges-and-freshness.md)).
-3. **Land both on `main`**, as the last commit of the milestone being released or as a
-   maintainer commit on `main`, and wait for CI to pass.
-4. **Tag that commit** and push the tag:
+3. **Land both on `dev`**, then take the release pull request from `dev` into `main`
+   through the workflow. A maintainer merges it.
+4. **Tag the merge commit on `main`** and push the tag:
    ```bash
    git checkout main && git pull
    git tag vX.Y.Z          # must equal the pyproject.toml version
    git push origin vX.Y.Z
    ```
+5. **Merge `main` back into `dev`**, and set `dev` to the next development version
+   (`X.Y.Z.dev0`), so that a build of `dev` never reports itself as the release.
 
 The tag triggers [`release.yml`](../.github/workflows/release.yml). It checks that the
 tag matches `pyproject.toml` (and fails at `validate-version` if not), runs the tests,

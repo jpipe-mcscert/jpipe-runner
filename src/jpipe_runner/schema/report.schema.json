@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "jpipe-runner report 1.0",
+  "title": "jpipe-runner report 2.0",
   "description": "What a run of jpipe-runner concluded (ADR-0011): every element of the justification, with its status, its step and what that step declares, observed and produced; then every diagnostic. Within a major version, a minor version only adds optional fields: a consumer ignores fields it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/report-schema.md.",
   "type": "object",
-  "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram", "dataflow"],
+  "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": {"const": "1.0"},
+    "schema_version": {"const": "2.0"},
     "justification": {
       "description": "The justification's name, or null if the model was refused before it could be read.",
       "type": ["string", "null"]
@@ -31,11 +31,7 @@
       "items": {"$ref": "#/$defs/diagnostic"}
     },
     "diagram": {
-      "description": "The path of the diagram drawn for this run, relative to the directory the runner ran in when it is under it, or null.",
-      "type": ["string", "null"]
-    },
-    "dataflow": {
-      "description": "The path of the dataflow diagram drawn for this run, relative to the directory the runner ran in when it is under it, or null.",
+      "description": "The path of the diagram drawn for this run, its dataflow, relative to the directory the runner ran in when it is under it, or null.",
       "type": ["string", "null"]
     }
   },
@@ -105,12 +101,29 @@
           "$ref": "#/$defs/names"
         },
         "observes": {
-          "description": "The paths and globs its step declares it observes, relative to where the runner runs.",
+          "description": "The files, as globs relative to where the runner runs, that what its step observes depends on: a change to one of them reaches the element. A wildcard in the name of a directory the runner put in front of a path is escaped, as in checks[[]v2]/*.md.",
+          "$ref": "#/$defs/names"
+        },
+        "sources": {
+          "description": "Everything its step declares it observes, as each describes itself: a path or a glob relative to where the runner runs, a file and a JSON Pointer (package.json#/version), an environment variable (env:CI), or what an observable of the step library answers. A path is escaped as in observes. Since 2.0.",
           "$ref": "#/$defs/names"
         },
         "consumes": {
-          "description": "The variables its step declares it consumes.",
+          "description": "The variables its step declares it consumes, each once.",
           "$ref": "#/$defs/names"
+        },
+        "inputs": {
+          "description": "What each parameter of its step receives, by parameter: the variable, and the id of the element whose step produced it, among the element's supporters, or null if it resolves to no single one (ADR-0031). Since 2.0.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["variable", "produced_by"],
+            "additionalProperties": false,
+            "properties": {
+              "variable": {"type": "string", "minLength": 1},
+              "produced_by": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]}
+            }
+          }
         },
         "produces": {
           "description": "The variables its step declares it produces.",
@@ -125,6 +138,11 @@
           "description": "The files its step observed, recorded just before it was called.",
           "type": "array",
           "items": {"$ref": "#/$defs/artifact"}
+        },
+        "observations": {
+          "description": "What its step observed that is not a file, recorded just before it was called. Since 2.0.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/observation"}
         }
       }
     },
@@ -159,13 +177,69 @@
           "type": "string",
           "minLength": 1
         },
-        "reachable": {"type": "boolean"},
+        "declared": {
+          "description": "The one of the element's sources that designates it. Since 2.0.",
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {
+          "description": "The value observed in the file, when what was observed is a value in it. Since 2.0.",
+          "$ref": "#/$defs/value"
+        },
+        "reachable": {
+          "description": "Whether what was observed could be reached: the file read and, for a value in it, the value found.",
+          "type": "boolean"
+        },
         "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
-        "size": {"type": ["integer", "null"], "minimum": 0}
+        "size": {"type": ["integer", "null"], "minimum": 0},
+        "read": {
+          "description": "The file as the run read it, when it is unreachable all the same: what was observed in it was not found, such as the value a JSON Pointer designates. Since 2.0.",
+          "type": "object",
+          "required": ["sha256", "size"],
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "size": {"type": "integer", "minimum": 0}
+          }
+        }
       },
       "if": {"properties": {"reachable": {"const": true}}},
-      "then": {"properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}}},
+      "then": {
+        "properties": {"sha256": {"type": "string"}, "size": {"type": "integer"}},
+        "not": {"required": ["read"]}
+      },
       "else": {"properties": {"sha256": {"type": "null"}, "size": {"type": "null"}}}
+    },
+    "observation": {
+      "description": "Something an evidence observed that is not a file, such as an environment variable.",
+      "type": "object",
+      "required": ["declared", "variable", "reachable", "hidden", "sha256", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "declared": {
+          "description": "The one of the element's sources that designates it.",
+          "type": "string",
+          "minLength": 1
+        },
+        "variable": {
+          "description": "The environment variable it is the value of, or null if it is not one. jpipe-runner status reads it again; anything else that is not a file needs a new run.",
+          "type": ["string", "null"]
+        },
+        "reachable": {"type": "boolean"},
+        "hidden": {
+          "description": "Whether what was observed is kept out of the report: neither its value nor its SHA-256 is recorded, and only a new run can tell whether it changed.",
+          "type": "boolean"
+        },
+        "sha256": {
+          "description": "The SHA-256 of the value written as JSON, or null if it could not be reached or is hidden.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "value": {
+          "description": "The value observed, or null if it could not be reached or is hidden.",
+          "oneOf": [{"$ref": "#/$defs/value"}, {"type": "null"}]
+        }
+      }
     },
     "diagnostic": {
       "type": "object",

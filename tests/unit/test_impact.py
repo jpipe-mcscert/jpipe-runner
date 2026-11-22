@@ -4,14 +4,11 @@ import hashlib
 import json
 import shutil
 import subprocess
-import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
-from hypothesis import assume, given, settings
-from hypothesis import strategies as st
 
 from jpipe_runner import impact, json_report
 from jpipe_runner.engine import Verdict
@@ -20,16 +17,20 @@ from jpipe_runner.impact import (
     ChangeKind,
     Impact,
     InvalidReportError,
+    Unchecked,
+    Unverified,
     above,
     affected,
     changed_since,
-    matches,
     read,
     render_impact,
     render_stale,
     stale,
+    unverified,
 )
-from jpipe_runner.report import RunReport
+from jpipe_runner.model import Kind
+from jpipe_runner.observables import fingerprint
+from jpipe_runner.report import ElementReport, RunReport
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 
@@ -75,65 +76,6 @@ RELEASE: dict[str, Any] = {
         _element("c", "conclusion"),
     ],
 }
-
-
-# --- Matching ------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("path", "pattern", "expected"),
-    [
-        ("a.txt", "a.txt", True),
-        ("a.txt", "b.txt", False),
-        ("a.txt", "*.txt", True),
-        ("d/a.txt", "*.txt", False),
-        ("d/a.txt", "*/a.txt", True),
-        ("d/a.txt", "d/?.txt", True),
-        ("a.txt", "**/a.txt", True),
-        ("d/e/a.txt", "**/a.txt", True),
-        ("d/a.txt", "d/**/*.txt", True),
-        ("d/e/f/a.txt", "d/**/*.txt", True),
-        ("e/a.txt", "d/**/*.txt", False),
-        ("b.txt", "[ab].txt", True),
-        ("c.txt", "[ab].txt", False),
-        ("a.TXT", "*.txt", False),
-        (".hidden", "*", True),
-        ("d/a.txt", "./d/a.txt", True),
-        ("d/e/a.txt", "d/**", True),  # a trailing ** reaches everything below
-    ],
-)
-def test_a_path_matches_as_path_glob_matches_it(path: str, pattern: str, expected: bool) -> None:
-    assert matches(path, pattern) is expected
-
-
-_SEGMENTS = st.sampled_from(["a", "b", ".c", "a.txt", "b.md"])
-_PATTERN_SEGMENTS = st.sampled_from(["*", "**", "a", "a.txt", "*.txt", "?", "[ab]", ".*"])
-
-
-@settings(deadline=None)
-@given(
-    files=st.lists(st.lists(_SEGMENTS, min_size=1, max_size=3), min_size=1, max_size=6),
-    pattern=st.lists(_PATTERN_SEGMENTS, min_size=1, max_size=3),
-)
-def test_matches_agrees_with_path_glob(files: list[list[str]], pattern: list[str]) -> None:
-    # Python 3.11's Path.glob takes a trailing ** for directories only, where 3.13 adds the
-    # files: matches() takes the files, which only ever reports more.
-    assume(pattern[-1] != "**")
-    paths = {"/".join(parts) for parts in files}
-    # A path cannot be both a file and a directory.
-    assume(not any(other.startswith(f"{path}/") for path in paths for other in paths))
-    with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
-        for path in paths:
-            (root / path).parent.mkdir(parents=True, exist_ok=True)
-            (root / path).write_text("x", encoding="utf-8")
-        globbed = {
-            found.relative_to(root).as_posix()
-            for found in root.glob("/".join(pattern))
-            if found.is_file()
-        }
-
-    assert {path for path in paths if matches(path, "/".join(pattern))} == globbed
 
 
 # --- Impact --------------------------------------------------------------------------------
@@ -241,6 +183,18 @@ def test_a_file_a_glob_matches_now_and_the_run_did_not_see_is_added(root: Path) 
     assert stale(document, root) == (Change("e2", "docs/b.md", ChangeKind.ADDED),)
 
 
+def test_a_glob_no_file_was_recorded_under_finds_nothing_added(root: Path) -> None:
+    """A library's observable may depend on a glob, for impact, and record no file under it:
+    the files it matches were never the run's to see."""
+    (root / "docs" / "b.md").write_text("B", encoding="utf-8")
+    seen = {**_artifact("build/tests.log", "ok"), "declared": "build/tests.log"}
+    document = _recorded(
+        _element("e1", observes=["build/tests.log", "docs/*.md"], artifacts=[seen])
+    )
+
+    assert stale(document, root) == ()
+
+
 def test_a_glob_that_matched_nothing_finds_what_it_matches_now(root: Path) -> None:
     document = _recorded(
         _element("e2", observes=["docs/*.md"], artifacts=[_artifact("docs/*.md", None)])
@@ -293,6 +247,58 @@ def test_a_file_the_run_could_not_read_has_not_appeared_while_it_still_cannot_be
     assert stale(document, root) == ()
 
 
+def _read_not_found(path: str, content: str) -> dict[str, Any]:
+    """A file the run read without finding what it observed in it, such as a value a JSON
+    Pointer designates."""
+    read = _artifact(path, content)
+    return _artifact(path, None) | {
+        "declared": f"{path}#/version",
+        "read": {"sha256": read["sha256"], "size": read["size"]},
+    }
+
+
+@pytest.mark.parametrize(
+    ("artifact", "kind"),
+    [
+        pytest.param(_read_not_found("build/tests.log", "ok"), None, id="as it was"),
+        pytest.param(_read_not_found("build/tests.log", "x"), ChangeKind.CHANGED, id="changed"),
+        pytest.param(_read_not_found("build/gone.log", "ok"), ChangeKind.VANISHED, id="vanished"),
+    ],
+)
+def test_a_file_read_without_finding_what_it_designates_is_compared_by_its_sha256(
+    artifact: dict[str, Any], kind: ChangeKind | None, root: Path
+) -> None:
+    """#166: it has not appeared, since the run read it."""
+    document = _recorded(_element("e1", observes=[artifact["path"]], artifacts=[artifact]))
+
+    expected = () if kind is None else (Change("e1", artifact["path"], kind),)
+    assert stale(document, root) == expected
+
+
+def test_a_file_under_a_directory_named_with_a_wildcard_is_matched_escaped(root: Path) -> None:
+    """#167: the report escapes the wildcards of the directory it puts in front of a path."""
+    (root / "checks[v2]").mkdir()
+    (root / "checks[v2]" / "a.md").write_text("A", encoding="utf-8")
+    (root / "checks[v2]" / "b.md").write_text("B", encoding="utf-8")
+    document = _recorded(
+        *(
+            _element(
+                element,
+                supports=["c"],
+                observes=[pattern],
+                artifacts=[_artifact("checks[v2]/a.md", "A") | {"declared": pattern}],
+            )
+            for element, pattern in [("e1", "checks[[]v2]/a.md"), ("e2", "checks[[]v2]/*.md")]
+        ),
+        _element("c", "conclusion"),
+    )
+
+    assert affected(document, ["checks[v2]/a.md"]).evidence == ("e1", "e2")
+    assert affected(document, ["checks[v2]/b.md"]).evidence == ("e2",)
+    assert affected(document, ["checksv/a.md"]).evidence == ()
+    assert stale(document, root) == (Change("e2", "checks[v2]/b.md", ChangeKind.ADDED),)
+
+
 def test_staleness_is_rendered_for_people() -> None:
     changes = [Change("e1", "build/tests.log", ChangeKind.CHANGED)]
 
@@ -328,7 +334,7 @@ def test_a_report_is_read_back(tmp_path: Path) -> None:
     [
         pytest.param("not json", id="not JSON"),
         pytest.param("[]", id="not an object"),
-        pytest.param('{"schema_version": "2.0"}', id="another major version"),
+        pytest.param('{"schema_version": "3.0"}', id="a later major version"),
         pytest.param('{"schema_version": "1.0"}', id="not a report"),
     ],
 )
@@ -357,7 +363,7 @@ def test_a_report_of_a_later_minor_version_is_read_and_its_new_fields_ignored(
     tmp_path: Path,
 ) -> None:
     document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
-    document |= {"schema_version": "1.1", "duration": 3.5}
+    document |= {"schema_version": "2.1", "duration": 3.5}
     path = tmp_path / "report.json"
     path.write_text(json.dumps(document), encoding="utf-8")
 
@@ -378,9 +384,166 @@ def test_a_report_of_this_version_with_a_field_it_does_not_define_is_refused(
 def test_the_stale_files_of_a_later_minor_version_are_found(root: Path) -> None:
     artifact = _artifact("build/tests.log", "was ok") | {"modified": "2026-10-09"}
     element = _element("e1", observes=["build/tests.log"], artifacts=[artifact])
-    document = {"schema_version": "1.1", "justification": "release", "elements": [element]}
+    document = {"schema_version": "2.1", "justification": "release", "elements": [element]}
 
     assert stale(document, root) == (Change("e1", "build/tests.log", ChangeKind.CHANGED),)
+
+
+def test_a_report_of_version_1_is_read_with_the_dataflow_field_2_0_removed(
+    tmp_path: Path,
+) -> None:
+    document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
+    document |= {"schema_version": "1.1", "diagram": "m.svg", "dataflow": "m-dataflow.svg"}
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    assert read(path)["diagram"] == "m.svg"
+
+
+def test_a_report_of_an_earlier_minor_version_is_read_without_the_fields_added_since(
+    tmp_path: Path,
+) -> None:
+    report = RunReport("m", Verdict.PASS, (ElementReport("e", "e", Kind.EVIDENCE),))
+    document = json.loads(json_report.dumps(report))
+    document["schema_version"] = "1.0"
+    document["elements"][0]["artifacts"] = [
+        {"path": "a.txt", "reachable": True, "sha256": "0" * 64, "size": 1}
+    ]
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    assert read(path)["elements"][0]["artifacts"][0]["path"] == "a.txt"
+
+
+def test_an_unreadable_file_a_glob_matched_appears_even_if_its_name_holds_a_wildcard(
+    root: Path,
+) -> None:
+    (root / "docs" / "a[1].md").write_text("A", encoding="utf-8")
+    recorded = _artifact("docs/a[1].md", None) | {"declared": "docs/*.md"}
+    seen = _artifact("docs/a.md", "A") | {"declared": "docs/*.md"}
+    document = _recorded(_element("e2", observes=["docs/*.md"], artifacts=[recorded, seen]))
+
+    assert stale(document, root) == (Change("e2", "docs/a[1].md", ChangeKind.APPEARED),)
+
+
+def test_a_glob_of_escaped_wildcards_that_matched_nothing_finds_its_file_added(
+    root: Path,
+) -> None:
+    """``File("[[]notes].md")`` designates ``[notes].md`` only, and is a glob all the same."""
+    recorded = _artifact("[[]notes].md", None) | {"declared": "[[]notes].md"}
+    document = _recorded(_element("e1", observes=["[[]notes].md"], artifacts=[recorded]))
+    assert stale(document, root) == ()
+
+    (root / "[notes].md").write_text("N", encoding="utf-8")
+
+    assert stale(document, root) == (Change("e1", "[notes].md", ChangeKind.ADDED),)
+
+
+def test_a_glob_recorded_as_matching_nothing_never_appears(root: Path) -> None:
+    recorded = _artifact("docs/*.md", None) | {"declared": "docs/*.md"}
+    document = _recorded(_element("e2", observes=["docs/*.md"], artifacts=[recorded]))
+
+    assert stale(document, root) == (Change("e2", "docs/a.md", ChangeKind.ADDED),)
+
+
+def _variable(name: str, value: str | None, *, hidden: bool = False) -> dict[str, Any]:
+    """An environment variable as a run recorded it: ``value`` is None if it was not set."""
+    shown = value is not None and not hidden
+    return {
+        "declared": f"env:{name}",
+        "variable": name,
+        "reachable": value is not None,
+        "hidden": hidden,
+        "sha256": fingerprint(value) if shown else None,
+        "value": {"value": value} if shown else None,
+    }
+
+
+@pytest.mark.parametrize(
+    ("recorded", "now", "kind"),
+    [
+        pytest.param("prod", "prod", None, id="as it was"),
+        pytest.param("prod", "staging", ChangeKind.CHANGED, id="changed"),
+        pytest.param("prod", None, ChangeKind.VANISHED, id="no longer set"),
+        pytest.param(None, "prod", ChangeKind.APPEARED, id="set since"),
+        pytest.param(None, None, None, id="still not set"),
+    ],
+)
+def test_a_recorded_variable_is_compared_with_the_environment(
+    root: Path, recorded: str | None, now: str | None, kind: ChangeKind | None
+) -> None:
+    document = _recorded(_element("e1") | {"observations": [_variable("STAGE", recorded)]})
+    environment = {} if now is None else {"STAGE": now}
+
+    expected = () if kind is None else (Change("e1", "env:STAGE", kind),)
+    assert stale(document, root, environment) == expected
+    assert unverified(document) == ()
+
+
+def test_the_environment_is_the_process_s_by_default(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("STAGE", "staging")
+    document = _recorded(_element("e1") | {"observations": [_variable("STAGE", "prod")]})
+
+    assert stale(document, root) == (Change("e1", "env:STAGE", ChangeKind.CHANGED),)
+
+
+def test_what_is_hidden_or_only_a_library_can_observe_needs_a_new_run(root: Path) -> None:
+    host = {
+        "declared": "host:example.org",
+        "variable": None,
+        "reachable": True,
+        "hidden": False,
+        "sha256": "0" * 64,
+        "value": {"value": "192.0.2.1"},
+    }
+    observations = [_variable("TOKEN", "s3cret", hidden=True), host, _variable("STAGE", "prod")]
+    document = _recorded(
+        _element("e1", supports=["c"]) | {"observations": observations},
+        _element("c", "conclusion"),
+    )
+
+    # A hidden variable is never compared, whatever it is now.
+    assert stale(document, root, {"STAGE": "prod", "TOKEN": "another"}) == ()
+    unchecked = unverified(document)
+    assert unchecked == (
+        Unverified("e1", "env:TOKEN", Unchecked.HIDDEN),
+        Unverified("e1", "host:example.org", Unchecked.UNREADABLE),
+    )
+    assert render_stale(document, (), unchecked) == (
+        "Justification: release\n"
+        "\n"
+        "Information was hidden from the report, so it needs a new run:\n"
+        "  env:TOKEN         e1\n"
+        "\n"
+        "Only its step library can observe it again, so it needs a new run:\n"
+        "  host:example.org  e1\n"
+        "\n"
+        "Not confirmed (2 elements):\n"
+        "  Evidence    The e1  # e1\n"
+        "  Conclusion  The c   # c\n"
+    )
+
+
+def test_what_changed_is_listed_before_what_needs_a_new_run(root: Path) -> None:
+    observations = [_variable("TOKEN", "s3cret", hidden=True)]
+    document = _recorded(
+        _element(
+            "e1", observes=["build/tests.log"], artifacts=[_artifact("build/tests.log", "was")]
+        )
+        | {"observations": observations}
+    )
+
+    text = render_stale(document, stale(document, root), unverified(document))
+
+    assert text.index("Changed since the run:") < text.index("Stale (1 elements):")
+    assert text.index("Stale (1 elements):") < text.index("Information was hidden")
+    assert "still holds" not in text
+
+
+def test_a_report_of_version_1_0_has_nothing_that_cannot_be_checked() -> None:
+    assert unverified(RELEASE) == ()
 
 
 # --- Changes since a revision --------------------------------------------------------------

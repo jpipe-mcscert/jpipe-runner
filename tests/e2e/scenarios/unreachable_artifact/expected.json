@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "release",
   "verdict": "fail",
   "strict": false,
@@ -32,7 +32,11 @@
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "tests_pass"
       ],
@@ -40,11 +44,13 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": false,
           "sha256": null,
           "size": null
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:e2",
@@ -65,7 +71,11 @@
       "observes": [
         "mock/CHANGELOG.md"
       ],
+      "sources": [
+        "mock/CHANGELOG.md"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "changelog_ok"
       ],
@@ -77,11 +87,13 @@
       "artifacts": [
         {
           "path": "mock/CHANGELOG.md",
+          "declared": "mock/CHANGELOG.md",
           "reachable": true,
           "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402",
           "size": 4
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:s",
@@ -102,13 +114,25 @@
         "release:s"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "tests_pass",
         "changelog_ok"
       ],
+      "inputs": {
+        "tests_pass": {
+          "variable": "tests_pass",
+          "produced_by": "release:e1"
+        },
+        "changelog_ok": {
+          "variable": "changelog_ok",
+          "produced_by": "release:e2"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:c",
@@ -125,10 +149,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -137,10 +164,9 @@
       "severity": "error",
       "element": "release:e1",
       "message": "mock/junit.xml, observed as 'report', does not exist",
-      "fix": "Make sure the artifact exists when the runner runs, at this path relative to the directory it runs in, or correct the path in observes={...}.",
+      "fix": "Make sure it exists when the runner runs. A path in observes={...} is relative to the file that declares the step.",
       "traceback": null
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

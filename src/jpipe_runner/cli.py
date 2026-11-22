@@ -6,7 +6,8 @@ steps, and reports. Every way this ends has a report (ADR-0011), and an exit cod
 CI pipeline can act on (``ExitCode``).
 
 stdout carries the report and nothing else: the text report, or the JSON report with
-``--json``. ``--report``, ``--diagram`` and ``--dataflow`` write files. stderr carries the
+``--json``. ``--report`` and ``--diagram`` write files, and ``--events`` a file the run's
+events are written to as it goes (ADR-0030). stderr carries the
 logs, the errors and argparse's usage. The paths an evidence observes, and those the
 report shows, are relative to the working directory.
 """
@@ -18,7 +19,9 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import textwrap
+import time
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout
 from dataclasses import dataclass
@@ -28,11 +31,18 @@ from typing import Any, NoReturn
 
 from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
 from jpipe_runner.diagnostics import shown_path
-from jpipe_runner.engine import Verdict
+from jpipe_runner.engine import RunResult, Verdict
+from jpipe_runner.events import EventStream, Preview
 from jpipe_runner.libraries import LibraryLoadError, imported
 from jpipe_runner.model import InvalidJustificationError, Justification
+from jpipe_runner.observables import is_glob, matches
 from jpipe_runner.report import RunReport
-from jpipe_runner.steps import StepRegistry, is_glob
+from jpipe_runner.steps import StepRegistry
+
+_WINDOWS = os.name == "nt"
+_ATTEMPTS, _PAUSE = 10, 0.1
+"""How many times, and how far apart in seconds, the drawing made before the steps is
+deleted."""
 
 _LOG = logging.getLogger(__name__)
 
@@ -170,19 +180,20 @@ def parser() -> argparse.ArgumentParser:
     outputs.add_argument(
         "--report", type=Path, metavar="PATH", help="write the JSON report to PATH"
     )
+    outputs.add_argument(
+        "--events",
+        type=Path,
+        metavar="PATH",
+        help="write the run's events to PATH as the run goes, one JSON object per line, "
+        "for a program that shows the run while it runs",
+    )
     formats = ", ".join(diagram.FORMATS)
     outputs.add_argument(
         "--diagram",
         type=Path,
         metavar="PATH",
-        help=f"draw the justification, with the run over it, to PATH; its suffix is the "
-        f"format: {formats}",
-    )
-    outputs.add_argument(
-        "--dataflow",
-        type=Path,
-        metavar="PATH",
-        help="draw the justification with the files and variables its steps declare to PATH",
+        help=f"draw the dataflow, with the run over it, to PATH: the justification, and the "
+        f"files and variables its steps declare; the suffix of PATH is the format: {formats}",
     )
     outputs.add_argument(
         "--colour",
@@ -235,11 +246,11 @@ def status_parser() -> argparse.ArgumentParser:
     """The parser of ``jpipe-runner status``."""
     parser = _Parser(
         prog=f"{_PROGRAM} status",
-        description="Compare the files a run observed, as its JSON report recorded them, "
-        "with the files now, and list what is stale. No step is called.",
+        description="Compare what a run observed, as its JSON report recorded it, with "
+        "what it is now, and list what is stale. No step is called.",
         epilog=_exit_codes(
             (ExitCode.OK, "nothing changed"),
-            (ExitCode.FAILED, "something is stale"),
+            (ExitCode.FAILED, "something is stale, or needs a new run to be checked"),
             (ExitCode.USAGE, "the command line is wrong"),
             (ExitCode.INVALID, "the file is not the report of a run that observed files"),
             (ExitCode.IO, "the report cannot be read"),
@@ -319,67 +330,210 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace) -> None:
-    """Refuse, before anything runs, the outputs that could not be written."""
+    """Refuse, before anything runs, the outputs that could not be written, or that would
+    overwrite what the run reads."""
     outputs = {
         "--report": options.report,
+        "--events": options.events,
         "--diagram": options.diagram,
-        "--dataflow": options.dataflow,
     }
-    seen: dict[Path, str] = {}
+    read = {_identity(library): "a step library" for library in _libraries(options.library)}
+    read[_identity(options.justification)] = "the justification"
+    seen: dict[object, str] = {}
     for flag, path in outputs.items():
         if path is None:
             continue
         if path.is_dir():
             command.error(f"{flag} {path}: a directory, where a file is expected")
         suffix = path.suffix.removeprefix(".").lower()
-        if flag != "--report" and suffix not in diagram.FORMATS:
+        if flag == "--diagram" and suffix not in diagram.FORMATS:
             formats = ", ".join(diagram.FORMATS)
             command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
-        resolved = path.resolve()
-        if (same := seen.get(resolved)) is not None:
+        identity = _identity(path)
+        if (input_ := read.get(identity)) is not None:
+            command.error(f"{flag} {path}: {input_}, which the run reads")
+        if (same := seen.get(identity)) is not None:
             command.error(f"{same} and {flag} both write {path}")
-        seen[resolved] = flag
+        seen[identity] = flag
+
+
+def _identity(path: Path) -> object:
+    """What tells ``path``'s file from any other: its device and its inode if it exists,
+    so that a link is the file it links to, and its absolute path otherwise."""
+    try:
+        status = path.stat()
+    except OSError:
+        return path.resolve()
+    # A file system that has no inodes gives 0 for every file.
+    return (status.st_dev, status.st_ino) if status.st_ino else path.resolve()
 
 
 def _run(options: argparse.Namespace) -> int:
-    _check_graphviz(options.diagram, options.dataflow)
+    _check_graphviz(options.diagram)
     # The working directory, as a relative path: a step receives the files it observes
-    # relative to it, as its author wrote them, and a reason that names one reads the same
+    # relative to it, as the report shows them, and a reason that names one reads the same
     # on every machine.
     root = Path()
     _LOG.info("steps run with Python %s, in %s", sys.executable, Path.cwd())
-    justification, report = _report(options, root)
-    _LOG.info("verdict: %s", report.verdict)
-    code = exit_code(report.verdict, strict=options.strict)
-    report, drawn = _draw(options, justification, report, root)
-    saved = _save(options.report, report)
+    # Expanded before the events file is opened, which a glob could otherwise match.
+    libraries = _libraries(options.library)
+    preview = None if options.events is None else _Preview(root)
+    try:
+        with _events(options.events, root, preview) as stream:
+            justification, report = _report(options, root, libraries, stream)
+            _LOG.info("verdict: %s", report.verdict)
+            report, drawn = _draw(options, justification, report, root)
+            saved = _save(options.report, report)
+            ok = drawn and saved
+            code = exit_code(report.verdict, strict=options.strict) if ok else ExitCode.IO
+            _print(options, report)
+            if stream is not None:
+                # A stream that failed writes nothing more, so this exit code is never shown.
+                stream.run_ended(report, code, options.report if saved else None)
+    finally:
+        # Once the run has ended, whatever ended it: the preview has had its use.
+        if preview is not None:
+            preview.discard()
+    # Once the file is closed: closing it writes what it still holds, and may fail.
+    return code if _streamed(stream) else ExitCode.IO
+
+
+def _print(options: argparse.Namespace, report: RunReport) -> None:
+    """Print the report on stdout: the JSON report with ``--json``, the text one otherwise."""
     if options.json:
         sys.stdout.write(json_report.dumps(report))
     else:
         colour = _colour(options.colour)
         unicode = text_report.use_unicode(sys.stdout)
         sys.stdout.write(text_report.render(report, colour=colour, unicode=unicode))
-    return code if drawn and saved else ExitCode.IO
+    sys.stdout.flush()
 
 
-def _check_graphviz(*paths: Path | None) -> None:
-    """Raise ``FileNotFoundError`` if a diagram needs Graphviz's ``dot``, and it is not
+@contextmanager
+def _events(
+    path: Path | None, root: Path, preview: Preview | None = None
+) -> Iterator[EventStream | None]:
+    """The stream of the run's events, written to ``path``, if one is given, which draws
+    the diagram with ``preview`` before the first step. A file that cannot be opened is an
+    ``OSError``, before anything runs."""
+    if path is None:
+        yield None
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    file = path.open("w", encoding="utf-8", newline="\n")
+    stream = EventStream(file, root=root, preview=preview)
+    _LOG.info("writing the run's events to %s", path)
+    try:
+        yield stream
+    finally:
+        stream.close()
+
+
+class _Preview:
+    """What draws the diagram before the first step, as a dry run would draw it, for a
+    program that follows the run's events (ADR-0032): an SVG file in a directory of its own,
+    in the system's temporary directory, which ``discard`` deletes when the run ends. The
+    drawing is a preview: whatever keeps it from being drawn, Graphviz missing included, is
+    logged, and changes nothing else. ``--diagram`` holds only the run's own diagram."""
+
+    def __init__(self, root: Path) -> None:
+        self._root = root
+        self._directory: Path | None = None
+
+    def __call__(self, planned: RunResult) -> Path | None:
+        if shutil.which("dot") is None:
+            _LOG.warning(
+                "the diagram is not drawn before the steps run: Graphviz's dot is not "
+                "installed, or not on the PATH"
+            )
+            return None
+        try:
+            self._directory = Path(tempfile.mkdtemp(prefix="jpipe-runner-")).absolute()
+            drawn = self._directory / "diagram.svg"
+            report = RunReport.of(planned, self._root)
+            if observer := _observer(report, drawn, self._root):
+                # A temporary directory in the project, as TMPDIR may make it.
+                _LOG.warning(
+                    "the diagram is not drawn before the steps run: %s, so the steps "
+                    "could observe it at %s",
+                    observer,
+                    drawn,
+                )
+                self.discard()
+                return None
+            diagram.write(drawn, planned.justification, report)
+        # Whatever went wrong, from an observable of the library that cannot describe
+        # itself to dot, a preview never stops the run.
+        except Exception as error:  # NOSONAR
+            why = _reason(error) if isinstance(error, OSError) else f"{error!r}"
+            _LOG.warning("cannot draw the diagram before the steps run: %s", why)
+            return None
+        _LOG.info("drew the diagram at %s, before the steps run", drawn)
+        return drawn
+
+    def discard(self) -> None:
+        """Delete the drawing, and its directory, if it was drawn. On Windows, a file a
+        program has open cannot be deleted, as the reader of the drawing may have it for a
+        moment: try again, for about a second. What cannot be deleted is a warning."""
+        if self._directory is None:
+            return
+        directory, self._directory = self._directory, None
+        for attempt in range(_ATTEMPTS):
+            try:
+                shutil.rmtree(directory)
+                return
+            except FileNotFoundError:
+                return
+            except OSError as error:
+                if _WINDOWS and attempt < _ATTEMPTS - 1:
+                    time.sleep(_PAUSE)
+                    continue
+                _LOG.warning("cannot delete the diagram drawn before the steps run: %s", error)
+                return
+
+
+def _observer(report: RunReport, drawn: Path, root: Path) -> str | None:
+    """What an evidence observes that designates ``drawn``, if it is under ``root``."""
+    shown = shown_path(str(drawn), root)
+    for element in report.elements:
+        for observed in element.observes:
+            if matches(shown, observed):
+                return f"{element.id} observes {observed}"
+    return None
+
+
+def _streamed(stream: EventStream | None) -> bool:
+    """Whether every event was written, if there is a stream."""
+    return stream is None or not stream.failed
+
+
+def _check_graphviz(path: Path | None) -> None:
+    """Raise ``FileNotFoundError`` if the diagram needs Graphviz's ``dot``, and it is not
     installed: nothing should run for an output that cannot be drawn."""
-    needed = [path for path in paths if path is not None and path.suffix.lower() != ".dot"]
+    needed = path is not None and path.suffix.lower() != ".dot"
     if needed and shutil.which("dot") is None:
         raise FileNotFoundError(
-            f"Graphviz's dot is needed to draw {needed[0]}, and is not installed or not on "
+            f"Graphviz's dot is needed to draw {path}, and is not installed or not on "
             "the PATH: install Graphviz (https://graphviz.org/download/), or draw a .dot file"
         )
 
 
-def _report(options: argparse.Namespace, root: Path) -> tuple[Justification | None, RunReport]:
-    """The model, unless it was refused, and the report of the run, however it ended."""
-    libraries = _libraries(options.library)
+def _report(
+    options: argparse.Namespace,
+    root: Path,
+    libraries: list[Path],
+    stream: EventStream | None = None,
+) -> tuple[Justification | None, RunReport]:
+    """The model, unless it was refused, and the report of the run of ``libraries``,
+    however it ended. ``stream``, if there is one, is told of the run as it goes."""
     try:
         justification = loader.load(options.justification)
     except InvalidJustificationError as error:
+        if stream is not None:
+            stream.run_started(None, strict=options.strict, dry_run=options.dry_run)
         return None, RunReport.refused(error, strict=options.strict)
+    if stream is not None:
+        stream.run_started(justification, strict=options.strict, dry_run=options.dry_run)
     _LOG.info(
         "loaded %s from %s: %d elements",
         justification.name,
@@ -397,6 +551,7 @@ def _report(options: argparse.Namespace, root: Path) -> tuple[Justification | No
                 strict=options.strict,
                 root=root,
                 dry_run=options.dry_run,
+                listener=stream,
             )
     except LibraryLoadError as error:
         report = RunReport.not_imported(justification, error, strict=options.strict, root=root)
@@ -426,27 +581,20 @@ def _draw(
     report: RunReport,
     root: Path,
 ) -> tuple[RunReport, bool]:
-    """The report, recording the diagrams drawn, and whether every one asked for was."""
-    drawings: list[tuple[Path | None, diagram.View, Callable[[RunReport, str], RunReport]]] = [
-        (options.diagram, diagram.View.JUSTIFICATION, RunReport.with_diagram),
-        (options.dataflow, diagram.View.DATAFLOW, RunReport.with_dataflow),
-    ]
-    drawn = True
-    for path, view, record in drawings:
-        if path is None:
-            continue
-        if justification is None:
-            _LOG.warning("the model was refused, so %s is not drawn", path)
-            continue
-        try:
-            diagram.write(path, justification, report, view=view)
-        except OSError as error:
-            _log_error(error)
-            drawn = False
-            continue
-        _LOG.info("drew the %s view at %s", view, path)
-        report = record(report, shown_path(str(path), root))
-    return report, drawn
+    """The report, recording the diagram if it was drawn, and whether it was, if asked for."""
+    path: Path | None = options.diagram
+    if path is None:
+        return report, True
+    if justification is None:
+        _LOG.warning("the model was refused, so %s is not drawn", path)
+        return report, True
+    try:
+        diagram.write(path, justification, report)
+    except OSError as error:
+        _log_error(error)
+        return report, False
+    _LOG.info("drew the diagram at %s", path)
+    return report.with_diagram(shown_path(str(path), root)), True
 
 
 def _save(path: Path | None, report: RunReport) -> bool:
@@ -480,7 +628,7 @@ def _impact(options: argparse.Namespace) -> int:
         changed = impact.changed_since(options.since)
     else:
         changed = _relative(options.changed)
-    _, report = _report(options, Path())
+    _, report = _report(options, Path(), _libraries(options.library))
     if not any(element.step for element in report.elements):
         # A refused model, libraries that cannot be imported or that bind nothing: there is
         # nothing declared to analyze, and the report says why.
@@ -533,15 +681,26 @@ def _status(options: argparse.Namespace) -> int:
         )
         return ExitCode.INVALID
     changes = impact.stale(document)
-    reached = [a for e in document["elements"] for a in e["artifacts"] if a["reachable"]]
-    vanished = [change for change in changes if change.kind is impact.ChangeKind.VANISHED]
-    if reached and len(vanished) == len(reached):
+    reached = {
+        (e["id"], a["path"])
+        for e in document["elements"]
+        for a in e["artifacts"]
+        if impact.sha256_read(a) is not None
+    }
+    vanished = {
+        (change.element, change.path)
+        for change in changes
+        if change.kind is impact.ChangeKind.VANISHED
+    }
+    # Files only: an environment variable that is no longer set is no sign of a wrong root.
+    if reached and reached <= vanished:
         _LOG.warning(
             "every file the run observed is missing: run status from the directory the run "
             "ran in, where the report's paths start"
         )
-    sys.stdout.write(impact.render_stale(document, changes))
-    return ExitCode.FAILED if changes else ExitCode.OK
+    unchecked = impact.unverified(document)
+    sys.stdout.write(impact.render_stale(document, changes, unchecked))
+    return ExitCode.FAILED if changes or unchecked else ExitCode.OK
 
 
 def _colour(choice: str) -> bool:

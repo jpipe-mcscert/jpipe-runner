@@ -21,11 +21,11 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
-from jpipe_runner.artifacts import Observation
 from jpipe_runner.diagnostics import Diagnostic, shown_path
-from jpipe_runner.report import ElementReport, RunReport, Trace
+from jpipe_runner.observables import HIDDEN, Observation
+from jpipe_runner.report import ElementReport, RunReport, Summary, Trace
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
 
 SCHEMA: dict[str, Any] = json.loads(
     files("jpipe_runner").joinpath("schema/report.schema.json").read_text(encoding="utf-8")
@@ -48,25 +48,15 @@ _RECURSION: dict[type, str] = {
 
 def document(report: RunReport) -> dict[str, Any]:
     """``report`` as a JSON document, as ``report.schema.json`` describes it."""
-    summary = report.summary
     return {
         "schema_version": SCHEMA_VERSION,
         "justification": report.justification,
         "verdict": str(report.verdict),
         "strict": report.strict,
-        "summary": {
-            "elements": summary.elements,
-            "pass": summary.passed,
-            "fail": summary.failed,
-            "skip": summary.skipped,
-            "not_run": summary.not_run,
-            "errors": summary.errors,
-            "warnings": summary.warnings,
-        },
-        "elements": [_element(element, report.root) for element in report.elements],
-        "diagnostics": [_diagnostic(report, diagnostic) for diagnostic in report.diagnostics],
+        "summary": summary(report.summary),
+        "elements": [element(each, report.root) for each in report.elements],
+        "diagnostics": [diagnostic(each, report.root) for each in report.diagnostics],
         "diagram": report.diagram,
-        "dataflow": report.dataflow,
     }
 
 
@@ -76,7 +66,21 @@ def dumps(report: RunReport) -> str:
     return json.dumps(document(report), indent=2, ensure_ascii=False) + "\n"
 
 
-def _element(element: ElementReport, root: Path) -> dict[str, Any]:
+def summary(counted: Summary) -> dict[str, Any]:
+    """A report's summary, as the report writes it."""
+    return {
+        "elements": counted.elements,
+        "pass": counted.passed,
+        "fail": counted.failed,
+        "skip": counted.skipped,
+        "not_run": counted.not_run,
+        "errors": counted.errors,
+        "warnings": counted.warnings,
+    }
+
+
+def element(element: ElementReport, root: Path = Path()) -> dict[str, Any]:
+    """An element of a report, as the report writes it, with paths relative to ``root``."""
     return {
         "id": element.id,
         "label": element.label,
@@ -90,24 +94,55 @@ def _element(element: ElementReport, root: Path) -> dict[str, Any]:
         "bound_to": element.step,
         "bound_by": list(element.designators),
         "observes": list(element.observes),
+        "sources": list(element.sources),
         "consumes": list(element.consumes),
+        "inputs": {
+            each.parameter: {"variable": each.variable, "produced_by": each.produced_by}
+            for each in element.inputs
+        },
         "produces": list(element.produces),
         "produced": {name: encoded(value, root) for name, value in element.produced.items()},
-        "artifacts": [_artifact(artifact) for artifact in element.artifacts],
+        "artifacts": [_artifact(seen, root) for seen in element.artifacts if seen.path],
+        "observations": [_observation(seen, root) for seen in element.artifacts if not seen.path],
     }
 
 
-def _artifact(artifact: Observation) -> dict[str, Any]:
-    return {
+def _artifact(artifact: Observation, root: Path) -> dict[str, Any]:
+    """A file that was observed. It carries a value when what was observed is one in it.
+    One that was read, without what was observed in it being found, is unreachable: its
+    SHA-256 and size are in ``read``, so that ``sha256`` is null exactly when it is."""
+    reached = artifact.reachable
+    written: dict[str, Any] = {
         "path": artifact.path,
-        "reachable": artifact.reachable,
-        "sha256": artifact.sha256,
-        "size": artifact.size,
+        "declared": artifact.declared,
+        "reachable": reached,
+        "sha256": artifact.sha256 if reached else None,
+        "size": artifact.size if reached else None,
+    }
+    if not reached and artifact.sha256 is not None:
+        written["read"] = {"sha256": artifact.sha256, "size": artifact.size}
+    if artifact.value is not HIDDEN:
+        written["value"] = encoded(artifact.value, root)
+    return written
+
+
+def _observation(observation: Observation, root: Path) -> dict[str, Any]:
+    """Something observed that is not a file."""
+    shown = observation.value is not HIDDEN
+    return {
+        "declared": observation.declared,
+        "variable": observation.variable,
+        "reachable": observation.reachable,
+        "hidden": observation.hidden,
+        "sha256": observation.sha256,
+        "value": encoded(observation.value, root) if shown else None,
     }
 
 
-def _diagnostic(report: RunReport, diagnostic: Diagnostic) -> dict[str, Any]:
-    trace = report.trace(diagnostic)
+def diagnostic(diagnostic: Diagnostic, root: Path = Path()) -> dict[str, Any]:
+    """A diagnostic, as the report writes it, with its traceback's paths relative to
+    ``root``."""
+    trace = None if diagnostic.traceback is None else Trace.of(diagnostic.traceback, root)
     return {
         "code": diagnostic.code,
         "severity": str(diagnostic.severity),
@@ -140,10 +175,13 @@ def encoded(value: Any, root: Path = Path()) -> dict[str, Any]:
 
 
 def _is_json(value: Any, seen: set[int]) -> bool:
-    """Whether ``value`` is JSON as it is: ``None``, a ``bool``, an ``int``, a finite
-    ``float``, a ``str``, or a list, tuple or mapping with ``str`` keys of such values."""
-    if value is None or isinstance(value, bool | int | str):
+    """Whether ``value`` is JSON as it is: ``None``, a ``bool``, an ``int`` Python can
+    write, a finite ``float``, a ``str``, or a list, tuple or mapping with ``str`` keys of
+    such values."""
+    if value is None or isinstance(value, bool | str):
         return True
+    if isinstance(value, int):
+        return _writable(value)
     if isinstance(value, float):
         return math.isfinite(value)
     if not isinstance(value, list | tuple | Mapping) or id(value) in seen:
@@ -152,6 +190,16 @@ def _is_json(value: Any, seen: set[int]) -> bool:
     if isinstance(value, Mapping):
         return all(isinstance(key, str) and _is_json(v, seen) for key, v in value.items())
     return all(_is_json(item, seen) for item in value)
+
+
+def _writable(value: int) -> bool:
+    """Whether Python writes ``value`` in decimal: not if it has more digits than
+    ``sys.get_int_max_str_digits()`` allows."""
+    try:
+        int.__repr__(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _plain(value: Any) -> Any:

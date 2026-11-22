@@ -53,6 +53,73 @@ class Relation:
     """The element it supports."""
 
 
+@dataclass(frozen=True)
+class Placeholder:
+    """A template's ``@support`` that an element further down the chain fills.
+
+    It is drawn in its template, with its own label, and linked to the element that fills
+    it, which has the same id.
+    """
+
+    id: str
+    """The id of the element that fills it."""
+    label: str
+    supports: tuple[str, ...] = ()
+    """The strategies whose support by ``id`` is drawn from the placeholder: the edge
+    belongs to the template."""
+
+
+@dataclass(frozen=True)
+class Template:
+    """A template of the chain a justification implements, as the compiler draws it."""
+
+    name: str
+    elements: tuple[str, ...]
+    """The ids drawn in the template, in drawing order: its own elements, then the
+    ``@support``s it fills further up. The id of one of its ``placeholders`` stands for the
+    placeholder."""
+    placeholders: tuple[Placeholder, ...] = ()
+
+
+@dataclass(frozen=True)
+class TemplateChain:
+    """How the compiler draws a justification that implements a template (jPipe 4.0.0).
+
+    The run does not depend on it: the model's elements and relations are the template's
+    and the justification's, flattened. Only the diagram uses it.
+    """
+
+    elements: tuple[str, ...]
+    """The ids drawn outside every template, in drawing order: the justification's own
+    elements, then the ``@support``s it fills."""
+    templates: tuple[Template, ...]
+    """The chain, the template the justification implements first. Each is drawn inside
+    the one before it."""
+
+    @property
+    def ids(self) -> tuple[str, ...]:
+        """Every element id the chain names, once each, in the order it first names them.
+
+        The compiler lists a placeholder's id among its template's elements too, but a
+        placeholder is still read for its id: the chain is checked against the model
+        without relying on how the compiler lays it out (#179).
+        """
+        return tuple(
+            dict.fromkeys(
+                (
+                    *self.elements,
+                    *(i for template in self.templates for i in template.elements),
+                    *(
+                        i
+                        for template in self.templates
+                        for placeholder in template.placeholders
+                        for i in (placeholder.id, *placeholder.supports)
+                    ),
+                )
+            )
+        )
+
+
 class InvalidJustificationError(Exception):
     """A model that cannot be run. It carries every problem found, as diagnostics."""
 
@@ -77,12 +144,24 @@ class Justification:
     element (#115). It also raises if the relations form a cycle (JP004), which the
     compiler never emits: an argument cannot support itself, and its steps would have no
     order to run in (ADR-0010).
+
+    A ``template_chain`` that names an element that does not exist is not kept: only the
+    diagram reads it, which then draws the argument flat, and the run does not depend on
+    it. Its unknown ids are kept instead, for validation to warn about (JP026, #177).
     """
 
-    def __init__(self, name: str, elements: Iterable[Element], relations: Iterable[Relation]):
+    def __init__(
+        self,
+        name: str,
+        elements: Iterable[Element],
+        relations: Iterable[Relation],
+        template_chain: TemplateChain | None = None,
+    ):
         self._name = name
         self._elements = tuple(elements)
         self._relations = tuple(relations)
+        self._unknown_in_template_chain = _unknown_in_chain(template_chain, self._elements)
+        self._template_chain = None if self._unknown_in_template_chain else template_chain
 
         problems = [
             *_duplicate_ids(self._elements),
@@ -114,6 +193,19 @@ class Justification:
     def relations(self) -> tuple[Relation, ...]:
         """The relations, in the order the model lists them."""
         return self._relations
+
+    @property
+    def template_chain(self) -> TemplateChain | None:
+        """How the compiler draws the templates this justification implements, or ``None``
+        if it implements none, was compiled by a jPipe older than 4.0.0, or its chain names
+        an element it does not have."""
+        return self._template_chain
+
+    @property
+    def unknown_in_template_chain(self) -> tuple[str, ...]:
+        """The ids the compiler's template chain names that are not elements, in the order
+        the chain names them. If there is one, the chain was not kept."""
+        return self._unknown_in_template_chain
 
     def element(self, element_id: str) -> Element:
         """The element whose own id is ``element_id``. Aliases are not looked up here."""
@@ -215,6 +307,15 @@ def _dangling(
                 f"relation {relation.source!r} -> {relation.target!r} names {names}, "
                 f"which {'is not an element' if len(missing) == 1 else 'are not elements'}",
             )
+
+
+def _unknown_in_chain(
+    chain: TemplateChain | None, elements: tuple[Element, ...]
+) -> tuple[str, ...]:
+    if chain is None:
+        return ()
+    ids = {element.id for element in elements}
+    return tuple(i for i in chain.ids if i not in ids)
 
 
 def _cyclic(cycle: tuple[str, ...]) -> Diagnostic:

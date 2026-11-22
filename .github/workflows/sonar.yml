@@ -10,13 +10,15 @@ name: SonarQube
 on:
   # `main` and pull requests only, unlike ci.yml. The organization's SonarQube Cloud plan
   # analyzes the main branch and pull requests but refuses other branches ("Organization is
-  # not allowed to access data from non main branches"), so a milestone branch gets its
-  # gate when its pull request is opened (ADR-0004).
+  # not allowed to access data from non main branches"), so a work branch gets its gate
+  # when its pull request into `dev` is opened, and `dev` itself through the release pull
+  # request into `main` (ADR-0004).
   push:
     branches:
       - main
   pull_request:
     branches:
+      - dev
       - main
   workflow_dispatch:   # run it from `main`: on any other branch the plan refuses it too
 

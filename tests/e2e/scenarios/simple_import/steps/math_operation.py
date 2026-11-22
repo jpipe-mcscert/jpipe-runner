@@ -17,19 +17,19 @@ from jpipe_runner import Fail, Outcome, Pass, evidence, strategy
 EXPECTED_SUM = 37
 
 
-@evidence("E1", observes={"module": "root_utils.py"}, produces=["number_a"])
+@evidence("E1", observes={"module": "../root_utils.py"}, produces=["number_a"])
 def generate_number_a(module: Path) -> Outcome:
     """Number a comes from a root module imported at load time."""
     return Pass(number_a=get_root_number_a())
 
 
-@evidence("E2", observes={"module": "steps/step_utils.py"}, produces=["number_b"])
+@evidence("E2", observes={"module": "step_utils.py"}, produces=["number_b"])
 def generate_number_b(module: Path) -> Outcome:
     """Number b comes from a package module imported at load time."""
     return Pass(number_b=get_step_number_b())
 
 
-@evidence("E3", observes={"module": "root_runtime_utils.py"}, produces=["number_c"])
+@evidence("E3", observes={"module": "../root_runtime_utils.py"}, produces=["number_c"])
 def generate_number_c(module: Path) -> Outcome:
     """Number c comes from a root module imported at run time."""
     from root_runtime_utils import get_root_number_c
@@ -37,7 +37,7 @@ def generate_number_c(module: Path) -> Outcome:
     return Pass(number_c=get_root_number_c())
 
 
-@evidence("E4", observes={"module": "steps/step_runtime_utils.py"}, produces=["number_d"])
+@evidence("E4", observes={"module": "step_runtime_utils.py"}, produces=["number_d"])
 def generate_number_d(module: Path) -> Outcome:
     """Number d comes from a package module imported at run time."""
     from steps.step_runtime_utils import get_step_number_d

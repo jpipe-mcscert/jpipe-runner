@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "vaccination_campaign",
   "verdict": "pass",
   "strict": false,
@@ -32,7 +32,11 @@
       "observes": [
         "mock/event_calendar.csv"
       ],
+      "sources": [
+        "mock/event_calendar.csv"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "event_count"
       ],
@@ -44,11 +48,13 @@
       "artifacts": [
         {
           "path": "mock/event_calendar.csv",
+          "declared": "mock/event_calendar.csv",
           "reachable": true,
           "sha256": "8a62c980e2001d4dbaa8bc39d8e17e21021af034a568d379eb7695c4f740c135",
           "size": 126
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "testimonial_videos",
@@ -69,7 +75,11 @@
       "observes": [
         "mock/testimonial_videos_list.txt"
       ],
+      "sources": [
+        "mock/testimonial_videos_list.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "testimonial_count"
       ],
@@ -81,11 +91,13 @@
       "artifacts": [
         {
           "path": "mock/testimonial_videos_list.txt",
+          "declared": "mock/testimonial_videos_list.txt",
           "reachable": true,
           "sha256": "02e126279dfd21b3d6b09f4888da914ac3f1ed212921261cb8915bae206c187d",
           "size": 34
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "social_posts",
@@ -106,7 +118,11 @@
       "observes": [
         "mock/social_posts.json"
       ],
+      "sources": [
+        "mock/social_posts.json"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "social_posts_size"
       ],
@@ -118,11 +134,13 @@
       "artifacts": [
         {
           "path": "mock/social_posts.json",
+          "declared": "mock/social_posts.json",
           "reachable": true,
           "sha256": "56fbf022b74c54baa7ef23a5a9e4bb3b347dcf974c06a224d4a4602b1aa50344",
           "size": 285
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "trained_staff",
@@ -143,7 +161,11 @@
       "observes": [
         "mock/staff_roster.csv"
       ],
+      "sources": [
+        "mock/staff_roster.csv"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "staff_count"
       ],
@@ -155,11 +177,13 @@
       "artifacts": [
         {
           "path": "mock/staff_roster.csv",
+          "declared": "mock/staff_roster.csv",
           "reachable": true,
           "sha256": "1bacc63261f7cf9c2f0721ed91392e5094e55d4c522b8958d59850e2f341c57c",
           "size": 132
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "leader_commitments",
@@ -180,7 +204,11 @@
       "observes": [
         "mock/leader_commitments.txt"
       ],
+      "sources": [
+        "mock/leader_commitments.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "leader_commitments_size"
       ],
@@ -192,11 +220,13 @@
       "artifacts": [
         {
           "path": "mock/leader_commitments.txt",
+          "declared": "mock/leader_commitments.txt",
           "reachable": true,
           "sha256": "73ca15440b016035a420c3c516d8cd51bd5fdb1cdec9a8c4c7d602523741816a",
           "size": 133
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "trusted_voices",
@@ -215,13 +245,25 @@
         "trusted_voices"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "leader_commitments_size",
         "testimonial_count"
       ],
+      "inputs": {
+        "leader_commitments_size": {
+          "variable": "leader_commitments_size",
+          "produced_by": "leader_commitments"
+        },
+        "testimonial_count": {
+          "variable": "testimonial_count",
+          "produced_by": "testimonial_videos"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "speakers_list",
@@ -242,7 +284,11 @@
       "observes": [
         "mock/speakers_list.csv"
       ],
+      "sources": [
+        "mock/speakers_list.csv"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "speaker_count"
       ],
@@ -254,11 +300,13 @@
       "artifacts": [
         {
           "path": "mock/speakers_list.csv",
+          "declared": "mock/speakers_list.csv",
           "reachable": true,
           "sha256": "9a18a38a0c27a7001a21df082d006dbd9744854f81bc9fbdfaf7c6cd66bab4a7",
           "size": 84
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "community_events",
@@ -277,13 +325,25 @@
         "community_events"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "event_count",
         "speaker_count"
       ],
+      "inputs": {
+        "event_count": {
+          "variable": "event_count",
+          "produced_by": "event_calendar"
+        },
+        "speaker_count": {
+          "variable": "speaker_count",
+          "produced_by": "speakers_list"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "schedule_plan",
@@ -304,7 +364,11 @@
       "observes": [
         "mock/schedule_plan.txt"
       ],
+      "sources": [
+        "mock/schedule_plan.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "schedule_plan_size"
       ],
@@ -316,11 +380,13 @@
       "artifacts": [
         {
           "path": "mock/schedule_plan.txt",
+          "declared": "mock/schedule_plan.txt",
           "reachable": true,
           "sha256": "b837cdf0b2c478eec59e13740bc1d5ec1f7df719e13c5a9022cda27582b22499",
           "size": 115
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "fleet_available",
@@ -341,7 +407,11 @@
       "observes": [
         "mock/fleet_info.json"
       ],
+      "sources": [
+        "mock/fleet_info.json"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "fleet_size"
       ],
@@ -353,11 +423,13 @@
       "artifacts": [
         {
           "path": "mock/fleet_info.json",
+          "declared": "mock/fleet_info.json",
           "reachable": true,
           "sha256": "1669bb2fc117c9ce382e7925766903a02fa2742727c6ee2497aa24106cac8fb0",
           "size": 373
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "mobile_units",
@@ -376,13 +448,25 @@
         "mobile_units"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "fleet_size",
         "staff_count"
       ],
+      "inputs": {
+        "fleet_size": {
+          "variable": "fleet_size",
+          "produced_by": "fleet_available"
+        },
+        "staff_count": {
+          "variable": "staff_count",
+          "produced_by": "trained_staff"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "access_mobile_units",
@@ -399,10 +483,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "safety_report",
@@ -423,7 +510,11 @@
       "observes": [
         "mock/safety_report.*"
       ],
+      "sources": [
+        "mock/safety_report.*"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "safety_report_format"
       ],
@@ -435,11 +526,13 @@
       "artifacts": [
         {
           "path": "mock/safety_report.pdf",
+          "declared": "mock/safety_report.*",
           "reachable": true,
           "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "size": 0
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "trust_leaders",
@@ -456,10 +549,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "awareness_events",
@@ -476,10 +572,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "extended_hours",
@@ -498,12 +597,20 @@
         "extended_hours"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "schedule_plan_size"
       ],
+      "inputs": {
+        "schedule_plan_size": {
+          "variable": "schedule_plan_size",
+          "produced_by": "schedule_plan"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "faq_document",
@@ -524,7 +631,11 @@
       "observes": [
         "mock/faq_document.txt"
       ],
+      "sources": [
+        "mock/faq_document.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "faq_document_size"
       ],
@@ -536,11 +647,13 @@
       "artifacts": [
         {
           "path": "mock/faq_document.txt",
+          "declared": "mock/faq_document.txt",
           "reachable": true,
           "sha256": "0d6062f4a81cbbe94ef7bb28414ec0fd4d393ef562331e784861899bf92df946",
           "size": 330
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "transparent_info",
@@ -559,13 +672,25 @@
         "transparent_info"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "safety_report_format",
         "faq_document_size"
       ],
+      "inputs": {
+        "safety_report_format": {
+          "variable": "safety_report_format",
+          "produced_by": "safety_report"
+        },
+        "faq_document_size": {
+          "variable": "faq_document_size",
+          "produced_by": "faq_document"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "trust_transparency",
@@ -582,10 +707,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "access_extended_hours",
@@ -602,10 +730,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "press_release",
@@ -626,7 +757,11 @@
       "observes": [
         "mock/press_release.txt"
       ],
+      "sources": [
+        "mock/press_release.txt"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "press_release_size"
       ],
@@ -638,11 +773,13 @@
       "artifacts": [
         {
           "path": "mock/press_release.txt",
+          "declared": "mock/press_release.txt",
           "reachable": true,
           "sha256": "c2bf1ab7a7566d181669f4569d2b56fc33b5c96a4803a8cd29a79dd98c80e793",
           "size": 413
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "media_outreach",
@@ -661,13 +798,25 @@
         "media_outreach"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "press_release_size",
         "social_posts_size"
       ],
+      "inputs": {
+        "press_release_size": {
+          "variable": "press_release_size",
+          "produced_by": "press_release"
+        },
+        "social_posts_size": {
+          "variable": "social_posts_size",
+          "produced_by": "social_posts"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "awareness_media",
@@ -684,10 +833,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "multi_pronged",
@@ -706,10 +858,13 @@
         "multi_pronged"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "main_goal",
@@ -724,13 +879,15 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

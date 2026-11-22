@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` checks *jPipe justifications* by running them (v4, released as 4.0.0;
+`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.1.0;
 v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
 argues a claim from evidence and strategies; a **step library** binds a Python function to
 each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The runner
@@ -38,11 +38,11 @@ cli.main                      argv → run | impact | status; exit codes 0–4 (
   │                           JP020, JP021 (ADR-0020)
   ├─ engine.run               (ADR-0021)
   │    ├─ validation + rules  binding.BindingTable, then every rule; JP005–JP016, JP018
-  │    ├─ artifacts.observe   files an evidence observes, SHA-256; JP019
+  │    ├─ artifacts.observe   what an evidence observes (observables.py), SHA-256; JP019
   │    ├─ the step, called    outcomes.as_outcome (JP017), JP022 if it raised
   │    └─ values.ValueStore   values produced in this run; JP023, JP024
   └─ report.RunReport         → text_report.render, json_report (report.schema.json),
-                                diagram.write (DOT piped to Graphviz's dot, ADR-0022)
+                                diagram.write (the dataflow, DOT piped to Graphviz's dot, ADR-0029)
 impact                        affected / stale / changed_since, from a JSON report (ADR-0025)
 ```
 
@@ -52,8 +52,9 @@ Key design choices:
   code is the one after the highest in `rules.py`/`docs/rules.md`.
 - **A step returns an outcome** (`Pass(values)`, `Fail(reason)`, `Skip(reason)`,
   ADR-0005); values live in a per-run `ValueStore`, not a global (ADR-0009).
-- **Evidence declares the files it observes** (ADR-0018, ADR-0019); paths are relative to
-  the working directory, the run's root.
+- **Evidence declares what it observes** (ADR-0018, ADR-0028): each an `Observable`
+  (`File`, `JsonValue`, `Env`, or a library's own). A path is relative to the file that
+  declares the step; the report shows it relative to the working directory, the run's root.
 - **The JSON report is the machine-readable contract** (ADR-0011), versioned and checked
   against `src/jpipe_runner/schema/report.schema.json`; the text report is for people.
 - **The compiler co-owns the authoring API**: it generates step libraries
@@ -67,15 +68,16 @@ Key design choices:
 |------|---------|
 | `src/jpipe_runner/__init__.py` | The public API, loaded lazily: outcomes and the four decorators |
 | `src/jpipe_runner/cli.py` | The command line: options, subcommands, outputs, exit codes |
-| `src/jpipe_runner/steps.py` | The decorators, `Step`, `StepRegistry`, `observes` path checks |
+| `src/jpipe_runner/steps.py` | The decorators, `Step`, `StepRegistry` |
+| `src/jpipe_runner/observables.py` | `Observable` and the built-in `File`, `JsonValue`, `Env`; path checks, anchoring (`Context`), what a glob designates |
 | `src/jpipe_runner/engine.py` | `run()`: validation, then the steps supporters first; `RunResult`, `Verdict` |
 | `src/jpipe_runner/rules.py` | Every validation rule; source of `docs/rules.md` |
 | `src/jpipe_runner/binding.py` | Id resolution (exact, qualified, suffix) and the one-to-one `BindingTable` |
 | `src/jpipe_runner/report.py` | `RunReport`, what every renderer reads |
 | `src/jpipe_runner/schema/` | The JSON schemas of the compiler's justification and of the report |
 | `pyproject.toml` | Dependencies, entry points, tool configuration |
-| `.github/workflows/ci.yml` | CI — lint (ruff, mypy) and pytest on push to every branch, and on PRs to `main` |
-| `.github/workflows/sonar.yml` | SonarCloud scan and quality gate (ADR-0004) |
+| `.github/workflows/ci.yml` | CI — lint (ruff, mypy) and pytest on push to every branch, and on PRs from forks |
+| `.github/workflows/sonar.yml` | SonarCloud scan and quality gate on PRs into `dev`/`main` and pushes to `main` (ADR-0004) |
 | `.github/workflows/release.yml` | Multi-stage release pipeline (see Release section) |
 
 ## Testing
@@ -120,36 +122,41 @@ output and mock data.
 `-or`/`-er`/single-`l`/`-ense` forms; extend its exceptions rather than misspelling to
 please it. Issue and PR text follows the same rule.
 
-## Branching
+## Branches and pull requests
 
-One long-lived branch, `main` (the default branch), plus one branch per milestone, cut
-from `main`. Rationale:
-[ADR-0014](docs/adr/0014-trunk-with-milestone-branches.md) and
-[ADR-0015](docs/adr/0015-draft-pull-request-per-milestone.md); workflow:
-[`docs/contributing.md`](docs/contributing.md). There is no `dev` branch any more; v3 is
-the `v3.6.0` tag.
+The repository follows the
+[jPipe workflow](https://github.com/jpipe-mcscert/.github/blob/main/CONTRIBUTING.md):
+`main` holds released code, `dev` is the integration branch and the GitHub default, work
+branches are cut from `dev` and come back through a pull request into `dev`, and a release
+is a pull request from `dev` into `main`. The assistant's role (stay on the session's
+branch, ask before creating one, open a PR only when asked and then follow the PR steps,
+never merge or tag) is in the org guide's *For AI assistants* section, and repeated here
+because a session may not have it:
 
-- Ticket work goes on its milestone's branch, as one or more commits; the commit that
-  completes a ticket ends with `Closes #N`.
-- Each milestone has **one** PR into `main`, opened as a **draft** when its branch is first
-  pushed (SonarCloud only analyzes `main` and PRs on this plan). An assistant opens it only
-  when the maintainer asks; otherwise it pushes the branch and stops.
-- **Document what the milestone adds, in the milestone** ([ADR-0017](docs/adr/0017-document-in-the-milestone-that-builds-it.md)):
-  a user-visible feature gets its page under `docs/` in the milestone's PR, with its code
-  examples executed by a test. Documentation issues sit on the milestone that builds what
-  they describe.
+- Stay on the session's branch. Never create a branch without the maintainer's approval:
+  name it, say what it is for, and wait. If the session is on `main` or `dev`, ask for a
+  work branch before committing anything.
+- Never commit to `main` or `dev`, merge a pull request, or push a tag, without an explicit
+  request. A release or hotfix merge into `main`, and every tag, stay with the maintainer.
+- Open a pull request only when asked, then follow the org guide's steps in order: local
+  review, draft, SonarCloud gate, one Copilot review, answer every comment (resolve what is
+  addressed, leave the rest open), ready for review.
+
+[`docs/contributing.md`](docs/contributing.md) gives the details for this repository.
+v3 is the `v3.6.0` tag.
+
+What is specific here:
+
+- The SonarCloud plan analyzes pull requests and `main` only, so the quality gate appears
+  once the draft PR is open (ADR-0004).
+- **Document a change in the PR that makes it**: a user-visible feature gets its page under
+  `docs/`, with its code examples executed by a test.
 - **In the same way, bring [`docs/end-to-end.md`](docs/end-to-end.md) up to date.** It
   walks the release example from `.jd` to verdict for human readers (the e2e scenarios are
-  for coverage). Describe each stage the milestone changed as it now
-  happens, quoting output produced by running the code, never written by hand.
+  for coverage). Describe each stage the change touched as it now happens, quoting output
+  produced by running the code, never written by hand.
   `tests/unit/test_end_to_end_doc.py` keeps its step library, and the validation output it
   quotes, in step with the scenario's.
-- The maintainer marks the PR ready for review when the milestone is complete, and merges it.
-- Never commit or push to `main` directly.
-- **An assistant asks before creating a branch.** It names the branch and what it is for,
-  and waits for the maintainer's answer. Without one, it keeps working on the branch the
-  session started on, or stops if that branch is `main`. Several open branches that touch
-  the same pages are a cost for the maintainer, who has to order and merge them.
 
 ## Release Process
 
@@ -157,14 +164,13 @@ the `v3.6.0` tag.
 
 - **Never push a git tag automatically.** Tag creation/push is performed by a
   human maintainer only — it triggers the immutable PyPI/PPA/Homebrew publish.
-- **Never open a PR unless the maintainer asks, and never merge one.** Milestone PRs are
-  drafts from the start of the milestone (ADR-0015) and are merged by a human. A release
-  has no PR of its own.
+- **Never open a PR unless the maintainer asks, and never merge one.** The release PR
+  (`dev` → `main`) is opened when the maintainer asks, and merged by a human.
 - **Always maintain `CHANGELOG.md`.** Every release (and notable change) gets an
   entry under a `## [x.y.z] - YYYY-MM-DD` heading, following Keep a Changelog.
-- An assistant's scope for a release ends at committing/pushing the prep work
-  (version bump + `CHANGELOG.md` + docs) as the last commit of the milestone branch
-  being released; the PR, merge, and tag are manual.
+- An assistant's scope for a release is the prep work (version bump + `CHANGELOG.md` +
+  docs) on a work branch from `dev`, and the PRs when asked; the merges and the tag are
+  manual.
 
 **Cutting a release (manual steps):**
 
@@ -174,9 +180,10 @@ the `v3.6.0` tag.
    tag; a release replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
    version tests compare the installed (normalized) version to the raw string.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
-3. Land both on `main` (last commit of the released milestone, or a maintainer
-   commit on `main`); wait for CI.
-4. Tag that `main` commit `vX.Y.Z` (must match `pyproject.toml`) and push it.
+3. Land both on `dev` (PR from a work branch), then merge the release PR `dev` → `main`
+   once CI and the quality gate pass.
+4. Tag the merge commit on `main` `vX.Y.Z` (must match `pyproject.toml`) and push it.
+5. Merge `main` back into `dev`, and set `dev` to the next `X.Y.Z.dev0`.
 
 Pushing the tag triggers `.github/workflows/release.yml` — the tag's version must
 match `pyproject.toml`. The pipeline is modelled on the sibling `jpipe-compiler`:
@@ -216,7 +223,7 @@ no milestone and three design questions to settle first.
   ```
   Homebrew's Poetry leaks system packages (e.g. `tbb`) into its resolver, breaking plugin installs.
 
-- **Graphviz system dependency**: diagrams are rendered by piping DOT text to the `dot` binary, as the jPipe compiler does (ADR-0022); there is no Python Graphviz package. Only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
+- **Graphviz system dependency**: the diagram is rendered by piping DOT text to the `dot` binary, as the jPipe compiler does (ADR-0029); there is no Python Graphviz package. Only the Graphviz binary is needed, no C headers. On macOS: `brew install graphviz`. On Linux: `sudo apt-get install graphviz`.
 
 - **Debian packaging** lives in the committed `debian/` directory (`3.0 (native)`
   source format, pybuild via `debian/rules`). `setup.py` is the setuptools shim

@@ -1,0 +1,12 @@
+# justification.json is `jpipe process -i template.jd -m readiness -f JSON` (jPipe 4.0.0),
+# with template.jd from jpipe-examples/release-example at 1ef13fb. Its `implements` key says
+# how the compiler draws the template chain, which only the diagram reads.
+description = "A justification that implements a template: the inherited conclusion and strategy, and the @supports filled by its own sub-conclusions, run as one flattened argument."
+origin = "new in v4: template.jd from jpipe-examples/release-example"
+libraries = ["steps.py"]
+exit_code = 0
+exercises = [
+    "the `implements` key of jPipe 4.0.0, read and kept for the diagram",
+    "binding to inherited elements by their full ids (readiness:quality:gates)",
+    "a sub-conclusion that fills a @support, producing the value the template's strategy consumes",
+]

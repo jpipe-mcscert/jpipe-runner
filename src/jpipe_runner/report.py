@@ -14,19 +14,20 @@ and produced; then every diagnostic, in the order found. A report is plain data,
 once: the renderers are pure functions of it, and the engine prints nothing.
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from traceback import FrameSummary, TracebackException
 from types import MappingProxyType
 from typing import Any
 
-from jpipe_runner.artifacts import Observation
 from jpipe_runner.binding import Binding
+from jpipe_runner.dataflow import Received
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind
+from jpipe_runner.observables import Context, Observation, dependencies, described, drawn_as
 
 _NOTHING: Mapping[str, Any] = MappingProxyType({})
 
@@ -53,15 +54,87 @@ class ElementReport:
     designators: tuple[str, ...] = ()
     """The step's ids that designate it."""
     observes: tuple[str, ...] = ()
-    """The paths and globs its step declares it observes."""
+    """The files, as paths and globs relative to the root, that what its step observes
+    depends on."""
+    sources: tuple[str, ...] = ()
+    """Everything its step declares it observes, as each observable describes itself."""
+    shapes: Mapping[str, str] = field(default_factory=lambda: _NOTHING)
+    """The shape the diagram draws each of its ``sources`` in, as its observable says.
+    Only the diagram reads it: the JSON report does not write it."""
+    reached: Mapping[str, bool] = field(default_factory=lambda: _NOTHING)
+    """Whether each of its ``sources`` was reached, once its step observed them: what the
+    diagram marks ✔ or ⚠, and ``source.observed`` says. Empty until then."""
     consumes: tuple[str, ...] = ()
-    """The variables its step declares it consumes."""
+    """The variables its step declares it consumes, each once."""
+    inputs: tuple[Received, ...] = ()
+    """What each parameter of its step receives: a variable, and the element whose step
+    produced it, or ``None`` when it does not resolve to one (ADR-0031)."""
     produces: tuple[str, ...] = ()
     """The variables its step declares it produces."""
     produced: Mapping[str, Any] = field(default_factory=lambda: _NOTHING)
     """The values its step produced, by variable."""
     artifacts: tuple[Observation, ...] = ()
-    """The files its step observed, recorded just before the call."""
+    """What its step observed, files and others, recorded just before the call."""
+
+    @classmethod
+    def of(
+        cls,
+        model: Justification,
+        element: Element,
+        binding: Binding | None = None,
+        result: ElementResult | None = None,
+        root: Path = Path(),
+        inputs: tuple[Received, ...] = (),
+    ) -> "ElementReport":
+        """``element`` of ``model``, with the step ``binding`` binds to it, what that step's
+        parameters receive, ``inputs``, and the run's ``result`` for it, when it has them:
+        an element of the report, built on its own, as the run's events show it the moment
+        it is decided."""
+        report = cls(
+            element.id,
+            element.label,
+            element.kind,
+            element.aliases,
+            tuple(supported.id for supported in model.supported(element.id)),
+        )
+        if binding is not None:
+            step = binding.step
+            context = Context(step.directory, root)
+            observed = [artifact.observable for artifact in step.observes]
+            named = [(described(observable, context), observable) for observable in observed]
+            files = (path for observable in observed for path in dependencies(observable, context))
+            report = replace(
+                report,
+                step=step.name,
+                designators=binding.designators,
+                observes=tuple(dict.fromkeys(files)),
+                sources=tuple(name for name, _ in named),
+                shapes=MappingProxyType({name: drawn_as(o) for name, o in named}),
+                consumes=step.consumes,
+                inputs=inputs,
+                produces=step.produces,
+            )
+        if result is not None:
+            report = replace(
+                report,
+                status=result.status,
+                reason=result.reason,
+                blocked_by=result.blocked_by,
+                ran=result.ran,
+                produced=result.produced,
+                artifacts=result.observed,
+                reached=MappingProxyType(_reached(result.reached)),
+            )
+        return report
+
+
+def _reached(sources: tuple[tuple[str, bool], ...]) -> dict[str, bool]:
+    """Whether each source was reached, by its name. Two parameters may observe the same
+    source: it was reached only if it was each time, so one that was not is never hidden."""
+    reached: dict[str, bool] = {}
+    for source, each in sources:
+        reached[source] = reached.get(source, True) and each
+    return reached
 
 
 @dataclass(frozen=True)
@@ -130,9 +203,7 @@ class RunReport:
     strict: bool = False
     """Whether validation counted warnings as errors."""
     diagram: str | None = None
-    """Where the diagram of the run was written, if one was."""
-    dataflow: str | None = None
-    """Where the dataflow diagram of the run was written, if one was."""
+    """Where the diagram of the run, its dataflow, was written, if it was."""
     root: Path = field(default=Path(), compare=False)
     """The directory the run observed artifacts from: tracebacks are shown relative to it."""
 
@@ -144,7 +215,7 @@ class RunReport:
         return cls(
             result.justification.name,
             result.verdict,
-            _elements(result.justification, bindings, results),
+            _elements(result.justification, bindings, results, root, result.dataflow.received),
             result.diagnostics,
             result.strict,
             root=root,
@@ -169,7 +240,7 @@ class RunReport:
         return cls(
             justification.name,
             Verdict.INVALID,
-            _elements(justification, {}, {}),
+            _elements(justification, {}, {}, root),
             error.diagnostics,
             strict,
             root=root,
@@ -205,58 +276,27 @@ class RunReport:
         """This report, recording that its diagram was written at ``path``."""
         return replace(self, diagram=path)
 
-    def with_dataflow(self, path: str) -> "RunReport":
-        """This report, recording that its dataflow diagram was written at ``path``."""
-        return replace(self, dataflow=path)
-
 
 def _elements(
     model: Justification,
     bindings: Mapping[str, Binding],
     results: Mapping[str, ElementResult],
+    root: Path,
+    received: Callable[[str], tuple[Received, ...]] | None = None,
 ) -> tuple[ElementReport, ...]:
     """Every element of ``model``, in topological order, with its binding and its result,
-    by element id, when it has them."""
+    by element id, when it has them, and what ``received`` says its step receives."""
     return tuple(
-        _element(model, element, bindings.get(element.id), results.get(element.id))
+        ElementReport.of(
+            model,
+            element,
+            bindings.get(element.id),
+            results.get(element.id),
+            root,
+            () if received is None else received(element.id),
+        )
         for element in model.topological_order()
     )
-
-
-def _element(
-    model: Justification,
-    element: Element,
-    binding: Binding | None,
-    result: ElementResult | None,
-) -> ElementReport:
-    report = ElementReport(
-        element.id,
-        element.label,
-        element.kind,
-        element.aliases,
-        tuple(supported.id for supported in model.supported(element.id)),
-    )
-    if binding is not None:
-        step = binding.step
-        report = replace(
-            report,
-            step=step.name,
-            designators=binding.designators,
-            observes=tuple(artifact.path for artifact in step.observes),
-            consumes=step.consumes,
-            produces=step.produces,
-        )
-    if result is not None:
-        report = replace(
-            report,
-            status=result.status,
-            reason=result.reason,
-            blocked_by=result.blocked_by,
-            ran=result.ran,
-            produced=result.produced,
-            artifacts=result.observed,
-        )
-    return report
 
 
 def _type_name(trace: TracebackException) -> str:

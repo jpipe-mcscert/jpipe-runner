@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "justification": "release",
   "verdict": "pass",
   "strict": false,
@@ -32,7 +32,11 @@
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "suite_failures"
       ],
@@ -44,11 +48,13 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:argued:testing",
@@ -67,12 +73,20 @@
         "argued:testing"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "suite_failures"
       ],
+      "inputs": {
+        "suite_failures": {
+          "variable": "suite_failures",
+          "produced_by": "release:argued:suite"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:unified_0",
@@ -97,7 +111,11 @@
       "observes": [
         "mock/junit.xml"
       ],
+      "sources": [
+        "mock/junit.xml"
+      ],
       "consumes": [],
+      "inputs": {},
       "produces": [
         "code_tested"
       ],
@@ -109,11 +127,13 @@
       "artifacts": [
         {
           "path": "mock/junit.xml",
+          "declared": "mock/junit.xml",
           "reachable": true,
           "sha256": "8ed0d32aa8de646ca88ff4db93398a499803786880d53f37d59548bcdfa48de2",
           "size": 187
         }
-      ]
+      ],
+      "observations": []
     },
     {
       "id": "release:checked:gates",
@@ -132,12 +152,20 @@
         "checked:gates"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "code_tested"
       ],
+      "inputs": {
+        "code_tested": {
+          "variable": "code_tested",
+          "produced_by": "release:unified_0"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:checked:ready",
@@ -154,10 +182,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:argued:docs",
@@ -176,10 +207,13 @@
         "argued:docs"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:argued:done",
@@ -196,10 +230,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:assembleStrategy",
@@ -218,13 +255,25 @@
         "release:assembleStrategy"
       ],
       "observes": [],
+      "sources": [],
       "consumes": [
         "code_tested",
         "suite_failures"
       ],
+      "inputs": {
+        "code_tested": {
+          "variable": "code_tested",
+          "produced_by": "release:unified_0"
+        },
+        "suite_failures": {
+          "variable": "suite_failures",
+          "produced_by": "release:argued:suite"
+        }
+      },
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     },
     {
       "id": "release:assembleConclusion",
@@ -239,10 +288,13 @@
       "bound_to": null,
       "bound_by": [],
       "observes": [],
+      "sources": [],
       "consumes": [],
+      "inputs": {},
       "produces": [],
       "produced": {},
-      "artifacts": []
+      "artifacts": [],
+      "observations": []
     }
   ],
   "diagnostics": [
@@ -263,6 +315,5 @@
       "traceback": null
     }
   ],
-  "diagram": null,
-  "dataflow": null
+  "diagram": null
 }

@@ -11,6 +11,7 @@ tests/
   rules_doc.py         renders docs/rules.md from the rules
   scenarios.py         scenario discovery and the scenario.toml format (layer 2)
   strategies.py        hypothesis strategies for models and step plans (layer 3)
+  streams.py           reading a run's events (--events) and checking them against their schema
   unit/                layer 1 and layer 3, plus unit tests of the helpers above
     validation/
       builders.py      minimal in-memory validation contexts
@@ -73,6 +74,10 @@ cannot: that each library uses only the public API, declares every decorated fun
 observes files that exist, and that a cross-check runs after the argument below it.
 `tests/unit/test_json_report.py` builds each scenario's report in process, whichever way
 its run ends, and checks it against `report.schema.json` (#122).
+`tests/unit/test_events.py` runs each scenario with `--events` as well, and checks that its
+events match `events.schema.json` and preview its report: the same elements, diagnostics
+and verdict, each element decided after its supporters (#169). The events hold the time,
+so they have no golden file.
 
 ### Scenario layout
 
@@ -80,7 +85,6 @@ its run ends, and checks it against `report.schema.json` (#122).
 tests/e2e/scenarios/<name>/
   scenario.toml        how to run it, and what it is for
   justification.json   the model, as the jPipe compiler emits it
-  justification.dot    the compiler's diagram of it, for a scenario written in jPipe
   steps.py             the step library (or several, or a package; see `libraries`)
   expected.json        the golden report (generated)
   mock/ …              anything the steps read
@@ -103,10 +107,9 @@ Step libraries are written against the v4 authoring API (#113, #114):
 `--variable`, no `--config-file`). A step that needs an input reads it from the world,
 which in a scenario means a file under the scenario directory.
 
-`justification.json`, and `justification.dot` where there is one, are compiler output and
-are kept **verbatim**, including fields the runner ignores (such as `escaped`). The file's
-format is the interface (ADR-0001), so the tests use what the compiler actually emits. The
-runner's diagram of a model must be the compiler's `justification.dot` (ADR-0022).
+`justification.json` is compiler output and is kept **verbatim**, including fields the
+runner ignores (such as `escaped`). The file's format is the interface (ADR-0001), so the
+tests use what the compiler actually emits.
 
 ## Layer 3: property tests
 

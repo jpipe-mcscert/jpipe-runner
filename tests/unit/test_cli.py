@@ -21,6 +21,7 @@ from jpipe_runner import __version__, diagram, impact, json_report, loader
 from jpipe_runner.cli import ExitCode, exit_code, main
 from jpipe_runner.engine import Verdict, run
 from jpipe_runner.libraries import imported
+from jpipe_runner.observables import fingerprint
 from jpipe_runner.report import RunReport
 from jpipe_runner.steps import StepRegistry
 from tests.scenarios import GOLDEN_FILE, SCENARIOS_ROOT, Scenario, discover
@@ -304,6 +305,26 @@ def test_strict_counts_a_warning_as_an_error(
     assert _main(capsys, "--strict", *libraries)[0] == ExitCode.INVALID
 
 
+def test_a_template_chain_naming_an_unknown_element_warns_and_is_drawn_flat(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    workdir = scenario("templated")
+    path = workdir / "justification.json"
+    compiled = json.loads(path.read_text(encoding="utf-8"))
+    compiled["implements"]["elements"].append("readiness:gone")
+    path.write_text(json.dumps(compiled), encoding="utf-8")
+    argv = ["--diagram", "r.dot", "--json", "-l", "steps.py", "justification.json"]
+
+    code, out, _ = _main(capsys, *argv)
+
+    report = json.loads(out)
+    assert code == ExitCode.OK
+    assert report["verdict"] == "pass"
+    assert [d["code"] for d in report["diagnostics"]] == ["JP026"]
+    assert "subgraph" not in (workdir / "r.dot").read_text(encoding="utf-8")
+    assert _main(capsys, "--strict", *argv)[0] == ExitCode.INVALID
+
+
 def test_a_dry_run_is_valid_and_calls_no_step(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -382,10 +403,11 @@ def test_an_input_that_cannot_be_read_exits_4_without_a_report(
     [
         pytest.param(["justification.json"], id="no library"),
         pytest.param(["--diagram", "release.txt", *RELEASE], id="a suffix that is no format"),
-        pytest.param(["--dataflow", "release", *RELEASE], id="no suffix"),
+        pytest.param(["--diagram", "release", *RELEASE], id="no suffix"),
         pytest.param(["--diagram", "mock", *RELEASE], id="a directory"),
         pytest.param(["--report", "mock", *RELEASE], id="a directory for the report"),
-        pytest.param(["--diagram", "r.svg", "--dataflow", "r.svg", *RELEASE], id="one file twice"),
+        pytest.param(["--diagram", "r.svg", "--report", "r.svg", *RELEASE], id="one file twice"),
+        pytest.param(["--dataflow", "r.svg", *RELEASE], id="--dataflow, which --diagram replaced"),
         pytest.param(["-v", "-q", *RELEASE], id="verbose and quiet"),
         pytest.param(["-v", "name:value", *RELEASE], id="v3's --variable"),
         pytest.param(["--colour", "red", *RELEASE], id="an unknown colour choice"),
@@ -432,19 +454,21 @@ def test_python_m_drops_the_working_directory_from_the_python_path(
 # --- Diagrams ------------------------------------------------------------------------------
 
 
-def test_both_diagrams_are_drawn_and_recorded(
+def test_the_diagram_is_the_dataflow_drawn_and_recorded(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    argv = ["--diagram", "out/r.dot", "--dataflow", "out/r-flow.dot", "--report", "r.json"]
+    argv = ["--diagram", "out/r.dot", "--report", "r.json"]
 
     code, out, _ = _main(capsys, *argv, *RELEASE)
 
     report = json.loads((release / "r.json").read_text(encoding="utf-8"))
+    drawn = (release / "out" / "r.dot").read_text(encoding="utf-8")
     assert code == ExitCode.OK
-    assert (report["diagram"], report["dataflow"]) == ("out/r.dot", "out/r-flow.dot")
-    assert "diagram: out/r.dot\ndataflow: out/r-flow.dot\nverdict: pass\n" in out
-    assert (release / "out" / "r.dot").read_text(encoding="utf-8").startswith('digraph "release"')
-    assert "variable tests_pass" in (release / "out" / "r-flow.dot").read_text(encoding="utf-8")
+    assert report["diagram"] == "out/r.dot"
+    assert "dataflow" not in report
+    assert "diagram: out/r.dot\nverdict: pass\n" in out
+    assert drawn.startswith('digraph "release"')
+    assert "variable tests_pass" in drawn
 
 
 @needs_dot
@@ -722,6 +746,21 @@ def test_status_of_unchanged_files_is_0(recorded: Path, capsys: pytest.CaptureFi
     assert out.endswith("its report still holds.\n")
 
 
+def test_status_of_a_report_that_hides_what_was_observed_asks_for_a_new_run_and_is_1(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    scenario("observables")  # it observes PATH, which its report does not show
+    library = ["--library", "checks/steps.py", "justification.json"]
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.OK
+
+    code, out, _ = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.FAILED
+    assert "Information was hidden from the report, so it needs a new run:\n" in out
+    assert "  env:PATH  environment\n" in out
+    assert "still holds" not in out
+
+
 def test_status_of_a_changed_file_lists_what_is_stale_and_is_1(
     recorded: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -745,6 +784,38 @@ def test_status_from_another_directory_warns(
     assert "run status from the directory the run ran in" in err
 
 
+def test_status_warns_of_missing_files_only_for_files(
+    recorded: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A variable no longer set is a change, not a sign that status runs from the wrong
+    directory: one file still there, one variable gone, and no warning."""
+    document = json.loads((recorded / "report.json").read_text(encoding="utf-8"))
+    kept = False
+    for element in document["elements"]:
+        if element["artifacts"] and not kept:
+            element["artifacts"], kept = element["artifacts"][:1], True
+            element["observations"] = [
+                {
+                    "declared": "env:JPIPE_RELEASE",
+                    "variable": "JPIPE_RELEASE",
+                    "reachable": True,
+                    "hidden": False,
+                    "sha256": fingerprint("1"),
+                    "value": {"value": "1"},
+                }
+            ]
+        else:
+            element["artifacts"] = []
+    (recorded / "report.json").write_text(json.dumps(document), encoding="utf-8")
+    monkeypatch.delenv("JPIPE_RELEASE", raising=False)
+
+    code, out, err = _main(capsys, "status", "report.json")
+
+    assert code == ExitCode.FAILED
+    assert "env:JPIPE_RELEASE" in out
+    assert "run status from the directory the run ran in" not in err
+
+
 def test_status_of_a_dry_run_is_3(release: Path, capsys: pytest.CaptureFixture[str]) -> None:
     _main(capsys, "--dry-run", "--report", "report.json", *RELEASE)
 
@@ -765,6 +836,83 @@ def test_status_of_a_file_that_is_not_a_report_is_3(
 
 def test_status_of_a_missing_report_is_4(release: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert _main(capsys, "status", "missing.json")[0] == ExitCode.IO
+
+
+_SLUG_LIBRARY = """
+from pathlib import Path
+
+from jpipe_runner import JsonValue, Outcome, Pass, evidence, strategy
+
+
+@evidence(
+    "version",
+    observes={"version": JsonValue("package.json", "POINTER"), "notes": "*.md"},
+    produces=["announced"],
+)
+def announced(version: str, notes: list[Path]) -> Outcome:
+    return Pass(announced=bool(notes))
+
+
+@evidence("environment", observes={"notes": "notes.md"}, produces=["found"])
+def found(notes: Path) -> Outcome:
+    return Pass(found=notes.is_file())
+
+
+@strategy("gates", consumes=["announced", "found"])
+def gates(announced: bool, found: bool) -> Outcome:
+    return Pass()
+"""
+
+
+def _slug(scenario: Callable[[str], Path], pointer: str = "/version") -> list[str]:
+    """The observables example, with a library in app/[slug]/, a directory named as a
+    Next.js route is, beside the files it observes. The arguments that name it."""
+    root = scenario("observables")
+    library = root / "app" / "[slug]"
+    library.mkdir(parents=True)
+    (library / "steps.py").write_text(_SLUG_LIBRARY.replace("POINTER", pointer), encoding="utf-8")
+    (library / "package.json").write_text('{"version": "2.0"}', encoding="utf-8")
+    (library / "notes.md").write_text("2.0\n", encoding="utf-8")
+    return ["-l", "app/[[]slug]/steps.py", "justification.json"]
+
+
+def test_a_library_in_a_directory_named_with_a_wildcard_observes_its_own_files(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#167: the report escapes the directory's name, and impact and status match it."""
+    library = _slug(scenario)
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.OK
+    document = json.loads(Path("report.json").read_text(encoding="utf-8"))
+    (version,) = (element for element in document["elements"] if element["id"] == "version")
+
+    assert version["observes"] == ["app/[[]slug]/package.json", "app/[[]slug]/*.md"]
+    assert [a["path"] for a in version["artifacts"]] == [
+        "app/[slug]/package.json",
+        "app/[slug]/notes.md",
+    ]
+    code, out, _ = _main(capsys, "impact", "--changed", "app/[slug]/notes.md", *library)
+    assert (code, "  app/[slug]/notes.md  version, environment\n" in out) == (ExitCode.OK, True)
+    assert _main(capsys, "status", "report.json")[:2] == (
+        ExitCode.OK,
+        "Justification: observables\n\n"
+        "Everything the run observed is as it was: its report still holds.\n",
+    )
+
+
+def test_status_of_a_json_value_its_pointer_does_not_find_is_its_file_s_status(
+    scenario: Callable[[str], Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#166: the run read the file, so it has not appeared since."""
+    library = _slug(scenario, "/versoin")
+    assert _main(capsys, "--report", "report.json", *library)[0] == ExitCode.FAILED
+
+    assert _main(capsys, "status", "report.json")[0] == ExitCode.OK
+    Path("app/[slug]/package.json").write_text('{"versoin": "2.0"}', encoding="utf-8")
+    code, out, _ = _main(capsys, "status", "report.json")
+    assert (code, "  changed  app/[slug]/package.json  version\n" in out) == (
+        ExitCode.FAILED,
+        True,
+    )
 
 
 def test_a_justification_named_like_a_subcommand_is_run_when_not_first(

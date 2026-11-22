@@ -2,7 +2,7 @@
 
 import re
 
-from jpipe_runner.rules import RULES
+from jpipe_runner.rules import RETIRED, RULES
 from tests.conftest import REPO_ROOT
 from tests.rules_doc import OTHER_CODES, PAGE, UPDATE_HINT, render, write
 
@@ -20,9 +20,14 @@ def test_the_page_is_generated_from_the_rules(update_goldens: bool) -> None:
 
 def test_every_code_the_package_defines_is_documented() -> None:
     defined = {code for path in PACKAGE.rglob("*.py") for code in _CODE.findall(path.read_text())}
-    documented = {rule.code for rule in RULES} | {code for code, *_ in OTHER_CODES}
+    documented = {rule.code for rule in RULES} | {code for code, *_ in OTHER_CODES} | set(RETIRED)
     assert defined <= documented
 
 
 def test_no_code_is_both_a_rule_and_reported_elsewhere() -> None:
     assert not {rule.code for rule in RULES} & {code for code, *_ in OTHER_CODES}
+
+
+def test_a_retired_code_is_never_reused() -> None:
+    used = {rule.code for rule in RULES} | {code for code, *_ in OTHER_CODES}
+    assert not used & set(RETIRED)

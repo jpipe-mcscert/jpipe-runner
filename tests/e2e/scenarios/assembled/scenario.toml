@@ -10,6 +10,6 @@ exercises = [
     "segment-suffix binding of prefixed ids (tested:suite -> readiness:tested:suite)",
     "source conclusions turned sub-conclusions, left unbound",
     "a step for assembleStrategy, which no source library implements (JP005 otherwise)",
-    "distinct library file names (JP021) and variable names (JP010) across libraries",
+    "distinct library file names (JP021)",
     "a strategy consuming a value produced in another source's argument",
 ]

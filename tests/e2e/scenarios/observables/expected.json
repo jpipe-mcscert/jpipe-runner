@@ -1,0 +1,174 @@
+{
+  "schema_version": "2.0",
+  "justification": "observables",
+  "verdict": "pass",
+  "strict": false,
+  "summary": {
+    "elements": 4,
+    "pass": 4,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 0,
+    "errors": 0,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "version",
+      "label": "The package announces version 2.0",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "gates"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.the_package_announces_the_version",
+      "bound_by": [
+        "version"
+      ],
+      "observes": [
+        "mock/package.json",
+        "mock/CHANGELOG.md"
+      ],
+      "sources": [
+        "mock/package.json#/version",
+        "mock/CHANGELOG.md"
+      ],
+      "consumes": [],
+      "inputs": {},
+      "produces": [
+        "announced"
+      ],
+      "produced": {
+        "announced": {
+          "value": true
+        }
+      },
+      "artifacts": [
+        {
+          "path": "mock/package.json",
+          "declared": "mock/package.json#/version",
+          "reachable": true,
+          "sha256": "c4d6b52e00e9d1512ee2f73c0d7aff7bf0ca870cf397383b99cb8d887efa8fd6",
+          "size": 44,
+          "value": {
+            "value": "2.0"
+          }
+        },
+        {
+          "path": "mock/CHANGELOG.md",
+          "declared": "mock/CHANGELOG.md",
+          "reachable": true,
+          "sha256": "d0c71b251a7784514e7bf619987b1a76356b195f1849e7b850139ed9a82d709f",
+          "size": 17
+        }
+      ],
+      "observations": []
+    },
+    {
+      "id": "environment",
+      "label": "The release runs where commands are found",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "gates"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.commands_are_found",
+      "bound_by": [
+        "environment"
+      ],
+      "observes": [],
+      "sources": [
+        "env:PATH"
+      ],
+      "consumes": [],
+      "inputs": {},
+      "produces": [
+        "commands_found"
+      ],
+      "produced": {
+        "commands_found": {
+          "value": true
+        }
+      },
+      "artifacts": [],
+      "observations": [
+        {
+          "declared": "env:PATH",
+          "variable": "PATH",
+          "reachable": true,
+          "hidden": true,
+          "sha256": null,
+          "value": null
+        }
+      ]
+    },
+    {
+      "id": "gates",
+      "label": "Every release gate passes",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "ready"
+      ],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": true,
+      "bound_to": "steps.every_gate_passes",
+      "bound_by": [
+        "gates"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [
+        "announced",
+        "commands_found"
+      ],
+      "inputs": {
+        "announced": {
+          "variable": "announced",
+          "produced_by": "version"
+        },
+        "commands_found": {
+          "variable": "commands_found",
+          "produced_by": "environment"
+        }
+      },
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "ready",
+      "label": "Version 2.0 is ready to ship",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": "pass",
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "sources": [],
+      "consumes": [],
+      "inputs": {},
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    }
+  ],
+  "diagnostics": [],
+  "diagram": null
+}

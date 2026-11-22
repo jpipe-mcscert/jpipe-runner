@@ -13,7 +13,11 @@ import pytest
 import jpipe_runner
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence, strategy, sub_conclusion
 from jpipe_runner.model import Kind
-from jpipe_runner.steps import Artifact, Step, StepRegistry, step_of
+from jpipe_runner.observables import Context, Env, File, Observable, Sighting
+from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry, step_of
+
+HERE = Path(__file__).parent
+"""Where the steps of these tests are declared: what their paths are relative to."""
 
 
 def test_the_package_exports_the_authoring_api() -> None:
@@ -24,8 +28,15 @@ def test_the_package_exports_the_authoring_api() -> None:
         "conclusion",
         "Outcome",
         "Pass",
+        "Produced",
         "Fail",
         "Skip",
+        "Observable",
+        "Context",
+        "Sighting",
+        "File",
+        "JsonValue",
+        "Env",
         "__version__",
     }
 
@@ -71,7 +82,10 @@ def test_the_decorator_is_the_kind(
     def function(a: int = 0) -> Outcome:
         return Pass()
 
-    assert step_of(decorator(function)) == Step(kind, ("m:x",), function, consumes, produces)
+    inputs = tuple(Input(name, name) for name in consumes)
+    assert step_of(decorator(function)) == Step(
+        kind, ("m:x",), function, inputs, produces, directory=HERE
+    )
 
 
 def test_evidence_consumes_nothing_and_a_conclusion_produces_nothing() -> None:
@@ -99,6 +113,38 @@ def test_variables_are_kept_in_the_order_given_from_any_iterable() -> None:
     step = step_of(combine)
     assert step is not None
     assert (step.consumes, step.produces) == (("b", "a"), ("d", "c"))
+
+
+def test_consumes_maps_each_parameter_to_a_variable_or_a_named_producer() -> None:
+    @strategy(
+        "m:s",
+        consumes={
+            "tests": Produced("coverage", by="m:a"),
+            "docs": Produced("coverage", by="m:b"),
+            "release": "version",
+        },
+    )
+    def gates(tests: float, docs: float, release: str) -> Outcome:
+        return Pass()
+
+    step = step_of(gates)
+    assert step is not None
+    assert step.inputs == (
+        Input("tests", "coverage", "m:a"),
+        Input("docs", "coverage", "m:b"),
+        Input("release", "version"),
+    )
+    assert step.consumes == ("coverage", "version")
+
+
+def test_a_list_of_variables_passes_each_to_the_parameter_of_its_name() -> None:
+    @conclusion("m:c", consumes=["a", "b"])
+    def holds(a: int, b: int) -> Outcome:
+        return Pass()
+
+    step = step_of(holds)
+    assert step is not None
+    assert step.inputs == (Input("a", "a"), Input("b", "b"))
 
 
 def test_a_step_is_named_by_its_module_and_qualified_name() -> None:
@@ -137,6 +183,12 @@ def test_a_step_may_consume_what_it_produces() -> None:
         pytest.param(lambda: evidence("m:e", produces=["class"]), id="a keyword"),
         pytest.param(lambda: evidence("m:e", produces=[1]), id="not a string"),
         pytest.param(lambda: strategy("m:s", consumes=["a", "a"]), id="variable twice"),
+        pytest.param(lambda: strategy("m:s", consumes={"a-b": "a"}), id="parameter not a name"),
+        pytest.param(lambda: strategy("m:s", consumes={"a": "a-b"}), id="source not a name"),
+        pytest.param(lambda: strategy("m:s", consumes={"a": 1}), id="source not a string"),
+        pytest.param(lambda: Produced("a-b", by="m:e"), id="produced not a name"),
+        pytest.param(lambda: Produced("a", by=""), id="produced by an empty id"),
+        pytest.param(lambda: Produced("a", by=1), id="produced by an int"),
     ],
 )
 def test_a_malformed_declaration_is_a_type_error(declare: Callable[[], object]) -> None:
@@ -196,6 +248,12 @@ def test_the_parameters_are_the_consumed_variables(
         declare(function)
 
 
+def test_the_parameters_are_the_keys_of_a_map_of_inputs() -> None:
+    declare = strategy("m:s", consumes={"b": Produced("a", by="m:e")})
+    with pytest.raises(TypeError, match=r"\['b'\]"):
+        declare(_not_consumed)
+
+
 def test_a_parameter_with_a_default_or_keywords_need_not_match() -> None:
     @strategy("m:s", consumes=["a", "b"])
     def takes_any(a: int, timeout: float = 1.0, **others: Any) -> Outcome:
@@ -221,10 +279,10 @@ def test_evidence_observes_artifacts_passed_to_its_parameters_by_name() -> None:
     step = step_of(checked)
     assert step is not None
     assert step.observes == (
-        Artifact("changelog", "CHANGELOG.md"),
-        Artifact("reports", "build/*.xml"),
+        Artifact("changelog", File("CHANGELOG.md")),
+        Artifact("reports", File("build/*.xml")),
     )
-    assert [a.is_glob for a in step.observes] == [False, True]
+    assert step.directory == HERE
     assert checked(Path("CHANGELOG.md"), []) == Pass(ok=True)
 
 
@@ -247,7 +305,8 @@ def test_an_observed_path_is_recorded_as_a_changed_file_is_named(
 
     step = step_of(observing)
     assert step is not None
-    assert step.observes == (Artifact("a", recorded),)
+    assert step.observes == (Artifact("a", File(recorded)),)
+    assert File(declared).path == recorded
 
 
 def test_a_step_observes_nothing_unless_declared() -> None:
@@ -265,6 +324,84 @@ def test_a_step_observes_nothing_unless_declared() -> None:
         assert step.observes == ()
 
 
+def test_evidence_observes_any_observable_and_a_string_is_a_file() -> None:
+    @evidence("m:e", observes={"ci": Env("CI"), "log": "build/tests.log"})
+    def observing(ci: str, log: Path) -> Outcome:
+        return Pass()
+
+    step = step_of(observing)
+    assert step is not None
+    assert step.observes == (Artifact("ci", Env("CI")), Artifact("log", File("build/tests.log")))
+
+
+class _Drawn(Observable):
+    """An observable that asks to be drawn as ``shape``, or raises it."""
+
+    def __init__(self, shape: object) -> None:
+        self._shape = shape
+
+    def __hash__(self) -> int:
+        return 0
+
+    @property
+    def shape(self) -> str:
+        if isinstance(self._shape, Exception):
+            raise self._shape
+        return self._shape  # type: ignore[return-value]
+
+    def describe(self, context: Context) -> str:
+        return "drawn"
+
+    def observe(self, context: Context) -> Sighting:
+        return Sighting.of("drawn", None)
+
+
+@pytest.mark.parametrize(
+    ("shape", "message"),
+    [
+        pytest.param("note", r"cannot draw _Drawn as 'note': .* box3d, cds", id="an evidence's"),
+        pytest.param("circle", "cannot draw _Drawn as 'circle'", id="grows with its label"),
+        pytest.param(RuntimeError("no"), "its shape raised RuntimeError", id="raises"),
+        pytest.param(["tab"], r"cannot draw _Drawn as \['tab'\]", id="not a string"),
+    ],
+)
+def test_an_observable_the_diagram_cannot_draw_is_refused_at_import(
+    shape: object, message: str
+) -> None:
+    with pytest.raises(TypeError, match=message):
+
+        @evidence("m:e", observes={"a": _Drawn(shape)})
+        def observing(a: object) -> Outcome:
+            return Pass()
+
+
+def test_an_observable_in_one_of_the_shapes_is_accepted() -> None:
+    @evidence("m:e", observes={"a": _Drawn("cylinder")})
+    def observing(a: object) -> Outcome:
+        return Pass()
+
+    assert step_of(observing) is not None
+
+
+def test_a_step_typed_at_a_prompt_is_declared_in_the_working_directory() -> None:
+    namespace: dict[str, Any] = {"evidence": evidence, "Pass": Pass}
+    exec('@evidence("m:e", observes={"a": "a.txt"})\ndef typed(a): return Pass()', namespace)
+
+    step = step_of(namespace["typed"])
+    assert step is not None
+    assert step.directory == Path()
+
+
+class Unhashable(Observable):
+    __hash__ = None  # type: ignore[assignment]
+
+    def describe(self, context: Context) -> str:
+        return "unhashable"
+
+    def observe(self, context: Context) -> Sighting:
+        return Sighting.of("unhashable", 1)
+
+
 def test_only_evidence_observes() -> None:
     with pytest.raises(TypeError):
         strategy("m:s", observes={"a": "a.txt"})  # type: ignore[call-arg]
@@ -280,6 +417,7 @@ def test_only_evidence_observes() -> None:
         pytest.param({1: "x"}, "identifiers", id="not a string name"),
         pytest.param({"a": ""}, "non-empty", id="empty path"),
         pytest.param({"a": 1}, "non-empty", id="not a string path"),
+        pytest.param({"a": Unhashable()}, "hashed", id="an observable that cannot be hashed"),
         pytest.param({"a": "/etc/hosts"}, "relative", id="absolute"),
         pytest.param({"a": "C:\\reports\\x.xml"}, "relative", id="absolute on Windows"),
         pytest.param({"a": "\\\\server\\share\\x"}, "relative", id="a UNC path"),
@@ -327,7 +465,7 @@ def test_a_wrapper_of_a_step_is_the_step() -> None:
     def logged() -> Outcome:
         return inner()
 
-    assert step_of(logged) == Step(Kind.EVIDENCE, ("m:e",), logged)
+    assert step_of(logged) == Step(Kind.EVIDENCE, ("m:e",), logged, directory=HERE)
 
 
 @pytest.mark.parametrize("candidate", [None, 1, "m:e", print, _no_parameters], ids=repr)

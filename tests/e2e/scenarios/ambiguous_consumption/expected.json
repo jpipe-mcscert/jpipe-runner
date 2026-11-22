@@ -1,0 +1,253 @@
+{
+  "schema_version": "2.0",
+  "justification": "readiness",
+  "verdict": "invalid",
+  "strict": false,
+  "summary": {
+    "elements": 8,
+    "pass": 0,
+    "fail": 0,
+    "skip": 0,
+    "not_run": 8,
+    "errors": 1,
+    "warnings": 0
+  },
+  "elements": [
+    {
+      "id": "readiness:tested:coverage",
+      "label": "Test coverage is measured",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:tested:testing"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "tested_steps.test_coverage_is_measured",
+      "bound_by": [
+        "tested:coverage"
+      ],
+      "observes": [
+        "mock/coverage.txt"
+      ],
+      "sources": [
+        "mock/coverage.txt"
+      ],
+      "consumes": [],
+      "inputs": {},
+      "produces": [
+        "coverage"
+      ],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:tested:testing",
+      "label": "Test coverage clears the bar",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:tested:tested"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "tested_steps.test_coverage_clears_the_bar",
+      "bound_by": [
+        "tested:testing"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [
+        "coverage"
+      ],
+      "inputs": {
+        "coverage": {
+          "variable": "coverage",
+          "produced_by": "readiness:tested:coverage"
+        }
+      },
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:tested:tested",
+      "label": "The code is tested",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "readiness:assembleStrategy"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "sources": [],
+      "consumes": [],
+      "inputs": {},
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:documented:coverage",
+      "label": "Documentation coverage is measured",
+      "kind": "evidence",
+      "aliases": [],
+      "supports": [
+        "readiness:documented:docs"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "documented_steps.documentation_coverage_is_measured",
+      "bound_by": [
+        "documented:coverage"
+      ],
+      "observes": [
+        "mock/doc-coverage.txt"
+      ],
+      "sources": [
+        "mock/doc-coverage.txt"
+      ],
+      "consumes": [],
+      "inputs": {},
+      "produces": [
+        "coverage"
+      ],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:documented:docs",
+      "label": "Documentation coverage clears the bar",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:documented:documented"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "documented_steps.documentation_coverage_clears_the_bar",
+      "bound_by": [
+        "documented:docs"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [
+        "coverage"
+      ],
+      "inputs": {
+        "coverage": {
+          "variable": "coverage",
+          "produced_by": "readiness:documented:coverage"
+        }
+      },
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:documented:documented",
+      "label": "The API is documented",
+      "kind": "sub-conclusion",
+      "aliases": [],
+      "supports": [
+        "readiness:assembleStrategy"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "sources": [],
+      "consumes": [],
+      "inputs": {},
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:assembleStrategy",
+      "label": "Both coverages clear the release bar",
+      "kind": "strategy",
+      "aliases": [],
+      "supports": [
+        "readiness:assembleConclusion"
+      ],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": "readiness_steps.both_coverages_clear_the_release_bar",
+      "bound_by": [
+        "readiness:assembleStrategy"
+      ],
+      "observes": [],
+      "sources": [],
+      "consumes": [
+        "coverage"
+      ],
+      "inputs": {
+        "coverage": {
+          "variable": "coverage",
+          "produced_by": null
+        }
+      },
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    },
+    {
+      "id": "readiness:assembleConclusion",
+      "label": "Version 2.0 is ready to ship",
+      "kind": "conclusion",
+      "aliases": [],
+      "supports": [],
+      "status": null,
+      "reason": null,
+      "blocked_by": [],
+      "ran": false,
+      "bound_to": null,
+      "bound_by": [],
+      "observes": [],
+      "sources": [],
+      "consumes": [],
+      "inputs": {},
+      "produces": [],
+      "produced": {},
+      "artifacts": [],
+      "observations": []
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "JP025",
+      "severity": "error",
+      "element": "readiness:assembleStrategy",
+      "message": "readiness_steps.both_coverages_clear_the_release_bar consumes 'coverage', which 2 of its supporters produce: 'readiness:tested:coverage', 'readiness:documented:coverage'",
+      "fix": "Name the one it means, keeping the other entries of consumes: \"coverage\": Produced(\"coverage\", by=\"readiness:tested:coverage\").",
+      "traceback": null
+    }
+  ],
+  "diagram": null
+}
