@@ -100,6 +100,32 @@ Whether the ids designate elements of the model, and whether the data flows (eve
 variable produced by a step that supports its consumer), depends on the model. Those are
 checked against it before anything runs: see [Validation](#validation-checking-the-library-against-the-model).
 
+### An input the step never reads
+
+A step's declaration is what the argument claims: a strategy that consumes `changelog_ok`
+judges from it. The runner passes every input to its parameter, but cannot make the
+function look at it. This one judges from the tests alone:
+
+```python
+@strategy("release:s", consumes=["tests_pass", "changelog_ok"])
+def the_gates_pass(tests_pass: bool, changelog_ok: bool) -> Outcome:
+    return Pass() if tests_pass else Fail("the tests did not pass")
+```
+
+Validation reads the function's bytecode, and warns:
+
+```
+JP027 warning [release:s]: steps.the_gates_pass never reads 'changelog_ok', which it consumes: the argument claims a dependency the step does not have
+  fix: Read it in the step, or remove it from consumes and from the function's parameters.
+```
+
+An evidence that never reads an artifact it observes is reported the same way. Reading a
+parameter anywhere in the function counts, in a nested function too, and so does passing
+it to a helper, whatever the helper does with it. What a step takes only through
+`**kwargs` cannot be checked by name: it is reported as such, and naming it as a parameter
+settles it. Since the bytecode is read, not the source, a step typed at a prompt or built
+by `exec` is checked too ([ADR-0037](adr/0037-a-step-reads-what-it-is-passed.md)).
+
 ## Observing artifacts
 
 Evidence is where the argument touches the world: a test report, a changelog, a source
@@ -546,7 +572,9 @@ and the run continues. [`rules.md`](rules.md) describes every check; in short:
   part of the argument it comes from, with `Produced(variable, by=id)`;
 - an evidence produces a value another step consumes (`JP012`); a strategy consumes what
   its supporters produce for other steps (`JP013`, a warning), and a produced value is
-  consumed somewhere (`JP011`, a warning).
+  consumed somewhere (`JP011`, a warning);
+- a step reads every value it consumes and every artifact it observes (`JP027`, a
+  warning).
 
 ## Coming from v3
 

@@ -224,6 +224,7 @@ classDiagram
         class EvidenceObservesNothing
         class AmbiguousConsumption
         class DanglingTemplateChain
+        class UnreadInput
     }
 
     namespace engine {
@@ -492,6 +493,9 @@ A declaration that is wrong on its face is a `TypeError` when the library is imp
 id, a variable or parameter name that is not a Python identifier, an absolute path or a
 directory, or a parameter list that is not exactly the consumed variables, or for
 evidence the observed artifacts (a parameter with a default, or `**kwargs`, is allowed).
+Whether the function reads each of them is read from its bytecode, under its wrappers: the
+`Step` lists the parameters it never loads, and those it takes only through `**kwargs`,
+which `UnreadInput` reports as warnings (`JP027`).
 
 **A consumed variable resolves among the consumer's supporters**
 ([ADR-0031](adr/0031-variables-resolve-among-supporters.md)). A step receives a value only

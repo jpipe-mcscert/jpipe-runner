@@ -346,8 +346,7 @@ def test_jp022_names_where_the_step_raised_relative_to_the_root(tmp_path: Path) 
     with imported([library]) as modules:
         result = run(small, StepRegistry.from_modules(modules), root=tmp_path)
 
-    (raised, *_) = result.diagnostics
-    assert raised.code == STEP_RAISED
+    (raised,) = (d for d in result.diagnostics if d.code == STEP_RAISED)
     assert raised.message == (
         "the step raised ZeroDivisionError at broken_steps.py, line 5: division by zero"
     )
@@ -565,22 +564,22 @@ def _refined_library(order: list[str], below_outcome: Outcome) -> StepRegistry:
     @evidence("e", observes={"log": "log.txt"}, produces=["x"])
     def observed(log: Path) -> Outcome:
         order.append("e")
-        return Pass(x=1)
+        return Pass(x=len(log.read_text(encoding="utf-8")))
 
     @strategy("below", consumes=["x"])
     def argued(x: int) -> Outcome:
         order.append("below")
-        return below_outcome
+        return below_outcome if x == 0 else Fail(f"{x} characters")
 
     @evidence("draft:hook", observes={"log": "log.txt"}, produces=["checked"])
     def cross_check(log: Path) -> Outcome:
         order.append("hook")
-        return Pass(checked=True)
+        return Pass(checked=log.exists())
 
     @strategy("top", consumes=["checked"])
     def judged(checked: bool) -> Outcome:
         order.append("top")
-        return Pass()
+        return Pass() if checked else Fail("not checked")
 
     return _registry(observed, argued, cross_check, judged)
 

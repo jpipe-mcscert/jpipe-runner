@@ -33,6 +33,7 @@ No rule can be disabled.
 | [JP018](#jp018-evidenceobservesnothing) | `EvidenceObservesNothing` | error | An evidence observes no artifact. |
 | [JP025](#jp025-ambiguousconsumption) | `AmbiguousConsumption` | error | Several steps that support a step produce a variable it consumes. |
 | [JP026](#jp026-danglingtemplatechain) | `DanglingTemplateChain` | warning | The template chain names an element that does not exist: it is not drawn. |
+| [JP027](#jp027-unreadinput) | `UnreadInput` | warning | A step never reads a value it consumes or an artifact it observes. |
 
 ### JP005 `UnboundElement`
 
@@ -272,6 +273,30 @@ counts it as an error.
 **Fix:** compile the justification again from its jPipe source. If the warning stays,
 report it to the jPipe compiler. Until then, only the diagram's template clusters are
 missing.
+
+### JP027 `UnreadInput`
+
+Severity: **warning**.
+
+A step never reads a value it consumes or an artifact it observes.
+
+A step's declaration is what the argument claims: a strategy that consumes `coverage`
+judges from the coverage, and an evidence that observes `CHANGELOG.md` looks at it.
+The signature check makes each such input reach the function as a parameter; this rule
+checks that the function reads it. A step that never does claims a dependency it does
+not have, `StrategyIgnoresUpstreamOutput` (`JP013`) is satisfied by the declaration
+alone, and `jpipe-runner impact` reports the step as affected by changes that cannot
+affect it.
+
+The function's bytecode is read, not its source, so a step typed at a prompt or built
+by `exec` is checked too ([ADR-0037](adr/0037-a-step-reads-what-it-is-passed.md)). A
+parameter is read when the function, or a function nested in it, loads it; passing it
+to a helper counts, whatever the helper does with it. A step that takes an input only
+through `**kwargs` cannot be checked by name, and is reported too.
+
+**Fix:** read each input in the step, or remove it from `consumes` or `observes` and
+from the function's parameters. Name as a parameter each input taken through
+`**kwargs`.
 
 ## Codes reported outside validation
 

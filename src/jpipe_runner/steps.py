@@ -21,15 +21,18 @@ Mistakes visible in the declaration alone are a ``TypeError`` when the module is
 no id, a variable or parameter name that is not a Python identifier, an absolute path, a
 parameter that is neither consumed nor observed, or a consumed variable or observed
 artifact that is not a parameter. Whether the ids designate elements, and the
-variables flow, depends on the model, and is checked against it (#115, #119).
+variables flow, depends on the model, and is checked against it (#115, #119). So is
+whether the function reads what it is passed, from its bytecode (``Step.unread``,
+ADR-0037), since a step that never reads an input is not a mistake its import can refuse.
 """
 
+import dis
 import inspect
 import keyword
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from types import ModuleType
+from types import CodeType, ModuleType
 from typing import Any, TypeVar
 
 from jpipe_runner.model import Kind
@@ -113,6 +116,79 @@ class Step:
     def consumes(self) -> tuple[str, ...]:
         """The variables it consumes, each once, in the order of its inputs."""
         return tuple(dict.fromkeys(each.variable for each in self.inputs))
+
+    @property
+    def passed(self) -> tuple[str, ...]:
+        """The keyword arguments a run passes to the function: what an evidence observes,
+        and what any other step consumes, each by its parameter's name."""
+        if self.kind is Kind.EVIDENCE:
+            return tuple(artifact.name for artifact in self.observes)
+        return tuple(each.parameter for each in self.inputs)
+
+    @property
+    def unread(self) -> tuple[str, ...]:
+        """The ``passed`` parameters that the function never reads (ADR-0037).
+
+        A parameter is read when an instruction of the function's code loads it, or a
+        function nested in it does. That needs no source, so a function typed at a prompt
+        or built by ``exec`` is checked too. The function is the one declared, under any
+        ``functools.wraps`` wrapper. What reaches it only through ``**kwargs`` is
+        ``unnamed``, not here.
+        """
+        code = _code(self.function)
+        if code is None:
+            return ()
+        read = _read(code)
+        return tuple(name for name in self.passed if name in _named(code) and name not in read)
+
+    @property
+    def unnamed(self) -> tuple[str, ...]:
+        """The ``passed`` parameters that the function takes only through ``**kwargs``, so
+        that whether it reads them cannot be checked."""
+        code = _code(self.function)
+        if code is None:
+            return ()
+        return tuple(name for name in self.passed if name not in _named(code))
+
+
+_LOADS = frozenset(
+    {
+        "LOAD_FAST",
+        "LOAD_FAST_CHECK",
+        "LOAD_FAST_BORROW",
+        "LOAD_FAST_LOAD_FAST",
+        "LOAD_FAST_BORROW_LOAD_FAST_BORROW",
+        "LOAD_DEREF",
+        "LOAD_CLASSDEREF",
+        "LOAD_FROM_DICT_OR_DEREF",
+    }
+)
+"""The instructions that read a local variable, from Python 3.11 to 3.14. Not
+``LOAD_FAST_AND_CLEAR``, which saves the variable a comprehension is about to reuse."""
+
+
+def _code(function: Callable[..., Any]) -> CodeType | None:
+    """The code of the function ``function`` declares, under its wrappers, if it has one."""
+    code = getattr(inspect.unwrap(function), "__code__", None)
+    return code if isinstance(code, CodeType) else None
+
+
+def _named(code: CodeType) -> tuple[str, ...]:
+    """The parameters ``code`` takes by name: neither ``*args`` nor ``**kwargs``."""
+    return code.co_varnames[: code.co_argcount + code.co_kwonlyargcount]
+
+
+def _read(code: CodeType) -> frozenset[str]:
+    """The local variables ``code`` reads: those it loads, and those a nested function
+    reads (its cell variables)."""
+    read = set(code.co_cellvars)
+    for instruction in dis.get_instructions(code):
+        if instruction.opname in _LOADS:
+            loaded = instruction.argval
+            read.update(loaded if isinstance(loaded, tuple) else (loaded,))
+        elif instruction.opname == "STORE_FAST_LOAD_FAST":
+            read.add(instruction.argval[1])
+    return frozenset(read)
 
 
 def evidence(

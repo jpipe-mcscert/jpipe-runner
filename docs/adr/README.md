@@ -21,7 +21,7 @@ and add a row to this table.
 | [0001](0001-consume-compiler-json.md) | Consume compiler-produced JSON rather than parse `.jd` | accepted |
 | [0003](0003-drop-sphinx-markdown-docs.md) | Drop Sphinx; docs are task-oriented Markdown | accepted |
 | [0004](0004-sonarcloud-quality-gate.md) | SonarCloud as the quality gate | accepted |
-| [0005](0005-outcomes-as-return-values.md) | Outcomes as return values instead of a `produce` callable | accepted |
+| [0005](0005-outcomes-as-return-values.md) | Outcomes as return values instead of a `produce` callable | accepted, amended by [0037](0037-a-step-reads-what-it-is-passed.md) |
 | [0006](0006-one-decorator-per-kind.md) | One decorator per kind | accepted |
 | [0007](0007-binding-resolution.md) | Binding resolution, and why elements carry several ids | accepted |
 | [0008](0008-drop-external-variable-injection.md) | Drop external variable injection | accepted |
@@ -50,3 +50,4 @@ and add a row to this table.
 | [0034](0034-a-failure-s-path-through-a-variable-takes-its-status.md) | A failure's path through a variable takes its status | accepted |
 | [0035](0035-an-output-never-overwrites-what-the-run-observes.md) | An output never overwrites what the run observes | accepted |
 | [0036](0036-a-step-runs-on-the-kind-it-was-written-for.md) | A step runs on the kind it was written for, as the element's origins say | accepted |
+| [0037](0037-a-step-reads-what-it-is-passed.md) | A step reads what it is passed, as its bytecode shows | accepted |

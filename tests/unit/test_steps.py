@@ -523,3 +523,111 @@ def test_the_v3_api_says_what_replaced_it() -> None:
         importlib.import_module("jpipe_runner.framework.decorators.jpipe_decorator")
     assert raised.value.name == "jpipe_runner.framework"
     assert "jpipe_runner.framework" not in sys.modules
+
+
+# --- What a step reads (JP027, ADR-0037) -----------------------------------------------------
+
+coverage = 0.9
+"""A global with the name of a parameter: reading it is not reading the parameter."""
+
+
+def _declared(function: Callable[..., Outcome]) -> Step:
+    found = step_of(function)
+    assert found is not None
+    return found
+
+
+def test_a_parameter_never_read_is_unread() -> None:
+    @strategy("s", consumes=["coverage", "threshold"])
+    def ignores(coverage: float, threshold: float) -> Outcome:
+        return Pass() if threshold else Fail("no threshold")
+
+    assert _declared(ignores).unread == ("coverage",)
+
+
+def test_an_observed_artifact_never_read_is_unread() -> None:
+    @evidence("e", observes={"log": "CHANGELOG.md", "other": "README.md"}, produces=["x"])
+    def unread(log: Path, other: Path) -> Outcome:
+        return Pass(x=other.name)
+
+    assert _declared(unread).unread == ("log",)
+
+
+def test_a_global_of_the_same_name_is_not_the_parameter() -> None:
+    @strategy("s", consumes=["coverage"])
+    def reads_the_global(coverage: float) -> Outcome:
+        return Pass() if globals()["coverage"] > 0.8 else Fail("low")
+
+    assert _declared(reads_the_global).unread == ("coverage",)
+
+
+def _helper(value: object) -> bool:
+    return value is not None
+
+
+@pytest.mark.parametrize(
+    "function",
+    [
+        pytest.param(lambda a, b: Pass() if a > b else Fail("no"), id="directly"),
+        pytest.param(lambda a, b: Pass() if (a, b) else Fail("no"), id="together"),
+        pytest.param(lambda a, b: Pass() if [a + x for x in b] else Fail("no"), id="comprehension"),
+        pytest.param(lambda a, b: Pass() if (lambda: a + b)() else Fail("no"), id="nested"),
+        pytest.param(lambda a, b: Pass() if _helper(a) and _helper(b) else Fail("no"), id="helper"),
+    ],
+)
+def test_a_parameter_read_in_any_way_is_read(function: Callable[..., Outcome]) -> None:
+    declared = strategy("s", consumes=["a", "b"])(function)
+
+    assert _declared(declared).unread == ()
+
+
+def test_a_step_built_by_exec_is_checked_without_its_source() -> None:
+    namespace: dict[str, Any] = {"Pass": Pass, "strategy": strategy}
+    # A function with no source file, as one typed at a prompt.
+    exec(
+        '@strategy("s", consumes=["a", "b"])\ndef made(a, b):\n    return Pass(b=b)\n',
+        namespace,
+    )
+
+    assert _declared(namespace["made"]).unread == ("a",)
+
+
+def test_the_function_checked_is_the_one_declared_under_its_wrappers() -> None:
+    def logged(function: Callable[..., Outcome]) -> Callable[..., Outcome]:
+        @functools.wraps(function)
+        def wrapper(**kwargs: Any) -> Outcome:
+            return function(**kwargs)
+
+        return wrapper
+
+    @logged
+    @strategy("above", consumes=["a"])
+    def wrapped_above(a: int) -> Outcome:
+        return Pass()
+
+    @strategy("below", consumes=["a"])
+    @logged
+    def wrapped_below(a: int) -> Outcome:
+        return Pass()
+
+    assert _declared(wrapped_above).unread == ("a",)
+    assert _declared(wrapped_below).unread == ("a",)
+
+
+def test_what_only_kwargs_takes_is_unnamed_not_unread() -> None:
+    @strategy("s", consumes=["a", "b"])
+    def swallows(a: int, **kwargs: Any) -> Outcome:
+        return Pass() if a else Fail("no")
+
+    assert (_declared(swallows).unread, _declared(swallows).unnamed) == ((), ("b",))
+
+
+def test_a_callable_without_code_is_not_checked() -> None:
+    @strategy("s", consumes=["a"])
+    def plain(a: int) -> Outcome:
+        return Pass()
+
+    hidden = Step(Kind.STRATEGY, ("s",), plain, (Input("a", "a"),))
+    plain.__wrapped__ = print  # type: ignore[attr-defined]
+
+    assert (hidden.unread, hidden.unnamed) == ((), ())

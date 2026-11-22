@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`JP027`, a warning: a step never reads a value it consumes or an artifact it
+  observes.** The runner passes every input to its parameter, but nothing checked that the
+  function looked at it, so a strategy could judge without its evidence while the argument,
+  `JP013` and `jpipe-runner impact` all took the dependency for granted. Validation now reads
+  each bound step's bytecode, which needs no source, so a step typed at a prompt or built by
+  `exec` is checked too; a step that takes an input only through `**kwargs` is reported as
+  unchecked. **Existing step libraries may see new warnings**; `--strict` makes them errors
+  ([ADR-0037](docs/adr/0037-a-step-reads-what-it-is-passed.md), #190).
+
 ### Changed
 - **Breaking: a step bound to an element of another kind is an error, unless composition
   changed the element's kind and the step was written for the element it came from.**

@@ -428,6 +428,16 @@ def _naming(consumed: Consumption, ctx: ValidationContext) -> str:
     return f"Name {which}, keeping the other entries of consumes: {entries}."
 
 
+def _listed(names: tuple[str, ...]) -> str:
+    """``'a'``, or ``'a' and 'b'``, or ``'a', 'b' and 'c'``."""
+    quoted = [repr(name) for name in names]
+    return quoted[0] if len(quoted) == 1 else f"{', '.join(quoted[:-1])} and {quoted[-1]}"
+
+
+def _them(names: tuple[str, ...]) -> str:
+    return "it" if len(names) == 1 else "them"
+
+
 def _distinct(ctx: ValidationContext) -> Iterator[Consumption]:
     """Each input of each bound step, once per source: two parameters that receive the same
     variable from the same place are one problem, when there is one."""
@@ -505,6 +515,53 @@ class DanglingTemplateChain(Rule):
             )
 
 
+class UnreadInput(Rule):
+    """A step never reads a value it consumes or an artifact it observes.
+
+    A step's declaration is what the argument claims: a strategy that consumes `coverage`
+    judges from the coverage, and an evidence that observes `CHANGELOG.md` looks at it.
+    The signature check makes each such input reach the function as a parameter; this rule
+    checks that the function reads it. A step that never does claims a dependency it does
+    not have, `StrategyIgnoresUpstreamOutput` (`JP013`) is satisfied by the declaration
+    alone, and `jpipe-runner impact` reports the step as affected by changes that cannot
+    affect it.
+
+    The function's bytecode is read, not its source, so a step typed at a prompt or built
+    by `exec` is checked too ([ADR-0037](adr/0037-a-step-reads-what-it-is-passed.md)). A
+    parameter is read when the function, or a function nested in it, loads it; passing it
+    to a helper counts, whatever the helper does with it. A step that takes an input only
+    through `**kwargs` cannot be checked by name, and is reported too.
+
+    **Fix:** read each input in the step, or remove it from `consumes` or `observes` and
+    from the function's parameters. Name as a parameter each input taken through
+    `**kwargs`.
+    """
+
+    code = "JP027"
+    severity = Severity.WARNING
+    summary = "A step never reads a value it consumes or an artifact it observes."
+
+    def check(self, ctx: ValidationContext) -> Iterator[Diagnostic]:
+        for bound in ctx.bindings:
+            step = bound.step
+            verb = "observes" if step.kind is Kind.EVIDENCE else "consumes"
+            if unread := step.unread:
+                yield self.diagnostic(
+                    f"{step.name} never reads {_listed(unread)}, which it {verb}: the "
+                    f"argument claims a dependency the step does not have",
+                    element=bound.element.id,
+                    fix=f"Read {_them(unread)} in the step, or remove {_them(unread)} from "
+                    f"{verb} and from the function's parameters.",
+                )
+            if unnamed := step.unnamed:
+                yield self.diagnostic(
+                    f"{step.name} takes {_listed(unnamed)}, which it {verb}, only through "
+                    f"**kwargs, so whether it reads {_them(unnamed)} cannot be checked",
+                    element=bound.element.id,
+                    fix=f"Name {_them(unnamed)} as parameters of the function.",
+                )
+
+
 RULES = RuleSet(
     [
         UnboundElement(),
@@ -521,6 +578,7 @@ RULES = RuleSet(
         EvidenceObservesNothing(),
         AmbiguousConsumption(),
         DanglingTemplateChain(),
+        UnreadInput(),
     ]
 )
 """Every rule, run on every validation."""
