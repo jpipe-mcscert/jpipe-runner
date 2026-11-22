@@ -123,9 +123,18 @@ class ElementReport:
                 ran=result.ran,
                 produced=result.produced,
                 artifacts=result.observed,
-                reached=MappingProxyType(dict(result.reached)),
+                reached=MappingProxyType(_reached(result.reached)),
             )
         return report
+
+
+def _reached(sources: tuple[tuple[str, bool], ...]) -> dict[str, bool]:
+    """Whether each source was reached, by its name. Two parameters may observe the same
+    source: it was reached only if it was each time, so one that was not is never hidden."""
+    reached: dict[str, bool] = {}
+    for source, each in sources:
+        reached[source] = reached.get(source, True) and each
+    return reached
 
 
 @dataclass(frozen=True)

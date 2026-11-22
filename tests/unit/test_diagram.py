@@ -499,6 +499,39 @@ def test_a_source_is_marked_as_the_run_reached_it_whatever_it_records(
     assert ('color="#D55E00"' in node) is not reachable
 
 
+def test_a_source_observed_twice_is_unreachable_if_it_was_once(tmp_path: Path) -> None:
+    answers = iter([False, True])
+
+    @dataclass(frozen=True)
+    class Flaky(Observable):
+        """Unreachable the first time it is observed, then reachable."""
+
+        def describe(self, context: Context) -> str:
+            return "flaky"
+
+        def observe(self, context: Context) -> Sighting:
+            if next(answers):
+                return Sighting.of("flaky", 1)
+            return Sighting.unreachable("flaky", "flaky", "is not there yet")
+
+    @evidence("e", observes={"first": Flaky(), "again": Flaky()}, produces=["a"])
+    def reads(first: int, again: int) -> Outcome:
+        return Pass(a="a")
+
+    @strategy("s", consumes=["a"])
+    def judges(a: str) -> Outcome:
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (reads, judges)) if s is not None)
+    report = RunReport.of(run(small, registry, root=tmp_path), tmp_path)
+
+    lines = source(small, report).splitlines()
+    (node,) = [line for line in lines if line.strip().startswith('"artifact flaky" [')]
+    assert _marked("⚠", "flaky", 14) in node
+    assert 'color="#D55E00"' in node
+
+
 def test_a_source_has_an_empty_cell_until_it_is_observed(tmp_path: Path) -> None:
     (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
     registry = _steps(lambda: Pass(a="a"), lambda: Pass(b="b"))
