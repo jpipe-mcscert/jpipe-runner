@@ -86,7 +86,9 @@ goes on lets it end, and its exit code is 4.
 ([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)): the justification, in the jPipe
 compiler's notation, with the files each evidence observes and the variables the steps
 produce and consume, and the run's statuses over its elements. A support is not drawn when
-a variable already links its two ends: the variable shows it. A justification that
+a variable already links its two ends: the variable shows it, and its edges take the colour
+of its producer's status when it failed or was skipped, as the support would
+([ADR-0034](adr/0034-a-failure-s-path-through-a-variable-takes-its-status.md)). A justification that
 implements a template is drawn as the compiler draws it: each template a cluster, each
 `@support` a dotted placeholder linked to the element that fills it, and the template's
 supports drawn from the placeholders, even when a variable links their ends. The

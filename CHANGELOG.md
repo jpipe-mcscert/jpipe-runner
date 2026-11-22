@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The diagram shows a failure's path through a variable.** When an element that failed,
+  or was skipped, produces a variable that the element it supports consumes, the edges
+  through the variable take its status's colour, vermillion or grey, as the support edge
+  they stand for would. They were drawn blue, as data, whatever happened, so nothing
+  between the failure and what it stopped showed it
+  ([ADR-0034](docs/adr/0034-a-failure-s-path-through-a-variable-takes-its-status.md),
+  #176).
+
 ### Fixed
 - **A value that cannot be copied, such as a lock or an open file, is recorded as it was
   when it was produced or observed**, as every other value is. The report kept it by

@@ -645,7 +645,8 @@ dotted placeholder linked to the element that fills it, and the template's suppo
 from the placeholder. From what the report says the steps declare, it adds each
 observed file and each variable as a node, linked to the elements that observe, produce
 and consume it, and leaves out a support edge when a variable already links its two ends,
-unless the template draws it from a placeholder.
+unless the template draws it from a placeholder; the edges through that variable then take
+the colour of its producer's status, when it failed or was skipped.
 A report's statuses are drawn over the elements in the same palette: a green border for a
 pass, a vermillion fill for a failure, a dashed grey node for a skip. Each is also a symbol
 beside the label, ✔, ✘ or ◌, in the label's colour, so that the diagram reads without its
