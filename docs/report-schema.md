@@ -114,7 +114,10 @@ Each produced value is an object, in one of two forms:
   built-in. A `repr` is for people: do not parse it.
 
 A value is recorded as it was when its step returned: a step that changes a value it
-consumes does not change what the report says was produced.
+consumes does not change what the report says was produced. A value that cannot be copied,
+such as a lock or an open file, is recorded then as its `repr` and type, so the report, and
+the [event](events.md#elementdecided) that previews it, say what it was when produced
+([ADR-0033](adr/0033-a-value-is-recorded-as-it-was-seen.md)).
 
 So `.produced.tests_pass.value` reads a value whatever it is, and the presence of `repr`
 says that it could not be written as JSON.

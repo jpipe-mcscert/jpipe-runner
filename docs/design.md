@@ -22,6 +22,7 @@ flowchart LR
     steps --> observables
     steps --> outcomes
     values[values]
+    records --> diagnostics
     binding --> model
     binding --> steps
     binding --> diagnostics
@@ -42,6 +43,8 @@ flowchart LR
     artifacts --> steps
     artifacts --> observables
     artifacts --> diagnostics
+    observables --> diagnostics
+    artifacts --> records
     libraries --> diagnostics
     engine --> artifacts
     engine --> binding
@@ -50,6 +53,7 @@ flowchart LR
     engine --> model
     engine --> observables
     engine --> outcomes
+    engine --> records
     engine --> rules
     engine --> steps
     engine --> validation
@@ -68,6 +72,7 @@ flowchart LR
     diagram -.->|piped to| dot[["Graphviz dot"]]
     json_report --> observables
     json_report --> diagnostics
+    json_report --> records
     json_report --> report
     json_report -.->|validated against| reportschema
     events --> diagnostics
@@ -85,6 +90,7 @@ flowchart LR
     text_report --> report
     impact --> observables
     impact --> json_report
+    cli --> binding
     cli --> diagnostics
     cli --> diagram
     cli --> impact
@@ -126,6 +132,7 @@ arrow is data.
 | [`diagram`](../src/jpipe_runner/diagram.py) | Draws a run's dataflow: the justification in the jPipe compiler's notation, the files and variables its steps declare, and the run's statuses over it. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
 | [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
+| [`records`](../src/jpipe_runner/records.py) | How a value the run saw is kept for its report: `snapshot`, a deep copy, or, for a value that cannot be copied, an `Uncopied`, its canonical `repr` and type taken then; and the canonical `repr` the JSON report writes a value that is not JSON with. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run, and `user_traceback`, an exception's traceback without the runner's frames. |
 | [`framework`](../src/jpipe_runner/framework/__init__.py) | Not a module of v4: the v3 authoring API lived under this name, and importing it raises an `ImportError` that says what replaced it. |
@@ -263,6 +270,10 @@ classDiagram
         class Unset
     }
 
+    namespace records {
+        class Uncopied
+    }
+
     namespace outcomes {
         class Outcome
         class Pass
@@ -273,6 +284,7 @@ classDiagram
 
     namespace diagnostics {
         class Diagnostic
+        class DiagnosticsError
         class Severity
     }
 
@@ -596,7 +608,8 @@ declared value (`JP023`) fail the element, with the diagnostic on its `ElementRe
 undeclared value is dropped, with a warning (`JP024`): no step can consume it, so it
 changes nothing. What a step produced is recorded on its `ElementResult` as a deep copy,
 taken when it returned, so that a step that changes a value it consumes does not change
-the record. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
+the record; a value that cannot be copied is recorded as its canonical `repr` and type,
+taken then (`records.Uncopied`). `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
 failed, else `SKIP` if one was skipped, else `PASS`. The engine prints nothing: it logs
 to the `jpipe_runner.engine` logger, and the report is built from the `RunResult`.
 
@@ -635,7 +648,8 @@ dotted placeholder linked to the element that fills it, and the template's suppo
 from the placeholder. From what the report says the steps declare, it adds each
 observed file and each variable as a node, linked to the elements that observe, produce
 and consume it, and leaves out a support edge when a variable already links its two ends,
-unless the template draws it from a placeholder.
+unless the template draws it from a placeholder; the edges through that variable then take
+the colour of its producer's status, when it failed or was skipped.
 A report's statuses are drawn over the elements in the same palette: a green border for a
 pass, a vermillion fill for a failure, a dashed grey node for a skip. Each is also a symbol
 beside the label, ✔, ✘ or ◌, in the label's colour, so that the diagram reads without its
@@ -662,7 +676,11 @@ its step and what that step declares, so its dataflow can be drawn.
 ([ADR-0023](adr/0023-the-command-line.md)). `cli.main` parses the options, refuses
 outputs it could not write before anything runs (a diagram whose suffix is not a format,
 or that needs a `dot` that is not installed), then loads the model, imports the libraries
-and runs the engine inside `imported`, with the working directory as the root. Each way
+and runs the engine inside `imported`, with the working directory as the root. Between the
+import and the engine, it refuses an output that names a file a bound step observes
+([ADR-0035](adr/0035-an-output-never-overwrites-what-the-run-observes.md)): an events file
+that holds something other than a run's events is opened without being emptied, and holds
+its events until then. Each way
 this ends gives a `RunReport`: `refused`, `not_imported` or `of`. It draws the diagram if
 asked for, recording where on the report (`with_diagram`), writes the
 JSON report to a file if asked, and prints the report on stdout: the text one, or the JSON

@@ -13,6 +13,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TextIO
@@ -20,12 +21,24 @@ from typing import Any, TextIO
 import pytest
 from jsonschema import Draft202012Validator
 
-from jpipe_runner import cli, diagram, engine, events, json_report
+from jpipe_runner import (
+    Outcome,
+    Pass,
+    cli,
+    diagram,
+    engine,
+    events,
+    evidence,
+    json_report,
+    strategy,
+)
 from jpipe_runner.cli import ExitCode, main
-from jpipe_runner.engine import ElementResult, RunResult, Status
+from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.events import EventStream
 from jpipe_runner.model import Element, Justification, Kind
-from jpipe_runner.steps import StepRegistry
+from jpipe_runner.report import RunReport
+from jpipe_runner.steps import StepRegistry, step_of
+from tests import anchored
 from tests.scenarios import (
     GOLDEN_FILE,
     REFUSED_LIBRARIES,
@@ -35,7 +48,7 @@ from tests.scenarios import (
     discover,
 )
 from tests.streams import of, read
-from tests.unit.validation.builders import CONCLUSION, element, model
+from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY, element, model
 
 EVENTS = "out/run.jsonl"
 needs_dot = pytest.mark.skipif(
@@ -352,9 +365,9 @@ def test_on_windows_a_preview_a_reader_holds_open_is_deleted_once_it_is_closed(
             raise PermissionError(13, "The process cannot access the file")
         remove(path)
 
-    monkeypatch.setattr(cli, "_WINDOWS", True)
+    monkeypatch.setattr(diagram, "_WINDOWS", True)
     monkeypatch.setattr(cli.shutil, "rmtree", held_open)
-    monkeypatch.setattr(cli.time, "sleep", lambda _: None)
+    monkeypatch.setattr(diagram.time, "sleep", lambda _: None)
     preview = cli._Preview(tmp_path)
     preview._directory = drawn
 
@@ -372,7 +385,7 @@ def test_a_preview_that_cannot_be_deleted_is_a_warning(
     def refused(path: Path) -> None:
         raise PermissionError(13, "Permission denied")
 
-    monkeypatch.setattr(cli, "_WINDOWS", False)
+    monkeypatch.setattr(diagram, "_WINDOWS", False)
     monkeypatch.setattr(cli.shutil, "rmtree", refused)
     preview = cli._Preview(tmp_path)
     preview._directory = drawn
@@ -666,6 +679,12 @@ class _Faulty:
     def flush(self) -> None:
         self._file.flush()
 
+    def truncate(self, size: int) -> int:
+        return self._file.truncate(size)
+
+    def seek(self, offset: int) -> int:
+        return self._file.seek(offset)
+
     def close(self) -> None:
         self._file.close()
         if self._lines == 0:
@@ -681,7 +700,7 @@ def test_a_run_whose_stream_fails_still_reports_and_exits_4(
     monkeypatch.setattr(
         cli,
         "EventStream",
-        lambda file, root, preview: EventStream(_Faulty(file, lines=2), root=root, preview=preview),
+        lambda file, **options: EventStream(_Faulty(file, lines=2), **options),
     )
 
     code = main(["--events", EVENTS, *RELEASE])
@@ -748,3 +767,47 @@ def test_an_element_decided_before_the_run_started_is_a_runner_bug() -> None:
 
     with pytest.raises(RuntimeError, match="runner bug"):
         stream.element_decided(decided)
+
+
+def test_a_value_that_cannot_be_copied_reads_the_same_in_its_event_and_the_report(
+    tmp_path: Path,
+) -> None:
+
+    guard = threading.Lock()
+    (tmp_path / "log.txt").write_text("ok", encoding="utf-8")
+
+    @evidence("e", observes={"log": "log.txt"}, produces=["guard"])
+    def produces(log: Path) -> Outcome:
+        return Pass(guard=guard)
+
+    @strategy("s", consumes=["guard"])
+    def acquires(guard: threading.Lock) -> Outcome:
+        guard.acquire()  # changes the value after its producer was decided (#184)
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (produces, acquires)) if s is not None)
+    file = io.StringIO()
+    stream = EventStream(file, root=tmp_path)
+    stream.run_started(small, strict=False, dry_run=False)
+
+    try:
+        result = anchored.run(small, registry, root=tmp_path, listener=stream)
+        report = json_report.document(RunReport.of(result, tmp_path))
+    finally:
+        if guard.locked():
+            guard.release()
+
+    assert result.verdict is Verdict.PASS, [str(d) for d in result.diagnostics]
+    found = [json.loads(line) for line in file.getvalue().splitlines()]
+    (decided,) = [e for e in found if e["event"] == "element.decided" and e["element"]["id"] == "e"]
+    (written,) = [e for e in report["elements"] if e["id"] == "e"]
+    assert decided["element"]["produced"] == written["produced"]
+    assert "unlocked" in written["produced"]["guard"]["repr"]
+
+
+def test_a_stream_begins_as_the_command_line_recognizes_a_previous_one() -> None:
+    file = io.StringIO()
+    EventStream(file).run_started(model(element("c", CONCLUSION)), strict=False, dry_run=False)
+
+    assert file.getvalue().encode("utf-8").startswith(events.RUN_STARTED)

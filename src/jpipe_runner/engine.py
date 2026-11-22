@@ -38,13 +38,14 @@ from traceback import TracebackException
 from types import MappingProxyType
 from typing import Any, Protocol
 
-from jpipe_runner.artifacts import UNREACHABLE_ARTIFACT, Observed, observe
+from jpipe_runner.artifacts import Observed, observe
 from jpipe_runner.binding import Binding, BindingTable
 from jpipe_runner.dataflow import Consumption, DataflowTable, Received
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
 from jpipe_runner.model import Element, Justification
-from jpipe_runner.observables import Context, Observation, snapshot
+from jpipe_runner.observables import Context, Observation
 from jpipe_runner.outcomes import Fail, NotAnOutcomeError, Outcome, Pass, Skip, as_outcome
+from jpipe_runner.records import snapshot
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
 from jpipe_runner.validation import ValidationContext, ValidationReport
@@ -78,6 +79,11 @@ class Verdict(StrEnum):
     """Validation reported an error, so nothing ran."""
     VALID = "valid"
     """A dry run: validation reported no error, and no step was called."""
+
+    @property
+    def ran(self) -> bool:
+        """Whether a run with this verdict called its steps."""
+        return self not in (Verdict.INVALID, Verdict.VALID)
 
 
 @dataclass(frozen=True)
@@ -226,22 +232,22 @@ def run(
     ctx = ValidationContext.of(justification, registry)
     report = RULES.run(ctx, strict=strict)
     listener.validation_ended(report)
-    if not report.passed:
-        _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
-        return RunResult(
-            justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict
-        )
     # What a dry run returns, and what a listener is told the run plans.
     planned = RunResult(
         justification, ctx.bindings, ctx.dataflow, report, (), ValueStore(), strict, dry_run=True
     )
+    if not report.passed:
+        _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
+        # SonarCloud types dataclasses.replace as returning any dataclass (S5886); mypy --strict
+        # checks the type.
+        return replace(planned, dry_run=False)  # NOSONAR
     if dry_run:
         _LOG.info("validation passed: a dry run calls no step")
         return planned
     listener.steps_starting(planned)
     values = ValueStore()
     elements = _Run(ctx, values, root, listener).execute()
-    return RunResult(justification, ctx.bindings, ctx.dataflow, report, elements, values, strict)
+    return replace(planned, elements=elements, values=values, dry_run=False)  # NOSONAR
 
 
 class _Run:
@@ -251,9 +257,8 @@ class _Run:
         self, ctx: ValidationContext, values: ValueStore, root: Path, listener: RunListener
     ) -> None:
         self._model = ctx.justification
-        self._bindings = {binding.element.id: binding for binding in ctx.bindings}
+        self._bindings = ctx.bindings
         self._dataflow = ctx.dataflow
-        self._rank = {element.id: rank for rank, element in enumerate(self._model)}
         self._values = values
         self._root = root
         self._listener = listener
@@ -270,7 +275,7 @@ class _Run:
         return tuple(self._results.values())
 
     def _result_of(self, element: Element) -> ElementResult:
-        binding = self._bindings.get(element.id)
+        binding = self._bindings.binding_for(element.id)
         supporters = self._model.supporters(element.id)
         if binding is None and not supporters:
             return ElementResult(element, Status.SKIP, reason="nothing supports it or checks it")
@@ -290,7 +295,7 @@ class _Run:
             result = self._results[supporter.id]
             if result.status is not Status.PASS:
                 roots.update(result.blocked_by or (supporter.id,))
-        return tuple(sorted(roots, key=self._rank.__getitem__))
+        return tuple(element.id for element in self._model.in_model_order(roots))
 
     def _call(self, binding: Binding) -> ElementResult:
         element, step = binding.element, binding.step
@@ -307,7 +312,7 @@ class _Run:
         something could not be reached."""
         element, step = binding.element, binding.step
         if not observed.reachable:
-            return _failed(binding, observed.diagnostics, observed=observed.observations)
+            return _failed(binding, observed.diagnostics, observed=observed.observations, ran=False)
         arguments = {c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)}
         arguments.update(observed.arguments)
         _LOG.debug("calling %s for %s", step.name, element.id)
@@ -370,7 +375,9 @@ class _Run:
             binding,
             ran=True,
             outcome=outcome,
-            produced=MappingProxyType({name: snapshot(v) for name, v in produced.items()}),
+            produced=MappingProxyType(
+                {name: snapshot(v, self._root) for name, v in produced.items()}
+            ),
             observed=observed,
             diagnostics=tuple(problems),
         )
@@ -382,11 +389,11 @@ def _failed(
     *,
     observed: tuple[Observation, ...],
     outcome: Outcome | None = None,
+    ran: bool = True,
 ) -> ElementResult:
-    """The element failed because of ``diagnostics``. Its step ran, unless an artifact was
-    unreachable."""
+    """The element failed because of ``diagnostics``: its step was called, unless ``ran``
+    says it was not."""
     errors = [d.message for d in diagnostics if d.severity is Severity.ERROR]
-    ran = not any(d.code == UNREACHABLE_ARTIFACT for d in diagnostics)
     return ElementResult(
         binding.element,
         Status.FAIL,

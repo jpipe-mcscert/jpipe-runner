@@ -86,7 +86,9 @@ goes on lets it end, and its exit code is 4.
 ([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)): the justification, in the jPipe
 compiler's notation, with the files each evidence observes and the variables the steps
 produce and consume, and the run's statuses over its elements. A support is not drawn when
-a variable already links its two ends: the variable shows it. A justification that
+a variable already links its two ends: the variable shows it, and its edges take the colour
+of its producer's status when it failed or was skipped, as the support would
+([ADR-0034](adr/0034-a-failure-s-path-through-a-variable-takes-its-status.md)). A justification that
 implements a template is drawn as the compiler draws it: each template a cluster, each
 `@support` a dotted placeholder linked to the element that fills it, and the template's
 supports drawn from the placeholders, even when a variable links their ends. The
@@ -117,6 +119,25 @@ usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
 jpipe-runner: error: --report and --diagram both write release.png
+$ echo $?
+2
+```
+
+**An output never overwrites what the run observes.** Once the step libraries are imported,
+before validation and before any step, an output that names a file a step of the
+justification observes is a usage error too: a file it names, one its glob matches, even if
+the output does not exist yet, the file of a `JsonValue`, a path a library's observable
+depends on, or a link to one of those. The file is left as it was, and an events file the
+run created is removed
+([ADR-0035](adr/0035-an-output-never-overwrites-what-the-run-observes.md)):
+
+```console
+$ jpipe-runner --library steps.py --events mock/junit.xml justification.json
+usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
+                    [--report PATH] [--events PATH] [--diagram PATH]
+                    [--colour {auto,always,never}] [-v | -q] [--version]
+                    JUSTIFICATION
+jpipe-runner: error: --events mock/junit.xml: mock/junit.xml, which steps.the_test_suite_passes observes
 $ echo $?
 2
 ```

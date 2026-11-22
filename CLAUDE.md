@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.1.0;
+`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.2.0;
 v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
 argues a claim from evidence and strategies; a **step library** binds a Python function to
 each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The runner
@@ -128,7 +128,8 @@ The repository follows the
 [jPipe workflow](https://github.com/jpipe-mcscert/.github/blob/main/CONTRIBUTING.md):
 `main` holds released code, `dev` is the integration branch and the GitHub default, work
 branches are cut from `dev` and come back through a pull request into `dev`, and a release
-is a pull request from `dev` into `main`. The assistant's role (stay on the session's
+is one pull request into `main` from a release branch, `release/X.Y.Z`, cut from `dev`.
+The assistant's role (stay on the session's
 branch, ask before creating one, open a PR only when asked and then follow the PR steps,
 never merge or tag) is in the org guide's *For AI assistants* section, and repeated here
 because a session may not have it:
@@ -165,12 +166,12 @@ What is specific here:
 - **Never push a git tag automatically.** Tag creation/push is performed by a
   human maintainer only — it triggers the immutable PyPI/PPA/Homebrew publish.
 - **Never open a PR unless the maintainer asks, and never merge one.** The release PR
-  (`dev` → `main`) is opened when the maintainer asks, and merged by a human.
+  (`release/X.Y.Z` → `main`) is opened when the maintainer asks, and merged by a human.
 - **Always maintain `CHANGELOG.md`.** Every release (and notable change) gets an
   entry under a `## [x.y.z] - YYYY-MM-DD` heading, following Keep a Changelog.
 - An assistant's scope for a release is the prep work (version bump + `CHANGELOG.md` +
-  docs) on a work branch from `dev`, and the PRs when asked; the merges and the tag are
-  manual.
+  docs) on `release/X.Y.Z`, cut from `dev` with the maintainer's approval, and the release
+  PR into `main` when asked; the merges and the tag are manual.
 
 **Cutting a release (manual steps):**
 
@@ -180,8 +181,8 @@ What is specific here:
    tag; a release replaces it with `X.Y.Z` (or `X.Y.ZaN` / `X.Y.ZrcN`). Write it in canonical form: the
    version tests compare the installed (normalized) version to the raw string.
 2. Update `CHANGELOG.md` with a new `## [x.y.z] - YYYY-MM-DD` section.
-3. Land both on `dev` (PR from a work branch), then merge the release PR `dev` → `main`
-   once CI and the quality gate pass.
+3. Commit both on `release/X.Y.Z`, cut from `dev`, and open the release PR into `main`
+   (no PR into `dev` first); a maintainer merges it once CI and the quality gate pass.
 4. Tag the merge commit on `main` `vX.Y.Z` (must match `pyproject.toml`) and push it.
 5. Merge `main` back into `dev`, and set `dev` to the next `X.Y.Z.dev0`.
 

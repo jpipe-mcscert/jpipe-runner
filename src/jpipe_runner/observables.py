@@ -20,10 +20,11 @@ runner puts in front of the path is escaped, so that it designates that director
 
 What a glob designates is defined here, and nowhere else: ``files`` lists the files it
 matches under a root, and ``matches`` says whether it would match a path, without the file
-system. A property test holds them to the same answer.
+system. A property test holds them to the same answer. ``designates`` says whether a path or
+a glob, as the report shows it, designates a given file, which may not exist yet: what an
+output of the runner must not be (ADR-0035).
 """
 
-import copy
 import glob
 import hashlib
 import json
@@ -36,6 +37,8 @@ from dataclasses import dataclass
 from fnmatch import fnmatchcase
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Any, Final
+
+from jpipe_runner.diagnostics import under_root
 
 _CHUNK = 1 << 16
 _INDEX = re.compile(r"0|[1-9]\d*", re.ASCII)
@@ -79,6 +82,12 @@ def unescape(shown: str) -> str:
     return _ESCAPED.sub(r"\1", shown)
 
 
+def _first_wildcard(parts: Sequence[str]) -> int:
+    """The index of the first of ``parts`` that holds a wildcard, or their number if none
+    does."""
+    return next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
+
+
 def designates_one(pattern: str) -> bool:
     """Whether the glob ``pattern`` designates one path, whatever the files: it holds no
     wildcard, or only escaped ones, as ``app/[[]slug]/notes.md`` does."""
@@ -113,6 +122,72 @@ def files(pattern: str, root: Path) -> list[Path]:
     if PurePosixPath(pattern).name == _RECURSIVE:
         pattern += "/*"
     return sorted(path for path in root.glob(pattern) if path.is_file())
+
+
+def identity(path: Path) -> object:
+    """What tells ``path``'s file from any other: its device and its inode if it exists,
+    so that a link is the file it links to, and its absolute path otherwise."""
+    try:
+        status = path.stat()
+    except OSError:
+        return _absolute(path)
+    # A file system that has no inodes gives 0 for every file.
+    return (status.st_dev, status.st_ino) if status.st_ino else _absolute(path)
+
+
+def _absolute(path: Path) -> Path:
+    """``path`` resolved, or only made absolute if it cannot be: a symbolic link loop is a
+    ``RuntimeError`` before Python 3.13."""
+    try:
+        return path.resolve()
+    except (OSError, RuntimeError):
+        return Path(os.path.abspath(path))
+
+
+def designates(pattern: str, file: Path, root: Path) -> bool:
+    """Whether ``pattern``, a path or a glob relative to ``root`` as the report shows it,
+    designates the file at ``file``, which need not exist yet: by its name, once ``file``
+    and the directories in front of ``pattern``'s first wildcard are resolved under
+    ``root``, so that a directory reached through a link is the one it links to; or, for a
+    file that exists, as a link to one of the files ``pattern`` matches."""
+    if designates_one(pattern):
+        return identity(file) == identity(Context(root, root).file(pattern))
+    named = (under_root(file, root), _as_written(file, root))
+    if any(
+        relative is not None
+        and (matches(relative, pattern) or matches(relative, _through_links(pattern, root)))
+        for relative in named
+    ):
+        return True
+    if not file.exists():  # only its name could designate it
+        return False
+    target = identity(file)
+    try:
+        found = files(pattern, root)
+    except (NotImplementedError, ValueError):  # on Windows, a glob on another drive
+        return False
+    return any(identity(each) == target for each in found)
+
+
+def _as_written(file: Path, root: Path) -> str | None:
+    """``file`` relative to ``root`` as it is written, its links not followed, so that a
+    glob that names a linked directory designates what is written through it; ``None`` if
+    it is not under ``root``."""
+    try:
+        relative = Path(os.path.relpath(os.path.abspath(file), os.path.abspath(root)))
+    except ValueError:  # on Windows, another drive
+        return None
+    return None if relative.parts[:1] == ("..",) else relative.as_posix()
+
+
+def _through_links(pattern: str, root: Path) -> str:
+    """``pattern`` with the directories in front of its first wildcard resolved, as
+    ``Context.shown`` resolves the directory of a step: a glob through a linked directory
+    then names the directory it links to."""
+    parts = pattern.split("/")
+    first = next(i for i, part in enumerate(parts) if not designates_one(part))
+    directory = root.joinpath(*(unescape(part) for part in parts[:first]))
+    return Context(directory, root).shown("/".join(parts[first:]))
 
 
 def digest(file: Path) -> tuple[str, int]:
@@ -157,7 +232,7 @@ class Context:
         put in front of ``path`` is escaped, so that a library in ``checks[v2]/`` that
         observes ``*.md`` is shown ``checks[[]v2]/*.md``. Without one, nothing is."""
         parts = path.split("/")
-        first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
+        first = _first_wildcard(parts)
         literal = os.path.normpath(os.path.join(os.path.realpath(self.directory), *parts[:first]))
         try:
             relative = PurePath(os.path.relpath(literal, os.path.realpath(self.root))).as_posix()
@@ -343,15 +418,6 @@ class Observable(ABC):
         """The files, as paths or globs relative to the run's root, a change to which
         reaches it. None by default: impact analysis does not see it."""
         return ()
-
-
-def snapshot(value: Any) -> Any:
-    """A deep copy of ``value``, or ``value`` itself if it cannot be copied (a lock, an open
-    file): what the report records stays as it was, whatever a step then does to it."""
-    try:
-        return copy.deepcopy(value)
-    except Exception:  # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does
-        return value
 
 
 def described(observable: Observable, context: Context) -> str:
@@ -622,12 +688,12 @@ def _checked(path: object, owner: str = _EVIDENCE) -> str:
     return _canonical(path, owner)
 
 
-def _canonical(path: str, owner: str = _EVIDENCE) -> str:
+def _canonical(path: str, owner: str) -> str:
     """``path`` with ``.`` and ``..`` resolved as text before its first wildcard. A leading
     ``..`` is kept. One after a wildcard is refused: what it names depends on the
     directories the glob finds."""
     parts = path.split("/")
-    first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
+    first = _first_wildcard(parts)
     if ".." in parts[first:]:
         raise TypeError(
             f"{owner} takes '..' only before the first wildcard, as in "
@@ -641,7 +707,7 @@ def _canonical(path: str, owner: str = _EVIDENCE) -> str:
     return "/".join(kept)
 
 
-def _directory(path: str, owner: str = _EVIDENCE) -> None:
+def _directory(path: str, owner: str) -> None:
     glob = path.rstrip("/\\") + "/**/*"
     raise TypeError(
         f"{owner} takes files, and {path!r} names a directory. "

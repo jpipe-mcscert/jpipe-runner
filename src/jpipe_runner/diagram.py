@@ -56,13 +56,13 @@ import secrets
 import shutil
 import subprocess
 import time
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 from jpipe_runner.dataflow import Received
 from jpipe_runner.engine import Status
 from jpipe_runner.model import Element, Justification, Kind, Template
-from jpipe_runner.report import ElementReport, RunReport
+from jpipe_runner.report import ElementReport, RunReport, reached_every_time
 
 FORMATS = ("dot", "gif", "jpeg", "jpg", "pdf", "png", "svg")
 
@@ -180,14 +180,22 @@ def _temporary(target: Path) -> Path:
 
 
 def _replace(drawing: Path, target: Path) -> None:
-    """Rename ``drawing`` to ``target``. On Windows, a file another program has open cannot
-    be replaced, as the reader of a run's diagram may have it for a moment: try again,
-    for about a second."""
+    """Rename ``drawing`` to ``target``."""
+    retried(lambda: os.replace(drawing, target))
+
+
+def retried(
+    action: Callable[[], object],
+    errors: type[OSError] | tuple[type[OSError], ...] = PermissionError,
+) -> None:
+    """Do ``action``. On Windows, a file another program has open cannot be replaced or
+    deleted, as the reader of a run's diagram may have it for a moment: on ``errors``, try
+    again, for about a second, then raise. Elsewhere, raise at once."""
     for attempt in range(_ATTEMPTS):
         try:
-            os.replace(drawing, target)
+            action()
             return
-        except PermissionError:
+        except errors:
             if not _WINDOWS or attempt == _ATTEMPTS - 1:
                 raise
             time.sleep(_PAUSE)
@@ -342,12 +350,17 @@ class _Dataflow:
         self._produced_by: dict[str, str] = {}
         self._consumers: dict[str, set[str]] = {}
         self._unresolved: set[str] = set()
+        self._values: dict[str, str] = {}
+        """Each value's node and its variable, in the order the elements declare them."""
         for element in self._elements:
             for name in element.produces:
-                self._produced_by[self._node(name, element.id)] = element.id
-            for received in self._inputs(element):
+                node = self._node(name, element.id)
+                self._produced_by[node] = element.id
+                self._values.setdefault(node, name)
+            for received in element.inputs:
                 node = self._source(received)
                 self._consumers.setdefault(node, set()).add(element.id)
+                self._values.setdefault(node, received.variable)
                 if received.produced_by is None:
                     self._unresolved.add(node)
         self._shapes, self._reached = _sources(self._elements)
@@ -366,7 +379,7 @@ class _Dataflow:
     def nodes(self) -> Iterator[str]:
         for path in _unique(p for e in self._elements for p in e.sources):
             yield self._source_node(path)
-        for node, name in self._values():
+        for node, name in self._values.items():
             yield _variable_node(node, name, self._variable(node, name), self._broken(node))
 
     def _source_node(self, declared: str) -> str:
@@ -391,9 +404,20 @@ class _Dataflow:
             for path in element.sources:
                 yield _data_edge(f"artifact {path}", element.id, "observes", dotted=True)
             for name in element.produces:
-                yield _data_edge(element.id, self._node(name, element.id), "produces")
-            for node in _unique(self._source(received) for received in self._inputs(element)):
-                yield _data_edge(node, element.id, "consumes")
+                node = self._node(name, element.id)
+                yield _data_edge(element.id, node, "produces", status=element.status)
+            for node in _unique(self._source(received) for received in element.inputs):
+                yield _data_edge(node, element.id, "consumes", status=self._status_of(node))
+
+    def _status_of(self, node: str) -> Status | None:
+        """The status of the element that produces the value ``node``, if it has one."""
+        producer = self._producer(node)
+        return None if producer is None else producer.status
+
+    def _producer(self, node: str) -> ElementReport | None:
+        """The element whose step produces the value ``node``, if one does."""
+        producer = self._produced_by.get(node)
+        return None if producer is None else self._reported[producer]
 
     def _node(self, name: str, producer: str | None) -> str:
         """The node of ``name`` as ``producer`` produces it, or of ``name`` unresolved."""
@@ -406,21 +430,11 @@ class _Dataflow:
         producer = received.produced_by or self._only(received.variable)
         return self._node(received.variable, producer)
 
-    def _values(self) -> list[tuple[str, str]]:
-        """Each value's node and its variable, in the order the elements declare them."""
-        found: dict[str, str] = {}
-        for element in self._elements:
-            for name in element.produces:
-                found.setdefault(self._node(name, element.id), name)
-            for received in self._inputs(element):
-                found.setdefault(self._source(received), received.variable)
-        return list(found.items())
-
     def _variable(self, node: str, name: str) -> dict[str, str]:
         """The style of a value: dashed and grey when it was not produced."""
         attributes = dict(_DATA, shape="ellipse")
-        producer = self._produced_by.get(node)
-        produced = producer is not None and name in self._reported[producer].produced
+        producer = self._producer(node)
+        produced = producer is not None and name in producer.produced
         if self._ran and not produced and not self._broken(node):
             attributes.update(style="dashed", color=_GREY)
         return attributes
@@ -431,14 +445,6 @@ class _Dataflow:
         return (
             node not in self._produced_by or node not in self._consumers or node in self._unresolved
         )
-
-    def _inputs(self, element: ElementReport) -> tuple[Received, ...]:
-        """What ``element``'s step receives: its inputs, or, in a report that has none, each
-        variable it consumes, to a parameter of the same name, from its producer if only one
-        step produces it."""
-        if element.inputs or not element.consumes:
-            return element.inputs
-        return tuple(Received(name, name, self._only(name)) for name in element.consumes)
 
     def _only(self, name: str) -> str | None:
         """The one element that produces ``name``, if only one does."""
@@ -451,12 +457,10 @@ def _sources(elements: list[ElementReport]) -> tuple[dict[str, str], dict[str, b
     and whether it was reached, by every element that observed it: a source no element
     observed yet has none."""
     shapes: dict[str, str] = {}
-    reached: dict[str, bool] = {}
     for element in elements:
         for declared, shape in element.shapes.items():
             shapes.setdefault(declared, shape)
-        for declared, each in element.reached.items():
-            reached[declared] = reached.get(declared, True) and each
+    reached = reached_every_time(pair for element in elements for pair in element.reached.items())
     return shapes, reached
 
 
@@ -495,11 +499,18 @@ def _variable_node(node: str, label: str, attributes: dict[str, str], problem: b
     return f"{_INDENT}{_quoted(node)} [label={_quoted(label)}, {_attributes(attributes)}];"
 
 
-def _data_edge(source: str, target: str, label: str, *, dotted: bool = False) -> str:
+def _data_edge(
+    source: str, target: str, label: str, *, dotted: bool = False, status: Status | None = None
+) -> str:
+    """An edge between an element and what it observes, produces or consumes. One through a
+    value takes the status of the element that produced it, when that one failed or was
+    skipped, as the support it stands for would (#176): vermillion or grey, dashed as every
+    data edge is, and no thicker, so that a status never moves the diagram."""
     if dotted:
         attributes = {"style": "dotted", "arrowhead": "empty"}
     else:
-        attributes = {"style": "dashed", "color": _BLUE}
+        colour = _BLUE if status in (None, Status.PASS) else _EDGE_COLOURS[status]
+        attributes = {"style": "dashed", "color": colour}
     attributes.update(label=f" {label}", fontsize="9")
     return f"{_INDENT}{_quoted(source)} -> {_quoted(target)} [{_attributes(attributes)}];"
 

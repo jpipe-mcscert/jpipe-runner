@@ -143,10 +143,6 @@ class DataflowTable:
         return tuple(p for p in producers if p.element.id in below)
 
     @property
-    def consumptions(self) -> tuple[Consumption, ...]:
-        return self._consumptions
-
-    @property
     def diagnostics(self) -> tuple[Diagnostic, ...]:
         return self._diagnostics
 

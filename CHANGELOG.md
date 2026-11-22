@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-11-21
+
+### Changed
+- **The diagram shows a failure's path through a variable.** When an element that failed,
+  or was skipped, produces a variable that the element it supports consumes, the edges
+  through the variable take its status's colour, vermillion or grey, as the support edge
+  they stand for would. They were drawn blue, as data, whatever happened, so nothing
+  between the failure and what it stopped showed it
+  ([ADR-0034](docs/adr/0034-a-failure-s-path-through-a-variable-takes-its-status.md),
+  #176).
+
+### Fixed
+- **An output never overwrites a file the run observes.** `--report`, `--diagram` or
+  `--events` naming a file an evidence observes, one its glob matches, the file of a
+  `JsonValue`, or a link to one, is a usage error (exit code 2), and the file is left as it
+  was. `--events mock/junit.xml` emptied the test report before the evidence read it, and
+  `--report` and `--diagram` overwrote such a file when the run ended. The check runs once
+  the step libraries are imported, before validation. An events file that holds something
+  other than a run's events is emptied only once it passes, and left as it was, with exit
+  code 4, if the run ends before it, its model refused or a library not imported
+  ([ADR-0035](docs/adr/0035-an-output-never-overwrites-what-the-run-observes.md), #183).
+- **A value that cannot be copied, such as a lock or an open file, is recorded as it was
+  when it was produced or observed**, as every other value is. The report kept it by
+  reference, so a step that changed it later changed what the report said was produced,
+  and its `element.decided` event, written earlier, said something else. It is now recorded
+  then as its `repr` and type
+  ([ADR-0033](docs/adr/0033-a-value-is-recorded-as-it-was-seen.md), #184).
+
+_Contributors: Sébastien Mosser._
+
 ## [4.1.0] - 2026-11-21
 
 ### ⚠️ Breaking
@@ -752,7 +782,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
-[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.2.0...HEAD
+[4.2.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.6.0...v4.0.0
 [3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
