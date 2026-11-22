@@ -646,3 +646,19 @@ def test_a_file_recorded_under_two_overlapping_paths_is_listed_once(root: Path) 
         Change("e2", "docs/a.md", ChangeKind.CHANGED),
         Change("e2", "docs/b.md", ChangeKind.ADDED),
     )
+
+
+def test_the_current_major_version_of_the_report_is_read() -> None:
+    # A new major of the report must be added to READ deliberately, keeping the earlier
+    # ones impact and status can still read (#178).
+    assert json_report.SCHEMA_VERSION.partition(".")[0] in impact.READ
+
+
+@pytest.mark.parametrize("major", impact.READ)
+def test_a_report_of_each_major_version_read_is_accepted(tmp_path: Path, major: str) -> None:
+    document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
+    document["schema_version"] = f"{major}.0"
+    path = tmp_path / "report.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+
+    assert read(path)["schema_version"] == f"{major}.0"
