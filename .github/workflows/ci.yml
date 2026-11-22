@@ -34,14 +34,23 @@ jobs:
       - name: Type-check (mypy --strict)
         run: poetry run mypy
 
+  # The suite on every Python a channel installs, with what poetry.lock records: 3.11 (the
+  # floor, and Homebrew's), 3.13, 3.14 (Ubuntu resolute and stonking) and 3.15, the latest.
+  # 3.12, Ubuntu noble's, is test-floor's. Python changes what the runner reads of a step
+  # (its bytecode, ADR-0037) and how it names a value's type in the report.
   test:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13', '3.14', '3.15']
+    name: test (Python ${{ matrix.python-version }})
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-python-env
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
       - name: Run tests
         run: poetry run pytest
 

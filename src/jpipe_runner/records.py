@@ -13,6 +13,7 @@ is left out, at any depth. The report writes a value that is not JSON with it.
 
 import copy
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -74,10 +75,31 @@ def canonical_repr(value: Any, root: Path) -> str:
 
 
 def type_name(kind: type) -> str:
-    """``kind``'s qualified name, without ``builtins.``."""
+    """``kind``'s qualified name, without ``builtins.``, and from the public module that
+    exports it when it is defined in a private one: ``pathlib.PosixPath``, which Python 3.13
+    defines in ``pathlib._local``, so that a report names it the same on every version."""
     if kind.__module__ == "builtins":
         return kind.__qualname__
-    return f"{kind.__module__}.{kind.__qualname__}"
+    return f"{_public_module(kind)}.{kind.__qualname__}"
+
+
+def _public_module(kind: type) -> str:
+    """The module ``kind`` is defined in, without its trailing private parts, as long as
+    the module left, already imported, exports ``kind`` under the same name."""
+    module = kind.__module__
+    while "." in module and module.rpartition(".")[2].startswith("_"):
+        parent = module.rpartition(".")[0]
+        if _exported(sys.modules.get(parent), kind.__qualname__) is not kind:
+            break
+        module = parent
+    return module
+
+
+def _exported(module: object, qualname: str) -> object:
+    found: object = module
+    for part in qualname.split("."):
+        found = getattr(found, part, None)
+    return found
 
 
 class _Canonical:

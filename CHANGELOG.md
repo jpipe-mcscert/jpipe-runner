@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stop with `JP016` where they ran with `JP008`
   ([ADR-0036](docs/adr/0036-a-step-runs-on-the-kind-it-was-written-for.md), #172).
 
+### Fixed
+- **On Python 3.13, the report names a path's type `pathlib.PosixPath`**, as on every other
+  version, not `pathlib._local.PosixPath`: a type defined in a private module is named by the
+  public module that exports it. The `type` of a value written as its `repr` depended on the
+  Python that ran.
+
 ## [4.2.0] - 2026-11-21
 
 ### Changed

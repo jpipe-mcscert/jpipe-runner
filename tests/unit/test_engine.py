@@ -389,7 +389,7 @@ def test_an_exception_fails_the_element_with_jp022_and_its_traceback(release: Re
     ]
     trace = e1.diagnostics[0].traceback
     assert trace is not None
-    assert trace.exc_type is ZeroDivisionError
+    assert "".join(trace.format_exception_only()).startswith("ZeroDivisionError:")
     assert trace.stack[-1].name == "_divide"
     assert [Path(frame.filename).name for frame in trace.stack] == ["test_engine.py"] * 3
     assert _statuses(result)["s"] == (Status.SKIP, ("e1",))

@@ -89,8 +89,8 @@ read again, from its bytecode, which needs no source, and only to warn.
   function shadows its own parameter, which linters already report.
 - Bad, because the instructions are CPython's, and change between versions. A new version
   cannot cause a false warning, but its new loads may need decoding for the check to keep
-  finding unread inputs. CI runs the tests on 3.11 and 3.12; the paired and borrowed loads
-  of 3.13 and 3.14 were checked by running the tests on those versions.
+  finding unread inputs. CI runs the tests on every version a channel installs, 3.11 to
+  3.15, so a new load shows up as a failing test of what counts as a read.
 - Neutral, because existing libraries may see new warnings; a run is not stopped by them
   unless it is strict.
 
