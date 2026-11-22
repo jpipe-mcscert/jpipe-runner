@@ -82,6 +82,12 @@ def unescape(shown: str) -> str:
     return _ESCAPED.sub(r"\1", shown)
 
 
+def _first_wildcard(parts: Sequence[str]) -> int:
+    """The index of the first of ``parts`` that holds a wildcard, or their number if none
+    does."""
+    return next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
+
+
 def designates_one(pattern: str) -> bool:
     """Whether the glob ``pattern`` designates one path, whatever the files: it holds no
     wildcard, or only escaped ones, as ``app/[[]slug]/notes.md`` does."""
@@ -226,7 +232,7 @@ class Context:
         put in front of ``path`` is escaped, so that a library in ``checks[v2]/`` that
         observes ``*.md`` is shown ``checks[[]v2]/*.md``. Without one, nothing is."""
         parts = path.split("/")
-        first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
+        first = _first_wildcard(parts)
         literal = os.path.normpath(os.path.join(os.path.realpath(self.directory), *parts[:first]))
         try:
             relative = PurePath(os.path.relpath(literal, os.path.realpath(self.root))).as_posix()
@@ -682,12 +688,12 @@ def _checked(path: object, owner: str = _EVIDENCE) -> str:
     return _canonical(path, owner)
 
 
-def _canonical(path: str, owner: str = _EVIDENCE) -> str:
+def _canonical(path: str, owner: str) -> str:
     """``path`` with ``.`` and ``..`` resolved as text before its first wildcard. A leading
     ``..`` is kept. One after a wildcard is refused: what it names depends on the
     directories the glob finds."""
     parts = path.split("/")
-    first = next((i for i, part in enumerate(parts) if is_glob(part)), len(parts))
+    first = _first_wildcard(parts)
     if ".." in parts[first:]:
         raise TypeError(
             f"{owner} takes '..' only before the first wildcard, as in "
@@ -701,7 +707,7 @@ def _canonical(path: str, owner: str = _EVIDENCE) -> str:
     return "/".join(kept)
 
 
-def _directory(path: str, owner: str = _EVIDENCE) -> None:
+def _directory(path: str, owner: str) -> None:
     glob = path.rstrip("/\\") + "/**/*"
     raise TypeError(
         f"{owner} takes files, and {path!r} names a directory. "

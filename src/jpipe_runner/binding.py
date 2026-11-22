@@ -140,9 +140,13 @@ class BindingTable:
         designated by a step that designates several. None of them is bound."""
         return self._contested
 
+    def binding_for(self, element_id: str) -> Binding | None:
+        """The binding of the element whose own id is ``element_id``, if it is bound."""
+        return self._bound.get(element_id)
+
     def step_for(self, element_id: str) -> Step | None:
         """The step bound to the element whose own id is ``element_id``, if any."""
-        binding = self._bound.get(element_id)
+        binding = self.binding_for(element_id)
         return None if binding is None else binding.step
 
     def __iter__(self) -> Iterator[Binding]:

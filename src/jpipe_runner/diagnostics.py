@@ -8,6 +8,7 @@ while the steps run, an ``ERROR`` fails the element it is about, and the run goe
 ``WARNING`` is reported and changes nothing else.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -51,6 +52,15 @@ def user_traceback(error: BaseException) -> TracebackException:
     trace = TracebackException.from_exception(error)
     trace.stack = StackSummary.from_list([f for f in trace.stack if _in_user_code(f)])
     return trace
+
+
+class DiagnosticsError(Exception):
+    """What cannot go on, for every problem found: each a diagnostic, and the message
+    their lines."""
+
+    def __init__(self, diagnostics: Iterable[Diagnostic]) -> None:
+        self.diagnostics = tuple(diagnostics)
+        super().__init__("\n".join(str(diagnostic) for diagnostic in self.diagnostics))
 
 
 def shown_path(filename: str, root: Path) -> str:

@@ -284,6 +284,7 @@ classDiagram
 
     namespace diagnostics {
         class Diagnostic
+        class DiagnosticsError
         class Severity
     }
 

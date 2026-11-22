@@ -21,8 +21,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
-import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout, suppress
 from dataclasses import dataclass
 from enum import IntEnum
@@ -43,12 +42,6 @@ from jpipe_runner.observables import (
 )
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.steps import StepRegistry
-
-_WINDOWS = os.name == "nt"
-
-_ATTEMPTS, _PAUSE = 10, 0.1
-"""How many times, and how far apart in seconds, the drawing made before the steps is
-deleted."""
 
 _LOG = logging.getLogger(__name__)
 
@@ -377,14 +370,14 @@ def _check_observed(
     if not given:
         return
     observed = [
-        (shown, binding.step.name)
+        (binding.step.name, shown)
         for binding in BindingTable(justification, registry).bindings
         for shown in ElementReport.of(justification, binding.element, binding, root=root).observes
     ]
     for flag, path in given.items():
-        for shown, step in observed:
-            if designates(shown, path, root):
-                parser().error(f"{flag} {path}: {shown}, which {step} observes")
+        if (found := _observing(observed, path, root)) is not None:
+            observer, shown = found
+            parser().error(f"{flag} {path}: {shown}, which {observer} observes")
 
 
 def _run(options: argparse.Namespace) -> int:
@@ -574,27 +567,30 @@ class _Preview:
         if self._directory is None:
             return
         directory, self._directory = self._directory, None
-        for attempt in range(_ATTEMPTS):
-            try:
+
+        def remove() -> None:
+            with suppress(FileNotFoundError):
                 shutil.rmtree(directory)
-                return
-            except FileNotFoundError:
-                return
-            except OSError as error:
-                if _WINDOWS and attempt < _ATTEMPTS - 1:
-                    time.sleep(_PAUSE)
-                    continue
-                _LOG.warning("cannot delete the diagram drawn before the steps run: %s", error)
-                return
+
+        try:
+            diagram.retried(remove, OSError)
+        except OSError as error:
+            _LOG.warning("cannot delete the diagram drawn before the steps run: %s", error)
 
 
 def _observer(report: RunReport, drawn: Path, root: Path) -> str | None:
     """What an evidence observes that designates ``drawn``, if one does."""
-    for element in report.elements:
-        for shown in element.observes:
-            if designates(shown, drawn, root):
-                return f"{element.id} observes {shown}"
-    return None
+    observed = [(element.id, shown) for element in report.elements for shown in element.observes]
+    found = _observing(observed, drawn, root)
+    return None if found is None else f"{found[0]} observes {found[1]}"
+
+
+def _observing(
+    observed: Iterable[tuple[str, str]], path: Path, root: Path
+) -> tuple[str, str] | None:
+    """The first of ``observed``, each who observes what, as the report shows it, that
+    designates the file at ``path``, if one does (ADR-0035)."""
+    return next(((who, shown) for who, shown in observed if designates(shown, path, root)), None)
 
 
 def _streamed(stream: EventStream | None) -> bool:

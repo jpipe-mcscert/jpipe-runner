@@ -433,7 +433,8 @@ def _header(document: Document) -> Iterator[str]:
 
 def _elements(document: Document, ids: Sequence[str]) -> Iterator[str]:
     """One line per element of ``ids``: its kind, its label and its id, aligned."""
-    shown = [element for element in document["elements"] if element["id"] in ids]
+    wanted = set(ids)
+    shown = [element for element in document["elements"] if element["id"] in wanted]
     kinds = max(len(element["kind"]) for element in shown)
     labels = max(len(element["label"]) for element in shown)
     for element in shown:
