@@ -1,3 +1,4 @@
+import builtins
 import dis
 import functools
 import importlib
@@ -649,6 +650,14 @@ def test_eval_may_read_every_parameter() -> None:
         return Pass() if eval("coverage > 0.8") else Fail("low")
 
     assert _declared(evaluates).unread.never == ()
+
+
+def test_a_qualified_builtin_hands_every_parameter_on() -> None:
+    @strategy("s", consumes=["a"])
+    def qualified(a: int) -> Outcome:
+        return Pass() if builtins.locals()["a"] else Fail("no")
+
+    assert _declared(qualified).unread.never == ()
 
 
 def test_a_frame_s_locals_hand_every_parameter_on() -> None:

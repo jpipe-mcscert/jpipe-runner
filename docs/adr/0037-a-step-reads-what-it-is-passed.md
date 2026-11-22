@@ -51,8 +51,8 @@ Chosen option: **3, read the bytecode, and warn**, as `JP027` `UnreadInput`.
 
 - **A parameter is read** when an instruction of the function's code loads it, or when it is
   a cell variable, which a nested function reads, or when the function calls `locals()`,
-  `vars()`, `eval()` or `exec()`, or reads a frame's `f_locals`, which reach every variable
-  without loading it by name. The instructions on a variable are the ones the
+  `vars()`, `eval()` or `exec()`, by name or as `builtins.locals()`, or reads a frame's
+  `f_locals`, which reach every variable without loading it by name. The instructions on a variable are the ones the
   running Python lists (`dis.haslocal`, `dis.hasfree`), and their names say what each does
   to each variable it names: `LOAD_FAST_LOAD_FAST` loads two, `STORE_FAST_LOAD_FAST` stores
   its first and loads its second. An instruction whose name does not say, as a later Python
