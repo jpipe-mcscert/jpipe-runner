@@ -9,7 +9,14 @@ from jsonschema import Draft202012Validator
 
 from jpipe_runner import loader
 from jpipe_runner.diagnostics import Severity
-from jpipe_runner.model import InvalidJustificationError, Kind, Placeholder, Template, TemplateChain
+from jpipe_runner.model import (
+    InvalidJustificationError,
+    Kind,
+    Origin,
+    Placeholder,
+    Template,
+    TemplateChain,
+)
 from tests.strategies import justifications
 
 VALID: dict[str, Any] = {
@@ -87,6 +94,26 @@ def test_properties_the_runner_does_not_use_are_ignored() -> None:
     relations = [{**r, "kind": "support"} for r in VALID["relations"]]
     justification = loader.loads(edited(elements=elements, relations=relations, version="2"))
     assert len(justification) == 3
+
+
+def test_an_element_s_origins_are_read_except_what_no_step_implements() -> None:
+    origins = [
+        {"model": "base", "id": "base:tests", "type": "abstract-support"},
+        {"model": "tested", "id": "tested:tested", "type": "conclusion"},
+    ]
+    first = VALID["elements"][0]["id"]
+
+    justification = loader.loads(edited(elements=element(0, origins=origins)))
+
+    assert justification.element(first).origins == (
+        Origin("tested", "tested:tested", Kind.CONCLUSION),
+    )
+
+
+def test_an_origin_without_a_kind_is_refused() -> None:
+    origins = [{"model": "tested", "id": "tested:tested"}]
+
+    assert [code for code, _ in failure(edited(elements=element(0, origins=origins)))] == ["JP001"]
 
 
 CHAIN = {

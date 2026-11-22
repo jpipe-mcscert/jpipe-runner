@@ -146,7 +146,7 @@ class RefinedElement(Rule):
         for bound in ctx.bindings:
             if bound.step.kind is bound.element.kind:
                 continue
-            if (origin := ctx.bindings.resolver.origin(bound)) is not None:
+            if (origin := bound.origin) is not None:
                 yield self.diagnostic(
                     f"{bound.step.name} is declared as {bound.step.kind}, for {origin.id!r} in "
                     f"{origin.model!r}, which composition made the {bound.element.kind} "
@@ -333,14 +333,14 @@ class IncompatibleKind(Rule):
         composed = any(element.origins for element in ctx.justification)
         for bound in ctx.bindings:
             step, element = bound.step, bound.element
-            if step.kind is element.kind or ctx.bindings.resolver.origin(bound) is not None:
+            if step.kind is element.kind or bound.origin is not None:
                 continue
             fix = f"Declare it with {element.kind.decorator}"
             if written := next((o for o in element.origins if o.kind is step.kind), None):
                 fix += (
                     f", or bind it by the id the element had in {written.model!r}: {written.id!r}"
                 )
-            elif not composed:
+            elif not composed and _composable(bound):
                 fix += ". If the model was composed by a jPipe older than 4.0.0, recompile it"
             yield self.diagnostic(
                 f"{step.name} is declared as {step.kind}, but is bound to "
@@ -426,6 +426,15 @@ def _naming(consumed: Consumption, ctx: ValidationContext) -> str:
     entries = ", ".join(f'"{p}": Produced("{variable}", by="{example}")' for p in parameters)
     which = "the one it means" if len(parameters) == 1 else "the one each parameter means"
     return f"Name {which}, keeping the other entries of consumes: {entries}."
+
+
+def _composable(bound: Binding) -> bool:
+    """Whether composition can have made the step's kind the element's: an evidence or a
+    conclusion turned into a sub-conclusion, the only change it makes."""
+    return bound.element.kind is Kind.SUB_CONCLUSION and bound.step.kind in (
+        Kind.EVIDENCE,
+        Kind.CONCLUSION,
+    )
 
 
 def _listed(names: tuple[str, ...]) -> str:
@@ -545,7 +554,8 @@ class UnreadInput(Rule):
         for bound in ctx.bindings:
             step = bound.step
             verb = "observes" if step.kind is Kind.EVIDENCE else "consumes"
-            if unread := step.unread:
+            unread, unnamed = step.unread
+            if unread:
                 yield self.diagnostic(
                     f"{step.name} never reads {_listed(unread)}, which it {verb}: the "
                     f"argument claims a dependency the step does not have",
@@ -553,7 +563,7 @@ class UnreadInput(Rule):
                     fix=f"Read {_them(unread)} in the step, or remove {_them(unread)} from "
                     f"{verb} and from the function's parameters.",
                 )
-            if unnamed := step.unnamed:
+            if unnamed:
                 yield self.diagnostic(
                     f"{step.name} takes {_listed(unnamed)}, which it {verb}, only through "
                     f"**kwargs, so whether it reads {_them(unnamed)} cannot be checked",

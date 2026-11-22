@@ -64,7 +64,7 @@
       "properties": {
         "model": {"description": "The name of that model.", "type": "string", "minLength": 1},
         "id": {"description": "The element's full id in that model.", "$ref": "#/$defs/id"},
-        "type": {"description": "The element's kind in that model.", "$ref": "#/$defs/kind"}
+        "type": {"description": "The element's kind in that model: one of the kinds of an element, or one no step implements, such as a template's abstract-support.", "type": "string", "minLength": 1}
       }
     },
     "relation": {

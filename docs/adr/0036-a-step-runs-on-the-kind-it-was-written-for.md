@@ -66,13 +66,14 @@ not decide.
 | one of the step's ids designates an origin of the element, of the step's kind | `JP008` `RefinedElement` | warning |
 | anything else | `JP016` `IncompatibleKind` | error |
 
-- **A step designates an origin** by the rules of [ADR-0007](0007-binding-resolution.md),
-  applied to the origin's id alone: the id itself, the id qualified by the model's name, or
-  a strictly shorter tail of it, cut at `:`. `@evidence("draft:tests")` on `readiness:hook`
-  is the warning; `@evidence("readiness:draft:tests")` too, since the alias is the origin's id
-  qualified by the model's name. `@evidence("readiness:hook")` is the error: it was written
-  against the composed model, where the element is a sub-conclusion, and its fix names the id
-  the element had with the step's kind, `draft:tests`.
+- **A step designates an origin** by its id, or a strictly shorter tail of it, cut at `:`,
+  as [ADR-0007](0007-binding-resolution.md) matches an id: the forms a library written
+  against the origin's model uses. `@evidence("draft:tests")` on `readiness:hook` is the
+  warning. An id that starts with the composed model's name was written against the composed
+  model, where the element has its new kind, so it designates no origin:
+  `@evidence("readiness:hook")`, `@evidence("readiness:draft:tests")` and, on an assembled
+  model, `@conclusion("readiness:tested:tested")` are the error. The fix names the id the
+  element had with the step's kind, `draft:tests`.
 - **Binding does not change.** Since an origin's id is a tail of one of the element's ids,
   every id that designates an origin already designates the element, and an id that is a
   tail of origins of two elements is ambiguous (`JP006`) as it always was. Every origin is
@@ -85,7 +86,10 @@ not decide.
 - **A model without origins** excuses nothing: every difference of kind is `JP016`. Such a
   model was either never composed, and then nothing changed a kind, or composed by a jPipe
   older than 4.0.0, and then recompiling it gives the origins; the fix of `JP016` says so on
-  a model without origins.
+  a model without origins, for the differences composition can make (an evidence or a
+  conclusion turned into a sub-conclusion).
+- **An origin of a kind no step implements**, such as a template's `abstract-support` that
+  `refine` fills, is read and set aside: no step can have been written for it.
 - **Two libraries that bind one element**, such as the draft's `@evidence("draft:tests")`
   and `tested`'s `@conclusion("tested:tested")` on the refined hook, are still a conflict
   (`JP007`): an element runs one step.
@@ -103,6 +107,9 @@ not decide.
   models to the same ids.
 - Bad, because the warning still cannot be silenced while the library also serves the source
   model, as ADR-0013 noted.
+- Bad, because a tail shared by the origin's id and the composed id, such as `tested` for
+  `readiness:tested:tested` and its origin `tested:tested`, cannot tell which model the step
+  was written against, and is taken for the source's.
 
 ### Confirmation
 

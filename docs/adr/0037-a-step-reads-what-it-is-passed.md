@@ -50,14 +50,18 @@ Should the runner check again that a step reads its inputs, and how?
 Chosen option: **3, read the bytecode, and warn**, as `JP027` `UnreadInput`.
 
 - **A parameter is read** when an instruction of the function's code loads it, or when it is
-  a cell variable, which a nested function reads. The instructions are those that load a
-  local variable, from Python 3.11 to 3.14: `LOAD_FAST` and its variants, the paired loads
-  of 3.13 (`LOAD_FAST_LOAD_FAST`, and the second half of `STORE_FAST_LOAD_FAST`), the
-  borrowed loads of 3.14, and `LOAD_DEREF`. `LOAD_FAST_AND_CLEAR`, which saves a variable a
-  comprehension is about to reuse, is not a read. A global of the same name is not the
-  parameter. Passing the value to a helper counts, whatever the helper does with it.
-- **The function checked is the one declared**, under its `functools.wraps` wrappers
-  (`inspect.unwrap`), as the signature check sees it.
+  a cell variable, which a nested function reads, or when the function calls `locals()` or
+  `vars()`, which hand every variable on. The instructions on a variable are the ones the
+  running Python lists (`dis.haslocal`, `dis.hasfree`), and their names say what each does
+  to each variable it names: `LOAD_FAST_LOAD_FAST` loads two, `STORE_FAST_LOAD_FAST` stores
+  its first and loads its second. An instruction whose name does not say, as a later Python
+  may add, counts as a read: a missed warning is the safe way to be wrong.
+  `LOAD_FAST_AND_CLEAR`, which saves a variable a comprehension is about to reuse, is not a
+  read. A global of the same name is not the parameter. Passing the value to a helper
+  counts, whatever the helper does with it.
+- **The function checked is the one declared**, under its `functools.wraps` wrappers, as
+  `inspect.signature`, and so the signature check, sees it: unwrapping stops at a function
+  that declares its own `__signature__`.
 - **It is a warning, on a bound step.** The check is a heuristic, so it reports rather than
   refuses, among the rules, where `--strict` makes it an error for those who want it. A step
   that binds no element never runs, and is not checked.
@@ -78,19 +82,23 @@ read again, from its bytecode, which needs no source, and only to warn.
 - Good, because steps without a source, typed at a prompt or built by `exec`, are checked.
 - Good, because the compiler's generated skeletons are untouched: `PythonExporter` declares
   `consumes=[]` and `observes={}`, so nothing is passed to them.
-- Bad, because a parameter that a comprehension's variable of the same name shadows may
-  pass for read: on 3.12 and later, the comprehension is inlined, and its variable is the
-  parameter's slot. A missed warning is the safe way to be wrong.
-- Bad, because the opcodes are CPython's, and change between versions: a new version of
-  Python may need its loading instructions added. The tests run on every supported version.
+- Bad, because a parameter that a comprehension's variable of the same name shadows passes
+  for read on Python 3.12 and later, where the comprehension is inlined and its variable is
+  the parameter's slot, but not on 3.11: the warning then depends on the interpreter. Such a
+  function shadows its own parameter, which linters already report.
+- Bad, because the instructions are CPython's, and change between versions. A new version
+  cannot cause a false warning, but its new loads may need decoding for the check to keep
+  finding unread inputs. CI runs the tests on 3.11 and 3.12; the paired and borrowed loads
+  of 3.13 and 3.14 were checked by running the tests on those versions.
 - Neutral, because existing libraries may see new warnings; a run is not stopped by them
   unless it is strict.
 
 ### Confirmation
 
 - `tests/unit/test_steps.py` checks what counts as a read: directly, two at once, in a
-  comprehension, in a nested function, through a helper, in a function built by `exec`, and
-  under a wrapper above or below the decorator; a global of the same name does not count.
+  comprehension, in a nested function, through a helper or `locals()`, in a function built
+  by `exec`, under a wrapper above or below the decorator, and an instruction the check does
+  not know; a global of the same name does not count.
 - `tests/unit/validation/rules/test_unread_input.py` checks the rule and its messages.
 
 ## Pros and Cons of the Options

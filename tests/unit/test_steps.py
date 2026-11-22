@@ -1,8 +1,10 @@
+import dis
 import functools
 import importlib
 import inspect
 import sys
 import textwrap
+import types
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
@@ -14,7 +16,7 @@ import jpipe_runner
 from jpipe_runner import Fail, Outcome, Pass, conclusion, evidence, strategy, sub_conclusion
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import Context, Env, File, Observable, Sighting
-from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry, step_of
+from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry, Unread, step_of
 
 HERE = Path(__file__).parent
 """Where the steps of these tests are declared: what their paths are relative to."""
@@ -542,7 +544,7 @@ def test_a_parameter_never_read_is_unread() -> None:
     def ignores(coverage: float, threshold: float) -> Outcome:
         return Pass() if threshold else Fail("no threshold")
 
-    assert _declared(ignores).unread == ("coverage",)
+    assert _declared(ignores).unread.never == ("coverage",)
 
 
 def test_an_observed_artifact_never_read_is_unread() -> None:
@@ -550,7 +552,7 @@ def test_an_observed_artifact_never_read_is_unread() -> None:
     def unread(log: Path, other: Path) -> Outcome:
         return Pass(x=other.name)
 
-    assert _declared(unread).unread == ("log",)
+    assert _declared(unread).unread.never == ("log",)
 
 
 def test_a_global_of_the_same_name_is_not_the_parameter() -> None:
@@ -558,7 +560,7 @@ def test_a_global_of_the_same_name_is_not_the_parameter() -> None:
     def reads_the_global(coverage: float) -> Outcome:
         return Pass() if globals()["coverage"] > 0.8 else Fail("low")
 
-    assert _declared(reads_the_global).unread == ("coverage",)
+    assert _declared(reads_the_global).unread.never == ("coverage",)
 
 
 def _helper(value: object) -> bool:
@@ -578,7 +580,7 @@ def _helper(value: object) -> bool:
 def test_a_parameter_read_in_any_way_is_read(function: Callable[..., Outcome]) -> None:
     declared = strategy("s", consumes=["a", "b"])(function)
 
-    assert _declared(declared).unread == ()
+    assert _declared(declared).unread.never == ()
 
 
 def test_a_step_built_by_exec_is_checked_without_its_source() -> None:
@@ -589,7 +591,7 @@ def test_a_step_built_by_exec_is_checked_without_its_source() -> None:
         namespace,
     )
 
-    assert _declared(namespace["made"]).unread == ("a",)
+    assert _declared(namespace["made"]).unread.never == ("a",)
 
 
 def test_the_function_checked_is_the_one_declared_under_its_wrappers() -> None:
@@ -610,8 +612,8 @@ def test_the_function_checked_is_the_one_declared_under_its_wrappers() -> None:
     def wrapped_below(a: int) -> Outcome:
         return Pass()
 
-    assert _declared(wrapped_above).unread == ("a",)
-    assert _declared(wrapped_below).unread == ("a",)
+    assert _declared(wrapped_above).unread.never == ("a",)
+    assert _declared(wrapped_below).unread.never == ("a",)
 
 
 def test_what_only_kwargs_takes_is_unnamed_not_unread() -> None:
@@ -619,7 +621,7 @@ def test_what_only_kwargs_takes_is_unnamed_not_unread() -> None:
     def swallows(a: int, **kwargs: Any) -> Outcome:
         return Pass() if a else Fail("no")
 
-    assert (_declared(swallows).unread, _declared(swallows).unnamed) == ((), ("b",))
+    assert _declared(swallows).unread == Unread((), ("b",))
 
 
 def test_a_callable_without_code_is_not_checked() -> None:
@@ -630,4 +632,40 @@ def test_a_callable_without_code_is_not_checked() -> None:
     hidden = Step(Kind.STRATEGY, ("s",), plain, (Input("a", "a"),))
     plain.__wrapped__ = print  # type: ignore[attr-defined]
 
-    assert (hidden.unread, hidden.unnamed) == ((), ())
+    assert hidden.unread == Unread()
+
+
+def test_locals_hands_every_parameter_on() -> None:
+    @strategy("s", consumes=["a", "b"])
+    def forwards(a: int, b: int) -> Outcome:
+        return Pass() if all(locals().values()) else Fail("no")
+
+    assert _declared(forwards).unread.never == ()
+
+
+def test_unwrapping_stops_where_the_signature_does() -> None:
+    def inner(x: int) -> Outcome:
+        return Pass()
+
+    @functools.wraps(inner)
+    def adapted(a: int) -> Outcome:
+        return inner(x=a)
+
+    adapted.__signature__ = inspect.signature(adapted, follow_wrapped=False)  # type: ignore[attr-defined]
+
+    assert _declared(strategy("s", consumes=["a"])(adapted)).unread == Unread()
+
+
+def test_an_instruction_the_check_does_not_know_counts_as_a_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    @strategy("s", consumes=["a"])
+    def judged(a: int) -> Outcome:
+        return Pass()
+
+    unknown = types.SimpleNamespace(
+        opname="FUTURE_FAST", opcode=dis.opmap["STORE_FAST"], argval="a"
+    )
+    monkeypatch.setattr(dis, "get_instructions", lambda code: iter([unknown]))
+
+    assert _declared(judged).unread == Unread()

@@ -53,12 +53,6 @@ WARNING = Severity.WARNING
             id="unification: an evidence merged into a sub-conclusion",
         ),
         pytest.param(
-            "refine",
-            step(EVIDENCE, "readiness:draft:tests"),
-            [("JP008", WARNING, "readiness:hook")],
-            id="an origin's id qualified by the model's name",
-        ),
-        pytest.param(
             "chain",
             step(EVIDENCE, "tested:suite"),
             [("JP008", WARNING, "top:hook")],
@@ -72,6 +66,12 @@ WARNING = Severity.WARNING
         ),
         pytest.param("refine", step(CONCLUSION, "draft:documented"), [], id="written so: JP016"),
         pytest.param("refine", step(EVIDENCE, "readiness:hook"), [], id="the composed id: JP016"),
+        pytest.param(
+            "refine", step(EVIDENCE, "readiness:draft:tests"), [], id="the composed alias: JP016"
+        ),
+        pytest.param(
+            "assemble", step(CONCLUSION, "readiness:tested:tested"), [], id="assembled id: JP016"
+        ),
         pytest.param("refine", step(SUB_CONCLUSION, "draft:tests"), [], id="declared as it now is"),
         pytest.param("refine", step(EVIDENCE, "tested:suite"), [], id="an unchanged evidence"),
         pytest.param("refine", step(STRATEGY, "tested:suite"), [], id="a mistake: JP016"),

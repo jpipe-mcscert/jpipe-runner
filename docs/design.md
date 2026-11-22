@@ -187,6 +187,7 @@ classDiagram
         class Artifact
         class Input
         class Produced
+        class Unread
     }
 
     namespace binding {

@@ -67,6 +67,18 @@ ERROR = Severity.ERROR
             [("JP016", ERROR, "top:hook")],
             id="the kind of an origin the step does not designate",
         ),
+        pytest.param(
+            "refine",
+            step(EVIDENCE, "readiness:draft:tests"),
+            [("JP016", ERROR, "readiness:hook")],
+            id="the old kind, by an alias of the composed model",
+        ),
+        pytest.param(
+            "assemble",
+            step(CONCLUSION, "readiness:tested:tested"),
+            [("JP016", ERROR, "readiness:tested:tested")],
+            id="the old kind, by the assembled id",
+        ),
         pytest.param("refine", step(EVIDENCE, "draft:tests"), [], id="refine: JP008"),
         pytest.param("assemble", step(CONCLUSION, "tested:tested"), [], id="assemble: JP008"),
         pytest.param("dominance", step(EVIDENCE, "checked:tests"), [], id="unification: JP008"),
@@ -105,6 +117,14 @@ def test_a_model_without_origins_is_judged_by_kinds_alone() -> None:
 
 def test_in_a_composed_model_the_fix_does_not_suggest_recompiling() -> None:
     (error,) = IncompatibleKind().check(context(composed("refine"), step(STRATEGY, "tested:suite")))
+
+    assert error.fix == "Declare it with @evidence."
+
+
+def test_a_mistake_composition_cannot_make_is_not_sent_to_the_compiler() -> None:
+    older = composed("refine", origins=False)
+
+    (error,) = IncompatibleKind().check(context(older, step(STRATEGY, "tested:suite")))
 
     assert error.fix == "Declare it with @evidence."
 

@@ -18,7 +18,9 @@ designates one element. This rule resolves exactly those forms.
 The compiler names each composed element's **origins** too: the element as it was in each
 model it was composed from, by its full id there. An origin's id is always a tail of one of
 the element's ids, so it designates the element by these rules. Which origin a step's id
-designates tells validation the kind the step was written for (ADR-0036).
+designates, as the origin's id itself or a tail of it, tells validation the kind the step
+was written for (ADR-0036). An id qualified by the composed model's name was written
+against the composed model, so it designates no origin.
 
 A ``BindingTable`` binds a registry's steps to a model's elements, one to one, and reports
 every id that designates no element (JP015) or several (JP006), and every element or step
@@ -74,25 +76,11 @@ class Resolver:
             raise AmbiguousIdError(designator, tuple(matches.values()))
         return next(iter(matches.values()), None)
 
-    def origin(self, binding: "Binding") -> Origin | None:
-        """The origin of ``binding``'s element that the step's ids designate, with the step's
-        kind: the element as the step was written for it, before composition changed its
-        kind. ``None`` if there is none (ADR-0036)."""
-        return next(
-            (
-                origin
-                for origin in binding.element.origins
-                if origin.kind is binding.step.kind
-                and any(self._designates(d, origin.id) for d in binding.designators)
-            ),
-            None,
-        )
 
-    def _designates(self, designator: str, key: str) -> bool:
-        """Whether ``designator`` designates ``key`` by the rules above, as an id alone."""
-        return designator in (key, f"{self._name}:{key}") or _tail(
-            designator.split(":"), key.split(":")
-        )
+def _designates(designator: str, origin: str) -> bool:
+    """Whether ``designator`` is the id ``origin``, or a tail of it, as a library written
+    against the origin's model names it."""
+    return designator == origin or _tail(designator.split(":"), origin.split(":"))
 
 
 def _tail(wanted: list[str], segments: list[str]) -> bool:
@@ -107,6 +95,21 @@ class Binding:
     element: Element
     step: Step
     designators: tuple[str, ...]
+
+    @property
+    def origin(self) -> Origin | None:
+        """The origin of the element that the step's ids designate, with the step's kind:
+        the element as the step was written for it, before composition changed its kind.
+        ``None`` if there is none (ADR-0036)."""
+        return next(
+            (
+                origin
+                for origin in self.element.origins
+                if origin.kind is self.step.kind
+                and any(_designates(d, origin.id) for d in self.designators)
+            ),
+            None,
+        )
 
 
 class BindingTable:
