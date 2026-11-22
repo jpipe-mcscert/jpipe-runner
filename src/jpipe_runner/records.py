@@ -89,6 +89,8 @@ def _public_module(kind: type) -> str:
     """The module ``kind`` is defined in, or the outermost of its parents that exports it
     under the same name, already imported, reached by leaving out private parts only."""
     module = public = kind.__module__
+    if not isinstance(module, str):  # a class may set __module__ to anything, None included
+        return str(module)
     while "." in module:
         module, _, left_out = module.rpartition(".")
         if not left_out.startswith("_"):
@@ -117,7 +119,8 @@ def _exported(module: object, qualname: str) -> object:
 
 def _member(holder: object, name: str) -> object:
     """``holder``'s attribute ``name``, read from the namespaces themselves: a class's, and
-    its bases', through ``type``'s own descriptors."""
+    its bases', through ``type``'s own descriptors, since ``inspect.getattr_static`` still
+    calls a metaclass's ``__getattribute__`` to read the MRO."""
     if issubclass(type(holder), type):
         for entry in _MRO.__get__(holder):
             namespace = _NAMESPACE.__get__(entry)

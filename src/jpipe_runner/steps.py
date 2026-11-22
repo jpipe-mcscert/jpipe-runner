@@ -168,6 +168,10 @@ stores its first and loads its second."""
 _EVERY_LOCAL = frozenset({"locals", "vars", "eval", "exec"})
 """The builtins that reach a function's local variables without loading them by name."""
 
+_FRAME_LOCALS = "f_locals"
+"""The attribute of a frame that holds its local variables, as ``sys._getframe()`` or
+``inspect.currentframe()`` return it."""
+
 
 def _code(function: Callable[..., Any]) -> CodeType | None:
     """The code of the function ``function`` declares, under its wrappers, if it has one."""
@@ -186,7 +190,7 @@ def _named(code: CodeType) -> tuple[str, ...]:
 def _read(code: CodeType) -> frozenset[str]:
     """The local variables ``code`` reads: those it loads, and those a nested function
     reads (its cell variables); every one if it calls ``locals()``, ``vars()``, ``eval()``
-    or ``exec()``.
+    or ``exec()``, or reads a frame's ``f_locals``.
 
     An instruction on a variable that this does not know how to read, as a later version of
     Python may add, counts as a read of every variable it names: a missed warning is the
@@ -196,7 +200,9 @@ def _read(code: CodeType) -> frozenset[str]:
     read = set(code.co_cellvars)
     for instruction in dis.get_instructions(code):
         name, value = instruction.opname, instruction.argval
-        if name in ("LOAD_GLOBAL", "LOAD_NAME") and value in _EVERY_LOCAL:
+        if (name in ("LOAD_GLOBAL", "LOAD_NAME") and value in _EVERY_LOCAL) or (
+            name == "LOAD_ATTR" and value == _FRAME_LOCALS
+        ):
             return frozenset(code.co_varnames)
         if instruction.opcode not in _VARIABLES or name == "LOAD_FAST_AND_CLEAR":
             continue

@@ -651,6 +651,14 @@ def test_eval_may_read_every_parameter() -> None:
     assert _declared(evaluates).unread.never == ()
 
 
+def test_a_frame_s_locals_hand_every_parameter_on() -> None:
+    @strategy("s", consumes=["a", "b"])
+    def introspects(a: int, b: int) -> Outcome:
+        return Pass() if all(sys._getframe().f_locals.values()) else Fail("no")
+
+    assert _declared(introspects).unread.never == ()
+
+
 def test_a_positional_only_parameter_does_not_receive_its_keyword() -> None:
     @strategy("s", consumes=["a"])
     def shadowed(a: int = 0, /, **kwargs: Any) -> Outcome:
