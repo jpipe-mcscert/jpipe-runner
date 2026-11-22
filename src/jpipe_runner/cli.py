@@ -27,7 +27,7 @@ from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout, suppress
 from dataclasses import dataclass
 from enum import IntEnum
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn
 
 from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
@@ -41,6 +41,7 @@ from jpipe_runner.observables import (
     Context,
     dependencies,
     designates_one,
+    escape,
     files,
     is_glob,
     matches,
@@ -416,11 +417,31 @@ class _Collisions:
             if designates_one(shown):
                 if identity == _identity(self._root / unescape(shown)):
                     return shown, who
-            elif (relative is not None and matches(relative, shown)) or identity in self._found(
-                shown
-            ):
+            elif (
+                relative is not None
+                and (matches(relative, shown) or matches(relative, self._resolved(shown)))
+            ) or identity in self._found(shown):
                 return shown, who
         return None
+
+    def _resolved(self, pattern: str) -> str:
+        """``pattern`` with its literal directories, those before its first wildcard,
+        resolved under the root, so that a glob through a linked directory designates the
+        files of the directory it links to; ``pattern`` itself if they lead outside it."""
+        parts = PurePosixPath(pattern).parts
+        literal = 0
+        while literal < len(parts) - 1 and designates_one(parts[literal]):
+            literal += 1
+        if literal == 0:
+            return pattern
+        prefix = _under(
+            self._root.joinpath(*(unescape(part) for part in parts[:literal])), self._root
+        )
+        if prefix is None:
+            return pattern
+        return "/".join(
+            part for part in (escape(prefix) if prefix != "." else "", *parts[literal:]) if part
+        )
 
     def _found(self, pattern: str) -> set[object]:
         if pattern not in self._matched:

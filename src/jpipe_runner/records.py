@@ -50,7 +50,8 @@ def snapshot(value: Any, root: Path = Path()) -> Any:
     type."""
     try:
         return copy.deepcopy(value)
-    except Exception:  # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does
+    # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does, even SystemExit.
+    except (Exception, SystemExit):  # NOSONAR
         return Uncopied(canonical_repr(value, root), type_name(type(value)))
 
 
@@ -110,5 +111,7 @@ class _Canonical:
 def _repr(value: Any) -> str:
     try:
         return repr(value)
-    except Exception as error:  # a broken __repr__ must not break the report
+    # A broken __repr__ must not break the report, nor end the run, even with SystemExit;
+    # KeyboardInterrupt still stops it.
+    except (Exception, SystemExit) as error:  # NOSONAR
         return f"<{type_name(type(value))} object: repr() raised {type(error).__name__}>"

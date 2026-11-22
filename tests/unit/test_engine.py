@@ -294,6 +294,26 @@ def test_a_value_that_cannot_be_copied_is_recorded_as_it_was_produced(release: R
         lock.release()
 
 
+class _Unrecordable:
+    """A value that cannot be copied, and whose ``repr`` exits."""
+
+    def __deepcopy__(self, memo: object) -> "_Unrecordable":
+        raise TypeError("cannot copy")
+
+    def __repr__(self) -> str:
+        raise SystemExit(3)
+
+
+def test_a_value_whose_repr_exits_is_recorded_without_ending_the_run(release: Release) -> None:
+    release.returns["e1"] = lambda: Pass(a=_Unrecordable())
+
+    result = release.run()
+
+    recorded = result.result("e1").produced["a"]
+    assert isinstance(recorded, Uncopied)
+    assert "repr() raised SystemExit" in recorded.repr
+
+
 def test_jp022_names_where_the_step_raised_relative_to_the_root(tmp_path: Path) -> None:
     (tmp_path / "log.txt").write_text("", encoding="utf-8")
     library = tmp_path / "broken_steps.py"

@@ -554,6 +554,20 @@ def test_an_output_through_a_linked_directory_is_refused_before_it_exists(
     assert not (release / "mock" / "new.md").exists()
 
 
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="no symbolic links here")
+def test_an_output_a_glob_through_a_linked_directory_would_match_is_refused(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (release / "build").symlink_to(release / "mock", target_is_directory=True)
+    _observing(release, '"mock/CHANGELOG.md"', '"build/*.md"')
+
+    code, _, err = _main(capsys, "--report", "mock/new.md", *RELEASE)
+
+    assert code == ExitCode.USAGE
+    assert "--report mock/new.md: build/*.md, which" in err
+    assert not (release / "mock" / "new.md").exists()
+
+
 def test_a_refused_events_file_leaves_no_directory_behind(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
