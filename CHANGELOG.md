@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **A value that cannot be copied, such as a lock or an open file, is recorded as it was
+  when it was produced or observed**, as every other value is. The report kept it by
+  reference, so a step that changed it later changed what the report said was produced,
+  and its `element.decided` event, written earlier, said something else. It is now recorded
+  then as its `repr` and type
+  ([ADR-0033](docs/adr/0033-a-value-is-recorded-as-it-was-seen.md), #184).
+
 ## [4.1.0] - 2026-11-21
 
 ### ⚠️ Breaking

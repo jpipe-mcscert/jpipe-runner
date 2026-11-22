@@ -23,7 +23,6 @@ matches under a root, and ``matches`` says whether it would match a path, withou
 system. A property test holds them to the same answer.
 """
 
-import copy
 import glob
 import hashlib
 import json
@@ -343,15 +342,6 @@ class Observable(ABC):
         """The files, as paths or globs relative to the run's root, a change to which
         reaches it. None by default: impact analysis does not see it."""
         return ()
-
-
-def snapshot(value: Any) -> Any:
-    """A deep copy of ``value``, or ``value`` itself if it cannot be copied (a lock, an open
-    file): what the report records stays as it was, whatever a step then does to it."""
-    try:
-        return copy.deepcopy(value)
-    except Exception:  # deepcopy raises whatever the value's __deepcopy__ or __reduce__ does
-        return value
 
 
 def described(observable: Observable, context: Context) -> str:

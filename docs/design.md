@@ -22,6 +22,7 @@ flowchart LR
     steps --> observables
     steps --> outcomes
     values[values]
+    records --> diagnostics
     binding --> model
     binding --> steps
     binding --> diagnostics
@@ -42,6 +43,7 @@ flowchart LR
     artifacts --> steps
     artifacts --> observables
     artifacts --> diagnostics
+    artifacts --> records
     libraries --> diagnostics
     engine --> artifacts
     engine --> binding
@@ -50,6 +52,7 @@ flowchart LR
     engine --> model
     engine --> observables
     engine --> outcomes
+    engine --> records
     engine --> rules
     engine --> steps
     engine --> validation
@@ -68,6 +71,7 @@ flowchart LR
     diagram -.->|piped to| dot[["Graphviz dot"]]
     json_report --> observables
     json_report --> diagnostics
+    json_report --> records
     json_report --> report
     json_report -.->|validated against| reportschema
     events --> diagnostics
@@ -126,6 +130,7 @@ arrow is data.
 | [`diagram`](../src/jpipe_runner/diagram.py) | Draws a run's dataflow: the justification in the jPipe compiler's notation, the files and variables its steps declare, and the run's statuses over it. Entry points: `source(justification, report)`, `write(path, justification, report)`. |
 | [`text_report`](../src/jpipe_runner/text_report.py) | Renders a `RunReport` as text for a terminal, in the manner of Cucumber. Entry point: `render(report)`. |
 | [`values`](../src/jpipe_runner/values.py) | The `ValueStore` of a run: the values its steps produced, each with the element that produced it. |
+| [`records`](../src/jpipe_runner/records.py) | How a value the run saw is kept for its report: `snapshot`, a deep copy, or, for a value that cannot be copied, an `Uncopied`, its canonical `repr` and type taken then; and the canonical `repr` the JSON report writes a value that is not JSON with. |
 | [`outcomes`](../src/jpipe_runner/outcomes.py) | What a step returns: `Pass`, carrying the values it produces, `Fail` or `Skip`. |
 | [`diagnostics`](../src/jpipe_runner/diagnostics.py) | `Diagnostic`, what the runner reports about a model, a step library or a run, and `user_traceback`, an exception's traceback without the runner's frames. |
 | [`framework`](../src/jpipe_runner/framework/__init__.py) | Not a module of v4: the v3 authoring API lived under this name, and importing it raises an `ImportError` that says what replaced it. |
@@ -261,6 +266,10 @@ classDiagram
         class ValueStore
         class ProducedValue
         class Unset
+    }
+
+    namespace records {
+        class Uncopied
     }
 
     namespace outcomes {
@@ -596,7 +605,8 @@ declared value (`JP023`) fail the element, with the diagnostic on its `ElementRe
 undeclared value is dropped, with a warning (`JP024`): no step can consume it, so it
 changes nothing. What a step produced is recorded on its `ElementResult` as a deep copy,
 taken when it returned, so that a step that changes a value it consumes does not change
-the record. `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
+the record; a value that cannot be copied is recorded as its canonical `repr` and type,
+taken then (`records.Uncopied`). `KeyboardInterrupt` stops the run. The verdict is `FAIL` if an element
 failed, else `SKIP` if one was skipped, else `PASS`. The engine prints nothing: it logs
 to the `jpipe_runner.engine` logger, and the report is built from the `RunResult`.
 

@@ -46,3 +46,4 @@ and add a row to this table.
 | [0030](0030-a-run-streams-its-events.md) | A run streams its events to a file, one JSON object per line | accepted, amended by [0032](0032-a-run-previews-its-diagram.md) |
 | [0031](0031-variables-resolve-among-supporters.md) | A consumed variable resolves among its consumer's supporters | accepted |
 | [0032](0032-a-run-previews-its-diagram.md) | A run draws its diagram before its first step, and a status never moves it | accepted |
+| [0033](0033-a-value-is-recorded-as-it-was-seen.md) | A value is recorded as it was when the run saw it, even one that cannot be copied | accepted |

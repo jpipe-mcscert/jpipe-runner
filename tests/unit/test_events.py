@@ -13,6 +13,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TextIO
@@ -20,12 +21,24 @@ from typing import Any, TextIO
 import pytest
 from jsonschema import Draft202012Validator
 
-from jpipe_runner import cli, diagram, engine, events, json_report
+from jpipe_runner import (
+    Outcome,
+    Pass,
+    cli,
+    diagram,
+    engine,
+    events,
+    evidence,
+    json_report,
+    strategy,
+)
 from jpipe_runner.cli import ExitCode, main
-from jpipe_runner.engine import ElementResult, RunResult, Status
+from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.events import EventStream
 from jpipe_runner.model import Element, Justification, Kind
-from jpipe_runner.steps import StepRegistry
+from jpipe_runner.report import RunReport
+from jpipe_runner.steps import StepRegistry, step_of
+from tests import anchored
 from tests.scenarios import (
     GOLDEN_FILE,
     REFUSED_LIBRARIES,
@@ -35,7 +48,7 @@ from tests.scenarios import (
     discover,
 )
 from tests.streams import of, read
-from tests.unit.validation.builders import CONCLUSION, element, model
+from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY, element, model
 
 EVENTS = "out/run.jsonl"
 needs_dot = pytest.mark.skipif(
@@ -748,3 +761,40 @@ def test_an_element_decided_before_the_run_started_is_a_runner_bug() -> None:
 
     with pytest.raises(RuntimeError, match="runner bug"):
         stream.element_decided(decided)
+
+
+def test_a_value_that_cannot_be_copied_reads_the_same_in_its_event_and_the_report(
+    tmp_path: Path,
+) -> None:
+
+    guard = threading.Lock()
+    (tmp_path / "log.txt").write_text("ok", encoding="utf-8")
+
+    @evidence("e", observes={"log": "log.txt"}, produces=["guard"])
+    def produces(log: Path) -> Outcome:
+        return Pass(guard=guard)
+
+    @strategy("s", consumes=["guard"])
+    def acquires(guard: threading.Lock) -> Outcome:
+        guard.acquire()  # changes the value after its producer was decided (#184)
+        return Pass()
+
+    small = model(element("s", STRATEGY), element("e", EVIDENCE), relations=[("e", "s")])
+    registry = StepRegistry(s for s in map(step_of, (produces, acquires)) if s is not None)
+    file = io.StringIO()
+    stream = EventStream(file, root=tmp_path)
+    stream.run_started(small, strict=False, dry_run=False)
+
+    try:
+        result = anchored.run(small, registry, root=tmp_path, listener=stream)
+        report = json_report.document(RunReport.of(result, tmp_path))
+    finally:
+        if guard.locked():
+            guard.release()
+
+    assert result.verdict is Verdict.PASS, [str(d) for d in result.diagnostics]
+    found = [json.loads(line) for line in file.getvalue().splitlines()]
+    (decided,) = [e for e in found if e["event"] == "element.decided" and e["element"]["id"] == "e"]
+    (written,) = [e for e in report["elements"] if e["id"] == "e"]
+    assert decided["element"]["produced"] == written["produced"]
+    assert "unlocked" in written["produced"]["guard"]["repr"]

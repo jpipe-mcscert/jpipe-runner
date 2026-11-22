@@ -43,8 +43,9 @@ from jpipe_runner.binding import Binding, BindingTable
 from jpipe_runner.dataflow import Consumption, DataflowTable, Received
 from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_traceback
 from jpipe_runner.model import Element, Justification
-from jpipe_runner.observables import Context, Observation, snapshot
+from jpipe_runner.observables import Context, Observation
 from jpipe_runner.outcomes import Fail, NotAnOutcomeError, Outcome, Pass, Skip, as_outcome
+from jpipe_runner.records import snapshot
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
 from jpipe_runner.validation import ValidationContext, ValidationReport
@@ -370,7 +371,9 @@ class _Run:
             binding,
             ran=True,
             outcome=outcome,
-            produced=MappingProxyType({name: snapshot(v) for name, v in produced.items()}),
+            produced=MappingProxyType(
+                {name: snapshot(v, self._root) for name, v in produced.items()}
+            ),
             observed=observed,
             diagnostics=tuple(problems),
         )
