@@ -1,59 +1,102 @@
 {
   "elements": [
     {
-      "escaped": "version_2_0_is_ready_to_ship",
+      "origins": [{
+        "model": "draft",
+        "id": "draft:ready",
+        "type": "conclusion"
+      }],
       "id": "readiness:draft:ready",
       "label": "Version 2.0 is ready to ship",
       "type": "conclusion"
     },
     {
-      "escaped": "all_release_gates_pass",
+      "origins": [{
+        "model": "draft",
+        "id": "draft:gates",
+        "type": "strategy"
+      }],
       "id": "readiness:draft:gates",
       "label": "All release gates pass",
       "type": "strategy"
     },
     {
-      "escaped": "the_code_is_tested",
       "aliases": [
         "readiness:draft:tests",
         "readiness:tested:tested"
+      ],
+      "origins": [
+        {
+          "model": "draft",
+          "id": "draft:tests",
+          "type": "evidence"
+        },
+        {
+          "model": "tested",
+          "id": "tested:tested",
+          "type": "conclusion"
+        }
       ],
       "id": "readiness:hook",
       "label": "The code is tested",
       "type": "sub-conclusion"
     },
     {
-      "escaped": "the_documentation_is_updated",
+      "origins": [{
+        "model": "draft",
+        "id": "draft:documented",
+        "type": "sub-conclusion"
+      }],
       "id": "readiness:draft:documented",
       "label": "The documentation is updated",
       "type": "sub-conclusion"
     },
     {
-      "escaped": "the_changelog_and_api_docs_are_current",
+      "origins": [{
+        "model": "draft",
+        "id": "draft:docs",
+        "type": "strategy"
+      }],
       "id": "readiness:draft:docs",
       "label": "The changelog and API docs are current",
       "type": "strategy"
     },
     {
-      "escaped": "the_changelog_is_up_to_date",
+      "origins": [{
+        "model": "draft",
+        "id": "draft:changelog",
+        "type": "evidence"
+      }],
       "id": "readiness:draft:changelog",
       "label": "The changelog is up to date",
       "type": "evidence"
     },
     {
-      "escaped": "the_test_suite_passes_with_high_coverage",
+      "origins": [{
+        "model": "tested",
+        "id": "tested:testing",
+        "type": "strategy"
+      }],
       "id": "readiness:tested:testing",
       "label": "The test suite passes with high coverage",
       "type": "strategy"
     },
     {
-      "escaped": "the_test_suite_passes",
+      "origins": [{
+        "model": "tested",
+        "id": "tested:suite",
+        "type": "evidence"
+      }],
       "id": "readiness:tested:suite",
       "label": "The test suite passes",
       "type": "evidence"
     },
     {
-      "escaped": "coverage_is_above_80",
+      "origins": [{
+        "model": "tested",
+        "id": "tested:coverage",
+        "type": "evidence"
+      }],
       "id": "readiness:tested:coverage",
       "label": "Coverage is above 80%",
       "type": "evidence"
@@ -75,11 +118,11 @@
       "target": "readiness:draft:documented"
     },
     {
-      "source": "readiness:hook",
+      "source": "readiness:draft:documented",
       "target": "readiness:draft:gates"
     },
     {
-      "source": "readiness:draft:documented",
+      "source": "readiness:hook",
       "target": "readiness:draft:gates"
     },
     {
@@ -87,11 +130,11 @@
       "target": "readiness:draft:docs"
     },
     {
-      "source": "readiness:tested:suite",
+      "source": "readiness:tested:coverage",
       "target": "readiness:tested:testing"
     },
     {
-      "source": "readiness:tested:coverage",
+      "source": "readiness:tested:suite",
       "target": "readiness:tested:testing"
     }
   ]

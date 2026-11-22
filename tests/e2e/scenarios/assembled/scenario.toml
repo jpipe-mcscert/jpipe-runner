@@ -1,4 +1,4 @@
-# justification.json is `jpipe process -i assemble.jd -m readiness -f JSON` (jPipe 2.5.0),
+# justification.json is `jpipe process -i assemble.jd -m readiness -f JSON` (jPipe 4.0.0),
 # identical to tests/unit/validation/fixtures/assemble.json.
 # tested_steps.py and documented_steps.py were each written against one standalone source
 # model; readiness_steps.py implements the strategy that `assemble` adds.

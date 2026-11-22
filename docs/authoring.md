@@ -100,6 +100,32 @@ Whether the ids designate elements of the model, and whether the data flows (eve
 variable produced by a step that supports its consumer), depends on the model. Those are
 checked against it before anything runs: see [Validation](#validation-checking-the-library-against-the-model).
 
+### An input the step never reads
+
+A step's declaration is what the argument claims: a strategy that consumes `changelog_ok`
+judges from it. The runner passes every input to its parameter, but cannot make the
+function look at it. This one judges from the tests alone:
+
+```python
+@strategy("release:s", consumes=["tests_pass", "changelog_ok"])
+def the_gates_pass(tests_pass: bool, changelog_ok: bool) -> Outcome:
+    return Pass() if tests_pass else Fail("the tests did not pass")
+```
+
+Validation reads the function's bytecode, and warns:
+
+```
+JP027 warning [release:s]: steps.the_gates_pass never reads 'changelog_ok', which it consumes: the argument claims a dependency the step does not have
+  fix: Read it in the step, or remove it from consumes and from the function's parameters.
+```
+
+An evidence that never reads an artifact it observes is reported the same way. Reading a
+parameter anywhere in the function counts, in a nested function too, and so does passing
+it to a helper, whatever the helper does with it. What a step takes only through
+`**kwargs` cannot be checked by name: it is reported as such, and naming it as a parameter
+settles it. Since the bytecode is read, not the source, a step typed at a prompt or built
+by `exec` is checked too ([ADR-0037](adr/0037-a-step-reads-what-it-is-passed.md)).
+
 ## Observing artifacts
 
 Evidence is where the argument touches the world: a test report, a changelog, a source
@@ -251,7 +277,7 @@ order that depends only on the model
   it, however far below: what a step that did not pass would have produced does not
   exist. A check meant to be optional should pass with what it found, rather than skip.
 - **A conclusion or sub-conclusion without a step** passes when what supports it passes.
-  One that has a step runs after everything below it, even a step declared as evidence
+  One that has a step runs after everything below it, even a step written for an evidence
   that composition turned into a sub-conclusion (a cross-check, `JP008`).
 - **The justification fails** if an element failed, **is skipped** if none failed and one
   was skipped, and **passes** when every element passed.
@@ -391,7 +417,12 @@ others, the library keeps binding:
   An `@evidence("draft:tests")` written against the draft still binds, now to an element that
   is argued in full below it. It runs after that sub-argument, as an independent
   cross-check of the same claim, and validation reports the change of kind as a warning
-  (`JP008`), not an error ([ADR-0013](adr/0013-kind-divergence-under-composition.md)).
+  (`JP008`), not an error ([ADR-0036](adr/0036-a-step-runs-on-the-kind-it-was-written-for.md)).
+  The compiler records that the element was the evidence `draft:tests` in `draft`, among
+  its origins, and only an id that designates such an origin, with the step's kind, is
+  excused: `@evidence("readiness:hook")`, written against the composed model, is an error
+  (`JP016`). The origins are in the JSON of jPipe 4.0.0 and later; recompile a model
+  composed by an older jPipe.
 - The refinement's conclusion is aliased onto the same element. Binding both the hook's id
   and the refinement's conclusion is two functions for one element: `JP007`.
 
@@ -533,14 +564,17 @@ and the run continues. [`rules.md`](rules.md) describes every check; in short:
 - every evidence and every strategy has a step (`JP005`), and ids bind one to one
   (`JP006`, `JP007`, `JP015`);
 - a step's decorator is its element's kind (`JP016`), unless composition changed the
-  element's kind (`JP008`, a warning);
+  element's kind and the step was written for the element it came from (`JP008`, a
+  warning);
 - every consumed variable is produced by a step that supports its consumer, directly or
   not (`JP009`, `JP014`): a step runs only after its supporters pass, so a value from
   another branch might never exist; and by one only (`JP025`), unless the step names the
   part of the argument it comes from, with `Produced(variable, by=id)`;
 - an evidence produces a value another step consumes (`JP012`); a strategy consumes what
   its supporters produce for other steps (`JP013`, a warning), and a produced value is
-  consumed somewhere (`JP011`, a warning).
+  consumed somewhere (`JP011`, a warning);
+- a step reads every value it consumes and every artifact it observes (`JP027`, a
+  warning).
 
 ## Coming from v3
 

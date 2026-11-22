@@ -1,4 +1,4 @@
-# justification.json is `jpipe process -i dominance.jd -m release -f JSON` (jPipe 2.5.0),
+# justification.json is `jpipe process -i dominance.jd -m release -f JSON` (jPipe 4.0.0),
 # identical to tests/unit/validation/fixtures/dominance.json.
 # checked_steps.py and argued_steps.py were each written against one standalone source
 # model; release_steps.py implements the strategy that `assemble` adds.
@@ -8,7 +8,7 @@ libraries = ["checked_steps.py", "argued_steps.py", "release_steps.py"]
 exit_code = 0
 exercises = [
     "alias binding: checked:tests reaches release:unified_0 through release:checked:tests",
-    "kind divergence under unification: @evidence on a sub-conclusion (JP008, warning)",
+    "kind divergence under unification: @evidence on a sub-conclusion whose origin was an evidence (JP008, warning)",
     "cross-check execution: unified_0's step runs after argued:testing passes",
     "an element that supports two strategies, one from each source",
     "a strategy ignoring a variable its library could not know (JP013, warning)",

@@ -1,0 +1,31 @@
+// Chained composition: `mid` refines the draft with `tested`, then `top` refines `mid` with
+// `covered`, whose conclusion replaces the evidence `tested:suite`. The hook of `top` has
+// origins at two levels: the evidence `mid:tested:suite`, which was `tested:suite` before.
+
+justification draft {
+  conclusion ready is "Ready"
+  strategy gates is "Gates pass"
+  gates supports ready
+  evidence tests is "Tests pass"
+  tests supports gates
+}
+justification tested {
+  conclusion tested is "Tested"
+  strategy testing is "Testing"
+  testing supports tested
+  evidence suite is "Suite passes"
+  suite supports testing
+}
+justification covered {
+  conclusion covered is "Suite passes"
+  strategy measuring is "Measuring"
+  measuring supports covered
+  evidence coverage is "Coverage is high"
+  coverage supports measuring
+}
+justification mid is refine(draft, tested) {
+  hook: "tests"
+}
+justification top is refine(mid, covered) {
+  hook: "tested:suite"
+}

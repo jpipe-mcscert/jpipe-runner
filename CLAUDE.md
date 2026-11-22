@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.2.0;
+`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.3.0;
 v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
 argues a claim from evidence and strategies; a **step library** binds a Python function to
 each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The runner
@@ -240,4 +240,5 @@ no milestone and three design questions to settle first.
   change to `pyproject.toml`), and `test-floor` runs the suite on the floors, on Python
   3.12. Dependabot updates the lock file weekly, never a floor or a cap: a major is a
   branch of its own. Raise a floor when a supported series stops shipping it.
-- Python is `>=3.11`: `test` runs on 3.11, `test-floor` on 3.12.
+- Python is `>=3.11`: `test` runs on 3.11 to 3.15, `test-floor` on 3.12, the other jobs on
+  3.11. Add each new Python release to `test`'s matrix.

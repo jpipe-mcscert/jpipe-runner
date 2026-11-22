@@ -37,12 +37,27 @@ class Kind(StrEnum):
 
 
 @dataclass(frozen=True)
+class Origin:
+    """An element as it was in a model that composition built this one from (jPipe 4.0.0)."""
+
+    model: str
+    """The name of that model."""
+    id: str
+    """The element's full id there, as the compiler exports that model."""
+    kind: Kind
+    """The element's kind there, which composition may have changed (ADR-0036)."""
+
+
+@dataclass(frozen=True)
 class Element:
     id: str
     label: str
     kind: Kind
     aliases: tuple[str, ...] = ()
     """The ids of the elements that composition merged into this one (#115)."""
+    origins: tuple[Origin, ...] = ()
+    """The element in each model it was composed from, nearest first. Empty in a model that
+    was not composed, and in one composed by a compiler older than jPipe 4.0.0."""
 
     @property
     def ids(self) -> tuple[str, ...]:

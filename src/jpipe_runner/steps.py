@@ -21,16 +21,20 @@ Mistakes visible in the declaration alone are a ``TypeError`` when the module is
 no id, a variable or parameter name that is not a Python identifier, an absolute path, a
 parameter that is neither consumed nor observed, or a consumed variable or observed
 artifact that is not a parameter. Whether the ids designate elements, and the
-variables flow, depends on the model, and is checked against it (#115, #119).
+variables flow, depends on the model, and is checked against it (#115, #119). So is
+whether the function reads what it is passed, from its bytecode (``Step.unread``,
+ADR-0037), since a step that never reads an input is not a mistake its import can refuse.
 """
 
+import dis
 import inspect
 import keyword
+import re
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
-from types import ModuleType
-from typing import Any, TypeVar
+from types import CodeType, ModuleType
+from typing import Any, NamedTuple, TypeVar
 
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import File, Observable, checked_shape
@@ -113,6 +117,103 @@ class Step:
     def consumes(self) -> tuple[str, ...]:
         """The variables it consumes, each once, in the order of its inputs."""
         return tuple(dict.fromkeys(each.variable for each in self.inputs))
+
+    @property
+    def passed(self) -> tuple[str, ...]:
+        """The keyword arguments a run passes to the function: what an evidence observes,
+        and what any other step consumes, each by its parameter's name."""
+        if self.kind is Kind.EVIDENCE:
+            return tuple(artifact.name for artifact in self.observes)
+        return tuple(each.parameter for each in self.inputs)
+
+    @property
+    def unread(self) -> "Unread":
+        """The ``passed`` parameters that the function never reads, and those it takes only
+        through ``**kwargs``, which cannot be checked by name (ADR-0037).
+
+        A parameter is read when an instruction of the function's code loads it, or a
+        function nested in it does, or the function calls ``locals()``, ``vars()``,
+        ``eval()`` or ``exec()``. That
+        needs no source, so a function typed at a prompt or built by ``exec`` is checked
+        too. The function is the one declared, under any ``functools.wraps`` wrapper, as
+        ``inspect.signature`` sees it.
+        """
+        passed = self.passed
+        code = _code(self.function) if passed else None
+        if code is None:
+            return Unread()
+        named, read = _named(code), _read(code)
+        return Unread(
+            tuple(name for name in passed if name in named and name not in read),
+            tuple(name for name in passed if name not in named),
+        )
+
+
+class Unread(NamedTuple):
+    """What a step is passed and does not visibly read."""
+
+    never: tuple[str, ...] = ()
+    """Parameters the function never reads."""
+    unnamed: tuple[str, ...] = ()
+    """Inputs the function takes only through ``**kwargs``."""
+
+
+_VARIABLES = frozenset(dis.haslocal) | frozenset(dis.hasfree)
+"""The instructions on a local, cell or free variable, as this version of Python has them."""
+
+_ACCESS = re.compile(r"(?:^|_)(LOAD|STORE|DELETE)_")
+"""What an instruction does to each variable it names, in order: ``STORE_FAST_LOAD_FAST``
+stores its first and loads its second."""
+
+_EVERY_LOCAL = frozenset({"locals", "vars", "eval", "exec"})
+"""The builtins that reach a function's local variables without loading them by name."""
+
+_EVERY_LOCAL_ATTRIBUTE = _EVERY_LOCAL | {"f_locals"}
+"""The same builtins read as attributes (``builtins.locals``), and a frame's ``f_locals``,
+as ``sys._getframe()`` or ``inspect.currentframe()`` return it. Any object's attribute of
+one of these names counts: a missed warning is the safe way to be wrong."""
+
+
+def _code(function: Callable[..., Any]) -> CodeType | None:
+    """The code of the function ``function`` declares, under its wrappers, if it has one."""
+    declared = inspect.unwrap(function, stop=lambda f: hasattr(f, "__signature__"))
+    code = getattr(declared, "__code__", None)
+    return code if isinstance(code, CodeType) else None
+
+
+def _named(code: CodeType) -> tuple[str, ...]:
+    """The parameters ``code`` takes by keyword: neither positional-only ones, nor ``*args``
+    nor ``**kwargs``. A keyword argument with the name of a positional-only parameter goes
+    to ``**kwargs``."""
+    return code.co_varnames[code.co_posonlyargcount : code.co_argcount + code.co_kwonlyargcount]
+
+
+def _read(code: CodeType) -> frozenset[str]:
+    """The local variables ``code`` reads: those it loads, and those a nested function
+    reads (its cell variables); every one if it calls ``locals()``, ``vars()``, ``eval()``
+    or ``exec()``, by name or as ``builtins.locals()``, or reads a frame's ``f_locals``.
+
+    An instruction on a variable that this does not know how to read, as a later version of
+    Python may add, counts as a read of every variable it names: a missed warning is the
+    safe way to be wrong. ``LOAD_FAST_AND_CLEAR`` saves the variable a comprehension is
+    about to reuse, and is no read.
+    """
+    read = set(code.co_cellvars)
+    for instruction in dis.get_instructions(code):
+        name, value = instruction.opname, instruction.argval
+        if (name in ("LOAD_GLOBAL", "LOAD_NAME") and value in _EVERY_LOCAL) or (
+            name in ("LOAD_ATTR", "LOAD_METHOD") and value in _EVERY_LOCAL_ATTRIBUTE
+        ):
+            return frozenset(code.co_varnames)
+        if instruction.opcode not in _VARIABLES or name == "LOAD_FAST_AND_CLEAR":
+            continue
+        names = value if isinstance(value, tuple) else (value,)
+        accesses = _ACCESS.findall(name)
+        if len(accesses) != len(names):
+            read.update(names)
+        else:
+            read.update(n for n, access in zip(names, accesses, strict=True) if access == "LOAD")
+    return frozenset(read)
 
 
 def evidence(

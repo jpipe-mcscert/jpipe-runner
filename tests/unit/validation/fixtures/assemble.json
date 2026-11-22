@@ -1,55 +1,81 @@
 {
   "elements": [
     {
-      "escaped": "version_2_0_is_ready_to_ship",
       "id": "readiness:assembleConclusion",
       "label": "Version 2.0 is ready to ship",
       "type": "conclusion"
     },
     {
-      "escaped": "the_code_is_tested",
+      "origins": [{
+        "model": "tested",
+        "id": "tested:tested",
+        "type": "conclusion"
+      }],
       "id": "readiness:tested:tested",
       "label": "The code is tested",
       "type": "sub-conclusion"
     },
     {
-      "escaped": "the_test_suite_passes_with_high_coverage",
+      "origins": [{
+        "model": "tested",
+        "id": "tested:testing",
+        "type": "strategy"
+      }],
       "id": "readiness:tested:testing",
       "label": "The test suite passes with high coverage",
       "type": "strategy"
     },
     {
-      "escaped": "the_test_suite_passes",
+      "origins": [{
+        "model": "tested",
+        "id": "tested:suite",
+        "type": "evidence"
+      }],
       "id": "readiness:tested:suite",
       "label": "The test suite passes",
       "type": "evidence"
     },
     {
-      "escaped": "coverage_is_above_80",
+      "origins": [{
+        "model": "tested",
+        "id": "tested:coverage",
+        "type": "evidence"
+      }],
       "id": "readiness:tested:coverage",
       "label": "Coverage is above 80%",
       "type": "evidence"
     },
     {
-      "escaped": "the_documentation_is_updated",
+      "origins": [{
+        "model": "documented",
+        "id": "documented:documented",
+        "type": "conclusion"
+      }],
       "id": "readiness:documented:documented",
       "label": "The documentation is updated",
       "type": "sub-conclusion"
     },
     {
-      "escaped": "the_changelog_and_api_docs_are_current",
+      "origins": [{
+        "model": "documented",
+        "id": "documented:docs",
+        "type": "strategy"
+      }],
       "id": "readiness:documented:docs",
       "label": "The changelog and API docs are current",
       "type": "strategy"
     },
     {
-      "escaped": "the_changelog_is_up_to_date",
+      "origins": [{
+        "model": "documented",
+        "id": "documented:changelog",
+        "type": "evidence"
+      }],
       "id": "readiness:documented:changelog",
       "label": "The changelog is up to date",
       "type": "evidence"
     },
     {
-      "escaped": "all_release_gates_pass",
       "id": "readiness:assembleStrategy",
       "label": "All release gates pass",
       "type": "strategy"
@@ -71,11 +97,11 @@
       "target": "readiness:documented:documented"
     },
     {
-      "source": "readiness:tested:suite",
+      "source": "readiness:tested:coverage",
       "target": "readiness:tested:testing"
     },
     {
-      "source": "readiness:tested:coverage",
+      "source": "readiness:tested:suite",
       "target": "readiness:tested:testing"
     },
     {

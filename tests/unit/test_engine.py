@@ -32,7 +32,7 @@ from jpipe_runner.engine import (
     Verdict,
 )
 from jpipe_runner.libraries import imported
-from jpipe_runner.model import Element, Justification
+from jpipe_runner.model import Element, Justification, Origin
 from jpipe_runner.outcomes import NOT_AN_OUTCOME
 from jpipe_runner.records import Uncopied
 from jpipe_runner.report import RunReport
@@ -346,8 +346,7 @@ def test_jp022_names_where_the_step_raised_relative_to_the_root(tmp_path: Path) 
     with imported([library]) as modules:
         result = run(small, StepRegistry.from_modules(modules), root=tmp_path)
 
-    (raised, *_) = result.diagnostics
-    assert raised.code == STEP_RAISED
+    (raised,) = (d for d in result.diagnostics if d.code == STEP_RAISED)
     assert raised.message == (
         "the step raised ZeroDivisionError at broken_steps.py, line 5: division by zero"
     )
@@ -390,7 +389,7 @@ def test_an_exception_fails_the_element_with_jp022_and_its_traceback(release: Re
     ]
     trace = e1.diagnostics[0].traceback
     assert trace is not None
-    assert trace.exc_type is ZeroDivisionError
+    assert "".join(trace.format_exception_only()).startswith("ZeroDivisionError:")
     assert trace.stack[-1].name == "_divide"
     assert [Path(frame.filename).name for frame in trace.stack] == ["test_engine.py"] * 3
     assert _statuses(result)["s"] == (Status.SKIP, ("e1",))
@@ -543,11 +542,18 @@ def test_a_strict_run_stops_on_a_warning(release: Release) -> None:
     assert run(RELEASE, registry, root=release.root, strict=True).verdict is Verdict.INVALID
 
 
-# A cross-check (JP008): an evidence step bound to a sub-conclusion argued below it.
+# A cross-check (JP008): an evidence step, written for the evidence `draft:hook`, bound to
+# the sub-conclusion composition made of it, argued below it.
 REFINED = model(
     element("c", CONCLUSION),
     element("top", STRATEGY),
-    element("hook", SUB_CONCLUSION),
+    Element(
+        "hook",
+        "hook",
+        SUB_CONCLUSION,
+        ("m:draft:hook",),
+        (Origin("draft", "draft:hook", EVIDENCE),),
+    ),
     element("below", STRATEGY),
     element("e", EVIDENCE),
     relations=[("top", "c"), ("hook", "top"), ("below", "hook"), ("e", "below")],
@@ -558,22 +564,22 @@ def _refined_library(order: list[str], below_outcome: Outcome) -> StepRegistry:
     @evidence("e", observes={"log": "log.txt"}, produces=["x"])
     def observed(log: Path) -> Outcome:
         order.append("e")
-        return Pass(x=1)
+        return Pass(x=len(log.read_text(encoding="utf-8")))
 
     @strategy("below", consumes=["x"])
     def argued(x: int) -> Outcome:
         order.append("below")
-        return below_outcome
+        return below_outcome if x == 0 else Fail(f"{x} characters")
 
-    @evidence("hook", observes={"log": "log.txt"}, produces=["checked"])
+    @evidence("draft:hook", observes={"log": "log.txt"}, produces=["checked"])
     def cross_check(log: Path) -> Outcome:
         order.append("hook")
-        return Pass(checked=True)
+        return Pass(checked=log.exists())
 
     @strategy("top", consumes=["checked"])
     def judged(checked: bool) -> Outcome:
         order.append("top")
-        return Pass()
+        return Pass() if checked else Fail("not checked")
 
     return _registry(observed, argued, cross_check, judged)
 
