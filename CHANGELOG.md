@@ -122,23 +122,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `display=True`), or holds what only an observable of the step library can observe
   again, cannot be confirmed: `status` says that a new run is needed, and exits 1.
 
-### Fixed
-- **A glob that ends with `**`, such as `observes={"sources": "src/**"}`, observes the
-  files below it on every version of Python.** On Python 3.11 and 3.12 it matched
-  directories only, so the evidence failed with `JP019` while `jpipe-runner impact`
-  reported it as affected by changes to those files.
-- The dataflow diagram no longer draws a glob as unreachable when its evidence also
-  observes a file, in a directory below, that could not be reached: `build/*.xml` took
-  `build/old/a.xml` for one of its files.
-- `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
-  read then and can be now, when its name holds `*`, `?` or `[`.
-- `--report` or `--diagram` naming the justification or a step library, a file a
-  library's glob matches, or a link to one, is a usage error (exit code 2), and nothing
-  runs. The file was overwritten when the run ended.
-- A step that produces an integer too long for Python to write in decimal (more than 4300
-  digits, by default) no longer crashes the run when the report is written: the value is
-  written as its `repr` and its type, as a value that is not JSON is.
-
 ### Changed
 - **`JP010` is retired.** Two steps producing the same variable are no longer an error in
   themselves, only when one consumer sees both, which `JP025` reports. `JP014` reports a
@@ -158,6 +141,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hand.
 - `--help` lists the exit codes one per line, each with its meaning, instead of in a
   paragraph. `jpipe-runner impact --help` now lists them too.
+
+### Fixed
+- **A glob that ends with `**`, such as `observes={"sources": "src/**"}`, observes the
+  files below it on every version of Python.** On Python 3.11 and 3.12 it matched
+  directories only, so the evidence failed with `JP019` while `jpipe-runner impact`
+  reported it as affected by changes to those files.
+- The dataflow diagram no longer draws a glob as unreachable when its evidence also
+  observes a file, in a directory below, that could not be reached: `build/*.xml` took
+  `build/old/a.xml` for one of its files.
+- `jpipe-runner status` reports as `appeared` a file a glob matched that could not be
+  read then and can be now, when its name holds `*`, `?` or `[`.
+- `--report` or `--diagram` naming the justification or a step library, a file a
+  library's glob matches, or a link to one, is a usage error (exit code 2), and nothing
+  runs. The file was overwritten when the run ended.
+- A step that produces an integer too long for Python to write in decimal (more than 4300
+  digits, by default) no longer crashes the run when the report is written: the value is
+  written as its `repr` and its type, as a value that is not JSON is.
 
 _Contributors: Sébastien Mosser._
 
