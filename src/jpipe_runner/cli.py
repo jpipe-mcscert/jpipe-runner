@@ -454,7 +454,7 @@ def _events(
     # file, a previous run's events, a pipe, is emptied and written at once, as ever; a
     # regular file's content is kept, to be put back if an output is refused.
     held = _foreign(path)
-    kept = target.read_bytes() if existed and not held and target.is_file() else None
+    kept = _kept(target) if existed and not held and target.is_file() else None
     file = path.open("a" if held else "w", encoding="utf-8", newline="\n")
     stream = EventStream(file, root=root, preview=preview, held=held)
     _LOG.info("writing the run's events to %s", path)
@@ -475,15 +475,26 @@ def _events(
         stream.close()
         if refused:
             _put_back(target, kept, existed, created)
+        if kept is not None:
+            kept.unlink(missing_ok=True)
 
 
-def _put_back(target: Path, kept: bytes | None, existed: bool, created: list[Path]) -> None:
-    """Leave the events file of a refused run as it was: its ``kept`` content written back,
-    or, if the run ``created`` it, removed, with the directories made for it."""
+def _kept(target: Path) -> Path:
+    """A copy of ``target``, in a temporary file of the system's temporary directory, to
+    put back if an output is refused: the file may be large, so it is not kept in memory."""
+    handle, copy = tempfile.mkstemp(prefix="jpipe-runner-events-")
+    os.close(handle)
+    shutil.copyfile(target, copy)
+    return Path(copy)
+
+
+def _put_back(target: Path, kept: Path | None, existed: bool, created: list[Path]) -> None:
+    """Leave the events file of a refused run as it was: its ``kept`` copy put back, or, if
+    the run ``created`` it, removed, with the directories made for it."""
     # The path is the --events option the user gave, which the run writes anyway: what it
-    # writes back is that file's own content, and what it removes, the file it created.
+    # puts back is that file's own content, and what it removes, the file it created.
     if kept is not None:
-        target.write_bytes(kept)  # NOSONAR
+        shutil.copyfile(kept, target)  # NOSONAR
     elif not existed:
         target.unlink(missing_ok=True)  # NOSONAR
         for directory in created:

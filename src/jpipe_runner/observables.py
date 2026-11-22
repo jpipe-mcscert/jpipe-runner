@@ -146,9 +146,11 @@ def designates(pattern: str, file: Path, root: Path) -> bool:
     file that exists, as a link to one of the files ``pattern`` matches."""
     if designates_one(pattern):
         return identity(file) == identity(Context(root, root).file(pattern))
-    relative = under_root(file, root)
-    if relative is not None and (
-        matches(relative, pattern) or matches(relative, _through_links(pattern, root))
+    named = (under_root(file, root), _as_written(file, root))
+    if any(
+        relative is not None
+        and (matches(relative, pattern) or matches(relative, _through_links(pattern, root)))
+        for relative in named
     ):
         return True
     if not file.exists():  # only its name could designate it
@@ -159,6 +161,17 @@ def designates(pattern: str, file: Path, root: Path) -> bool:
     except (NotImplementedError, ValueError):  # on Windows, a glob on another drive
         return False
     return any(identity(each) == target for each in found)
+
+
+def _as_written(file: Path, root: Path) -> str | None:
+    """``file`` relative to ``root`` as it is written, its links not followed, so that a
+    glob that names a linked directory designates what is written through it; ``None`` if
+    it is not under ``root``."""
+    try:
+        relative = Path(os.path.relpath(os.path.abspath(file), os.path.abspath(root)))
+    except ValueError:  # on Windows, another drive
+        return None
+    return None if relative.parts[:1] == ("..",) else relative.as_posix()
 
 
 def _through_links(pattern: str, root: Path) -> str:

@@ -553,3 +553,13 @@ def test_a_symbolic_link_loop_designates_nothing_and_raises_nothing(tmp_path: Pa
 
     assert not designates("loop", tmp_path / "out.json", tmp_path)
     assert not designates("*.json", tmp_path / "loop", tmp_path)
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="no symbolic links here")
+def test_a_glob_designates_what_is_written_through_a_link_its_wildcard_selects(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "mock").mkdir()
+    (tmp_path / "build1").symlink_to(tmp_path / "mock", target_is_directory=True)
+
+    assert designates("build*/*.md", tmp_path / "build1" / "new.md", tmp_path)
