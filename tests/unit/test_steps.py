@@ -643,6 +643,22 @@ def test_locals_hands_every_parameter_on() -> None:
     assert _declared(forwards).unread.never == ()
 
 
+def test_eval_may_read_every_parameter() -> None:
+    @strategy("s", consumes=["coverage"])
+    def evaluates(coverage: float) -> Outcome:
+        return Pass() if eval("coverage > 0.8") else Fail("low")
+
+    assert _declared(evaluates).unread.never == ()
+
+
+def test_a_positional_only_parameter_does_not_receive_its_keyword() -> None:
+    @strategy("s", consumes=["a"])
+    def shadowed(a: int = 0, /, **kwargs: Any) -> Outcome:
+        return Pass() if a else Fail("no")
+
+    assert _declared(shadowed).unread == Unread((), ("a",))
+
+
 def test_unwrapping_stops_where_the_signature_does() -> None:
     def inner(x: int) -> Outcome:
         return Pass()

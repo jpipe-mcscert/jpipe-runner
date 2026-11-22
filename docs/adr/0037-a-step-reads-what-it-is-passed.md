@@ -50,8 +50,8 @@ Should the runner check again that a step reads its inputs, and how?
 Chosen option: **3, read the bytecode, and warn**, as `JP027` `UnreadInput`.
 
 - **A parameter is read** when an instruction of the function's code loads it, or when it is
-  a cell variable, which a nested function reads, or when the function calls `locals()` or
-  `vars()`, which hand every variable on. The instructions on a variable are the ones the
+  a cell variable, which a nested function reads, or when the function calls `locals()`,
+  `vars()`, `eval()` or `exec()`, which reach every variable without loading it by name. The instructions on a variable are the ones the
   running Python lists (`dis.haslocal`, `dis.hasfree`), and their names say what each does
   to each variable it names: `LOAD_FAST_LOAD_FAST` loads two, `STORE_FAST_LOAD_FAST` stores
   its first and loads its second. An instruction whose name does not say, as a later Python
@@ -65,7 +65,8 @@ Chosen option: **3, read the bytecode, and warn**, as `JP027` `UnreadInput`.
 - **It is a warning, on a bound step.** The check is a heuristic, so it reports rather than
   refuses, among the rules, where `--strict` makes it an error for those who want it. A step
   that binds no element never runs, and is not checked.
-- **What a step takes only through `**kwargs`** cannot be checked by name. It gets the same
+- **What a step takes only through `**kwargs`** cannot be checked by name, including a
+  keyword input with the name of a positional-only parameter, which goes to `**kwargs`. It gets the same
   warning, with its own message, rather than passing silently: naming the input as a
   parameter settles it.
 - **Evidence is covered as well as the other kinds**: an observed artifact never read is
@@ -96,7 +97,7 @@ read again, from its bytecode, which needs no source, and only to warn.
 ### Confirmation
 
 - `tests/unit/test_steps.py` checks what counts as a read: directly, two at once, in a
-  comprehension, in a nested function, through a helper or `locals()`, in a function built
+  comprehension, in a nested function, through a helper, `locals()` or `eval()`, in a function built
   by `exec`, under a wrapper above or below the decorator, and an instruction the check does
   not know; a global of the same name does not count.
 - `tests/unit/validation/rules/test_unread_input.py` checks the rule and its messages.

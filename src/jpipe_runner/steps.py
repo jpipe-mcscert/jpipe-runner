@@ -132,7 +132,8 @@ class Step:
         through ``**kwargs``, which cannot be checked by name (ADR-0037).
 
         A parameter is read when an instruction of the function's code loads it, or a
-        function nested in it does, or the function calls ``locals()`` or ``vars()``. That
+        function nested in it does, or the function calls ``locals()``, ``vars()``,
+        ``eval()`` or ``exec()``. That
         needs no source, so a function typed at a prompt or built by ``exec`` is checked
         too. The function is the one declared, under any ``functools.wraps`` wrapper, as
         ``inspect.signature`` sees it.
@@ -164,8 +165,8 @@ _ACCESS = re.compile(r"(?:^|_)(LOAD|STORE|DELETE)_")
 """What an instruction does to each variable it names, in order: ``STORE_FAST_LOAD_FAST``
 stores its first and loads its second."""
 
-_EVERY_LOCAL = frozenset({"locals", "vars"})
-"""The builtins that hand a function's local variables to whatever they are passed to."""
+_EVERY_LOCAL = frozenset({"locals", "vars", "eval", "exec"})
+"""The builtins that reach a function's local variables without loading them by name."""
 
 
 def _code(function: Callable[..., Any]) -> CodeType | None:
@@ -176,13 +177,16 @@ def _code(function: Callable[..., Any]) -> CodeType | None:
 
 
 def _named(code: CodeType) -> tuple[str, ...]:
-    """The parameters ``code`` takes by name: neither ``*args`` nor ``**kwargs``."""
-    return code.co_varnames[: code.co_argcount + code.co_kwonlyargcount]
+    """The parameters ``code`` takes by keyword: neither positional-only ones, nor ``*args``
+    nor ``**kwargs``. A keyword argument with the name of a positional-only parameter goes
+    to ``**kwargs``."""
+    return code.co_varnames[code.co_posonlyargcount : code.co_argcount + code.co_kwonlyargcount]
 
 
 def _read(code: CodeType) -> frozenset[str]:
     """The local variables ``code`` reads: those it loads, and those a nested function
-    reads (its cell variables); every one if it calls ``locals()`` or ``vars()``.
+    reads (its cell variables); every one if it calls ``locals()``, ``vars()``, ``eval()``
+    or ``exec()``.
 
     An instruction on a variable that this does not know how to read, as a later version of
     Python may add, counts as a read of every variable it names: a missed warning is the
