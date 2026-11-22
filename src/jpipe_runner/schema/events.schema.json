@@ -27,7 +27,7 @@
       "items": {"$ref": "report.schema.json#/$defs/diagnostic"}
     },
     "run.started": {
-      "description": "The first event: the model was read, or refused. Written before the step libraries are imported.",
+      "description": "The first event: the model was read, or refused. Written before the step libraries are imported, unless the file held something other than a run's events: it then reaches the file once they are, when no output names a file the run observes (ADR-0035).",
       "type": "object",
       "required": ["event", "seq", "elapsed_ms", "schema_version", "report_schema_version", "justification", "elements", "strict", "dry_run"],
       "additionalProperties": false,

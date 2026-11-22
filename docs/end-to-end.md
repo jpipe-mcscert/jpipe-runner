@@ -385,7 +385,10 @@ marked ✘, what it blocked dashed and grey, marked ◌, and the evidence that p
 green border, marked ✔. Each file is drawn as a tab, marked ✔: the run read both, even
 `mock/junit.xml`, whose tests failed. `tests_pass` is dashed: `e1` failed, so it was
 never produced, and `s`, which consumes it, could not run
-([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)).
+([ADR-0029](adr/0029-the-runner-draws-the-dataflow.md)). The path from `e1` through
+`tests_pass` to `s` is vermillion, the failure's colour: it stands for the support of `s`
+by `e1`, along which the failure travelled
+([ADR-0034](adr/0034-a-failure-s-path-through-a-variable-takes-its-status.md)).
 
 ![The release run's dataflow: e1 failed, so tests_pass was never produced; e2 passed; s and c were skipped](images/release-fail.svg)
 

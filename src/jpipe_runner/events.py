@@ -66,6 +66,10 @@ class EventStream:
 
     ``preview``, if given, is asked to draw the run's diagram once the steps are about to
     run; the stream says where it was drawn, if it was.
+
+    A ``held`` stream keeps its events until ``release``, which empties the file first, or
+    ``abandon``, which writes none: the command line holds a file that holds something
+    other than a run's events until it has checked that no step observes it (ADR-0035).
     """
 
     def __init__(
@@ -75,8 +79,10 @@ class EventStream:
         root: Path = Path(),
         clock: Callable[[], float] = time.monotonic,
         preview: Preview | None = None,
+        held: bool = False,
     ) -> None:
         self._file = file
+        self._held: list[str] | None = [] if held else None
         self._root = root
         self._clock = clock
         self._preview = preview
@@ -84,6 +90,30 @@ class EventStream:
         self._seq = 0
         self._model: Justification | None = None
         self._failed = False
+
+    def release(self) -> None:
+        """Empty the file, and write the events held so far; from now on, each is written as
+        it happens. A stream that is not held is left as it is."""
+        if self._held is None:
+            return
+        lines, self._held = self._held, None
+        try:
+            self._file.truncate(0)
+            self._file.seek(0)
+            for line in lines:
+                self._file.write(line)
+            self._file.flush()
+        except OSError as error:
+            self._fail(error.strerror or str(error))
+
+    def abandon(self, reason: str) -> None:
+        """Write none of the events of a held stream, and leave the file as it was: the
+        stream has failed, for ``reason``, which is logged. A stream that is not held is
+        left as it is."""
+        if self._held is None:
+            return
+        self._held = None
+        self._fail(reason)
 
     @property
     def failed(self) -> bool:
@@ -160,26 +190,30 @@ class EventStream:
         try:
             self._file.close()
         except OSError as error:
-            self._fail(error)
+            self._fail(error.strerror or str(error))
 
     def _write(self, event: str, **payload: Any) -> None:
         if self._failed:
             return
         elapsed = max(0, round((self._clock() - self._opened) * 1000))
         line = {"event": event, "seq": self._seq, "elapsed_ms": elapsed, **payload}
-        try:
-            self._file.write(_one_line(json.dumps(line, ensure_ascii=False)) + "\n")
-            self._file.flush()
-        except OSError as error:
-            self._fail(error)
-            return
+        text = _one_line(json.dumps(line, ensure_ascii=False)) + "\n"
+        if self._held is not None:
+            self._held.append(text)
+        else:
+            try:
+                self._file.write(text)
+                self._file.flush()
+            except OSError as error:
+                self._fail(error.strerror or str(error))
+                return
         self._seq += 1
 
-    def _fail(self, error: OSError) -> None:
+    def _fail(self, reason: str) -> None:
         """Nothing more is written: the first error is logged, and only the first."""
         if not self._failed:
             # An error is one line on stderr, not a traceback (ADR-0023).
-            _LOG.error("cannot write the run's events: %s", error.strerror or error)  # NOSONAR
+            _LOG.error("cannot write the run's events: %s", reason)  # NOSONAR
         self._failed = True
 
 

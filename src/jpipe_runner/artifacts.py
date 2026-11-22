@@ -12,11 +12,13 @@ and the step is not called: an observed artifact is never optional.
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
-from jpipe_runner.observables import HIDDEN, Context, Observation, Sighting, described, snapshot
+from jpipe_runner.observables import HIDDEN, Context, Observation, Sighting, described
+from jpipe_runner.records import snapshot
 from jpipe_runner.steps import Artifact
 
 UNREACHABLE_ARTIFACT = "JP019"
@@ -53,7 +55,7 @@ def observe(artifacts: Iterable[Artifact], context: Context, element: str) -> Ob
         declared = described(artifact.observable, context)
         sighting = _sighted(artifact, declared, context)
         arguments[artifact.name] = sighting.value
-        observations.extend(map(_recorded, sighting.observations))
+        observations.extend(_recorded(each, context.root) for each in sighting.observations)
         diagnostics.extend(_unreachable(artifact, sighting, element))
         reached = all(observation.reachable for observation in sighting.observations)
         sources.append((declared, reached))
@@ -62,9 +64,10 @@ def observe(artifacts: Iterable[Artifact], context: Context, element: str) -> Ob
     )
 
 
-def _recorded(observation: Observation) -> Observation:
-    """``observation`` with a copy of its value: the step receives the value itself, and
-    what it does to it must not change what the report records."""
+def _recorded(observation: Observation, root: Path) -> Observation:
+    """``observation`` with its value as it is now (``records.snapshot``): the step
+    receives the value itself, and what it does to it must not change what the report
+    records."""
     if observation.value is HIDDEN:
         return observation
     return Observation(
@@ -73,7 +76,7 @@ def _recorded(observation: Observation) -> Observation:
         observation.sha256,
         observation.size,
         obstacle=observation.obstacle,
-        value=snapshot(observation.value),
+        value=snapshot(observation.value, root),
         variable=observation.variable,
         hidden=observation.hidden,
     )

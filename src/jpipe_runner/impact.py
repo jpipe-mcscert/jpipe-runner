@@ -40,11 +40,13 @@ from jpipe_runner.observables import (
 
 Document = Mapping[str, Any]
 
-_MAJOR = SCHEMA_VERSION.partition(".")[0]
-_READ = ("1", _MAJOR)
-"""The major versions of the report this runner reads. Version 2.0 only removed
-``dataflow``, which nothing here reads, so a report saved by an earlier runner, such as a
-baseline, is still read."""
+READ = ("1", "2")
+"""The major versions of the report this runner reads, each named, not derived from
+``SCHEMA_VERSION``: a new major is added here once someone has checked what it changes for
+``impact`` and ``status``, and an earlier one stays as long as they can still read it, so
+that a baseline saved by an earlier runner keeps working. Version 2.0 only removed
+``dataflow``, which nothing here reads. A test fails while ``SCHEMA_VERSION``'s major is
+missing (#178)."""
 
 
 def _compatible(schema: Any) -> Any:
@@ -65,7 +67,7 @@ _VALIDATOR = Draft202012Validator(SCHEMA)
 _LATER = _compatible(SCHEMA)
 _LATER["properties"]["schema_version"] = {
     "type": "string",
-    "pattern": f"^({'|'.join(_READ)})\\.[0-9]+$",
+    "pattern": f"^({'|'.join(READ)})\\.[0-9]+$",
 }
 _LATER_VALIDATOR = Draft202012Validator(_LATER)
 
@@ -148,8 +150,8 @@ def read(path: str | PathLike[str]) -> dict[str, Any]:
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise InvalidReportError(f"{path} is not a JSON report: {error}") from None
     version = document.get("schema_version") if isinstance(document, dict) else None
-    if not isinstance(version, str) or version.partition(".")[0] not in _READ:
-        versions = " or ".join(f"{major}.x" for major in _READ)
+    if not isinstance(version, str) or version.partition(".")[0] not in READ:
+        versions = " or ".join(f"{major}.x" for major in READ)
         raise InvalidReportError(
             f"{path} is not a JSON report of version {versions}: its schema_version is {version!r}"
         )

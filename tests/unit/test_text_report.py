@@ -10,6 +10,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, user_traceback
 from jpipe_runner.engine import Status, Verdict
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import Observation, Obstacle
+from jpipe_runner.records import Uncopied
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.text_report import render, use_colour, use_unicode
 from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY
@@ -110,6 +111,16 @@ def test_what_a_failed_evidence_observed_that_is_no_file_is_named_with_its_value
     assert "      observed env:STAGE = 'prod'\n" in text
     assert "      observed env:TOKEN (hidden)\n" in text
     assert "      observed env:CI (unreachable)\n" in text
+
+
+def test_a_value_that_could_not_be_copied_is_shown_by_the_repr_it_had() -> None:
+    lock = Uncopied("<unlocked _thread.lock object>", "_thread.lock")
+    seen = (Observation("db:guard", sha256="0" * 64, value=lock),)
+    failed = _element("e1", EVIDENCE, "Tests pass", status=Status.FAIL, reason="no", artifacts=seen)
+
+    text = render(RunReport("m", Verdict.FAIL, (failed,)))
+
+    assert "      observed db:guard = <unlocked _thread.lock object>\n" in text
 
 
 def test_an_unreachable_artifact_of_a_failed_evidence_is_named() -> None:

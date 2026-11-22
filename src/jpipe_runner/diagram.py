@@ -391,9 +391,20 @@ class _Dataflow:
             for path in element.sources:
                 yield _data_edge(f"artifact {path}", element.id, "observes", dotted=True)
             for name in element.produces:
-                yield _data_edge(element.id, self._node(name, element.id), "produces")
+                node = self._node(name, element.id)
+                yield _data_edge(element.id, node, "produces", status=element.status)
             for node in _unique(self._source(received) for received in self._inputs(element)):
-                yield _data_edge(node, element.id, "consumes")
+                yield _data_edge(node, element.id, "consumes", status=self._status_of(node))
+
+    def _status_of(self, node: str) -> Status | None:
+        """The status of the element that produces the value ``node``, if it has one."""
+        producer = self._producer(node)
+        return None if producer is None else producer.status
+
+    def _producer(self, node: str) -> ElementReport | None:
+        """The element whose step produces the value ``node``, if one does."""
+        producer = self._produced_by.get(node)
+        return None if producer is None else self._reported[producer]
 
     def _node(self, name: str, producer: str | None) -> str:
         """The node of ``name`` as ``producer`` produces it, or of ``name`` unresolved."""
@@ -419,8 +430,8 @@ class _Dataflow:
     def _variable(self, node: str, name: str) -> dict[str, str]:
         """The style of a value: dashed and grey when it was not produced."""
         attributes = dict(_DATA, shape="ellipse")
-        producer = self._produced_by.get(node)
-        produced = producer is not None and name in self._reported[producer].produced
+        producer = self._producer(node)
+        produced = producer is not None and name in producer.produced
         if self._ran and not produced and not self._broken(node):
             attributes.update(style="dashed", color=_GREY)
         return attributes
@@ -495,11 +506,18 @@ def _variable_node(node: str, label: str, attributes: dict[str, str], problem: b
     return f"{_INDENT}{_quoted(node)} [label={_quoted(label)}, {_attributes(attributes)}];"
 
 
-def _data_edge(source: str, target: str, label: str, *, dotted: bool = False) -> str:
+def _data_edge(
+    source: str, target: str, label: str, *, dotted: bool = False, status: Status | None = None
+) -> str:
+    """An edge between an element and what it observes, produces or consumes. One through a
+    value takes the status of the element that produced it, when that one failed or was
+    skipped, as the support it stands for would (#176): vermillion or grey, dashed as every
+    data edge is, and no thicker, so that a status never moves the diagram."""
     if dotted:
         attributes = {"style": "dotted", "arrowhead": "empty"}
     else:
-        attributes = {"style": "dashed", "color": _BLUE}
+        colour = _BLUE if status in (None, Status.PASS) else _EDGE_COLOURS[status]
+        attributes = {"style": "dashed", "color": colour}
     attributes.update(label=f" {label}", fontsize="9")
     return f"{_INDENT}{_quoted(source)} -> {_quoted(target)} [{_attributes(attributes)}];"
 

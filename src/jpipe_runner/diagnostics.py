@@ -58,10 +58,18 @@ def shown_path(filename: str, root: Path) -> str:
     under ``root``, so that it reads the same on every machine; unchanged otherwise."""
     if filename.startswith("<"):  # <string>, <frozen importlib._bootstrap>: not a file
         return filename
+    relative = under_root(Path(filename), root)
+    return filename if relative is None else relative
+
+
+def under_root(path: Path, root: Path) -> str | None:
+    """``path`` relative to ``root``, in POSIX form, once both are resolved, so that a
+    directory reached through a link is the one it links to; ``None`` if it is not under
+    ``root``, on another drive included, or cannot be resolved."""
     try:
-        return Path(filename).resolve().relative_to(root.resolve()).as_posix()
-    except ValueError:
-        return filename
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return None
 
 
 def _in_user_code(frame: FrameSummary) -> bool:

@@ -65,7 +65,11 @@ for the rest.
 
 The file is **JSON Lines**: one JSON object per line, in UTF-8, each line ending with
 `\n`. It is emptied when the run starts, and each line is written whole and flushed as soon
-as its event happens, so a program can follow the file while the run goes on. Read only
+as its event happens, so a program can follow the file while the run goes on. A regular
+file that holds something other than a run's events is the exception: it may be one the run
+observes, so it is emptied, and its events written, only once the step libraries are
+imported and no output names a file a step observes
+([ADR-0035](adr/0035-an-output-never-overwrites-what-the-run-observes.md)). Read only
 whole lines, those that end with `\n`: while the run goes on, the last line may still be
 in the middle of being written. A line holds no line break, whatever a label or a message
 holds: the characters some readers take for one, `U+0085`, `U+2028` and `U+2029`, are
@@ -127,7 +131,8 @@ Every event starts with the same three fields:
 
 ### `run.started`
 
-The model was read, or refused: written before the step libraries are imported.
+The model was read, or refused: written before the step libraries are imported, unless the
+file held something other than a run's events, which gets it once they are.
 
 | Field | Type | |
 |---|---|---|
@@ -237,6 +242,10 @@ A run that does not call its steps still has a stream: a dry run writes `run.sta
 ## When the file cannot be written
 
 A file that cannot be opened, for instance in a directory that cannot be created, stops
-the command before anything runs, with exit code 4. Once the run has started, an event
+the command before anything runs, with exit code 4. A file that a step observes is a usage
+error once the step libraries are imported, and is left as it was
+([`cli.md`](cli.md#outputs)). So is a file that holds something other than a run's events
+when the run ends before that check, its model refused or a library not imported: nothing
+is written to it, stderr says why, and the command exits with code 4. Once the run has started, an event
 that cannot be written is logged on stderr, nothing more is written, and the run goes on to
 its report: the command then exits with code 4 ([`cli.md`](cli.md#exit-codes)).

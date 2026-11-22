@@ -554,6 +554,42 @@ def test_a_support_a_variable_already_links_is_not_drawn(tmp_path: Path) -> None
     assert drawn['"s" -> "c"'] == '"s" -> "c" [color="#009E73"];'
 
 
+@pytest.mark.parametrize(
+    ("outcome", "colour"),
+    [
+        pytest.param(lambda: Fail("no"), "#D55E00", id="failed: vermillion"),
+        pytest.param(lambda: Skip("not here"), "#999999", id="skipped: grey"),
+        pytest.param(lambda: Pass(a="a"), "#0072B2", id="passed: blue, as data"),
+    ],
+)
+def test_a_failure_s_path_through_a_variable_takes_its_status(
+    tmp_path: Path, outcome: Callable[[], Outcome], colour: str
+) -> None:
+    (tmp_path / "e2.log").write_text("two", encoding="utf-8")
+
+    drawn = _drawn(tmp_path, outcome)
+
+    # e1 -> a -> s stands for the support of s by e1 (#176).
+    assert drawn['"e1" -> "variable a"'] == (
+        f'"e1" -> "variable a" [style=dashed, color="{colour}", label=" produces", fontsize=9];'
+    )
+    assert drawn['"variable a" -> "s"'] == (
+        f'"variable a" -> "s" [style=dashed, color="{colour}", label=" consumes", fontsize=9];'
+    )
+    assert 'color="#0072B2"' in drawn['"e2" -> "variable b"']
+
+
+def test_a_dry_run_draws_the_data_edges_as_data(tmp_path: Path) -> None:
+    (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    registry = _steps(lambda: Fail("no"), lambda: Pass(b="b"))
+    planned = RunReport.of(run(RELEASE, registry, root=tmp_path, dry_run=True), tmp_path)
+
+    edges = [line for line in source(RELEASE, planned).splitlines() if "produces" in line]
+
+    assert edges
+    assert all('color="#0072B2"' in edge for edge in edges)
+
+
 def test_a_support_no_variable_links_is_drawn(tmp_path: Path) -> None:
     @evidence("e1", observes={"log": "e1.txt"}, produces=["a"])
     def first(log: Path) -> Outcome:
