@@ -238,14 +238,16 @@ def run(
     )
     if not report.passed:
         _LOG.info("validation reported %d errors: nothing runs", len(report.errors))
-        return replace(planned, dry_run=False)
+        # SonarCloud types dataclasses.replace as returning any dataclass (S5886); mypy --strict
+        # checks the type.
+        return replace(planned, dry_run=False)  # NOSONAR
     if dry_run:
         _LOG.info("validation passed: a dry run calls no step")
         return planned
     listener.steps_starting(planned)
     values = ValueStore()
     elements = _Run(ctx, values, root, listener).execute()
-    return replace(planned, elements=elements, values=values, dry_run=False)
+    return replace(planned, elements=elements, values=values, dry_run=False)  # NOSONAR
 
 
 class _Run:

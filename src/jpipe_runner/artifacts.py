@@ -70,7 +70,9 @@ def _recorded(observation: Observation, root: Path) -> Observation:
     records."""
     if observation.value is HIDDEN:
         return observation
-    return replace(observation, value=snapshot(observation.value, root))
+    # SonarCloud types dataclasses.replace as returning any dataclass (S5886); mypy --strict
+    # checks the type.
+    return replace(observation, value=snapshot(observation.value, root))  # NOSONAR
 
 
 def _sighted(artifact: Artifact, declared: str, context: Context) -> Sighting:
