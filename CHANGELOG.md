@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-11-21
+
 ### Changed
 - **The diagram shows a failure's path through a variable.** When an element that failed,
   or was skipped, produces a variable that the element it supports consumes, the edges
@@ -32,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and its `element.decided` event, written earlier, said something else. It is now recorded
   then as its `repr` and type
   ([ADR-0033](docs/adr/0033-a-value-is-recorded-as-it-was-seen.md), #184).
+
+_Contributors: Sébastien Mosser._
 
 ## [4.1.0] - 2026-11-21
 
@@ -778,7 +782,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
-[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.2.0...HEAD
+[4.2.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.1.0...v4.2.0
 [4.1.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.6.0...v4.0.0
 [3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
