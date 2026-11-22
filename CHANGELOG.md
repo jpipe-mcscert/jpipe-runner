@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-21
+
 ### ⚠️ Breaking
 - **A path an evidence observes is relative to the file that declares its step**, no
   longer to the directory `jpipe-runner` runs in, so a library observes the same files
@@ -156,6 +158,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hand.
 - `--help` lists the exit codes one per line, each with its meaning, instead of in a
   paragraph. `jpipe-runner impact --help` now lists them too.
+
+_Contributors: Sébastien Mosser._
 
 ## [4.0.0] - 2026-11-10
 
@@ -748,7 +752,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
-[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.6.0...v4.0.0
 [3.6.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.3...v3.6.0
 [3.5.3]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v3.5.2...v3.5.3
