@@ -419,16 +419,23 @@ def test_jobs_auto_runs_one_step_per_cpu(
         return real(*arguments, jobs=jobs, **options)
 
     monkeypatch.setattr(engine, "run", counted)
+    monkeypatch.setattr(os, "cpu_count", lambda: 64)
+    # Python 3.13 and later count the CPUs the process may use.
     monkeypatch.setattr(os, "process_cpu_count", lambda: 6, raising=False)
-    monkeypatch.setattr(os, "cpu_count", lambda: 6)
+    _main(capsys, "--jobs", "auto", *RELEASE)
+    # Before, the affinity mask says which, where the platform has one, as Linux does.
+    monkeypatch.delattr(os, "process_cpu_count")
+    monkeypatch.setattr(os, "sched_getaffinity", lambda _: {0, 1}, raising=False)
+    _main(capsys, "--jobs", "auto", *RELEASE)
+    # Elsewhere, every CPU counts.
+    monkeypatch.delattr(os, "sched_getaffinity")
     _main(capsys, "--jobs", "auto", *RELEASE)
     # A CPU count Python cannot tell is one job.
-    monkeypatch.setattr(os, "process_cpu_count", lambda: None, raising=False)
     monkeypatch.setattr(os, "cpu_count", lambda: None)
     _main(capsys, "--jobs", "auto", *RELEASE)
     _main(capsys, *RELEASE)
 
-    assert told == [6, 1, 1]
+    assert told == [6, 2, 64, 1, 1]
 
 
 # --- Usage ---------------------------------------------------------------------------------

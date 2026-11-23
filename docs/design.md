@@ -598,8 +598,9 @@ its `RunResult` has no element results and the verdict `INVALID`. An element is 
 every element that supports it is decided, and the ready element that comes first in
 `topological_order()` is taken first, so that with one job, the default, the elements are
 taken in that order. With
-`jobs` above one, a `ThreadPoolExecutor` of that many threads runs the steps: a thread
-observes what its step observes, then calls it, and sends both back through a queue to the
+`jobs` above one, up to that many steps run at a time, each on a daemon thread of its own
+that starts in a copy of the run's `contextvars` context: the thread observes what its
+step observes, then calls it, and sends both back through a queue to the
 thread that runs the run, which does everything else, reads the values the step consumes,
 tells the listener, judges the outcome, stores the values and records the result, and so
 holds no lock. With threads, an element is settled once, when it becomes ready: one that

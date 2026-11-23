@@ -42,7 +42,8 @@ class ProducedValue:
 
 class ValueStore:
     """The values produced during one run, each under its variable and its producer, in
-    the order produced.
+    the order they were put; a run's ``RunResult`` holds them in the order of their
+    producers (``sorted_by``), whatever order its steps ended in.
 
     An element's step produces a variable once. Producing it again is a ``ValueError``: a
     step runs once, and declares each variable it produces once, so a second write can
@@ -65,11 +66,11 @@ class ValueStore:
         return UNSET if entry is None else entry.value
 
     def producers(self, name: str) -> tuple[str, ...]:
-        """The ids of the elements that produced ``name``, in the order they produced it."""
+        """The ids of the elements that produced ``name``, in the store's order."""
         return tuple(producer for producer, produced in self._values if produced == name)
 
     def entries(self) -> Iterator[tuple[str, ProducedValue]]:
-        """Every produced value and its variable, in the order produced: a variable two
+        """Every produced value and its variable, in the store's order: a variable two
         elements produced appears twice, each time with its producer."""
         return ((name, value) for (_, name), value in self._values.items())
 

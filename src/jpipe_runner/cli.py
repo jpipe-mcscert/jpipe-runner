@@ -218,13 +218,25 @@ def _jobs(text: str) -> int:
     """How many steps may run at a time: a positive integer, or ``auto``, one per CPU this
     process may use."""
     if text == "auto":
-        # os.process_cpu_count, new in Python 3.13, counts only the CPUs the process may use.
-        counted: int | None = getattr(os, "process_cpu_count", os.cpu_count)()
-        return counted or 1
+        return _cpus()
     jobs = int(text) if text.isdecimal() else 0
     if jobs < 1:
         raise argparse.ArgumentTypeError(f"expected a positive number or auto, not {text!r}")
     return jobs
+
+
+def _cpus() -> int:
+    """How many CPUs this process may use: ``os.process_cpu_count``, new in Python 3.13,
+    then the affinity mask, where the platform has one, as Linux does, then every CPU; 1 if
+    Python cannot tell."""
+    counted: int | None
+    if (process_cpu_count := getattr(os, "process_cpu_count", None)) is not None:
+        counted = process_cpu_count()
+    elif (affinity := getattr(os, "sched_getaffinity", None)) is not None:
+        counted = len(affinity(0))
+    else:
+        counted = os.cpu_count()
+    return counted or 1
 
 
 def impact_parser() -> argparse.ArgumentParser:

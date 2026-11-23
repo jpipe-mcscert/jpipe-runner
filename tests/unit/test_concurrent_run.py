@@ -4,6 +4,7 @@
 of jobs; these tests check what only a concurrent run does.
 """
 
+import decimal
 import threading
 import time
 from collections.abc import Callable
@@ -360,13 +361,13 @@ def test_a_run_needs_at_least_one_job(root: Path, jobs: int) -> None:
 
 
 class _Holding(_Watching):
-    """A listener that holds the run's thread, once told of e1's source, until ``queued``
-    is set: what the steps' threads send meanwhile waits in the run's queue. ``held`` says
-    it holds it."""
+    """A listener that holds the run's thread, once told of e1's source, until e1's thread
+    has ended: what the steps' threads send meanwhile waits in the run's queue. ``held``
+    says it holds it."""
 
-    def __init__(self, queued: threading.Event) -> None:
+    def __init__(self, threads: dict[str, threading.Thread]) -> None:
         super().__init__()
-        self.queued = queued
+        self.steps = threads
         self.held = threading.Event()
         self.started: list[str] = []
 
@@ -376,28 +377,55 @@ class _Holding(_Watching):
     def source_observed(self, element: Element, source: str, reachable: bool) -> None:
         if element.id == "e1":
             self.held.set()
-            assert self.queued.wait(WAIT)
-            time.sleep(0.05)  # the interrupt, raised once queued is set, reaches the queue
+            _ended(self.steps, "e1")
+
+
+def _ended(threads: dict[str, threading.Thread], element_id: str) -> None:
+    """Wait until the thread of ``element_id``'s step has ended, which it does once what it
+    sent is in the run's queue."""
+    deadline = time.monotonic() + WAIT
+    while element_id not in threads:
+        assert time.monotonic() < deadline
+        time.sleep(0.001)
+    threads[element_id].join(WAIT)
+    assert not threads[element_id].is_alive()
 
 
 def test_an_interrupt_queued_behind_a_step_that_ended_starts_no_step(root: Path) -> None:
     # e2 ends, then e1 raises KeyboardInterrupt, while the run's thread is held: handling
     # e2's end first would free a thread, and start e3 before the interrupt is read.
-    e2_returned, queued = threading.Event(), threading.Event()
-    listener = _Holding(queued)
+    threads: dict[str, threading.Thread] = {}
+    listener = _Holding(threads)
 
     def interrupts() -> Outcome:
-        assert e2_returned.wait(WAIT)
-        time.sleep(0.05)  # e2's end reaches the queue
-        queued.set()
+        threads["e1"] = threading.current_thread()
+        _ended(threads, "e2")
         raise KeyboardInterrupt
 
     def ends() -> Outcome:
         assert listener.held.wait(WAIT)
-        e2_returned.set()
+        threads["e2"] = threading.current_thread()
         return Pass()
 
     registry = _library(interrupts, ends, Pass)
     with pytest.raises(KeyboardInterrupt):
         run(THREE, registry, root=root, jobs=2, listener=listener)
     assert sorted(listener.started) == ["e1", "e2"]
+
+
+def test_a_step_s_thread_is_a_daemon_that_sees_the_run_s_context(root: Path) -> None:
+    precision: list[int] = []
+    daemons: list[bool] = []
+
+    def seen() -> Outcome:
+        precision.append(decimal.getcontext().prec)
+        daemons.append(threading.current_thread().daemon)
+        return Pass()
+
+    with decimal.localcontext() as context:
+        context.prec = 50
+        result = run(THREE, _library(seen, seen, seen), root=root, jobs=2)
+
+    assert result.verdict is Verdict.PASS
+    assert precision == [50, 50, 50]
+    assert daemons == [True, True, True]
