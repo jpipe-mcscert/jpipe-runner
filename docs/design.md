@@ -602,8 +602,10 @@ taken in that order. With
 observes what its step observes, then calls it, and sends both back through a queue to the
 thread that runs the run, which does everything else, reads the values the step consumes,
 tells the listener, judges the outcome, stores the values and records the result, and so
-holds no lock. While every thread is busy, the ready elements that need no step are still
-decided, so that a skip never waits for a slow step. The results are returned in
+holds no lock. With threads, an element is settled once, when it becomes ready: one that
+needs no step is decided before any other step starts, so that a skip never waits for a
+slow step. The run reads every message the threads have sent before it starts a step, and
+raises an exception among them, an interrupt or a runner bug, before handling the others. The results are returned in
 `topological_order()` whatever ended first, and the `ValueStore` sorted by producer
 (`sorted_by`), so the result does not depend on `jobs`
 ([ADR-0038](adr/0038-independent-steps-run-together.md)). An element a supporter of which

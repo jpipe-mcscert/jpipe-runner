@@ -357,3 +357,47 @@ def test_a_run_needs_at_least_one_job(root: Path, jobs: int) -> None:
     registry = _library(Pass, Pass, Pass)
     with pytest.raises(ValueError, match="at least one job"):
         run(THREE, registry, root=root, jobs=jobs)
+
+
+class _Holding(_Watching):
+    """A listener that holds the run's thread, once told of e1's source, until ``queued``
+    is set: what the steps' threads send meanwhile waits in the run's queue. ``held`` says
+    it holds it."""
+
+    def __init__(self, queued: threading.Event) -> None:
+        super().__init__()
+        self.queued = queued
+        self.held = threading.Event()
+        self.started: list[str] = []
+
+    def element_started(self, element: Element) -> None:
+        self.started.append(element.id)
+
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
+        if element.id == "e1":
+            self.held.set()
+            assert self.queued.wait(WAIT)
+            time.sleep(0.05)  # the interrupt, raised once queued is set, reaches the queue
+
+
+def test_an_interrupt_queued_behind_a_step_that_ended_starts_no_step(root: Path) -> None:
+    # e2 ends, then e1 raises KeyboardInterrupt, while the run's thread is held: handling
+    # e2's end first would free a thread, and start e3 before the interrupt is read.
+    e2_returned, queued = threading.Event(), threading.Event()
+    listener = _Holding(queued)
+
+    def interrupts() -> Outcome:
+        assert e2_returned.wait(WAIT)
+        time.sleep(0.05)  # e2's end reaches the queue
+        queued.set()
+        raise KeyboardInterrupt
+
+    def ends() -> Outcome:
+        assert listener.held.wait(WAIT)
+        e2_returned.set()
+        return Pass()
+
+    registry = _library(interrupts, ends, Pass)
+    with pytest.raises(KeyboardInterrupt):
+        run(THREE, registry, root=root, jobs=2, listener=listener)
+    assert sorted(listener.started) == ["e1", "e2"]

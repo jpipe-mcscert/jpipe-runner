@@ -61,10 +61,10 @@ below 1.
 
 **The scheduler.** An element is ready once every element that supports it is decided,
 and the ready element that comes first in topological order is taken first. A skip, a pass
-without a step, or a step's start happens then, on the thread that runs the run. While
-every thread is busy, the ready elements that need no step, a skip or a claim without a
-step, are still decided, so that a failure's skips do not wait for a slow step they do not
-depend on. With one job, the
+without a step, or a step's start happens then, on the thread that runs the run. With
+more than one job, an element is settled once, when it becomes ready: one that needs no
+step, a skip or a claim without a step, is decided before any other step starts, so that a
+failure's skips never wait for a slow step they do not depend on. With one job, the
 step is called there, so the elements are decided in ADR-0021's order and the events are
 those it wrote. With more, the step goes to a thread of a pool of `N`, which observes its
 artifacts, says so, calls the step and hands back what it returned or raised. Everything
@@ -74,16 +74,19 @@ holds no lock, and the listener is called from one thread, as ADR-0030 says.
 
 **The result** lists the elements in topological order whatever the number of jobs, and
 its values in the order of their producers, so the report, the text report and the
-diagram are the same; only the events, which are not
-deterministic, show what ran together. A step's `source.observed` events come while it
-runs, as with one job. Nothing in the report or the events records the number of jobs.
+diagram are the same; only the events, which are not deterministic, show what ran
+together. A step's `source.observed` events come while it runs, as with one job. Nothing
+in the report or the events records the number of jobs.
 
 **Ctrl-C.** `KeyboardInterrupt` stops the run (ADR-0021). A step already running on a
 thread cannot be stopped, so the run starts no other step, and waits for those still
-running before it returns: their libraries are still imported, and what they print still
-goes to stderr. A second Ctrl-C stops the wait. The run's thread waits for a step in short slices so
-that Ctrl-C reaches it on every platform. A step that raises `KeyboardInterrupt` on its
-thread stops the run the same way, and so does an error of the runner itself.
+running before it returns. Before it starts a step, the run reads every message the
+threads have sent, so an interrupt sent while another step ended is never read after a
+step started in that one's place. While it waits, the running steps' libraries are still
+imported, and what they print still goes to stderr; a second Ctrl-C stops the wait. The
+run's thread waits for a step in short slices, so that Ctrl-C reaches it on every
+platform. A step that raises `KeyboardInterrupt` on its thread stops the run the same way,
+and so does an error of the runner itself.
 
 **What a library must not do with `--jobs`** is documented rather than enforced. No step
 can opt out of running alongside others:

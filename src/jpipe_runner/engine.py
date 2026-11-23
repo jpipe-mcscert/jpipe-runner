@@ -38,7 +38,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from heapq import heapify, heappop, heappush
+from heapq import heappop, heappush
 from pathlib import Path
 from queue import Empty, SimpleQueue
 from traceback import TracebackException
@@ -274,11 +274,13 @@ class _Run:
     the elements ready to be decided.
 
     An element is ready once every element that supports it is decided, and the ready one
-    first in topological order is taken first. With one job, its step is called on this
-    thread, so the elements are decided in topological order. With more, up to ``jobs``
-    steps run at a time, each on a thread of its own, which observes the step's artifacts
-    and calls it: what it observed, then what the step returned, come back through
-    ``_inbox``, and everything else happens on this thread (ADR-0038).
+    that comes first in topological order is taken first. With one job, its step is called
+    on this thread, so the elements are decided in topological order. With more, an element
+    is settled once, when it becomes ready: one that needs no step is decided at once,
+    whatever the threads are doing, and up to ``jobs`` steps run at a time, each on a thread
+    of its own, which observes the step's artifacts and calls it. What it observed, then
+    what the step returned, come back through ``_inbox``, and everything else happens on
+    this thread (ADR-0038).
     """
 
     def __init__(
@@ -300,10 +302,17 @@ class _Run:
         self._order = self._model.topological_order()
         self._position = {element.id: i for i, element in enumerate(self._order)}
         self._undecided = {e.id: len(self._model.supporters(e.id)) for e in self._order}
-        # The positions, in topological order, of the elements ready to be decided: a heap.
-        self._ready = [self._position[e.id] for e in self._order if not self._undecided[e.id]]
+        # The positions, in topological order, of the ready elements to take: heaps. With
+        # threads, those that need no step wait in _decidable, with their results, and only
+        # those that do in _ready.
+        self._ready: list[int] = []
+        self._decidable: list[int] = []
+        self._decided_at: dict[int, ElementResult] = {}
         self._inbox: SimpleQueue[_Sighted | _Attempt | BaseException] = SimpleQueue()
         self._running = 0
+        for element in self._order:
+            if not self._undecided[element.id]:
+                self._became_ready(element)
 
     def execute(self) -> tuple[ElementResult, ...]:
         if self._jobs == 1:
@@ -321,27 +330,25 @@ class _Run:
         return tuple(self._results[element.id] for element in self._order)
 
     def _schedule(self, pool: ThreadPoolExecutor | None) -> None:
-        while self._ready or self._running:
+        while self._decidable or self._ready or self._running:
+            while self._decidable:
+                self._decide(self._decided_at.pop(heappop(self._decidable)))
             while self._ready and self._running < self._jobs:
                 self._take(self._order[heappop(self._ready)], pool)
             if self._running:
-                self._decide_without_steps()
-                self._receive(self._next())
+                for message in self._messages():
+                    self._receive(message)
 
-    def _decide_without_steps(self) -> None:
-        """With every thread busy, decide the ready elements that need no step, in
-        topological order, and those that this makes ready: a skip does not wait for a
-        slow step it does not depend on."""
-        while found := [
-            (position, settled)
-            for position in sorted(self._ready)
-            if isinstance(settled := self._settled(self._order[position]), ElementResult)
-        ]:
-            decided = {position for position, _ in found}
-            self._ready = [position for position in self._ready if position not in decided]
-            heapify(self._ready)
-            for _, result in found:
-                self._decide(result)
+    def _became_ready(self, element: Element) -> None:
+        """``element``'s supporters are all decided. With threads, one that needs no step
+        is decided before any other step starts, so that a skip never waits for a slow step
+        it does not depend on."""
+        position = self._position[element.id]
+        if self._jobs > 1 and isinstance(settled := self._settled(element), ElementResult):
+            self._decided_at[position] = settled
+            heappush(self._decidable, position)
+        else:
+            heappush(self._ready, position)
 
     def _settled(self, element: Element) -> ElementResult | Binding:
         """What ``element``, whose supporters are all decided, is without calling a step,
@@ -378,9 +385,24 @@ class _Run:
         try:
             self._inbox.put(_attempt(binding, arguments, context, self._inbox.put))
         # Whatever escapes is the runner's bug, or a step that raised KeyboardInterrupt: the
-        # thread that runs the run raises it again (_receive).
+        # thread that runs the run raises it again (_messages).
         except BaseException as error:  # NOSONAR
             self._inbox.put(error)
+
+    def _messages(self) -> list["_Sighted | _Attempt"]:
+        """The messages from the steps' threads: the next, and every other already sent.
+        If one is an exception, it is raised before any is handled, so that a run stopped
+        while another step ended starts no step in its place."""
+        messages = [self._next()]
+        while True:
+            try:
+                messages.append(self._inbox.get_nowait())
+            except Empty:
+                break
+        for message in messages:
+            if isinstance(message, BaseException):
+                raise message
+        return [message for message in messages if not isinstance(message, BaseException)]
 
     def _next(self) -> "_Sighted | _Attempt | BaseException":
         """The next message from a step's thread. The wait is cut short now and then, so
@@ -391,9 +413,7 @@ class _Run:
             except Empty:
                 continue
 
-    def _receive(self, message: "_Sighted | _Attempt | BaseException") -> None:
-        if isinstance(message, BaseException):
-            raise message
+    def _receive(self, message: "_Sighted | _Attempt") -> None:
         if isinstance(message, _Sighted):
             self._sighted(message)
         else:
@@ -416,7 +436,7 @@ class _Run:
         for supported in self._model.supported(element.id):
             self._undecided[supported.id] -= 1
             if not self._undecided[supported.id]:
-                heappush(self._ready, self._position[supported.id])
+                self._became_ready(supported)
 
     def _blocking(self, supporters: tuple[Element, ...]) -> tuple[str, ...]:
         """The elements that stop an element so supported: each supporter that did not
