@@ -402,28 +402,33 @@ def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace
     """Refuse, before anything runs, the outputs that could not be written, or that would
     overwrite what the run reads. The report may replace the baseline it was compared with,
     which was read already."""
-    outputs = _outputs(options)
     read = {identity(library): "a step library" for library in _libraries(options.library)}
     read[identity(options.justification)] = "the justification"
-    baseline = None if options.incremental is None else identity(Path(options.incremental))
+    with_baseline = dict(read)
+    if options.incremental is not None:
+        with_baseline[identity(Path(options.incremental))] = "the baseline"
     seen: dict[object, str] = {}
-    for flag, path in outputs.items():
+    for flag, path in _outputs(options).items():
         if path is None:
             continue
-        if flag != "--report" and baseline is not None and identity(path) == baseline:
-            command.error(f"{flag} {path}: the baseline, which the run reads")
-        if path.is_dir():
-            command.error(f"{flag} {path}: a directory, where a file is expected")
-        suffix = path.suffix.removeprefix(".").lower()
-        if flag == "--diagram" and suffix not in diagram.FORMATS:
-            formats = ", ".join(diagram.FORMATS)
-            command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
+        _check_output(command, flag, path)
         written = identity(path)
-        if (input_ := read.get(written)) is not None:
+        reads = read if flag == "--report" else with_baseline
+        if (input_ := reads.get(written)) is not None:
             command.error(f"{flag} {path}: {input_}, which the run reads")
         if (same := seen.get(written)) is not None:
             command.error(f"{same} and {flag} both write {path}")
         seen[written] = flag
+
+
+def _check_output(command: argparse.ArgumentParser, flag: str, path: Path) -> None:
+    """Refuse an output that is a directory, or a diagram in a format Graphviz lacks."""
+    if path.is_dir():
+        command.error(f"{flag} {path}: a directory, where a file is expected")
+    suffix = path.suffix.removeprefix(".").lower()
+    if flag == "--diagram" and suffix not in diagram.FORMATS:
+        formats = ", ".join(diagram.FORMATS)
+        command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
 
 
 def _outputs(options: argparse.Namespace) -> dict[str, Path | None]:
