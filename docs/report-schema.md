@@ -53,7 +53,7 @@ committed, compared with `diff`, or archived with the artifacts it lists.
 | `strict` | boolean | whether the run was strict: validation counted warnings as errors, and the command line failed a skipped verdict (`--strict`) |
 | `summary` | object | see [Summary](#summary) |
 | `elements` | array | every element of the justification, each after the elements that support it; see [Elements](#elements) |
-| `diagnostics` | array | every problem found, in the order found; see [Diagnostics](#diagnostics) |
+| `diagnostics` | array | every problem found: validation's, then each element's, in topological order; see [Diagnostics](#diagnostics) |
 | `diagram` | string or null | the path of the diagram drawn for the run, its dataflow, if one was |
 
 **Every way a run ends has a report**, but for a file that cannot be read at all, such
@@ -176,8 +176,8 @@ that is neither a file nor a variable, and says that a new run is needed.
 | `fix` | string or null | what to do about it |
 | `traceback` | object or null | the exception behind a `JP022` (a step raised) or a `JP020` (a library failed to import) |
 
-Validation's diagnostics come first, warnings included, then those of each element in the
-order run. A strict run reports validation's warnings as errors, and says so in `strict`.
+Validation's diagnostics come first, warnings included, then those of each element, in
+topological order, whatever the number of jobs. A strict run reports validation's warnings as errors, and says so in `strict`.
 
 A traceback keeps the frames of the step's or the library's own code, from the outermost
 call to where the exception was raised. It is structured rather than Python's text, so that

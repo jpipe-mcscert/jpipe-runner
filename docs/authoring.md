@@ -307,6 +307,9 @@ none of its steps relies on that order, or on the process being its own:
 - **An observable of your own keeps no state between calls**: its `observe` runs on the
   thread of the evidence that observes it, so two evidence may call it at once
   ([`observables.md`](observables.md#the-rules-an-observable-follows)).
+- **A step keeps nothing per thread.** It sees the context variables (`contextvars`) as
+  the run's thread has them, and a copy of `decimal`'s context, with the same settings and
+  flags of its own, but not what a library keeps in a `threading.local`.
 - **A step does not need the main thread.** With one job, it runs there; with more, it does
   not, and `signal.signal`, which only the main thread may call, raises.
 

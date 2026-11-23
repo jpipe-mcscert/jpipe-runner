@@ -33,14 +33,16 @@ thread that runs ``run``, whatever the number of jobs, an element after all its
 supporters, so it needs no lock.
 """
 
+import decimal
 import logging
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from contextvars import copy_context
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from heapq import heappop, heappush
 from pathlib import Path
 from queue import Empty, SimpleQueue
+from threading import Thread
 from traceback import TracebackException
 from types import MappingProxyType
 from typing import Any, Protocol
@@ -308,6 +310,10 @@ class _Run:
         self._ready: list[int] = []
         self._decidable: list[int] = []
         self._decided_at: dict[int, ElementResult] = {}
+        self._bound_at: dict[int, Binding] = {}
+        self._threads: list[Thread] = []
+        # The messages read from _inbox, not handled yet.
+        self._collected: list[_Sighted | _Attempt] = []
         self._inbox: SimpleQueue[_Sighted | _Attempt | BaseException] = SimpleQueue()
         self._running = 0
         for element in self._order:
@@ -315,26 +321,31 @@ class _Run:
                 self._became_ready(element)
 
     def execute(self) -> tuple[ElementResult, ...]:
-        if self._jobs == 1:
-            self._schedule(None)
-        else:
-            pool = ThreadPoolExecutor(self._jobs, thread_name_prefix="jpipe-runner-step")
-            try:
-                self._schedule(pool)
-            finally:
-                # Once every element is decided, no step is left. A run stopped before
-                # (KeyboardInterrupt) starts no other step, and waits for those still
-                # running, which a thread cannot stop, while the libraries they run from are
-                # still imported.
-                pool.shutdown(wait=True, cancel_futures=True)
+        try:
+            self._schedule()
+        finally:
+            # Once every element is decided, no step is left. A run stopped before
+            # (KeyboardInterrupt) starts no other step, and waits for those still running,
+            # which a thread cannot stop, while the libraries they run from are still
+            # imported. A second Ctrl-C stops the wait, and, the threads being daemons, lets
+            # the process exit.
+            self._wait_for_steps()
         return tuple(self._results[element.id] for element in self._order)
 
-    def _schedule(self, pool: ThreadPoolExecutor | None) -> None:
+    def _wait_for_steps(self) -> None:
+        for thread in self._threads:
+            while thread.is_alive():
+                thread.join(_WAKE_UP)
+
+    def _schedule(self) -> None:
         while self._decidable or self._ready or self._running:
             while self._decidable:
                 self._decide(self._decided_at.pop(heappop(self._decidable)))
             while self._ready and self._running < self._jobs:
-                self._take(self._order[heappop(self._ready)], pool)
+                # What the listener did since the last messages were read may have let a
+                # thread send an abort: it is raised before any other step starts.
+                self._collect()
+                self._take(heappop(self._ready))
             if self._running:
                 for message in self._messages():
                     self._receive(message)
@@ -344,10 +355,13 @@ class _Run:
         is decided before any other step starts, so that a skip never waits for a slow step
         it does not depend on."""
         position = self._position[element.id]
-        if self._jobs > 1 and isinstance(settled := self._settled(element), ElementResult):
+        if self._jobs == 1:
+            heappush(self._ready, position)
+        elif isinstance(settled := self._settled(element), ElementResult):
             self._decided_at[position] = settled
             heappush(self._decidable, position)
         else:
+            self._bound_at[position] = settled
             heappush(self._ready, position)
 
     def _settled(self, element: Element) -> ElementResult | Binding:
@@ -362,9 +376,11 @@ class _Run:
             return ElementResult(element, Status.SKIP, binding, reason, blocked_by)
         return ElementResult(element, Status.PASS) if binding is None else binding
 
-    def _take(self, element: Element, pool: ThreadPoolExecutor | None) -> None:
-        """Decide ``element``, whose supporters are all decided, or start its step."""
-        settled = self._settled(element)
+    def _take(self, position: int) -> None:
+        """Decide the element at ``position``, whose supporters are all decided, or start
+        its step."""
+        element = self._order[position]
+        settled = self._bound_at.pop(position, None) or self._settled(element)
         if isinstance(settled, ElementResult):
             self._decide(settled)
         else:
@@ -374,35 +390,58 @@ class _Run:
                 c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)
             }
             context = Context(binding.step.directory, self._root)
-            if pool is None:
+            if self._jobs == 1:
                 self._decide(self._tried(_attempt(binding, arguments, context, self._sighted)))
             else:
                 self._running += 1
-                pool.submit(self._work, binding, arguments, context)
+                # The step sees the context variables of the thread that runs the run, such
+                # as decimal's context, as it would on that thread.
+                thread = Thread(
+                    target=copy_context().run,
+                    args=(self._work, binding, arguments, context),
+                    name=f"jpipe-runner-step {element.id}",
+                    daemon=True,
+                )
+                self._threads.append(thread)
+                thread.start()
 
     def _work(self, binding: Binding, arguments: dict[str, Any], context: Context) -> None:
-        """What a thread of the pool does: try ``binding``'s step, and tell this run."""
+        """What a step's thread does: try ``binding``'s step, and tell this run. The step gets
+        a decimal context of its own, with the settings of the run's, so that the flags its
+        arithmetic sets reach neither another step nor the caller."""
+        decimal.setcontext(decimal.getcontext().copy())
         try:
             self._inbox.put(_attempt(binding, arguments, context, self._inbox.put))
         # Whatever escapes is the runner's bug, or a step that raised KeyboardInterrupt: the
-        # thread that runs the run raises it again (_messages).
+        # thread that runs the run raises it again (_keep).
         except BaseException as error:  # NOSONAR
             self._inbox.put(error)
 
     def _messages(self) -> list["_Sighted | _Attempt"]:
-        """The messages from the steps' threads: the next, and every other already sent.
-        If one is an exception, it is raised before any is handled, so that a run stopped
-        while another step ended starts no step in its place."""
-        messages = [self._next()]
+        """The messages from the steps' threads: those already collected, or the next, and
+        every other already sent. An exception among them is raised before any is handled,
+        so that a run stopped while another step ended starts no step in its place."""
+        if not self._collected:
+            self._keep(self._next())
+        self._collect()
+        messages, self._collected = self._collected, []
+        return messages
+
+    def _collect(self) -> None:
+        """Keep every message the steps' threads have sent, without waiting."""
         while True:
             try:
-                messages.append(self._inbox.get_nowait())
+                message = self._inbox.get_nowait()
             except Empty:
-                break
-        for message in messages:
-            if isinstance(message, BaseException):
-                raise message
-        return [message for message in messages if not isinstance(message, BaseException)]
+                return
+            self._keep(message)
+
+    def _keep(self, message: "_Sighted | _Attempt | BaseException") -> None:
+        """Keep ``message`` to handle, or raise it if it is an exception: the runner's bug,
+        or a step that raised KeyboardInterrupt."""
+        if isinstance(message, BaseException):
+            raise message
+        self._collected.append(message)
 
     def _next(self) -> "_Sighted | _Attempt | BaseException":
         """The next message from a step's thread. The wait is cut short now and then, so
