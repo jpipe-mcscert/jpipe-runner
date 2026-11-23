@@ -48,3 +48,46 @@ def test_scenario(
     paths = {str(workdir): "<scenario>", str(workdir.resolve()): "<scenario>"}
     report = normalize(json.loads(result.stdout), paths)
     assert_matches_golden(report, scenario.golden, update=update_goldens and jobs is None)
+
+
+@pytest.mark.skipif(not CLI_AVAILABLE, reason="needs the CLI (`python -m jpipe_runner`, #124)")
+@pytest.mark.parametrize("scenario", discover(), ids=lambda scenario: scenario.name)
+def test_an_incremental_run_with_nothing_changed_reports_what_its_baseline_did(
+    scenario: Scenario, tmp_path: Path
+) -> None:
+    # The golden report is the baseline (ADR-0039): nothing changed, so what can be reused
+    # is, and the report is the golden one, but for what says so.
+    workdir = tmp_path / scenario.name
+    shutil.copytree(
+        scenario.directory,
+        workdir,
+        ignore=shutil.ignore_patterns(GOLDEN_FILE, "__pycache__"),
+    )
+    golden = json.loads(scenario.golden.read_text(encoding="utf-8"))
+    (workdir.parent / "baseline.json").write_text(json.dumps(golden), encoding="utf-8")
+    command = scenario.command()
+    command[-1:-1] = ["--incremental", "../baseline.json"]
+
+    result = subprocess.run(
+        command, cwd=workdir, capture_output=True, text=True, timeout=60, check=False
+    )
+
+    assert result.returncode == scenario.exit_code, result.stderr
+    paths = {str(workdir): "<scenario>", str(workdir.resolve()): "<scenario>"}
+    report = normalize(json.loads(result.stdout), paths)
+    selection = report.pop("selection")
+    if golden["verdict"] in ("pass", "fail", "skip"):
+        assert selection["baseline"] == "../baseline.json"
+        # Only what the report cannot check again runs again: a hidden value, or one only
+        # its library can observe.
+        assert all(
+            "cannot be checked again" in why or " runs again" in why
+            for why in selection["rerun"].values()
+        ), selection["rerun"]
+    for element in report["elements"]:
+        reused = selection is not None and element["id"] not in selection["rerun"]
+        assert element.pop("reused") is reused
+    for element in golden["elements"]:
+        element.pop("reused")
+    golden.pop("selection")
+    assert report == golden

@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "readiness",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "tested_steps.test_coverage_is_measured",
       "bound_by": [
         "tested:coverage"
       ],
+      "library_sha256": "a8294382c68af3d2a629f42d82c30d9f356c6949583fe14ae57d8083124c1d1d",
       "observes": [
         "mock/coverage.txt"
       ],
@@ -68,10 +70,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "tested_steps.test_coverage_clears_the_bar",
       "bound_by": [
         "tested:testing"
       ],
+      "library_sha256": "a8294382c68af3d2a629f42d82c30d9f356c6949583fe14ae57d8083124c1d1d",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -100,8 +104,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -123,10 +129,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "documented_steps.documentation_coverage_is_measured",
       "bound_by": [
         "documented:coverage"
       ],
+      "library_sha256": "98b900356be3e1e7183e8ad25e5147911221a38f22830e9e843d03d564bb79c5",
       "observes": [
         "mock/doc-coverage.txt"
       ],
@@ -166,10 +174,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "documented_steps.documentation_coverage_clears_the_bar",
       "bound_by": [
         "documented:docs"
       ],
+      "library_sha256": "98b900356be3e1e7183e8ad25e5147911221a38f22830e9e843d03d564bb79c5",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -198,8 +208,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -221,10 +233,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "readiness_steps.both_coverages_clear_the_release_bar",
       "bound_by": [
         "readiness:assembleStrategy"
       ],
+      "library_sha256": "206febadceaf4f9feb0e81250bc79a290a63b1378d379b6d8f6ea270e6d528fa",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -255,8 +269,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -268,5 +284,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

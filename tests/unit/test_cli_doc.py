@@ -64,7 +64,7 @@ def test_the_exit_codes_table_lists_every_exit_code() -> None:
 
 
 def test_the_page_has_its_sessions() -> None:
-    assert len(SESSIONS) == 8
+    assert len(SESSIONS) == 9
 
 
 def _changed_since_a_run(capsys: pytest.CaptureFixture[str]) -> None:

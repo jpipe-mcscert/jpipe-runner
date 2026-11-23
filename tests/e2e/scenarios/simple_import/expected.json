@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "math_operation",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "math_operation.generate_number_a",
       "bound_by": [
         "E1"
       ],
+      "library_sha256": "aa50c7865948a33881130c4b963f221520939d3c58c3257ad108c9ef93318586",
       "observes": [
         "root_utils.py"
       ],
@@ -68,10 +70,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "math_operation.generate_number_b",
       "bound_by": [
         "E2"
       ],
+      "library_sha256": "aa50c7865948a33881130c4b963f221520939d3c58c3257ad108c9ef93318586",
       "observes": [
         "steps/step_utils.py"
       ],
@@ -111,10 +115,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "math_operation.generate_number_c",
       "bound_by": [
         "E3"
       ],
+      "library_sha256": "aa50c7865948a33881130c4b963f221520939d3c58c3257ad108c9ef93318586",
       "observes": [
         "root_runtime_utils.py"
       ],
@@ -154,10 +160,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "math_operation.generate_number_d",
       "bound_by": [
         "E4"
       ],
+      "library_sha256": "aa50c7865948a33881130c4b963f221520939d3c58c3257ad108c9ef93318586",
       "observes": [
         "steps/step_runtime_utils.py"
       ],
@@ -197,10 +205,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "math_operation.add_numbers",
       "bound_by": [
         "S1"
       ],
+      "library_sha256": "aa50c7865948a33881130c4b963f221520939d3c58c3257ad108c9ef93318586",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -242,8 +252,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -255,5 +267,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "string_operations",
   "verdict": "invalid",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.process_string",
       "bound_by": [
         "S1"
       ],
+      "library_sha256": "834b1f2fc9912cb35be5de3f3c48237cba54aca18c491ebf679c7d52d9361928",
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -48,10 +50,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.validate_string",
       "bound_by": [
         "C1"
       ],
+      "library_sha256": "834b1f2fc9912cb35be5de3f3c48237cba54aca18c491ebf679c7d52d9361928",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -79,5 +83,6 @@
       "traceback": null
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

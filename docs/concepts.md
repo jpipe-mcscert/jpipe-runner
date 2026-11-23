@@ -147,6 +147,14 @@ and its diagnostics, even when the model is refused or validation stops it; only
 that cannot be read at all, such as a missing justification, leaves an error on stderr
 and no report.
 
+### Incremental run
+
+A run that calls again only the steps whose files, code or declarations changed since an
+earlier run, and what they support, and takes every other element as that run decided
+it, from its JSON report, the **baseline** (`--incremental REPORT`). Its verdict is the
+whole argument's; its report says which elements were **reused**
+([`cli.md`](cli.md#incremental-runs)).
+
 ### Event
 
 What a run tells a program while it runs, with `--events`: that validation ended, that an

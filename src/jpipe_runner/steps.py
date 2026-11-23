@@ -27,9 +27,11 @@ ADR-0037), since a step that never reads an input is not a mistake its import ca
 """
 
 import dis
+import hashlib
 import inspect
 import keyword
 import re
+import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -107,6 +109,11 @@ class Step:
     """The artifacts it observes, passed to the function by name. Only evidence observes."""
     directory: Path = Path()
     """The directory of the file that declares it: what the paths it observes are relative to."""
+    library_sha256: str | None = None
+    """The SHA-256 of the code that declares it, taken when it was declared, so that an
+    incremental run reruns a step whose code changed (ADR-0039): of the file its decorator
+    is applied in and, if its function is defined in another, of that file after it.
+    ``None`` if either is no file, such as a function typed at a prompt, or cannot be read."""
 
     @property
     def name(self) -> str:
@@ -334,7 +341,16 @@ def _declare(
                 f"{existing.ids}: one function is one step"
             )
         _check_signature(kind, function, inputs, observes)
-        step = Step(kind, ids, function, inputs, produced, observes, _declared_in(function))
+        step = Step(
+            kind,
+            ids,
+            function,
+            inputs,
+            produced,
+            observes,
+            _declared_in(function),
+            _fingerprint(sys._getframe(1).f_code.co_filename, function),
+        )
         setattr(function, _STEP, step)
         return function
 
@@ -383,6 +399,24 @@ def _declared_in(function: Callable[..., Any]) -> Path:
     directory."""
     filename = inspect.unwrap(function).__code__.co_filename
     return Path() if filename.startswith("<") else Path(filename).parent
+
+
+def _fingerprint(applied_in: str, function: Callable[..., Any]) -> str | None:
+    """The SHA-256 of ``applied_in``, the file a decorator is applied in, and of the file
+    that defines ``function``, if another, read once, now, as the library is imported."""
+    defined_in = getattr(inspect.unwrap(function), "__code__", None)
+    filenames = dict.fromkeys(
+        (applied_in, defined_in.co_filename if isinstance(defined_in, CodeType) else "<>")
+    )
+    if any(filename.startswith("<") for filename in filenames):
+        return None
+    hashed = hashlib.sha256()
+    try:
+        for filename in filenames:
+            hashed.update(Path(filename).read_bytes())
+    except OSError:
+        return None
+    return hashed.hexdigest()
 
 
 def _is_name(name: object) -> bool:

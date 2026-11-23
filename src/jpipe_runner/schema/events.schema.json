@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "jpipe-runner events 1.0",
+  "title": "jpipe-runner events 1.1",
   "description": "One event of a run of jpipe-runner, as --events writes it: one JSON object per line (ADR-0030). The events preview the JSON report while the run goes on; the report stays the authority. An element and a diagnostic are written as the report writes them, so they follow report.schema.json, whose version run.started gives. Within a major version, a minor version only adds optional fields or events: a consumer ignores the fields and the events it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/events.md.",
   "oneOf": [
     {"$ref": "#/$defs/run.started"},
@@ -35,10 +35,10 @@
         "event": {"const": "run.started"},
         "seq": {"$ref": "#/$defs/seq"},
         "elapsed_ms": {"$ref": "#/$defs/elapsed_ms"},
-        "schema_version": {"const": "1.0"},
+        "schema_version": {"const": "1.1"},
         "report_schema_version": {
-          "description": "The version of report.schema.json that the elements and the diagnostics of this stream follow.",
-          "const": "2.0"
+          "description": "The version of report.schema.json that the elements and the diagnostics of this stream follow. 2.1 from events 1.1, whose elements say whether an incremental run reused them.",
+          "const": "2.1"
         },
         "justification": {
           "description": "The justification's name, or null if the model was refused.",

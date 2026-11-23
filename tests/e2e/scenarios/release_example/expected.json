@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "release",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_test_suite_passes",
       "bound_by": [
         "release:e1"
       ],
+      "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b",
       "observes": [
         "mock/junit.xml"
       ],
@@ -68,10 +70,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_changelog_is_up_to_date",
       "bound_by": [
         "release:e2"
       ],
+      "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b",
       "observes": [
         "mock/CHANGELOG.md"
       ],
@@ -111,10 +115,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.all_release_gates_pass",
       "bound_by": [
         "release:s"
       ],
+      "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -146,8 +152,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -159,5 +167,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

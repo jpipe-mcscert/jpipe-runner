@@ -236,7 +236,11 @@ function what it observes and consumes, and records what it returns
 ([ADR-0021](adr/0021-execution-semantics.md)). By default it calls one function at a time,
 in model order; `--jobs 2` would run `e1` and `e2` together, since nothing in the argument
 orders them, and `s` once both are decided, with the same report
-([ADR-0038](adr/0038-independent-steps-run-together.md)).
+([ADR-0038](adr/0038-independent-steps-run-together.md)). Given the report of an earlier
+run, `--incremental` would call only the functions whose files or code changed since,
+and what they support: after an edit of `mock/CHANGELOG.md`, `e2` and `s`, while `e1`'s
+outcome, and the `tests_pass` it produced, come from that report
+([ADR-0039](adr/0039-an-incremental-run-reruns-what-changed.md)).
 
 What follows is the text report of the run, as a terminal shows it: each element,
 supporters first, with a symbol for its status (`✔` passed, `✘` failed, `-` skipped), its
@@ -340,10 +344,12 @@ where two tests fail:
   "reason": "mock/junit.xml: 2 tests failed",
   "blocked_by": [],
   "ran": true,
+  "reused": false,
   "bound_to": "steps.the_test_suite_passes",
   "bound_by": [
     "release:e1"
   ],
+  "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b",
   "observes": [
     "mock/junit.xml"
   ],
