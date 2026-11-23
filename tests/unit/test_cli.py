@@ -13,13 +13,14 @@ import shutil
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 from jsonschema import Draft202012Validator
 
-from jpipe_runner import __version__, diagram, impact, json_report, loader
+from jpipe_runner import __version__, diagram, engine, impact, json_report, loader
 from jpipe_runner.cli import ExitCode, exit_code, main
-from jpipe_runner.engine import Verdict, run
+from jpipe_runner.engine import RunResult, Verdict, run
 from jpipe_runner.libraries import imported
 from jpipe_runner.observables import fingerprint
 from jpipe_runner.report import RunReport
@@ -395,6 +396,48 @@ def test_an_input_that_cannot_be_read_exits_4_without_a_report(
     assert problem in err
 
 
+# --- Jobs ----------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("jobs", ["1", "3", "auto"])
+def test_the_report_is_the_same_whatever_the_number_of_jobs(
+    jobs: str, release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, alone, _ = _main(capsys, "--json", *RELEASE)
+
+    assert _main(capsys, "--json", "--jobs", jobs, *RELEASE) == (code, alone, "")
+
+
+def test_jobs_auto_runs_one_step_per_cpu(
+    release: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    told: list[int] = []
+    real = engine.run
+
+    def counted(*arguments: Any, jobs: int, **options: Any) -> RunResult:
+        told.append(jobs)
+        return real(*arguments, jobs=jobs, **options)
+
+    monkeypatch.setattr(engine, "run", counted)
+    monkeypatch.setattr(os, "cpu_count", lambda: 64)
+    # Python 3.13 and later count the CPUs the process may use.
+    monkeypatch.setattr(os, "process_cpu_count", lambda: 6, raising=False)
+    _main(capsys, "--jobs", "auto", *RELEASE)
+    # Before, the affinity mask says which, where the platform has one, as Linux does.
+    monkeypatch.delattr(os, "process_cpu_count")
+    monkeypatch.setattr(os, "sched_getaffinity", lambda _: {0, 1}, raising=False)
+    _main(capsys, "--jobs", "auto", *RELEASE)
+    # Elsewhere, every CPU counts.
+    monkeypatch.delattr(os, "sched_getaffinity")
+    _main(capsys, "--jobs", "auto", *RELEASE)
+    # A CPU count Python cannot tell is one job.
+    monkeypatch.setattr(os, "cpu_count", lambda: None)
+    _main(capsys, "--jobs", "auto", *RELEASE)
+    _main(capsys, *RELEASE)
+
+    assert told == [6, 2, 64, 1, 1]
+
+
 # --- Usage ---------------------------------------------------------------------------------
 
 
@@ -411,6 +454,9 @@ def test_an_input_that_cannot_be_read_exits_4_without_a_report(
         pytest.param(["-v", "-q", *RELEASE], id="verbose and quiet"),
         pytest.param(["-v", "name:value", *RELEASE], id="v3's --variable"),
         pytest.param(["--colour", "red", *RELEASE], id="an unknown colour choice"),
+        pytest.param(["--jobs", "0", *RELEASE], id="no job"),
+        pytest.param(["--jobs", "-2", *RELEASE], id="fewer than no job"),
+        pytest.param(["--jobs", "two", *RELEASE], id="a number of jobs that is no number"),
     ],
 )
 def test_a_wrong_command_line_exits_2_before_anything_runs(

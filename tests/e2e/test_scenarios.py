@@ -17,16 +17,23 @@ CLI_AVAILABLE = importlib.util.find_spec("jpipe_runner.__main__") is not None
 
 
 @pytest.mark.skipif(not CLI_AVAILABLE, reason="needs the CLI (`python -m jpipe_runner`, #124)")
+@pytest.mark.parametrize("jobs", [None, "4"], ids=["one-job", "four-jobs"])
 @pytest.mark.parametrize("scenario", discover(), ids=lambda scenario: scenario.name)
-def test_scenario(scenario: Scenario, tmp_path: Path, update_goldens: bool) -> None:
+def test_scenario(
+    scenario: Scenario, jobs: str | None, tmp_path: Path, update_goldens: bool
+) -> None:
+    # Four jobs give the same report as one, the default, which writes the golden file.
     workdir = tmp_path / scenario.name
     shutil.copytree(
         scenario.directory,
         workdir,
         ignore=shutil.ignore_patterns(GOLDEN_FILE, "__pycache__"),
     )
+    command = scenario.command()
+    if jobs is not None:
+        command[-1:-1] = ["--jobs", jobs]
     result = subprocess.run(
-        scenario.command(),
+        command,
         cwd=workdir,
         capture_output=True,
         text=True,
@@ -40,4 +47,4 @@ def test_scenario(scenario: Scenario, tmp_path: Path, update_goldens: bool) -> N
     # tmp_path may sit behind a symlink (macOS: /var -> /private/var); hide both spellings.
     paths = {str(workdir): "<scenario>", str(workdir.resolve()): "<scenario>"}
     report = normalize(json.loads(result.stdout), paths)
-    assert_matches_golden(report, scenario.golden, update=update_goldens)
+    assert_matches_golden(report, scenario.golden, update=update_goldens and jobs is None)

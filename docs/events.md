@@ -89,9 +89,10 @@ is this, and nothing more:
 
 The events of two elements may come in any order, and one element's may come between
 another's `element.started` and `element.decided`: do not count on the elements coming in
-the order of `run.started`'s `elements`, or one at a time. Today the runner calls one step
-at a time, but a later one may call independent steps together
-([#174](https://github.com/jpipe-mcscert/jpipe-runner/issues/174)), with the same events.
+the order of `run.started`'s `elements`, or one at a time. With `--jobs`, the runner
+calls independent steps together, each on a thread of its own, and their events
+interleave; the events are the same
+([ADR-0038](adr/0038-independent-steps-run-together.md)).
 
 **Time.** `elapsed_ms` is the number of milliseconds since the file was opened, on a clock
 that never goes back. It makes the events, unlike the report, differ from one run to the

@@ -10,7 +10,7 @@ A ``RunReport`` is built for every way a run can end, including those in which n
 
 It lists the model's elements in topological order, each with its status (``None`` when
 nothing ran), the step bound to it and what that step declares, and what the run observed
-and produced; then every diagnostic, in the order found. A report is plain data, built
+and produced; then every diagnostic, each element's in topological order. A report is plain data, built
 once: the renderers are pure functions of it, and the engine prints nothing.
 """
 
@@ -204,8 +204,8 @@ class RunReport:
     elements: tuple[ElementReport, ...] = ()
     """Every element of the model, in topological order; none if the model was refused."""
     diagnostics: tuple[Diagnostic, ...] = ()
-    """Every problem found, in the order found: loading, importing or validation, then
-    each element's run."""
+    """Every problem found: loading, importing or validation, then each element's run, in
+    topological order."""
     strict: bool = False
     """Whether validation counted warnings as errors."""
     diagram: str | None = None

@@ -11,7 +11,7 @@ name alone: two steps may produce the same variable, and each consumer receives 
 of the one among its supporters (ADR-0031).
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Final, Literal
@@ -42,7 +42,8 @@ class ProducedValue:
 
 class ValueStore:
     """The values produced during one run, each under its variable and its producer, in
-    the order produced.
+    the order they were put; a run's ``RunResult`` holds them in the order of their
+    producers (``sorted_by``), whatever order its steps ended in.
 
     An element's step produces a variable once. Producing it again is a ``ValueError``: a
     step runs once, and declares each variable it produces once, so a second write can
@@ -65,13 +66,22 @@ class ValueStore:
         return UNSET if entry is None else entry.value
 
     def producers(self, name: str) -> tuple[str, ...]:
-        """The ids of the elements that produced ``name``, in the order they produced it."""
+        """The ids of the elements that produced ``name``, in the store's order."""
         return tuple(producer for producer, produced in self._values if produced == name)
 
     def entries(self) -> Iterator[tuple[str, ProducedValue]]:
-        """Every produced value and its variable, in the order produced: a variable two
+        """Every produced value and its variable, in the store's order: a variable two
         elements produced appears twice, each time with its producer."""
         return ((name, value) for (_, name), value in self._values.items())
+
+    def sorted_by(self, producers: Sequence[str]) -> "ValueStore":
+        """The same values, ordered by their producers as ``producers`` lists them, each
+        producer's in the order it produced them: a run's, whatever order its steps ended
+        in. Every producer is in ``producers``."""
+        rank = {producer: i for i, producer in enumerate(producers)}
+        ordered = ValueStore()
+        ordered._values = dict(sorted(self._values.items(), key=lambda item: rank[item[0][0]]))
+        return ordered
 
     def __contains__(self, name: object) -> bool:
         """Whether some element produced the variable ``name``."""
