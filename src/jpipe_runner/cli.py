@@ -22,6 +22,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
+import uuid
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout, suppress
 from dataclasses import dataclass
@@ -782,14 +783,19 @@ def _save(path: Path | None, report: RunReport) -> bool:
     is never cut short."""
     if path is None:
         return True
-    written = path.with_name(f".{path.name}.writing")
+    # A name of its own, created here and nowhere else, with the permissions of any file.
+    written, created = path.with_name(f".{path.name}.{uuid.uuid4().hex}.writing"), False
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        written.write_text(json_report.dumps(report), encoding="utf-8")
+        descriptor = os.open(written, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        created = True
+        with open(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json_report.dumps(report))
         written.replace(path)
     except OSError as error:
-        with contextlib.suppress(OSError):
-            written.unlink(missing_ok=True)
+        if created:
+            with contextlib.suppress(OSError):
+                written.unlink()
         # An error is one line on stderr, not a traceback (ADR-0023).
         _LOG.error("cannot write the report to %s: %s", path, _reason(error))  # NOSONAR
         return False

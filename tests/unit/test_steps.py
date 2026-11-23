@@ -521,6 +521,43 @@ def test_a_step_is_fingerprinted_with_the_library_that_exposes_it(
     assert step.library_sha256 == hashlib.sha256(both).hexdigest()
 
 
+def test_a_step_is_fingerprinted_with_its_wrappers(tmp_path: Path) -> None:
+    helpers, library = tmp_path / "helpers.py", tmp_path / "library.py"
+    helpers.write_text(
+        "import functools\n"
+        "def logged(function):\n"
+        "    @functools.wraps(function)\n"
+        "    def wrapper(*args, **kwargs):\n"
+        "        return function(*args, **kwargs)\n"
+        "    return wrapper\n",
+        encoding="utf-8",
+    )
+    library.write_text(
+        "@logged\n@evidence('m:e')\ndef check():\n    return Pass()\n", encoding="utf-8"
+    )
+    wrapping = _library(helpers, {})
+    module = _library(library, {"evidence": evidence, "Pass": Pass, "logged": wrapping.logged})
+
+    (step,) = StepRegistry.from_modules([module])
+
+    # A new wrapper in helpers is a new fingerprint.
+    both = library.read_bytes() + helpers.read_bytes()
+    assert step.library_sha256 == hashlib.sha256(both).hexdigest()
+
+
+def test_a_step_whose_library_cannot_be_read_has_no_fingerprint(tmp_path: Path) -> None:
+    @evidence("m:e")
+    def check() -> Outcome:
+        return Pass()
+
+    step = step_of(check)
+    assert step is not None
+
+    (registered,) = StepRegistry([step], {step: str(tmp_path / "gone.py")})
+
+    assert registered.library_sha256 is None
+
+
 def test_a_step_is_fingerprinted_once_its_registry_is_built() -> None:
     @evidence("m:e")
     def check() -> Outcome:

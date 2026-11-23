@@ -288,11 +288,14 @@ class StepRegistry:
     list it.
     """
 
-    def __init__(self, steps: Iterable[Step]) -> None:
-        fingerprints = _Fingerprints()
+    def __init__(
+        self, steps: Iterable[Step], libraries: Mapping[Step, str | None] | None = None
+    ) -> None:
+        """``steps``, each fingerprinted once, with the file of the module that exposes it,
+        when ``libraries`` gives one, and its code."""
+        fingerprints, exposed_in = _Fingerprints(), libraries or {}
         self._steps = tuple(
-            step if step.library_sha256 is not None else fingerprints.of(step)
-            for step in dict.fromkeys(steps)
+            fingerprints.of(step, exposed_in.get(step)) for step in dict.fromkeys(steps)
         )
 
     @classmethod
@@ -304,10 +307,8 @@ class StepRegistry:
             for value in vars(module).values():
                 if (step := step_of(value)) is not None:
                     exposed.setdefault(step, module)
-        fingerprints = _Fingerprints()
         return cls(
-            fingerprints.of(step, getattr(module, "__file__", None))
-            for step, module in exposed.items()
+            exposed, {step: getattr(module, "__file__", None) for step, module in exposed.items()}
         )
 
     @property
@@ -433,12 +434,25 @@ class _Fingerprints:
 
     def of(self, step: Step, library: str | None = None) -> Step:
         """``step``, with the SHA-256 of ``library``, the file of the module that exposes
-        it, if it has one, and of its code."""
-        files = tuple(dict.fromkeys((*([library] if library else []), *step.code)))
+        it, if it has one, of its code, and of every wrapper around it."""
+        exposed = [library] if library else []
+        files = tuple(dict.fromkeys((*exposed, *step.code, *_wrapped_in(step.function))))
         if files not in self._taken:
             self._taken[files] = _sha256(files) if step.code else None
         # replace returns a Step, which mypy checks; Sonar types it as any dataclass.
         return replace(step, library_sha256=self._taken[files])  # NOSONAR
+
+
+def _wrapped_in(function: Callable[..., Any]) -> Iterator[str]:
+    """The file of ``function``, and of every function it wraps (``functools.wraps``)."""
+    seen: set[int] = set()
+    current: object = function
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        code = getattr(current, "__code__", None)
+        if isinstance(code, CodeType):
+            yield code.co_filename
+        current = getattr(current, "__wrapped__", None)
 
 
 def _sha256(files: tuple[str, ...]) -> str | None:
