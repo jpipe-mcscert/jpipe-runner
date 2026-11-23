@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.4.0] - 2026-11-22
+## [4.4.0] - 2026-11-23
 
 ### Added
 - **`--jobs N` runs independent steps together**, up to `N` at a time, each on a thread of
