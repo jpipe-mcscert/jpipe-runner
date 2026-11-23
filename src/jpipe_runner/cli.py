@@ -170,6 +170,14 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="validate the step libraries against the justification, and call no step",
     )
+    run.add_argument(
+        "--jobs",
+        type=_jobs,
+        default=1,
+        metavar="N",
+        help="run up to N steps at a time, each on a thread of its own, when the argument "
+        "does not order them; auto runs one per CPU (default: 1)",
+    )
     outputs = parser.add_argument_group("outputs")
     outputs.add_argument(
         "--json",
@@ -206,6 +214,19 @@ def parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _jobs(text: str) -> int:
+    """How many steps may run at a time: a positive integer, or ``auto``, one per CPU this
+    process may use."""
+    if text == "auto":
+        # os.process_cpu_count, new in Python 3.13, counts only the CPUs the process may use.
+        counted: int | None = getattr(os, "process_cpu_count", os.cpu_count)()
+        return counted or 1
+    jobs = int(text) if text.isdigit() else 0
+    if jobs < 1:
+        raise argparse.ArgumentTypeError(f"expected a positive number or auto, not {text!r}")
+    return jobs
+
+
 def impact_parser() -> argparse.ArgumentParser:
     """The parser of ``jpipe-runner impact``."""
     parser = _Parser(
@@ -237,7 +258,7 @@ def impact_parser() -> argparse.ArgumentParser:
         help="the files that differ from the git revision REF, and those git does not track",
     )
     _add_logging(parser)
-    parser.set_defaults(strict=False, dry_run=True)
+    parser.set_defaults(strict=False, dry_run=True, jobs=1)
     return parser
 
 
@@ -648,6 +669,7 @@ def _report(
                 root=root,
                 dry_run=options.dry_run,
                 listener=stream,
+                jobs=options.jobs,
             )
     except LibraryLoadError as error:
         report = RunReport.not_imported(justification, error, strict=options.strict, root=root)

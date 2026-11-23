@@ -11,7 +11,7 @@ every exit code. [`tutorial.md`](tutorial.md) walks through a first run,
 ```
 jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...
              [--json] [--report PATH] [--events PATH] [--diagram PATH]
-             [--strict] [--dry-run] [--colour {auto,always,never}]
+             [--strict] [--dry-run] [--jobs N|auto] [--colour {auto,always,never}]
              [-v | -vv | -q] [--version]  JUSTIFICATION
 jpipe-runner impact -l … [-p …]... (--changed PATH [--changed …]... | --since REF) JUSTIFICATION
 jpipe-runner status REPORT
@@ -54,6 +54,7 @@ $ echo $?
 | `-p DIR`, `--python-path DIR` | A directory the step libraries import modules from, such as the one that holds a helper module; repeat it for several. Nothing else is importable: pass `-p .` to import modules from the working directory. |
 | `--strict` | Count validation's warnings as errors, and fail a skipped justification (exit 1). |
 | `--dry-run` | Validate the step libraries against the justification, and call no step: the verdict is `valid`, or `invalid`. |
+| `--jobs N` | Run up to `N` steps at a time, each on a thread of its own, when the argument does not order them; `auto` runs one per CPU. The default, `1`, runs one step at a time, in model order. The report is the same: see [running steps together](#running-steps-together). |
 | `--json` | Print the JSON report on stdout, instead of the text report. |
 | `--report PATH` | Write the JSON report to `PATH`, whatever stdout shows. |
 | `--events PATH` | Write the run's events to `PATH` as the run goes, one JSON object per line, for a program that shows the run while it runs: see [`events.md`](events.md). |
@@ -67,7 +68,7 @@ $ echo $?
 ## Outputs
 
 **stdout carries the report, and nothing else.** By default it is the text report, for
-the person at the terminal: one line per element, in the order run, then the diagnostics,
+the person at the terminal: one line per element, supporters first, then the diagnostics,
 the summary and the verdict. Its layout may change in any release. With `--json`, it is
 the JSON report instead, the contract for programs, described in
 [`report-schema.md`](report-schema.md). `--report PATH` writes the JSON report to a file
@@ -114,8 +115,8 @@ justification or a step library, is a usage error, and so nothing runs:
 
 ```console
 $ jpipe-runner --library steps.py --diagram release.png --report release.png justification.json
-usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
-                    [--report PATH] [--events PATH] [--diagram PATH]
+usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--jobs N]
+                    [--json] [--report PATH] [--events PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
 jpipe-runner: error: --report and --diagram both write release.png
@@ -133,8 +134,8 @@ run created is removed
 
 ```console
 $ jpipe-runner --library steps.py --events mock/junit.xml justification.json
-usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--json]
-                    [--report PATH] [--events PATH] [--diagram PATH]
+usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--jobs N]
+                    [--json] [--report PATH] [--events PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
 jpipe-runner: error: --events mock/junit.xml: mock/junit.xml, which steps.the_test_suite_passes observes
@@ -196,6 +197,43 @@ Its JSON report lists every element, with its step and what that step declares, 
 null status. `--dry-run --diagram flow.svg` draws the dataflow the library declares
 without running it. A library that does not validate gives `invalid`, and exit code 3, as
 any run would.
+
+## Running steps together
+
+By default a run calls one step at a time, in model order. Most evidence steps run
+something and wait for it, a test suite, a scanner, a build, and most do not depend on
+each other: the argument only says that a strategy comes after the evidence that supports
+it. `--jobs N` runs up to `N` such steps at a time, each on a thread of its own, and
+`--jobs auto` one per CPU. A step still starts only once every element that supports it is
+decided, so the release example's two evidence steps run together, and its strategy after
+both:
+
+```console
+$ jpipe-runner --library steps.py --jobs 2 justification.json
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✔ Evidence    The test suite passes         # release:e1
+  ✔ Evidence    The changelog is up to date   # release:e2
+  ✔ Strategy    All release gates pass        # release:s
+  ✔ Conclusion  Version 2.0 is ready to ship  # release:c
+
+4 elements (4 passed)
+verdict: pass
+```
+
+**The report is the same** whatever the number of jobs: the elements are listed in the
+same order, with the same statuses. Only the [events](events.md) show which steps ran
+together, since an element's events may come between another's.
+
+**It is for libraries written for it.** A library that relies on model order breaks: if
+one step writes a file that an evidence observes, the evidence may run first and fail with
+`JP019`, since nothing in an argument can make an evidence wait for another step. So may a
+library whose steps change the working directory or the environment. [`authoring.md`](authoring.md#steps-that-run-together) says
+what a step must not do to run with `--jobs`.
+
+**Ctrl-C** stops the run: no other step starts, and the command waits for those already
+running, which a thread cannot stop, before it exits.
 
 ## Logging
 

@@ -1,6 +1,6 @@
 """The text report: a run as a person reads it in a terminal, in the manner of Cucumber.
 
-Each element is a line, in the order run: a symbol for its status, its kind, its label,
+Each element is a line, supporters first: a symbol for its status, its kind, its label,
 and its id as a comment. An element that did not pass says why underneath, and a failed
 evidence names the files it observed. Then come the diagnostics, each with its fix and,
 for an exception, its traceback; then the summary, and the verdict last.

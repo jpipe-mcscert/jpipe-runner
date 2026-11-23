@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`--jobs N` runs independent steps together**, up to `N` at a time, each on a thread of
+  its own, and `--jobs auto` one per CPU. A step still starts only once everything that
+  supports it is decided, so two evidence under one strategy run at once, and the strategy
+  after both. The report is the same, in the same order, whatever the number of jobs; only
+  the events interleave, as their order already allowed. The default, `1`, is the run as
+  before, one step at a time in model order. **A library must be ready for it**: a step
+  that writes a file another evidence observes, changes the working directory or the
+  environment, or changes a value it consumes, may break with `--jobs`, and nothing checks
+  it ([`authoring.md`](docs/authoring.md#steps-that-run-together),
+  [ADR-0038](docs/adr/0038-independent-steps-run-together.md), #174).
+
 ## [4.3.0] - 2026-11-22
 
 ### ⚠️ Breaking
