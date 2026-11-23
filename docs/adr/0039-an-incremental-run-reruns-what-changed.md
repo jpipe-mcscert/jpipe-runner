@@ -65,14 +65,18 @@ special case. A file that is not a report of a version this runner reads is a us
 - its step's declarations differ from the baseline's: the step it is bound to, the ids that
   bind it, what it observes, consumes and produces, and where each input comes from;
 - its step's library changed: the report records, for each bound element, the SHA-256 of
-  the file that declares its step (`library_sha256`, new in report 2.1): the file its
-  decorator is applied in, and the one that defines its function after it, if another,
-  read as the library is imported, so that it is the code that ran. One the baseline does
-  not record, or a step with no file, counts as changed;
+  the files that declare its step (`library_sha256`, new in report 2.1): the library that
+  exposes it, the file its decorator is applied in, and the one that defines its function,
+  each once, read right after the libraries are imported, so that it is the code that ran,
+  and a step a factory makes in another module changes with the library that calls it.
+  One the baseline does not record, or a step with no file, counts as changed;
 - something it observed changed since, as `jpipe-runner status` finds it: a file changed,
   vanished, appeared or was added to a glob, or an environment variable changed; or what it
   observed cannot be checked from the report, because it is hidden or observed by the
   library's own observable;
+- it failed in the baseline: a failure may not be the step's, such as a network that was
+  down, and a run that kept it would fail until something else changed; as a build tool
+  never keeps a failed action;
 - it is above an element that reruns: everything an element supports, up to the
   conclusion;
 - a step that reruns consumes a value it produced, and the baseline cannot pass that value
@@ -82,9 +86,10 @@ special case. A file that is not a report of a version this runner reads is a us
 
 The rest is **reused**: the element is decided as the baseline decided it, before any step
 it supports runs, with the baseline's status, reason, `blocked_by`, `ran`, observed files
-and diagnostics, tracebacks included. Its produced values are passed to the steps that rerun
-and consume them as the baseline holds them, which is as they were produced. Since what reruns is closed upwards, an element reused has only reused
-supporters, and the baseline's decision still holds.
+and run-time diagnostics, which are warnings: an error fails its element. Its produced
+values are passed to the steps that rerun and consume them as the baseline holds them,
+which is as they were produced. Since what reruns is closed upwards, an element reused has
+only reused supporters, and the baseline's decision still holds.
 
 **The report** says which is which. Each element has `reused`, true when it was taken from
 the baseline; a top-level `selection`, null for a full run, holds the baseline, as given on
@@ -106,6 +111,7 @@ the report does, so `element.decided` carries `reused`.
   `impact` and `status` are.
 - Bad, because the library's file is a coarse fingerprint: changing one step reruns every
   step the file declares, and a change to a module the step imports reruns nothing.
+- Bad, because a step that fails for good reruns on every run, until it is fixed.
 - Bad, because a value JSON cannot give back as it was, a tuple or a `Path`, reruns its
   producer whenever a step that reruns consumes it.
 

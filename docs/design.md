@@ -766,16 +766,16 @@ validation as always, then asks `Baseline.reuse` which elements to take as they 
 renders the result a dry run would have returned as a JSON document, and compares it with
 the baseline. Every element runs again when the baseline ran no step, is of another
 justification, or has other elements or `supports`. Otherwise an element runs again when
-its step's declarations differ, when the SHA-256 of the file that declares its step,
-taken by the decorator as the library is imported (`Step.library_sha256`), differs, when
-`impact.stale` or `impact.unverified` names something it observed, when it is above one
-that runs again, and when one that runs again consumes a value of it the baseline cannot
+its step's declarations differ, when the SHA-256 of the files that declare its step
+differs (`Step.library_sha256`: the decorator records the files of its code, `Step.code`,
+and the `StepRegistry` hashes them with the library that exposes the step, once per file,
+right after the import), when `impact.stale` or `impact.unverified` names something it
+observed, when it failed in the baseline, when it is above one that runs again, and when one that runs again consumes a value of it the baseline cannot
 pass as it was produced: one it holds as its `repr`, or as JSON with the `type` JSON lost.
 The rest is decoded from the baseline into `ElementResult`s marked `reused`, such values as
 `records.Uncopied` and `records.Decoded`, so that the report writes them again as the
 baseline did: the engine decides each as it was, stores its other values in the run's
-`ValueStore`, and
-never calls its step. Its run-time diagnostics come with it, each with its traceback as
-recorded (`Diagnostic.recorded`, which `Trace.decoded` reads), and not validation's, which
-this run reports again. The report says which elements reran, and why, in its
+`ValueStore`, and never calls its step. Its run-time diagnostics come with it, warnings
+only, since an error fails its element, and not validation's, which this run reports
+again. The report says which elements reran, and why, in its
 `Selection`.

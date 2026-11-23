@@ -14,8 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   JSON report of that run, the baseline, the runner calls again the evidence whose files
   changed, vanished, appeared or were added to a glob, or whose environment variables
   changed, as `jpipe-runner status` finds them, or whose observations the report cannot
-  check again; the steps whose library file or declarations changed; and everything above
-  those, up to the conclusion. Every other element is taken as the baseline decided it,
+  check again; the steps whose library file or declarations changed; the elements that
+  failed, since a failure may not be the step's; and everything above those, up to the
+  conclusion. Every other element is taken as the baseline decided it,
   with its values, which the steps that run again receive as the baseline holds them; a
   value it cannot pass as it was produced, one it holds only as its `repr`, or as JSON
   that reads it back as another type, such as a tuple, makes its producer run again. The
@@ -28,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **The JSON report is version 2.1, and the events 1.1.** The report adds `selection`,
   what an incremental run ran again and why, null for a full run, and, for each element,
-  `reused` and `library_sha256`, the SHA-256 of the file that declares its step; a
+  `reused` and `library_sha256`, the SHA-256 of the files that declare its step; a
   produced value that is JSON gives its `type` when JSON reads it back as another, such
   as a tuple. Within 2.x, these are new optional fields: a reader that ignores fields it
   does not know, as the schema asks, needs no change. The events write elements as the

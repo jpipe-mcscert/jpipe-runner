@@ -13,6 +13,7 @@ report shows, are relative to the working directory.
 """
 
 import argparse
+import contextlib
 import glob
 import logging
 import os
@@ -776,13 +777,19 @@ def _draw(
 
 
 def _save(path: Path | None, report: RunReport) -> bool:
-    """Write the JSON report to ``path``, if one is given; whether it was written."""
+    """Write the JSON report to ``path``, if one is given; whether it was written. It is
+    written whole or not at all, so that a report an incremental run reads as its baseline
+    is never cut short."""
     if path is None:
         return True
+    written = path.with_name(f".{path.name}.writing")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json_report.dumps(report), encoding="utf-8")
+        written.write_text(json_report.dumps(report), encoding="utf-8")
+        written.replace(path)
     except OSError as error:
+        with contextlib.suppress(OSError):
+            written.unlink(missing_ok=True)
         # An error is one line on stderr, not a traceback (ADR-0023).
         _LOG.error("cannot write the report to %s: %s", path, _reason(error))  # NOSONAR
         return False

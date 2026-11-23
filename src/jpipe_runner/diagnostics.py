@@ -8,12 +8,11 @@ while the steps run, an ``ERROR`` fails the element it is about, and the run goe
 ``WARNING`` is reported and changes nothing else.
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from traceback import FrameSummary, StackSummary, TracebackException
-from typing import Any
 
 _PACKAGE = Path(__file__).resolve().parent
 
@@ -37,9 +36,6 @@ class Diagnostic:
     """The exception behind it, when there is one: a step that raised (``JP022``), a library
     that failed to import (``JP020``). Trimmed to the user's frames by ``user_traceback``.
     It is not part of what makes two diagnostics equal."""
-    recorded: Mapping[str, Any] | None = field(default=None, compare=False, repr=False)
-    """The traceback as an earlier report recorded it, for a diagnostic an incremental run
-    takes from its baseline (ADR-0039), which has no exception to hold."""
 
     def __str__(self) -> str:
         where = f" [{self.element}]" if self.element else ""

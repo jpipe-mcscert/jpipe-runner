@@ -181,7 +181,9 @@ def _incremental(selection: Selection, elements: int) -> str:
     if not selection.rerun:
         return f"incremental: nothing changed since {selection.baseline}, every element reused"
     if len(selection.rerun) == elements:
-        return f"incremental: every element ran again ({next(iter(selection.rerun.values()))})"
+        reasons = set(selection.rerun.values())
+        why = f" ({reasons.pop()})" if len(reasons) == 1 else ""
+        return f"incremental: every element ran again{why}"
     ran = f"{len(selection.rerun)} of {_plural(elements, 'element')}"
     return f"incremental: {ran} ran again, the rest reused from {selection.baseline}"
 

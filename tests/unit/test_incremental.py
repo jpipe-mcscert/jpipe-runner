@@ -168,7 +168,8 @@ def test_a_value_json_reads_back_as_another_type_reruns_its_producer(
     _, again = library.run(Baseline("base.json", _typed(first), library.root))
 
     assert _rerun(again)["e1"] == (
-        "s consumes 'text', which the baseline records only as JSON, not as a steps.Text"
+        "s consumes 'text', which the baseline records as JSON that does not give back the "
+        "steps.Text it was"
     )
     assert sorted(library.called()) == ["e1", "e2", "s"]
 
@@ -215,7 +216,7 @@ def test_a_step_that_changes_a_reused_value_changes_nothing_reported(tmp_path: P
 
 def test_a_producer_that_recorded_no_value_is_reused(library: Library) -> None:
     _, first = library.run()
-    failed = _changed(first, "e1", status="fail", reason="broken", produced={})
+    failed = _changed(first, "e1", status="skip", reason="not today", produced={})
     (library.root / "e2.txt").write_text("changed", encoding="utf-8")
     library.calls.clear()
 
@@ -305,38 +306,44 @@ def test_a_baseline_that_cannot_stand_for_the_run_reruns_everything(
     assert not any(each["reused"] for each in again["elements"])
 
 
-def test_a_reused_element_brings_its_diagnostics_and_traceback_not_validation_s(
+def test_a_failed_element_runs_again_and_a_reused_one_brings_its_warnings(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "e1.txt").write_text("one", encoding="utf-8")
+    (tmp_path / "e2.txt").write_text("two", encoding="utf-8")
+    calls: list[str] = []
 
     @evidence("e1", observes={"log": "e1.txt"}, produces=["text"])
-    def raises(log: Path) -> Outcome:
-        raise RuntimeError(f"cannot read {log.name}")
+    def undeclared(log: Path) -> Outcome:  # returns a value it does not declare: JP024
+        calls.append("e1")
+        return Pass(text=log.name, extra=1)
 
-    @evidence("e2", observes={"log": "absent.txt"}, produces=["path"])
-    def unreachable(log: Path) -> Outcome:
-        return Pass(path=log)
+    @evidence("e2", observes={"log": "e2.txt"}, produces=["path"])
+    def raises(log: Path) -> Outcome:  # as a network that is down would: JP022
+        calls.append("e2")
+        raise RuntimeError(f"cannot read {log.name}")
 
     @strategy("s", consumes=["text", "path"])
     def ignores(text: str, path: Path) -> Outcome:  # never reads them: JP027, a warning
         return Pass()
 
-    steps = [step_of(f) for f in (raises, unreachable, ignores)]
+    steps = [step_of(f) for f in (undeclared, raises, ignores)]
     registry = StepRegistry(step for step in steps if step is not None)
     first = run(MODEL, registry, root=tmp_path)
     document = json_report.document(RunReport.of(first, tmp_path))
+    calls.clear()
 
     baseline = Baseline("base.json", document, tmp_path)
     again = run(MODEL, registry, root=tmp_path, reuse=baseline.reuse)
     report = RunReport.of(again, tmp_path, baseline.selection)
 
-    assert [d.code for d in again.diagnostics] == [d.code for d in first.diagnostics]
+    assert calls == ["e2"]
+    assert baseline.selection is not None
+    assert baseline.selection.rerun["e2"] == "it failed in the baseline"
+    assert again.result("e1").reused
+    assert sorted(d.code for d in again.diagnostics) == sorted(d.code for d in first.diagnostics)
     raised = next(d for d in again.diagnostics if d.code == STEP_RAISED)
-    assert raised.traceback is None
-    recorded = next(d for d in first.diagnostics if d.code == STEP_RAISED)
-    assert report.trace(raised) == RunReport.of(first, tmp_path).trace(recorded)
-    assert again.result("e2").reached == first.result("e2").reached
+    assert raised.traceback is not None  # its own, from this run
     assert _without_reuse(json_report.document(report)) == _without_reuse(document)
 
 
@@ -486,9 +493,7 @@ def test_a_baseline_that_cannot_be_read_exits_4(
     assert out == ""
 
 
-def test_a_skipped_element_is_reused_as_skipped(
-    capsys: pytest.CaptureFixture[str], release: Path
-) -> None:
+def test_a_failed_element_runs_again(capsys: pytest.CaptureFixture[str], release: Path) -> None:
     (release / "mock" / "junit.xml").write_text(
         '<testsuite tests="2" failures="1"/>', encoding="utf-8"
     )
@@ -499,11 +504,12 @@ def test_a_skipped_element_is_reused_as_skipped(
     assert code == ExitCode.FAILED
     report = json.loads(out)
     assert [(e["status"], e["reused"]) for e in report["elements"]] == [
-        ("fail", True),
+        ("fail", False),
         ("pass", True),
-        ("skip", True),
-        ("skip", True),
+        ("skip", False),
+        ("skip", False),
     ]
+    assert report["selection"]["rerun"]["release:e1"] == "it failed in the baseline"
     assert report["verdict"] == str(Verdict.FAIL)
 
 

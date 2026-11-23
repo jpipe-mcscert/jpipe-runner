@@ -285,8 +285,10 @@ argument's**, as a full run's would be, and so is the exit code.
   or an environment variable that changed, as [`status`](#staleness) finds them, or
   something the report cannot check again: a hidden value, or one only the library's own
   observable can see;
-- whose step library changed: the report records the SHA-256 of the file that declares each
-  step, taken when the library was imported, so editing a library runs its steps again;
+- whose step library changed: the report records the SHA-256 of the files that declare each
+  step, read when the library was imported, so editing a library runs its steps again;
+- that failed last time: its failure may not be its step's, such as a network that was
+  down, so a failure is never reused;
 - whose step declares something else than last time, or is another step;
 - above one that runs again, up to the conclusion;
 - whose value a step that runs again consumes, when the report cannot pass that value as it

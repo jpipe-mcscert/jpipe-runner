@@ -191,25 +191,8 @@ class Trace:
 
     @classmethod
     def carried_by(cls, diagnostic: Diagnostic, root: Path = Path()) -> "Trace | None":
-        """The traceback ``diagnostic`` carries, as the report shows it, if it carries one:
-        its exception's, or the one an earlier report recorded."""
-        if diagnostic.traceback is not None:
-            return cls.of(diagnostic.traceback, root)
-        return None if diagnostic.recorded is None else cls.decoded(diagnostic.recorded)
-
-    @classmethod
-    def decoded(cls, recorded: Mapping[str, Any]) -> "Trace":
-        """A traceback as a report recorded it (``json_report``)."""
-        cause = recorded["cause"]
-        return cls(
-            recorded["exception"],
-            recorded["message"],
-            tuple(
-                Frame(frame["file"], frame["line"], frame["function"], frame["code"])
-                for frame in recorded["frames"]
-            ),
-            None if cause is None else cls.decoded(cause),
-        )
+        """The traceback ``diagnostic`` carries, as the report shows it, if it carries one."""
+        return None if diagnostic.traceback is None else cls.of(diagnostic.traceback, root)
 
     @classmethod
     def of(cls, trace: TracebackException, root: Path = Path()) -> "Trace":
