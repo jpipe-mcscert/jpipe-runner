@@ -258,8 +258,9 @@ def test_an_interrupt_on_a_step_s_thread_stops_the_run(root: Path) -> None:
         called.append("e3")
         return Pass()
 
+    registry = _library(_interrupt, Pass, recorded)
     with pytest.raises(KeyboardInterrupt):
-        run(THREE, _library(_interrupt, Pass, recorded), root=root, jobs=1)
+        run(THREE, registry, root=root, jobs=1)
     assert called == []
 
 
@@ -277,8 +278,9 @@ def test_an_interrupted_run_waits_for_the_steps_still_running(root: Path) -> Non
         ended.append("e2")
         return Pass()
 
+    registry = _library(interrupts, slow, Pass)
     with pytest.raises(KeyboardInterrupt):
-        run(THREE, _library(interrupts, slow, Pass), root=root, jobs=2)
+        run(THREE, registry, root=root, jobs=2)
     # e2 ended before run returned, while its library was still imported; e3 never started.
     assert ended == ["e2"]
 
@@ -291,8 +293,9 @@ def test_a_runner_bug_on_a_step_s_thread_reaches_the_caller(
 
     monkeypatch.setattr(engine, "observe", broken)
 
+    registry = _library(Pass, Pass, Pass)
     with pytest.raises(RuntimeError, match="a runner bug"):
-        run(THREE, _library(Pass, Pass, Pass), root=root, jobs=2)
+        run(THREE, registry, root=root, jobs=2)
 
 
 def test_the_run_looks_again_while_a_step_runs_long(
@@ -351,5 +354,6 @@ def test_the_listener_is_told_on_the_run_s_thread_and_of_a_source_while_its_step
 
 @pytest.mark.parametrize("jobs", [0, -1])
 def test_a_run_needs_at_least_one_job(root: Path, jobs: int) -> None:
+    registry = _library(Pass, Pass, Pass)
     with pytest.raises(ValueError, match="at least one job"):
-        run(THREE, _library(Pass, Pass, Pass), root=root, jobs=jobs)
+        run(THREE, registry, root=root, jobs=jobs)
