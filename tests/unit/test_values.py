@@ -118,3 +118,20 @@ def test_no_function_rebinds_module_state() -> None:
         if isinstance(node, ast.Global | ast.Nonlocal)
     ]
     assert offenders == []
+
+
+def test_sorted_by_orders_the_values_by_their_producers_and_keeps_each_one_s_order() -> None:
+    store = ValueStore()
+    store.put("b", 2, "e2")
+    store.put("a", 1, "e1")
+    store.put("c", 3, "e2")
+
+    ordered = store.sorted_by(["e1", "e2"])
+
+    assert [(name, value.produced_by) for name, value in ordered.entries()] == [
+        ("a", "e1"),
+        ("b", "e2"),
+        ("c", "e2"),
+    ]
+    assert ordered.producers("b") == ("e2",)
+    assert [name for name, _ in store.entries()] == ["b", "a", "c"]

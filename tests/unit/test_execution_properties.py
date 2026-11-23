@@ -44,6 +44,8 @@ Calls = list[tuple[str, dict[str, Any]]]
 
 OWN_STATUS = {PASS: Status.PASS, FAIL: Status.FAIL, SKIP: Status.SKIP, RAISE: Status.FAIL}
 OBSERVED = "log.txt"
+JOBS = [1, 3]
+"""One step at a time, the default, and several: the result is the same (ADR-0038)."""
 
 
 def _load(model: dict[str, Any]) -> Justification:
@@ -174,13 +176,16 @@ def root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return directory
 
 
+@pytest.mark.parametrize("jobs", JOBS)
 @given(planned)
-def test_a_run_matches_the_oracle(root: Path, drawn: tuple[dict[str, Any], Plan]) -> None:
+def test_a_run_matches_the_oracle(
+    root: Path, jobs: int, drawn: tuple[dict[str, Any], Plan]
+) -> None:
     model, plan = drawn
     justification = _load(model)
     calls: Calls = []
 
-    result = run(justification, _library(justification, plan, calls), root=root)
+    result = run(justification, _library(justification, plan, calls), root=root, jobs=jobs)
 
     assert result.validation.passed, result.validation.errors
     expected = _expected(justification, plan)
@@ -188,33 +193,45 @@ def test_a_run_matches_the_oracle(root: Path, drawn: tuple[dict[str, Any], Plan]
     assert [r.element.id for r in result] == [e.id for e in justification.topological_order()]
 
 
+@pytest.mark.parametrize("jobs", JOBS)
 @given(planned)
 def test_steps_are_called_once_supporters_first_and_only_when_reached(
-    root: Path, drawn: tuple[dict[str, Any], Plan]
+    root: Path,
+    jobs: int,
+    drawn: tuple[dict[str, Any], Plan],
 ) -> None:
     model, plan = drawn
     justification = _load(model)
     calls: Calls = []
 
-    run(justification, _library(justification, plan, calls), root=root)
+    run(justification, _library(justification, plan, calls), root=root, jobs=jobs)
 
     called = [element_id for element_id, _ in calls]
-    assert called == [
+    expected = [
         element.id
         for element in justification.topological_order()
         if plan[element.id] is not None and _reached(justification, element, plan)
     ]
+    if jobs == 1:
+        assert called == expected
+    else:  # in any order that calls an element's supporters before it
+        assert sorted(called) == sorted(expected)
+        for i, element_id in enumerate(called):
+            assert not {u.id for u in justification.upstream(element_id)} & set(called[i:])
 
 
+@pytest.mark.parametrize("jobs", JOBS)
 @given(planned)
 def test_a_strategy_receives_what_its_evidence_produced(
-    root: Path, drawn: tuple[dict[str, Any], Plan]
+    root: Path,
+    jobs: int,
+    drawn: tuple[dict[str, Any], Plan],
 ) -> None:
     model, plan = drawn
     justification = _load(model)
     calls: Calls = []
 
-    run(justification, _library(justification, plan, calls), root=root)
+    run(justification, _library(justification, plan, calls), root=root, jobs=jobs)
 
     for element_id, arguments in calls:
         if justification.element(element_id).kind is Kind.STRATEGY:
@@ -225,12 +242,15 @@ def test_a_strategy_receives_what_its_evidence_produced(
             }
 
 
+@pytest.mark.parametrize("jobs", JOBS)
 @given(planned)
-def test_the_verdict_is_the_worst_status(root: Path, drawn: tuple[dict[str, Any], Plan]) -> None:
+def test_the_verdict_is_the_worst_status(
+    root: Path, jobs: int, drawn: tuple[dict[str, Any], Plan]
+) -> None:
     model, plan = drawn
     justification = _load(model)
 
-    result = run(justification, _library(justification, plan, []), root=root)
+    result = run(justification, _library(justification, plan, []), root=root, jobs=jobs)
 
     statuses = {status for status, _ in _expected(justification, plan).values()}
     if Status.FAIL in statuses:
@@ -241,13 +261,16 @@ def test_the_verdict_is_the_worst_status(root: Path, drawn: tuple[dict[str, Any]
         assert result.verdict is Verdict.PASS
 
 
+@pytest.mark.parametrize("jobs", JOBS)
 @given(planned)
 def test_the_report_lists_every_element_as_run_and_adds_up(
-    root: Path, drawn: tuple[dict[str, Any], Plan]
+    root: Path,
+    jobs: int,
+    drawn: tuple[dict[str, Any], Plan],
 ) -> None:
     model, plan = drawn
     justification = _load(model)
-    result = run(justification, _library(justification, plan, []), root=root)
+    result = run(justification, _library(justification, plan, []), root=root, jobs=jobs)
 
     report = RunReport.of(result, root)
 
@@ -262,9 +285,12 @@ def test_the_report_lists_every_element_as_run_and_adds_up(
     assert report.verdict is result.verdict
 
 
+@pytest.mark.parametrize("jobs", JOBS)
 @given(planned)
 def test_the_events_preview_the_report_each_element_after_its_supporters(
-    root: Path, drawn: tuple[dict[str, Any], Plan]
+    root: Path,
+    jobs: int,
+    drawn: tuple[dict[str, Any], Plan],
 ) -> None:
     model, plan = drawn
     justification = _load(model)
@@ -273,7 +299,9 @@ def test_the_events_preview_the_report_each_element_after_its_supporters(
     stream = EventStream(written, root=root)
     stream.run_started(justification, strict=False, dry_run=False)
 
-    result = run(justification, _library(justification, plan, calls), root=root, listener=stream)
+    result = run(
+        justification, _library(justification, plan, calls), root=root, listener=stream, jobs=jobs
+    )
 
     found = [json.loads(line) for line in written.getvalue().splitlines()]
     for event in found:
@@ -290,6 +318,7 @@ def test_the_events_preview_the_report_each_element_after_its_supporters(
             element_id = event["element"]["id"]
             assert {s.id for s in justification.supporters(element_id)} <= seen
             seen.add(element_id)
-    assert [event["id"] for event in of(found, "element.started")] == [
-        element_id for element_id, _ in calls
-    ]
+    started = [event["id"] for event in of(found, "element.started")]
+    called = [element_id for element_id, _ in calls]
+    # With several jobs, two steps started one after the other may be called the other way.
+    assert started == called if jobs == 1 else sorted(started) == sorted(called)

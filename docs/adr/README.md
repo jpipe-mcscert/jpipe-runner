@@ -34,7 +34,7 @@ and add a row to this table.
 | [0018](0018-evidence-declares-observed-artifacts.md) | Evidence declares the artifacts it observes | accepted, amended by [0019](0019-evidence-observes-files.md) |
 | [0019](0019-evidence-observes-files.md) | Evidence observes files, recorded just before its step runs | accepted |
 | [0020](0020-importing-step-libraries.md) | Import step libraries as modules named after their files, for one run | accepted |
-| [0021](0021-execution-semantics.md) | Failures and skips propagate as skips; a step's mistakes fail its element | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) |
+| [0021](0021-execution-semantics.md) | Failures and skips propagate as skips; a step's mistakes fail its element | accepted, amended by [0024](0024-dry-run-verdict-and-both-diagrams.md) and [0038](0038-independent-steps-run-together.md) |
 | [0022](0022-diagrams-follow-the-compiler.md) | Diagrams follow the compiler's, with a status overlay and a dataflow view | superseded by [0029](0029-the-runner-draws-the-dataflow.md) |
 | [0023](0023-the-command-line.md) | The command line: one command, its subcommands, its outputs and its exit codes | accepted, amended by [0029](0029-the-runner-draws-the-dataflow.md), [0030](0030-a-run-streams-its-events.md) and [0035](0035-an-output-never-overwrites-what-the-run-observes.md) |
 | [0024](0024-dry-run-verdict-and-both-diagrams.md) | A dry run validates and is `valid`; the report records both diagrams | accepted, amended by [0029](0029-the-runner-draws-the-dataflow.md) |
@@ -51,3 +51,4 @@ and add a row to this table.
 | [0035](0035-an-output-never-overwrites-what-the-run-observes.md) | An output never overwrites what the run observes | accepted |
 | [0036](0036-a-step-runs-on-the-kind-it-was-written-for.md) | A step runs on the kind it was written for, as the element's origins say | accepted |
 | [0037](0037-a-step-reads-what-it-is-passed.md) | A step reads what it is passed, as its bytecode shows | accepted |
+| [0038](0038-independent-steps-run-together.md) | Independent steps run together, on threads, when asked | accepted |

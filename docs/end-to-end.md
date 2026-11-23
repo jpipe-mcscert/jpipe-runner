@@ -233,10 +233,13 @@ Once the library passes validation, the runner calls the functions supporters fi
 observes is there, and records it: its path, its SHA-256 and its size, as the function is
 about to read it ([ADR-0019](adr/0019-evidence-observes-files.md)). Then it passes each
 function what it observes and consumes, and records what it returns
-([ADR-0021](adr/0021-execution-semantics.md)).
+([ADR-0021](adr/0021-execution-semantics.md)). By default it calls one function at a time,
+in model order; `--jobs 2` would run `e1` and `e2` together, since nothing in the argument
+orders them, and `s` once both are decided, with the same report
+([ADR-0038](adr/0038-independent-steps-run-together.md)).
 
-What follows is the text report of the run, as a terminal shows it: each element in the
-order it was run, with a symbol for its status (`✔` passed, `✘` failed, `-` skipped), its
+What follows is the text report of the run, as a terminal shows it: each element,
+supporters first, with a symbol for its status (`✔` passed, `✘` failed, `-` skipped), its
 kind, its label and its id; under an element that did not pass, why, and for a failed
 evidence, the files it observed; then the summary and the verdict. The JSON report of
 step 7 records every observed file, with its hash. With both mock files in place,

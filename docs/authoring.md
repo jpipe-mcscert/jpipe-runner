@@ -265,7 +265,8 @@ A step that raises an exception fails, and its traceback is kept: see
 
 Once validation passes, the runner calls the steps supporters first, each once, in an
 order that depends only on the model
-([ADR-0021](adr/0021-execution-semantics.md)).
+([ADR-0021](adr/0021-execution-semantics.md)), or several at a time with `--jobs` (see
+[below](#steps-that-run-together)).
 
 - **A step is called only when everything it is supported by passed.** It receives, by
   name, the values it consumes, as its supporters produced them, and for evidence the
@@ -281,6 +282,35 @@ order that depends only on the model
   that composition turned into a sub-conclusion (a cross-check, `JP008`).
 - **The justification fails** if an element failed, **is skipped** if none failed and one
   was skipped, and **passes** when every element passed.
+
+### Steps that run together
+
+`jpipe-runner --jobs N` runs up to `N` steps at a time, each on a thread of its own
+([ADR-0038](adr/0038-independent-steps-run-together.md)). A step still runs only once
+everything that supports it is decided; what the argument leaves independent, such as two
+evidence under one strategy, may run at the same moment, where one step at a time would
+have run them in model order. The report is the same. A library is ready for `--jobs` when
+none of its steps relies on that order, or on the process being its own:
+
+- **A step writes nothing another step observes.** Only an evidence observes, and nothing
+  supports an evidence, so no argument can say that one evidence runs after the step that
+  writes its file: run together, it may read the file before it is written, or half
+  written, and fail with `JP019` or record the wrong hash. Build the file before the run, as
+  the job that runs `jpipe-runner` does, or let one evidence both write and check it, and
+  produce what it found as a value.
+- **A step changes nothing the process shares**: not the working directory (`os.chdir`),
+  not `os.environ`, not a module's globals. Pass `cwd=` and `env=` to the command it runs
+  instead, as `subprocess.run` takes them. What concurrent steps print interleaves.
+- **A step changes nothing it consumes.** Every consumer of a variable receives the same
+  object; run together, two consumers that change it race. The report records each value as
+  it was produced, so it is right either way.
+- **An observable of your own keeps no state between calls**: its `observe` runs on the
+  thread of the evidence that observes it, so two evidence may call it at once
+  ([`observables.md`](observables.md#the-rules-an-observable-follows)).
+- **A step does not need the main thread.** With one job, it runs there; with more, it does
+  not, and `signal.signal`, which only the main thread may call, raises.
+
+Nothing checks these rules: run the library with `--jobs` once they hold.
 
 ### When a step goes wrong
 

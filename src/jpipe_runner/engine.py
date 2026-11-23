@@ -1,7 +1,10 @@
 """The engine: running a step library against its model, supporters first (ADR-0021).
 
 ``run`` validates the library against the model (ADR-0010), and runs it only if no
-error was reported. Each element is then taken in topological order:
+error was reported. Each element is then taken once every element that supports it is
+decided, in topological order when one step runs at a time, the default; with more jobs,
+independent steps run together, each on a thread of its own, and the result is the same,
+in the same order (ADR-0038):
 
 - an element a supporter of which did not pass is **skipped**, and ``blocked_by`` names
   the elements upstream that stopped it: those that failed, or were skipped, on their own
@@ -26,14 +29,18 @@ A ``RunListener`` is told as the run goes: when validation ends, when the steps 
 to run, with the result a dry run would have returned (ADR-0032), when an element's step is
 about to be called, when each source it observes was observed, and when each element is
 decided (ADR-0030). It is called from the
-thread that runs ``run``, an element after all its supporters, so it needs no lock.
+thread that runs ``run``, whatever the number of jobs, an element after all its
+supporters, so it needs no lock.
 """
 
 import logging
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
+from heapq import heappop, heappush
 from pathlib import Path
+from queue import Empty, SimpleQueue
 from traceback import TracebackException
 from types import MappingProxyType
 from typing import Any, Protocol
@@ -56,6 +63,10 @@ DECLARED_VALUE_MISSING = "JP023"
 UNDECLARED_VALUE = "JP024"
 
 _LOG = logging.getLogger(__name__)
+
+_WAKE_UP = 0.1
+"""How long, in seconds, the run waits for a step's thread before it looks again: a wait
+that Ctrl-C can interrupt on every platform."""
 
 
 class Status(StrEnum):
@@ -167,7 +178,8 @@ class _Silent:
 
 @dataclass(frozen=True)
 class RunResult:
-    """The outcome of a run: validation, then each element's result, in the order run."""
+    """The outcome of a run: validation, then each element's result, in topological
+    order."""
 
     justification: Justification
     bindings: BindingTable
@@ -195,7 +207,8 @@ class RunResult:
 
     @property
     def diagnostics(self) -> tuple[Diagnostic, ...]:
-        """What validation reported, then what each element's run did, in the order run."""
+        """What validation reported, then what each element's run did, in topological
+        order."""
         found = [d for result in self.elements for d in result.diagnostics]
         return (*self.validation.diagnostics, *found)
 
@@ -218,6 +231,7 @@ def run(
     root: Path = Path(),
     dry_run: bool = False,
     listener: RunListener | None = None,
+    jobs: int = 1,
 ) -> RunResult:
     """Validate ``registry`` against ``justification``, then run it if nothing is an error.
 
@@ -226,8 +240,11 @@ def run(
     observes are relative to the file that declares its step. A ``dry_run`` stops after
     validation, and calls no step. The steps run in this process: a run of libraries
     imported with ``libraries.imported`` happens inside that context. ``listener`` is told
-    of the run as it goes.
+    of the run as it goes. ``jobs`` is how many steps may run at a time: with more than
+    one, each on a thread of its own; the result is the same, in the same order (ADR-0038).
     """
+    if jobs < 1:
+        raise ValueError(f"a run needs at least one job, not {jobs}")
     listener = _Silent() if listener is None else listener
     ctx = ValidationContext.of(justification, registry)
     report = RULES.run(ctx, strict=strict)
@@ -246,15 +263,33 @@ def run(
         return planned
     listener.steps_starting(planned)
     values = ValueStore()
-    elements = _Run(ctx, values, root, listener).execute()
+    elements = _Run(ctx, values, root, listener, jobs).execute()
+    # The values in the order of their producers, whatever order the steps ended in.
+    values = values.sorted_by([result.element.id for result in elements])
     return replace(planned, elements=elements, values=values, dry_run=False)  # NOSONAR
 
 
 class _Run:
-    """One execution of a validated library: the results so far, and the values produced."""
+    """One execution of a validated library: the results so far, the values produced, and
+    the elements ready to be decided.
+
+    An element is ready once every element that supports it is decided, and the ready one
+    that comes first in topological order is taken first. With one job, its step is called
+    on this thread, so the elements are decided in topological order. With more, an element
+    is settled once, when it becomes ready: one that needs no step is decided at once,
+    whatever the threads are doing, and up to ``jobs`` steps run at a time, each on a thread
+    of its own, which observes the step's artifacts and calls it. What it observed, then
+    what the step returned, come back through ``_inbox``, and everything else happens on
+    this thread (ADR-0038).
+    """
 
     def __init__(
-        self, ctx: ValidationContext, values: ValueStore, root: Path, listener: RunListener
+        self,
+        ctx: ValidationContext,
+        values: ValueStore,
+        root: Path,
+        listener: RunListener,
+        jobs: int,
     ) -> None:
         self._model = ctx.justification
         self._bindings = ctx.bindings
@@ -262,19 +297,62 @@ class _Run:
         self._values = values
         self._root = root
         self._listener = listener
+        self._jobs = jobs
         self._results: dict[str, ElementResult] = {}
+        self._order = self._model.topological_order()
+        self._position = {element.id: i for i, element in enumerate(self._order)}
+        self._undecided = {e.id: len(self._model.supporters(e.id)) for e in self._order}
+        # The positions, in topological order, of the ready elements to take: heaps. With
+        # threads, those that need no step wait in _decidable, with their results, and only
+        # those that do in _ready.
+        self._ready: list[int] = []
+        self._decidable: list[int] = []
+        self._decided_at: dict[int, ElementResult] = {}
+        self._inbox: SimpleQueue[_Sighted | _Attempt | BaseException] = SimpleQueue()
+        self._running = 0
+        for element in self._order:
+            if not self._undecided[element.id]:
+                self._became_ready(element)
 
     def execute(self) -> tuple[ElementResult, ...]:
-        for element in self._model.topological_order():
-            result = self._result_of(element)
-            if result.binding is not None:
-                result = replace(result, inputs=self._dataflow.received(element.id))
-            _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
-            self._results[element.id] = result
-            self._listener.element_decided(result)
-        return tuple(self._results.values())
+        if self._jobs == 1:
+            self._schedule(None)
+        else:
+            pool = ThreadPoolExecutor(self._jobs, thread_name_prefix="jpipe-runner-step")
+            try:
+                self._schedule(pool)
+            finally:
+                # Once every element is decided, no step is left. A run stopped before
+                # (KeyboardInterrupt) starts no other step, and waits for those still
+                # running, which a thread cannot stop, while the libraries they run from are
+                # still imported.
+                pool.shutdown(wait=True, cancel_futures=True)
+        return tuple(self._results[element.id] for element in self._order)
 
-    def _result_of(self, element: Element) -> ElementResult:
+    def _schedule(self, pool: ThreadPoolExecutor | None) -> None:
+        while self._decidable or self._ready or self._running:
+            while self._decidable:
+                self._decide(self._decided_at.pop(heappop(self._decidable)))
+            while self._ready and self._running < self._jobs:
+                self._take(self._order[heappop(self._ready)], pool)
+            if self._running:
+                for message in self._messages():
+                    self._receive(message)
+
+    def _became_ready(self, element: Element) -> None:
+        """``element``'s supporters are all decided. With threads, one that needs no step
+        is decided before any other step starts, so that a skip never waits for a slow step
+        it does not depend on."""
+        position = self._position[element.id]
+        if self._jobs > 1 and isinstance(settled := self._settled(element), ElementResult):
+            self._decided_at[position] = settled
+            heappush(self._decidable, position)
+        else:
+            heappush(self._ready, position)
+
+    def _settled(self, element: Element) -> ElementResult | Binding:
+        """What ``element``, whose supporters are all decided, is without calling a step,
+        or the binding whose step must be called."""
         binding = self._bindings.binding_for(element.id)
         supporters = self._model.supporters(element.id)
         if binding is None and not supporters:
@@ -282,10 +360,83 @@ class _Run:
         if blocked_by := self._blocking(supporters):
             reason = f"not run: {', '.join(blocked_by)} did not pass"
             return ElementResult(element, Status.SKIP, binding, reason, blocked_by)
-        if binding is None:
-            return ElementResult(element, Status.PASS)
-        self._listener.element_started(element)
-        return self._call(binding)
+        return ElementResult(element, Status.PASS) if binding is None else binding
+
+    def _take(self, element: Element, pool: ThreadPoolExecutor | None) -> None:
+        """Decide ``element``, whose supporters are all decided, or start its step."""
+        settled = self._settled(element)
+        if isinstance(settled, ElementResult):
+            self._decide(settled)
+        else:
+            binding = settled
+            self._listener.element_started(element)
+            arguments = {
+                c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)
+            }
+            context = Context(binding.step.directory, self._root)
+            if pool is None:
+                self._decide(self._tried(_attempt(binding, arguments, context, self._sighted)))
+            else:
+                self._running += 1
+                pool.submit(self._work, binding, arguments, context)
+
+    def _work(self, binding: Binding, arguments: dict[str, Any], context: Context) -> None:
+        """What a thread of the pool does: try ``binding``'s step, and tell this run."""
+        try:
+            self._inbox.put(_attempt(binding, arguments, context, self._inbox.put))
+        # Whatever escapes is the runner's bug, or a step that raised KeyboardInterrupt: the
+        # thread that runs the run raises it again (_messages).
+        except BaseException as error:  # NOSONAR
+            self._inbox.put(error)
+
+    def _messages(self) -> list["_Sighted | _Attempt"]:
+        """The messages from the steps' threads: the next, and every other already sent.
+        If one is an exception, it is raised before any is handled, so that a run stopped
+        while another step ended starts no step in its place."""
+        messages = [self._next()]
+        while True:
+            try:
+                messages.append(self._inbox.get_nowait())
+            except Empty:
+                break
+        for message in messages:
+            if isinstance(message, BaseException):
+                raise message
+        return [message for message in messages if not isinstance(message, BaseException)]
+
+    def _next(self) -> "_Sighted | _Attempt | BaseException":
+        """The next message from a step's thread. The wait is cut short now and then, so
+        that KeyboardInterrupt stops the run on every platform."""
+        while True:
+            try:
+                return self._inbox.get(timeout=_WAKE_UP)
+            except Empty:
+                continue
+
+    def _receive(self, message: "_Sighted | _Attempt") -> None:
+        if isinstance(message, _Sighted):
+            self._sighted(message)
+        else:
+            self._running -= 1
+            self._decide(self._tried(message))
+
+    def _sighted(self, sighted: "_Sighted") -> None:
+        for source, reachable in sighted.observed.sources:
+            self._listener.source_observed(sighted.element, source, reachable)
+
+    def _decide(self, result: ElementResult) -> None:
+        """Record ``result``, tell the listener, and make ready what it was the last
+        undecided supporter of."""
+        element = result.element
+        if result.binding is not None:
+            result = replace(result, inputs=self._dataflow.received(element.id))
+        _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
+        self._results[element.id] = result
+        self._listener.element_decided(result)
+        for supported in self._model.supported(element.id):
+            self._undecided[supported.id] -= 1
+            if not self._undecided[supported.id]:
+                self._became_ready(supported)
 
     def _blocking(self, supporters: tuple[Element, ...]) -> tuple[str, ...]:
         """The elements that stop an element so supported: each supporter that did not
@@ -297,37 +448,27 @@ class _Run:
                 roots.update(result.blocked_by or (supporter.id,))
         return tuple(element.id for element in self._model.in_model_order(roots))
 
-    def _call(self, binding: Binding) -> ElementResult:
-        element, step = binding.element, binding.step
-        observed = observe(step.observes, Context(step.directory, self._root), element.id)
-        for source, reachable in observed.sources:
-            self._listener.source_observed(element, source, reachable)
-        result = self._called(binding, observed)
+    def _tried(self, attempt: "_Attempt") -> ElementResult:
+        """The result of a step tried: failed if something could not be reached, if it
+        raised, or if it returned anything but an outcome; otherwise, what it returned."""
+        binding, observed = attempt.binding, attempt.observed
+        observations = observed.observations
+        if not observed.reachable:
+            result = _failed(binding, observed.diagnostics, observed=observations, ran=False)
+        elif attempt.raised is not None:
+            error = attempt.raised
+            raised = _raised(binding.element, error, user_traceback(error), self._root)
+            result = _failed(binding, (raised,), observed=observations)
+        else:
+            try:
+                outcome = as_outcome(attempt.returned, binding.element.id)
+            except NotAnOutcomeError as error:
+                result = _failed(binding, (error.diagnostic,), observed=observations)
+            else:
+                result = self._judged(binding, outcome, observations)
         # SonarCloud types dataclasses.replace as returning any dataclass (S5886); mypy
         # --strict checks that this is an ElementResult.
         return replace(result, reached=observed.sources)  # NOSONAR
-
-    def _called(self, binding: Binding, observed: Observed) -> ElementResult:
-        """The result of ``binding``'s step, called with what it ``observed``, unless
-        something could not be reached."""
-        element, step = binding.element, binding.step
-        if not observed.reachable:
-            return _failed(binding, observed.diagnostics, observed=observed.observations, ran=False)
-        arguments = {c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)}
-        arguments.update(observed.arguments)
-        _LOG.debug("calling %s for %s", step.name, element.id)
-        try:
-            returned = step.function(**arguments)
-        # A step that calls sys.exit() fails its element, rather than end the run without a
-        # report; KeyboardInterrupt still stops it (ADR-0021).
-        except (Exception, SystemExit) as error:  # NOSONAR
-            raised = _raised(element, error, user_traceback(error), self._root)
-            return _failed(binding, (raised,), observed=observed.observations)
-        try:
-            outcome = as_outcome(returned, element.id)
-        except NotAnOutcomeError as error:
-            return _failed(binding, (error.diagnostic,), observed=observed.observations)
-        return self._judged(binding, outcome, observed.observations)
 
     def _consumed(self, consumed: Consumption) -> Any:
         # Validation guarantees one producer among the consumer's supporters (JP009, JP014,
@@ -381,6 +522,49 @@ class _Run:
             observed=observed,
             diagnostics=tuple(problems),
         )
+
+
+@dataclass(frozen=True)
+class _Sighted:
+    """What a step's thread tells the run once it observed the artifacts of ``element``."""
+
+    element: Element
+    observed: Observed
+
+
+@dataclass(frozen=True)
+class _Attempt:
+    """A bound element's step, tried: what it observed, then what it returned, or what it
+    raised. Not called if something could not be reached."""
+
+    binding: Binding
+    observed: Observed
+    returned: Any = None
+    raised: Exception | SystemExit | None = None
+
+
+def _attempt(
+    binding: Binding,
+    arguments: Mapping[str, Any],
+    context: Context,
+    sighted: Callable[[_Sighted], None],
+) -> _Attempt:
+    """Observe what ``binding``'s step observes, from ``context``, tell ``sighted``, then
+    call the step with ``arguments`` and what it observed, if everything was reached. This
+    is all a step's thread does: it reads no value, and records nothing."""
+    element, step = binding.element, binding.step
+    observed = observe(step.observes, context, element.id)
+    sighted(_Sighted(element, observed))
+    if not observed.reachable:
+        return _Attempt(binding, observed)
+    _LOG.debug("calling %s for %s", step.name, element.id)
+    try:
+        returned = step.function(**{**arguments, **observed.arguments})
+    # A step that calls sys.exit() fails its element, rather than end the run without a
+    # report; KeyboardInterrupt still stops it (ADR-0021).
+    except (Exception, SystemExit) as error:  # NOSONAR
+        return _Attempt(binding, observed, raised=error)
+    return _Attempt(binding, observed, returned=returned)
 
 
 def _failed(
