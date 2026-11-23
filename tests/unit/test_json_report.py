@@ -301,6 +301,7 @@ class Name(str):
         ),
         pytest.param(Level.HIGH, {"value": 2, "type": f"{__name__}.Level"}, id="an enum"),
         pytest.param(Name("x"), {"value": "x", "type": f"{__name__}.Name"}, id="a str subclass"),
+        pytest.param({Name("x"): 1}, {"value": {"x": 1}, "type": "dict"}, id="a str subclass key"),
         pytest.param(Decoded([1], "tuple"), {"value": [1], "type": "tuple"}, id="decoded"),
         pytest.param(float("nan"), {"repr": "nan", "type": "float"}, id="NaN"),
         pytest.param({1: "a"}, {"repr": "{1: 'a'}", "type": "dict"}, id="a key that is not str"),

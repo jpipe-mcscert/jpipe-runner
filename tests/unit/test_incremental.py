@@ -184,6 +184,35 @@ def test_a_reused_value_with_its_type_is_reported_with_it(library: Library) -> N
     assert "text" not in result.values  # it cannot reach a step as it was produced
 
 
+def test_a_step_that_changes_a_reused_value_changes_nothing_reported(tmp_path: Path) -> None:
+    for name in ("e1.txt", "e2.txt"):
+        (tmp_path / name).write_text(name, encoding="utf-8")
+
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["names"])
+    def first(log: Path) -> Outcome:
+        return Pass(names=[log.name])
+
+    @evidence("e2", observes={"log": "e2.txt"}, produces=["text"])
+    def second(log: Path) -> Outcome:
+        return Pass(text=log.read_text(encoding="utf-8"))
+
+    @strategy("s", consumes=["names", "text"])
+    def gates(names: list[str], text: str) -> Outcome:
+        names.append(text)  # forbidden, but not prevented
+        return Pass()
+
+    steps = [step_of(f) for f in (first, second, gates)]
+    registry = StepRegistry(step for step in steps if step is not None)
+    base = json_report.document(RunReport.of(run(MODEL, registry, root=tmp_path), tmp_path))
+    (tmp_path / "e2.txt").write_text("changed", encoding="utf-8")
+
+    reused = run(MODEL, registry, root=tmp_path, reuse=Baseline("b", base, tmp_path).reuse)
+
+    (e1,) = (each for each in reused.elements if each.element.id == "e1")
+    assert e1.reused
+    assert e1.produced == {"names": ["e1.txt"]}
+
+
 def test_a_producer_that_recorded_no_value_is_reused(library: Library) -> None:
     _, first = library.run()
     failed = _changed(first, "e1", status="fail", reason="broken", produced={})

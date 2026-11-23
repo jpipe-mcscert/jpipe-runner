@@ -33,6 +33,7 @@ thread that runs ``run``, whatever the number of jobs, an element after all its
 supporters, so it needs no lock.
 """
 
+import copy
 import decimal
 import logging
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -492,10 +493,11 @@ class _Run:
         _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
         if result.reused:
             # The values the baseline holds as they were produced: one it holds otherwise
-            # has no consumer that reruns, since its producer then reruns too.
+            # has no consumer that reruns, since its producer then reruns too. Each is a
+            # copy, as a step's are: a consumer that changes it changes nothing reported.
             for name, value in result.produced.items():
                 if not isinstance(value, Uncopied | Decoded):
-                    self._values.put(name, value, element.id)
+                    self._values.put(name, copy.deepcopy(value), element.id)
         self._results[element.id] = result
         self._listener.element_decided(result)
         for supported in self._model.supported(element.id):

@@ -203,7 +203,9 @@ def _exact(value: Any) -> bool:
         return True
     if type(value) is list:
         return all(_exact(item) for item in value)
-    return type(value) is dict and all(_exact(item) for item in value.values())
+    return type(value) is dict and all(
+        type(key) is str and _exact(item) for key, item in value.items()
+    )
 
 
 def _writable(value: int) -> bool:
