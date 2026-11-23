@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": null,
   "verdict": "invalid",
   "strict": false,
@@ -23,5 +23,6 @@
       "traceback": null
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

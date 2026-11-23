@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "file_validation",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.check_file_exists",
       "bound_by": [
         "E1"
       ],
+      "library_sha256": "f8c43b9a6fbb95955e12c1bdec43580989356774f66a44c9c360b54b7a77d7fc",
       "observes": [
         "mock/test_file.txt"
       ],
@@ -66,10 +68,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.file_is_valid",
       "bound_by": [
         "C1"
       ],
+      "library_sha256": "f8c43b9a6fbb95955e12c1bdec43580989356774f66a44c9c360b54b7a77d7fc",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -88,5 +92,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

@@ -90,10 +90,19 @@ flowchart LR
     text_report --> report
     impact --> observables
     impact --> json_report
+    incremental --> diagnostics
+    incremental --> engine
+    incremental --> impact
+    incremental --> json_report
+    incremental --> observables
+    incremental --> records
+    incremental --> report
+    incremental --> rules
     cli --> binding
     cli --> diagnostics
     cli --> diagram
     cli --> impact
+    cli --> incremental
     cli --> engine
     cli --> events
     cli --> json_report
@@ -114,6 +123,7 @@ arrow is data.
 |--------|------|
 | [`cli`](../src/jpipe_runner/cli.py) | The command line, `jpipe-runner`: reads its options, runs a justification through the modules below, writes the report and the diagram, and returns an `ExitCode`. Entry point: `main(argv)`. |
 | [`impact`](../src/jpipe_runner/impact.py) | What a change to a file reaches in an argument, from a JSON report: the evidence that observes changed files and what it supports, and the files a run observed that have changed since. Entry points: `affected(document, changed)`, `stale(document, root)`, `read(path)`. |
+| [`incremental`](../src/jpipe_runner/incremental.py) | An incremental run: the `Baseline`, the report of an earlier run, which says, once validation passed, which elements to take as it decided them, and why each other one runs again. Entry points: `Baseline.read(path)`, `Baseline.reuse(planned)`. |
 | [`__main__`](../src/jpipe_runner/__main__.py) | `python -m jpipe_runner`, which runs `cli.main` as the `jpipe-runner` script does. |
 | [`loader`](../src/jpipe_runner/loader.py) | Reads the JSON the jPipe compiler emits, checks it against the schema, and builds a `Justification`. Entry points: `load(path)` and `loads(text)`. |
 | [`model`](../src/jpipe_runner/model.py) | The justification model: elements, the relations between them, and the graph they form. |
@@ -167,6 +177,10 @@ classDiagram
         class Unverified
         class Unchecked
         class InvalidReportError
+    }
+
+    namespace incremental {
+        class Baseline
     }
 
     namespace model {
@@ -247,6 +261,7 @@ classDiagram
     namespace report {
         class RunReport
         class ElementReport
+        class Selection
         class Summary
         class Trace
         class Frame
@@ -385,6 +400,10 @@ classDiagram
     RunReport ..> Summary : summary
     RunReport ..> Trace : trace
     RunReport ..> RunResult : of
+    RunReport --> Selection : selection
+    Baseline ..> RunResult : reuse
+    Baseline ..> ElementResult : reused
+    Baseline --> Selection : selection
     ElementReport --> Kind : kind
     ElementReport --> Status : status
     ElementReport "1" *-- "*" Observation : artifacts
@@ -738,3 +757,21 @@ is any, `status` does not say that the report holds: it says that a new run is n
 The command line's `impact` and `status` subcommands render what they return; `impact`
 asks git for the changed files (`changed_since`) before importing anything, since an
 import writes files of its own.
+
+**An incremental run reruns what changed since a report, and reuses the rest**
+([ADR-0039](adr/0039-an-incremental-run-reruns-what-changed.md)). `--incremental REPORT`
+reads the report of an earlier run, the `Baseline`, before anything runs. The engine runs
+validation as always, then asks `Baseline.reuse` which elements to take as they are: it
+renders the result a dry run would have returned as a JSON document, and compares it with
+the baseline. Every element runs again when the baseline ran no step, is of another
+justification, or has other elements or `supports`. Otherwise an element runs again when
+its step's declarations differ, when the SHA-256 of the file that declares its step
+(`Step.file`, recorded as `library_sha256`) differs, when `impact.stale` or
+`impact.unverified` names something it observed, when it is above one that runs again,
+and when one that runs again consumes a value of it the baseline holds only as its `repr`.
+The rest is decoded from the baseline into `ElementResult`s marked `reused`: the engine
+decides each as it was, stores its values that are JSON in the run's `ValueStore`, and
+never calls its step. Its run-time diagnostics come with it, each with its traceback as
+recorded (`Diagnostic.recorded`, which `Trace.decoded` reads), and not validation's, which
+this run reports again. The report says which elements reran, and why, in its
+`Selection`.

@@ -11,7 +11,8 @@ every exit code. [`tutorial.md`](tutorial.md) walks through a first run,
 ```
 jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...
              [--json] [--report PATH] [--events PATH] [--diagram PATH]
-             [--strict] [--dry-run] [--jobs N] [--colour {auto,always,never}]
+             [--strict] [--dry-run] [--jobs N] [--incremental REPORT]
+             [--colour {auto,always,never}]
              [-v | -vv | -q] [--version]  JUSTIFICATION
 jpipe-runner impact -l … [-p …]... (--changed PATH [--changed …]... | --since REF) JUSTIFICATION
 jpipe-runner status REPORT
@@ -55,6 +56,7 @@ $ echo $?
 | `--strict` | Count validation's warnings as errors, and fail a skipped justification (exit 1). |
 | `--dry-run` | Validate the step libraries against the justification, and call no step: the verdict is `valid`, or `invalid`. |
 | `--jobs N` | Run up to `N` steps at a time, each on a thread of its own, when the argument does not order them; `auto` runs one per CPU. The default, `1`, runs one step at a time, in model order. The report is the same: see [running steps together](#running-steps-together). |
+| `--incremental REPORT` | Run again only what changed since the run `REPORT`, the JSON report of an earlier run, records, and take the rest from it: see [incremental runs](#incremental-runs). If `REPORT` does not exist, run everything. |
 | `--json` | Print the JSON report on stdout, instead of the text report. |
 | `--report PATH` | Write the JSON report to `PATH`, whatever stdout shows. |
 | `--events PATH` | Write the run's events to `PATH` as the run goes, one JSON object per line, for a program that shows the run while it runs: see [`events.md`](events.md). |
@@ -116,7 +118,8 @@ justification or a step library, is a usage error, and so nothing runs:
 ```console
 $ jpipe-runner --library steps.py --diagram release.png --report release.png justification.json
 usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--jobs N]
-                    [--json] [--report PATH] [--events PATH] [--diagram PATH]
+                    [--incremental REPORT] [--json] [--report PATH]
+                    [--events PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
 jpipe-runner: error: --report and --diagram both write release.png
@@ -135,7 +138,8 @@ run created is removed
 ```console
 $ jpipe-runner --library steps.py --events mock/junit.xml justification.json
 usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--jobs N]
-                    [--json] [--report PATH] [--events PATH] [--diagram PATH]
+                    [--incremental REPORT] [--json] [--report PATH]
+                    [--events PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
 jpipe-runner: error: --events mock/junit.xml: mock/junit.xml, which steps.the_test_suite_passes observes
@@ -234,6 +238,71 @@ what a step must not do to run with `--jobs`.
 
 **Ctrl-C** stops the run: no other step starts, and the command waits for those already
 running, which a thread cannot stop, before it exits.
+
+## Incremental runs
+
+A run calls every step, whatever changed since the last one. `--incremental REPORT` runs
+again only what changed since the run whose JSON report `REPORT` is, and takes everything
+else from that report, the baseline
+([ADR-0039](adr/0039-an-incremental-run-reruns-what-changed.md)). Keep the report of a
+run, then pass it to the next:
+
+```console
+$ jpipe-runner --library steps.py --report base.json justification.json
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✔ Evidence    The test suite passes         # release:e1
+  ✔ Evidence    The changelog is up to date   # release:e2
+  ✔ Strategy    All release gates pass        # release:s
+  ✔ Conclusion  Version 2.0 is ready to ship  # release:c
+
+4 elements (4 passed)
+verdict: pass
+$ jpipe-runner --library steps.py --incremental base.json --report base.json justification.json
+Justification: release
+  Version 2.0 is ready to ship
+
+  ✔ Evidence    The test suite passes         # release:e1 (reused)
+  ✔ Evidence    The changelog is up to date   # release:e2 (reused)
+  ✔ Strategy    All release gates pass        # release:s (reused)
+  ✔ Conclusion  Version 2.0 is ready to ship  # release:c (reused)
+
+4 elements (4 passed)
+incremental: nothing changed since base.json, every element reused
+verdict: pass
+```
+
+Nothing changed here, so no step ran. Had `mock/CHANGELOG.md` changed, the evidence that
+observes it, `release:e2`, would have run again, and so would everything above it, the
+strategy and the conclusion; `release:e1` would have been reused, and the strategy would
+have received the `tests_pass` it produced last time. **The verdict is the whole
+argument's**, as a full run's would be, and so is the exit code.
+
+**What runs again** is an element:
+
+- whose step observes a file that changed, vanished, appeared, or that a glob now matches,
+  or an environment variable that changed, as [`status`](#staleness) finds them, or
+  something the report cannot check again: a hidden value, or one only the library's own
+  observable can see;
+- whose step library changed: the report records the SHA-256 of the file that declares each
+  step, so editing a library runs its steps again;
+- whose step declares something else than last time, or is another step;
+- above one that runs again, up to the conclusion;
+- whose value a step that runs again consumes, when the report holds that value only as its
+  `repr`, such as a `Path`: only a value written as JSON can be passed on.
+
+Everything runs again when the baseline ran no step, is a run of another justification, or
+of a model whose elements or relations differ, and when `REPORT` does not exist, so that the
+first run of a pipeline needs no special case. A file that is not a JSON report is a usage
+error, as is `--incremental` with `--dry-run`.
+
+**The report says what was reused.** Each element has `reused`, and the report's
+`selection` lists each element that ran again, and why
+([`report-schema.md`](report-schema.md#incremental-runs)). `--report` may name the baseline
+itself, which is read before anything runs, so that a pipeline caches one file. An
+incremental run is only as good as the declarations: a step that reads a file it does not
+declare is reused while that file changes.
 
 ## Logging
 

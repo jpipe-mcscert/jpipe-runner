@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "readiness",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "tested_steps.the_test_suite_passes",
       "bound_by": [
         "tested:suite"
       ],
+      "library_sha256": "252469357368ed9594b2b6a7f00bdafd8db1b556be8eb31ebd106d883a457435",
       "observes": [
         "mock/junit.xml"
       ],
@@ -68,10 +70,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "tested_steps.coverage_is_above_80",
       "bound_by": [
         "tested:coverage"
       ],
+      "library_sha256": "252469357368ed9594b2b6a7f00bdafd8db1b556be8eb31ebd106d883a457435",
       "observes": [
         "mock/coverage.txt"
       ],
@@ -111,10 +115,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "tested_steps.the_test_suite_passes_with_high_coverage",
       "bound_by": [
         "tested:testing"
       ],
+      "library_sha256": "252469357368ed9594b2b6a7f00bdafd8db1b556be8eb31ebd106d883a457435",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -148,8 +154,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -171,10 +179,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "documented_steps.the_changelog_is_up_to_date",
       "bound_by": [
         "documented:changelog"
       ],
+      "library_sha256": "f32d90a197c517604d2b36a12b3b0e32c90783f3486727981aa2ee9a17b08d89",
       "observes": [
         "mock/CHANGELOG.md"
       ],
@@ -214,10 +224,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "documented_steps.the_changelog_and_api_docs_are_current",
       "bound_by": [
         "documented:docs"
       ],
+      "library_sha256": "f32d90a197c517604d2b36a12b3b0e32c90783f3486727981aa2ee9a17b08d89",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -246,8 +258,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -269,10 +283,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "readiness_steps.all_release_gates_pass",
       "bound_by": [
         "readiness:assembleStrategy"
       ],
+      "library_sha256": "a5758ebf62b8af940626db623363cef24db6eca1b943ab99dcf413ffa462208b",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -299,8 +315,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -312,5 +330,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

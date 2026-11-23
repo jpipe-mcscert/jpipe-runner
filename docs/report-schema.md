@@ -18,7 +18,7 @@ instead.
 
 ## Versioning
 
-`schema_version` is the first field, `"2.0"`. Within a major version, a minor version only
+`schema_version` is the first field, `"2.1"`. Within a major version, a minor version only
 adds optional fields: **ignore the fields you do not know**, and do not count on one that
 an earlier minor version lacks. Renaming or removing a field, or changing what one means,
 is a new major version.
@@ -27,6 +27,7 @@ is a new major version.
 |---|---|---|
 | 1.0 | 4.0.0 | |
 | 2.0 | 4.1.0 | added an element's `sources`, `inputs` and `observations`, and `declared`, `value` and `read` on each of its [artifacts](#artifacts); removed `dataflow`, as the runner draws one diagram, the dataflow, whose path is `diagram` |
+| 2.1 | 4.5.0 | added `selection`, and an element's `reused` and `library_sha256`, for [incremental runs](#incremental-runs) |
 
 `jpipe-runner impact` and `jpipe-runner status` read a report of version 1.x as well: the
 one field 2.0 removed is one they never read, so a report saved by an earlier runner, such
@@ -34,6 +35,24 @@ as a baseline, still works.
 
 The schema is strict: it lists every field the runner writes, so the runner cannot add one
 without documenting it.
+
+## Incremental runs
+
+`jpipe-runner --incremental REPORT` runs again only what changed since the run of
+`REPORT`, its baseline, and takes every other element from it, as decided there
+([`cli.md`](cli.md#incremental-runs),
+[ADR-0039](adr/0039-an-incremental-run-reruns-what-changed.md)). Its report is complete,
+as a full run's: every element, with its status, what it observed and produced, and its
+diagnostics, so that it can be the baseline of the next run, and the verdict is the whole
+argument's. Two fields say what was reused:
+
+- each element's `reused`, true when it was taken from the baseline;
+- `selection`, with `baseline`, the report as the command line named it, and `rerun`, each
+  element that ran again, by id, in topological order, with why:
+  `"mock/CHANGELOG.md changed"`, `"its step's library changed"`,
+  `"release:e2 runs again"`, or, when every element ran again, `"there is no baseline"`.
+
+A full run has `selection` null, and no element reused.
 
 ## Determinism
 
@@ -47,7 +66,7 @@ committed, compared with `diff`, or archived with the artifacts it lists.
 
 | Field | Type | |
 |---|---|---|
-| `schema_version` | string | `"2.0"` |
+| `schema_version` | string | `"2.1"` |
 | `justification` | string or null | the justification's name; null if the model was refused before it could be read |
 | `verdict` | `pass`, `fail`, `skip`, `invalid` or `valid` | `fail` if an element failed; `skip` if none failed and one was skipped; `pass` if every element passed; `invalid` if nothing ran; `valid` if a dry run found nothing wrong |
 | `strict` | boolean | whether the run was strict: validation counted warnings as errors, and the command line failed a skipped verdict (`--strict`) |
@@ -55,6 +74,7 @@ committed, compared with `diff`, or archived with the artifacts it lists.
 | `elements` | array | every element of the justification, each after the elements that support it; see [Elements](#elements) |
 | `diagnostics` | array | every problem found: validation's, then each element's, in topological order; see [Diagnostics](#diagnostics) |
 | `diagram` | string or null | the path of the diagram drawn for the run, its dataflow, if one was |
+| `selection` | object or null | what an incremental run ran again, and why; null for a full run. See [Incremental runs](#incremental-runs) |
 
 **Every way a run ends has a report**, but for a file that cannot be read at all, such
 as a missing justification, which is an error on stderr ([`cli.md`](cli.md#exit-codes)).
@@ -86,9 +106,11 @@ was drawn under it.
 | `status` | `pass`, `fail`, `skip` or null | null when nothing ran |
 | `reason` | string or null | why it did not pass: its step's reason, the problem found, or the elements that stopped it |
 | `blocked_by` | array of ids | the elements upstream that stopped it, failed or skipped on their own account; empty unless it was skipped because of them |
-| `ran` | boolean | whether its step was called |
+| `ran` | boolean | whether its step was called; for an element reused, in the run that decided it |
+| `reused` | boolean | whether an incremental run took it from its baseline, as decided there, rather than run it again |
 | `bound_to` | string or null | its step, `module.function`; null if it has none |
 | `bound_by` | array of strings | the step's ids that designate this element, as the step names them |
+| `library_sha256` | string or null | the SHA-256 of the file that declares its step; null if it is unbound, or its step has no file. An incremental run runs a step again when it differs |
 | `observes` | array of strings | the files, as globs, that what its step observes depends on: a change to one reaches the element. A wildcard in the name of a directory the runner put in front of a declared path is escaped: `app/[[]slug]/*.md` |
 | `sources` | array of strings | everything its step declares it observes: a path or a glob, escaped as in `observes`, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
 | `consumes`, `produces` | arrays of strings | the variables its step declares, each once |
@@ -205,7 +227,7 @@ failures:
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "release",
   "verdict": "fail",
   "strict": false,
@@ -231,10 +253,12 @@ failures:
       "reason": "mock/junit.xml: 2 tests failed",
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_test_suite_passes",
       "bound_by": [
         "release:e1"
       ],
+      "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b",
       "observes": [
         "mock/junit.xml"
       ],
@@ -270,10 +294,12 @@ failures:
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_changelog_is_up_to_date",
       "bound_by": [
         "release:e2"
       ],
+      "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b",
       "observes": [
         "mock/CHANGELOG.md"
       ],
@@ -315,10 +341,12 @@ failures:
         "release:e1"
       ],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.all_release_gates_pass",
       "bound_by": [
         "release:s"
       ],
+      "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -352,8 +380,10 @@ failures:
         "release:e1"
       ],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -365,7 +395,8 @@ failures:
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }
 ```
 
@@ -373,7 +404,7 @@ A step that raises (the `exception_handling` scenario):
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "error_prone",
   "verdict": "fail",
   "strict": false,
@@ -399,10 +430,12 @@ A step that raises (the `exception_handling` scenario):
       "reason": "the step raised ZeroDivisionError at steps.py, line 17: division by zero",
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.divide_by_number",
       "bound_by": [
         "S1"
       ],
+      "library_sha256": "54926ab1396d72d45a3e471767915c9b6c0fb37b785d7171bdc708698751ea13",
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -426,10 +459,12 @@ A step that raises (the `exception_handling` scenario):
         "S1"
       ],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.validate_division_result",
       "bound_by": [
         "C1"
       ],
+      "library_sha256": "54926ab1396d72d45a3e471767915c9b6c0fb37b785d7171bdc708698751ea13",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -469,7 +504,8 @@ A step that raises (the `exception_handling` scenario):
       }
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }
 ```
 
@@ -477,7 +513,7 @@ A model the loader refuses (the `circular_dependency` scenario):
 
 ```json
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": null,
   "verdict": "invalid",
   "strict": false,
@@ -501,6 +537,7 @@ A model the loader refuses (the `circular_dependency` scenario):
       "traceback": null
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }
 ```

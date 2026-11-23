@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "math_operations",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.generate_number_a",
       "bound_by": [
         "E1"
       ],
+      "library_sha256": "b9d77808171bd2a4cae079ee8253be011dde0fd9298aa82f440992a5b3af176c",
       "observes": [
         "mock/number_a.txt"
       ],
@@ -68,10 +70,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.generate_number_b",
       "bound_by": [
         "E2"
       ],
+      "library_sha256": "b9d77808171bd2a4cae079ee8253be011dde0fd9298aa82f440992a5b3af176c",
       "observes": [
         "mock/number_b.txt"
       ],
@@ -111,10 +115,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.add_numbers",
       "bound_by": [
         "S1"
       ],
+      "library_sha256": "b9d77808171bd2a4cae079ee8253be011dde0fd9298aa82f440992a5b3af176c",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -152,8 +158,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -174,5 +182,6 @@
       "traceback": null
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

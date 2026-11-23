@@ -440,4 +440,4 @@ def test_the_text_of_a_report_is_its_document_indented() -> None:
 
     assert text.endswith("}\n")
     assert json.loads(text) == document(report)
-    assert '\n  "diagram": "m.svg"\n}' in text
+    assert '\n  "diagram": "m.svg",\n  "selection": null\n}' in text

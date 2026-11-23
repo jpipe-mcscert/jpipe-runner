@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "observables",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_package_announces_the_version",
       "bound_by": [
         "version"
       ],
+      "library_sha256": "ff3593119d61c11e22a8ffbea4e8e17795c210d62f3aeb89d0afd845aef62464",
       "observes": [
         "mock/package.json",
         "mock/CHANGELOG.md"
@@ -80,10 +82,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.commands_are_found",
       "bound_by": [
         "environment"
       ],
+      "library_sha256": "ff3593119d61c11e22a8ffbea4e8e17795c210d62f3aeb89d0afd845aef62464",
       "observes": [],
       "sources": [
         "env:PATH"
@@ -122,10 +126,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.every_gate_passes",
       "bound_by": [
         "gates"
       ],
+      "library_sha256": "ff3593119d61c11e22a8ffbea4e8e17795c210d62f3aeb89d0afd845aef62464",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -157,8 +163,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -170,5 +178,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

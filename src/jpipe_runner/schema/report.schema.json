@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "jpipe-runner report 2.0",
+  "title": "jpipe-runner report 2.1",
   "description": "What a run of jpipe-runner concluded (ADR-0011): every element of the justification, with its status, its step and what that step declares, observed and produced; then every diagnostic. Within a major version, a minor version only adds optional fields: a consumer ignores fields it does not know. This schema is strict, so that the runner cannot emit a field it does not document. Documented in docs/report-schema.md.",
   "type": "object",
   "required": ["schema_version", "justification", "verdict", "strict", "summary", "elements", "diagnostics", "diagram"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": {"const": "2.0"},
+    "schema_version": {"const": "2.1"},
     "justification": {
       "description": "The justification's name, or null if the model was refused before it could be read.",
       "type": ["string", "null"]
@@ -33,6 +33,28 @@
     "diagram": {
       "description": "The path of the diagram drawn for this run, its dataflow, relative to the directory the runner ran in when it is under it, or null.",
       "type": ["string", "null"]
+    },
+    "selection": {
+      "description": "What an incremental run (--incremental) ran again, or null for a full run (ADR-0039). New in 2.1.",
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["baseline", "rerun"],
+          "additionalProperties": false,
+          "properties": {
+            "baseline": {
+              "description": "The report the run compared with, as the command line gave it.",
+              "type": "string"
+            },
+            "rerun": {
+              "description": "Each element that ran again, by id, in topological order, and why. Every other element was reused.",
+              "type": "object",
+              "additionalProperties": {"type": "string"}
+            }
+          }
+        }
+      ]
     }
   },
   "$defs": {
@@ -89,7 +111,11 @@
           "$ref": "#/$defs/ids"
         },
         "ran": {
-          "description": "Whether its step was called.",
+          "description": "Whether its step was called; for an element reused, in the run that decided it.",
+          "type": "boolean"
+        },
+        "reused": {
+          "description": "Whether an incremental run took it from its baseline, as decided there, rather than run it again (ADR-0039). New in 2.1.",
           "type": "boolean"
         },
         "bound_to": {
@@ -99,6 +125,11 @@
         "bound_by": {
           "description": "The ids, as the step names them, that designate this element.",
           "$ref": "#/$defs/names"
+        },
+        "library_sha256": {
+          "description": "The SHA-256 of the file that declares its step, or null if it is unbound or its step has no file: what tells an incremental run that the step's code changed (ADR-0039). New in 2.1.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
         },
         "observes": {
           "description": "The files, as globs relative to where the runner runs, that what its step observes depends on: a change to one of them reaches the element. A wildcard in the name of a directory the runner put in front of a path is escaped, as in checks[[]v2]/*.md.",

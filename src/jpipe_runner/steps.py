@@ -119,6 +119,16 @@ class Step:
         return tuple(dict.fromkeys(each.variable for each in self.inputs))
 
     @property
+    def file(self) -> Path | None:
+        """The file that declares the step's function, under its wrappers, if it has one:
+        what the report fingerprints, so that an incremental run reruns a step whose code
+        changed (ADR-0039). ``None`` for a function typed at a prompt or built by ``exec``."""
+        code = _code(self.function)
+        if code is None or code.co_filename.startswith("<"):
+            return None
+        return Path(code.co_filename)
+
+    @property
     def passed(self) -> tuple[str, ...]:
         """The keyword arguments a run passes to the function: what an evidence observes,
         and what any other step consumes, each by its parameter's name."""

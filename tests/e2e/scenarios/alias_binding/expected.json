@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "alias_binding",
   "verdict": "pass",
   "strict": false,
@@ -28,11 +28,13 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.report_metrics",
       "bound_by": [
         "rigor:r17:e_metric",
         "rigor:r18:e"
       ],
+      "library_sha256": "4a6c3cce1b293bc22d8ae8db2a1072871b6cf1625558e7209de39c1dff194731",
       "observes": [
         "mock/metrics.csv"
       ],
@@ -70,10 +72,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.model_is_rigorous",
       "bound_by": [
         "C1"
       ],
+      "library_sha256": "4a6c3cce1b293bc22d8ae8db2a1072871b6cf1625558e7209de39c1dff194731",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -92,5 +96,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

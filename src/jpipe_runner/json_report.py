@@ -24,9 +24,9 @@ from typing import Any
 from jpipe_runner.diagnostics import Diagnostic
 from jpipe_runner.observables import HIDDEN, Observation
 from jpipe_runner.records import Uncopied, canonical_repr, type_name
-from jpipe_runner.report import ElementReport, RunReport, Summary, Trace
+from jpipe_runner.report import ElementReport, RunReport, Selection, Summary, Trace
 
-SCHEMA_VERSION = "2.0"
+SCHEMA_VERSION = "2.1"
 
 SCHEMA: dict[str, Any] = json.loads(
     files("jpipe_runner").joinpath("schema/report.schema.json").read_text(encoding="utf-8")
@@ -44,7 +44,14 @@ def document(report: RunReport) -> dict[str, Any]:
         "elements": [element(each, report.root) for each in report.elements],
         "diagnostics": [diagnostic(each, report.root) for each in report.diagnostics],
         "diagram": report.diagram,
+        "selection": _selection(report.selection),
     }
+
+
+def _selection(selection: Selection | None) -> dict[str, Any] | None:
+    if selection is None:
+        return None
+    return {"baseline": selection.baseline, "rerun": dict(selection.rerun)}
 
 
 def dumps(report: RunReport) -> str:
@@ -78,8 +85,10 @@ def element(element: ElementReport, root: Path = Path()) -> dict[str, Any]:
         "reason": element.reason,
         "blocked_by": list(element.blocked_by),
         "ran": element.ran,
+        "reused": element.reused,
         "bound_to": element.step,
         "bound_by": list(element.designators),
+        "library_sha256": element.library_sha256,
         "observes": list(element.observes),
         "sources": list(element.sources),
         "consumes": list(element.consumes),

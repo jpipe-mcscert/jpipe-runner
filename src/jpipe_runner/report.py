@@ -27,7 +27,14 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind
-from jpipe_runner.observables import Context, Observation, dependencies, described, drawn_as
+from jpipe_runner.observables import (
+    Context,
+    Observation,
+    dependencies,
+    described,
+    digest,
+    drawn_as,
+)
 
 _NOTHING: Mapping[str, Any] = MappingProxyType({})
 
@@ -75,6 +82,11 @@ class ElementReport:
     """The values its step produced, by variable."""
     artifacts: tuple[Observation, ...] = ()
     """What its step observed, files and others, recorded just before the call."""
+    library_sha256: str | None = None
+    """The SHA-256 of the file that declares its step, if it is bound to one that has a
+    file: what tells an incremental run that the step's code changed (ADR-0039)."""
+    reused: bool = False
+    """Whether an incremental run took it from its baseline rather than run it again."""
 
     @classmethod
     def of(
@@ -113,6 +125,7 @@ class ElementReport:
                 consumes=step.consumes,
                 inputs=inputs,
                 produces=step.produces,
+                library_sha256=_sha256(step.file),
             )
         if result is not None:
             report = replace(
@@ -124,8 +137,19 @@ class ElementReport:
                 produced=result.produced,
                 artifacts=result.observed,
                 reached=MappingProxyType(reached_every_time(result.reached)),
+                reused=result.reused,
             )
         return report
+
+
+def _sha256(file: Path | None) -> str | None:
+    """The SHA-256 of ``file``, or ``None`` if there is none, or it cannot be read."""
+    if file is None:
+        return None
+    try:
+        return digest(file)[0]
+    except OSError:
+        return None
 
 
 def reached_every_time(sources: Iterable[tuple[str, bool]]) -> dict[str, bool]:
@@ -178,8 +202,25 @@ class Trace:
 
     @classmethod
     def carried_by(cls, diagnostic: Diagnostic, root: Path = Path()) -> "Trace | None":
-        """The traceback ``diagnostic`` carries, as the report shows it, if it carries one."""
-        return None if diagnostic.traceback is None else cls.of(diagnostic.traceback, root)
+        """The traceback ``diagnostic`` carries, as the report shows it, if it carries one:
+        its exception's, or the one an earlier report recorded."""
+        if diagnostic.traceback is not None:
+            return cls.of(diagnostic.traceback, root)
+        return None if diagnostic.recorded is None else cls.decoded(diagnostic.recorded)
+
+    @classmethod
+    def decoded(cls, recorded: Mapping[str, Any]) -> "Trace":
+        """A traceback as a report recorded it (``json_report``)."""
+        cause = recorded["cause"]
+        return cls(
+            recorded["exception"],
+            recorded["message"],
+            tuple(
+                Frame(frame["file"], frame["line"], frame["function"], frame["code"])
+                for frame in recorded["frames"]
+            ),
+            None if cause is None else cls.decoded(cause),
+        )
 
     @classmethod
     def of(cls, trace: TracebackException, root: Path = Path()) -> "Trace":
@@ -192,6 +233,17 @@ class Trace:
             tuple(_frame(frame, root) for frame in trace.stack),
             None if cause is None else cls.of(cause, root),
         )
+
+
+@dataclass(frozen=True)
+class Selection:
+    """What an incremental run ran again, and why (ADR-0039)."""
+
+    baseline: str
+    """The report it compared with, as the command line gave it."""
+    rerun: Mapping[str, str]
+    """Each element that ran again, in topological order, and why; every other element
+    was reused."""
 
 
 @dataclass(frozen=True)
@@ -210,12 +262,17 @@ class RunReport:
     """Whether validation counted warnings as errors."""
     diagram: str | None = None
     """Where the diagram of the run, its dataflow, was written, if it was."""
+    selection: Selection | None = None
+    """What an incremental run ran again, or ``None`` for a full run (ADR-0039)."""
     root: Path = field(default=Path(), compare=False)
     """The directory the run observed artifacts from: tracebacks are shown relative to it."""
 
     @classmethod
-    def of(cls, result: RunResult, root: Path = Path()) -> "RunReport":
-        """The report of ``result``, a run whose artifacts were observed under ``root``."""
+    def of(
+        cls, result: RunResult, root: Path = Path(), selection: Selection | None = None
+    ) -> "RunReport":
+        """The report of ``result``, a run whose artifacts were observed under ``root``, and,
+        for an incremental run, what it ran again, ``selection``."""
         results = {element.element.id: element for element in result.elements}
         return cls(
             result.justification.name,
@@ -229,6 +286,7 @@ class RunReport:
             ),
             result.diagnostics,
             result.strict,
+            selection=selection,
             root=root,
         )
 
