@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the events interleave, as their order already allowed. The default, `1`, is the run as
   before, one step at a time in model order. **A library must be ready for it**: a step
   that writes a file another evidence observes, changes the working directory or the
-  environment, or changes a value it consumes, may break with `--jobs`, and nothing checks
-  it ([`authoring.md`](docs/authoring.md#steps-that-run-together),
+  environment, or changes a value it consumes, and an observable of the library's own that
+  keeps state between calls, may break with `--jobs`, and nothing checks it ([`authoring.md`](docs/authoring.md#steps-that-run-together),
   [ADR-0038](docs/adr/0038-independent-steps-run-together.md), #174).
 
 ## [4.3.0] - 2026-11-22

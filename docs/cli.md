@@ -11,7 +11,7 @@ every exit code. [`tutorial.md`](tutorial.md) walks through a first run,
 ```
 jpipe-runner -l/--library PATH|GLOB [-l …]... [-p/--python-path DIR]...
              [--json] [--report PATH] [--events PATH] [--diagram PATH]
-             [--strict] [--dry-run] [--jobs N|auto] [--colour {auto,always,never}]
+             [--strict] [--dry-run] [--jobs N] [--colour {auto,always,never}]
              [-v | -vv | -q] [--version]  JUSTIFICATION
 jpipe-runner impact -l … [-p …]... (--changed PATH [--changed …]... | --since REF) JUSTIFICATION
 jpipe-runner status REPORT

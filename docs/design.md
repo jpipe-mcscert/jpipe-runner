@@ -595,14 +595,17 @@ imported twice in a process.
 **A run validates, then calls the steps supporters first.** `run` builds the
 `ValidationContext`, runs `RULES`, and executes only if no error was reported; otherwise
 its `RunResult` has no element results and the verdict `INVALID`. An element is taken once
-every element that supports it is decided, the ready one first in `topological_order()`
-first, so that with one job, the default, the elements are taken in that order. With
+every element that supports it is decided, and the ready element that comes first in
+`topological_order()` is taken first, so that with one job, the default, the elements are
+taken in that order. With
 `jobs` above one, a `ThreadPoolExecutor` of that many threads runs the steps: a thread
 observes what its step observes, then calls it, and sends both back through a queue to the
 thread that runs the run, which does everything else, reads the values the step consumes,
 tells the listener, judges the outcome, stores the values and records the result, and so
-holds no lock. The results are returned in `topological_order()` whatever ended first, so
-the report does not depend on `jobs`
+holds no lock. While every thread is busy, the ready elements that need no step are still
+decided, so that a skip never waits for a slow step. The results are returned in
+`topological_order()` whatever ended first, and the `ValueStore` sorted by producer
+(`sorted_by`), so the result does not depend on `jobs`
 ([ADR-0038](adr/0038-independent-steps-run-together.md)). An element a supporter of which
 did not pass is skipped, and its
 `blocked_by` names the root causes: the elements upstream that failed, or were skipped,
@@ -627,8 +630,8 @@ changes nothing. What a step produced is recorded on its `ElementResult` as a de
 taken when it returned, so that a step that changes a value it consumes does not change
 the record; a value that cannot be copied is recorded as its canonical `repr` and type,
 taken then (`records.Uncopied`). `KeyboardInterrupt` stops the run: with more than one
-job, no other step starts, and the process waits for the running ones, whose threads
-cannot be stopped; the run's thread waits for a message in slices of `_WAKE_UP`, so that
+job, no other step starts, and `run` waits for the running ones, whose threads cannot be
+stopped, before it raises, while their libraries are still imported; the run's thread waits for a message in slices of `_WAKE_UP`, so that
 Ctrl-C reaches it on every platform. The verdict is `FAIL` if an element
 failed, else `SKIP` if one was skipped, else `PASS`. The engine prints nothing: it logs
 to the `jpipe_runner.engine` logger, and the report is built from the `RunResult`.

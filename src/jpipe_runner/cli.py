@@ -221,7 +221,7 @@ def _jobs(text: str) -> int:
         # os.process_cpu_count, new in Python 3.13, counts only the CPUs the process may use.
         counted: int | None = getattr(os, "process_cpu_count", os.cpu_count)()
         return counted or 1
-    jobs = int(text) if text.isdigit() else 0
+    jobs = int(text) if text.isdecimal() else 0
     if jobs < 1:
         raise argparse.ArgumentTypeError(f"expected a positive number or auto, not {text!r}")
     return jobs

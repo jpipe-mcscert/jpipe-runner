@@ -55,13 +55,16 @@ cost.
 
 **The option.** `--jobs N` runs up to `N` steps at a time; `--jobs auto` runs one per CPU
 the process may use (`os.process_cpu_count`, from Python 3.13, otherwise `os.cpu_count`).
-The default is `1`, the sequence of ADR-0021. A number that is not a positive integer, or
-`auto`, is a usage error (exit code 2). `engine.run` takes `jobs` too, and refuses one
+The default is `1`, the sequence of ADR-0021. Anything but a positive integer or `auto` is
+a usage error (exit code 2). `engine.run` takes `jobs` too, and refuses one
 below 1.
 
 **The scheduler.** An element is ready once every element that supports it is decided,
-and the ready element first in topological order is taken first. A skip, a pass without a
-step, or a step's start happens then, on the thread that runs the run. With one job, the
+and the ready element that comes first in topological order is taken first. A skip, a pass
+without a step, or a step's start happens then, on the thread that runs the run. While
+every thread is busy, the ready elements that need no step, a skip or a claim without a
+step, are still decided, so that a failure's skips do not wait for a slow step they do not
+depend on. With one job, the
 step is called there, so the elements are decided in ADR-0021's order and the events are
 those it wrote. With more, the step goes to a thread of a pool of `N`, which observes its
 artifacts, says so, calls the step and hands back what it returned or raised. Everything
@@ -69,14 +72,16 @@ else stays on the run's thread: reading the values the step consumes, the listen
 its events, judging the outcome, storing the values and recording the result. The engine
 holds no lock, and the listener is called from one thread, as ADR-0030 says.
 
-**The result** lists the elements in topological order whatever the number of jobs, so
-the report, the text report and the diagram are the same; only the events, which are not
+**The result** lists the elements in topological order whatever the number of jobs, and
+its values in the order of their producers, so the report, the text report and the
+diagram are the same; only the events, which are not
 deterministic, show what ran together. A step's `source.observed` events come while it
 runs, as with one job. Nothing in the report or the events records the number of jobs.
 
 **Ctrl-C.** `KeyboardInterrupt` stops the run (ADR-0021). A step already running on a
-thread cannot be stopped, so the run starts no other step, and the process waits for
-those still running before it exits. The run's thread waits for a step in short slices so
+thread cannot be stopped, so the run starts no other step, and waits for those still
+running before it returns: their libraries are still imported, and what they print still
+goes to stderr. A second Ctrl-C stops the wait. The run's thread waits for a step in short slices so
 that Ctrl-C reaches it on every platform. A step that raises `KeyboardInterrupt` on its
 thread stops the run the same way, and so does an error of the runner itself.
 
@@ -91,6 +96,9 @@ can opt out of running alongside others:
 - **State the process shares**: the working directory (`os.chdir`), `os.environ`, module
   globals. A step passes `cwd=` and `env=` to the command it runs instead. What concurrent
   steps print interleaves on stderr.
+- **An observable of the library's own**: its `observe` runs on the thread of the step
+  that observes it, so two evidence may call it at once. It keeps no state between calls,
+  as [`observables.md`](../observables.md#the-rules-an-observable-follows) says.
 - **The main thread**: with more than one job a step does not run there, so
   `signal.signal`, which only the main thread may call, raises in it.
 - **A consumed value**: two consumers of one variable receive the same object, as they do
@@ -112,7 +120,7 @@ can opt out of running alongside others:
   runs one thread at a time.
 - Bad, because a library that relies on model order, or on state the process shares,
   breaks with `--jobs`, and nothing but its author's reading of these rules can tell.
-- Bad, because a step that hangs keeps the process from exiting after Ctrl-C.
+- Bad, because a step that hangs keeps the run from ending after the first Ctrl-C.
 
 ### Confirmation
 

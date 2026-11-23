@@ -463,6 +463,10 @@ with tempfile.TemporaryDirectory() as directory:
   [Graphviz](https://graphviz.org/doc/info/shapes.html) draws them. The others are the
   argument's (`note`, `hexagon`, `box`) or a variable's (`ellipse`), or cannot hold a
   label. Another shape is refused when the library is imported.
+- **It keeps no state between calls.** With `--jobs`, two evidence that observe through
+  it may call `observe` at the same time, each on its thread
+  ([ADR-0038](adr/0038-independent-steps-run-together.md)): what it computes stays in the
+  call, not in a module-level cache or the working directory.
 - **It raises nothing.** An exception in `observe`, such as the `KeyError` of a missing
   key in `TomlValue`, does not stop the run: the evidence fails with `JP019`, which names
   the exception. Return `Sighting.unreachable` to say what is wrong in your own words.

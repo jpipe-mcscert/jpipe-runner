@@ -304,6 +304,9 @@ none of its steps relies on that order, or on the process being its own:
 - **A step changes nothing it consumes.** Every consumer of a variable receives the same
   object; run together, two consumers that change it race. The report records each value as
   it was produced, so it is right either way.
+- **An observable of your own keeps no state between calls**: its `observe` runs on the
+  thread of the evidence that observes it, so two evidence may call it at once
+  ([`observables.md`](observables.md#the-rules-an-observable-follows)).
 - **A step does not need the main thread.** With one job, it runs there; with more, it does
   not, and `signal.signal`, which only the main thread may call, raises.
 

@@ -38,7 +38,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
-from heapq import heappop, heappush
+from heapq import heapify, heappop, heappush
 from pathlib import Path
 from queue import Empty, SimpleQueue
 from traceback import TracebackException
@@ -264,6 +264,8 @@ def run(
     listener.steps_starting(planned)
     values = ValueStore()
     elements = _Run(ctx, values, root, listener, jobs).execute()
+    # The values in the order of their producers, whatever order the steps ended in.
+    values = values.sorted_by([result.element.id for result in elements])
     return replace(planned, elements=elements, values=values, dry_run=False)  # NOSONAR
 
 
@@ -312,9 +314,10 @@ class _Run:
                 self._schedule(pool)
             finally:
                 # Once every element is decided, no step is left. A run stopped before
-                # (KeyboardInterrupt) starts no other step, and the process waits for those
-                # still running before it exits: a thread cannot be stopped.
-                pool.shutdown(wait=False, cancel_futures=True)
+                # (KeyboardInterrupt) starts no other step, and waits for those still
+                # running, which a thread cannot stop, while the libraries they run from are
+                # still imported.
+                pool.shutdown(wait=True, cancel_futures=True)
         return tuple(self._results[element.id] for element in self._order)
 
     def _schedule(self, pool: ThreadPoolExecutor | None) -> None:
@@ -322,21 +325,43 @@ class _Run:
             while self._ready and self._running < self._jobs:
                 self._take(self._order[heappop(self._ready)], pool)
             if self._running:
+                self._decide_without_steps()
                 self._receive(self._next())
 
-    def _take(self, element: Element, pool: ThreadPoolExecutor | None) -> None:
-        """Decide ``element``, whose supporters are all decided, or start its step."""
+    def _decide_without_steps(self) -> None:
+        """With every thread busy, decide the ready elements that need no step, in
+        topological order, and those that this makes ready: a skip does not wait for a
+        slow step it does not depend on."""
+        while found := [
+            (position, settled)
+            for position in sorted(self._ready)
+            if isinstance(settled := self._settled(self._order[position]), ElementResult)
+        ]:
+            decided = {position for position, _ in found}
+            self._ready = [position for position in self._ready if position not in decided]
+            heapify(self._ready)
+            for _, result in found:
+                self._decide(result)
+
+    def _settled(self, element: Element) -> ElementResult | Binding:
+        """What ``element``, whose supporters are all decided, is without calling a step,
+        or the binding whose step must be called."""
         binding = self._bindings.binding_for(element.id)
         supporters = self._model.supporters(element.id)
         if binding is None and not supporters:
-            reason = "nothing supports it or checks it"
-            self._decide(ElementResult(element, Status.SKIP, reason=reason))
-        elif blocked_by := self._blocking(supporters):
+            return ElementResult(element, Status.SKIP, reason="nothing supports it or checks it")
+        if blocked_by := self._blocking(supporters):
             reason = f"not run: {', '.join(blocked_by)} did not pass"
-            self._decide(ElementResult(element, Status.SKIP, binding, reason, blocked_by))
-        elif binding is None:
-            self._decide(ElementResult(element, Status.PASS))
+            return ElementResult(element, Status.SKIP, binding, reason, blocked_by)
+        return ElementResult(element, Status.PASS) if binding is None else binding
+
+    def _take(self, element: Element, pool: ThreadPoolExecutor | None) -> None:
+        """Decide ``element``, whose supporters are all decided, or start its step."""
+        settled = self._settled(element)
+        if isinstance(settled, ElementResult):
+            self._decide(settled)
         else:
+            binding = settled
             self._listener.element_started(element)
             arguments = {
                 c.input.parameter: self._consumed(c) for c in self._dataflow.of(element.id)

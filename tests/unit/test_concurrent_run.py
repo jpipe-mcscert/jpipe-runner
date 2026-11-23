@@ -18,7 +18,14 @@ from jpipe_runner.model import Element
 from jpipe_runner.steps import StepRegistry, step_of
 from jpipe_runner.validation import ValidationReport
 from tests.anchored import run
-from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY, element, model
+from tests.unit.validation.builders import (
+    CONCLUSION,
+    EVIDENCE,
+    STRATEGY,
+    SUB_CONCLUSION,
+    element,
+    model,
+)
 
 # e1, e2 and e3 support s, which supports c.
 THREE = model(
@@ -95,16 +102,19 @@ def test_independent_steps_run_together(root: Path) -> None:
 
 
 def test_no_more_steps_run_at_a_time_than_jobs(root: Path) -> None:
-    lock = threading.Lock()
-    running, most = 0, 0
+    # Each step waits until two have started, so two run together; a third at once would
+    # make three.
+    condition = threading.Condition()
+    started, running, most = 0, 0, 0
 
     def counted() -> Outcome:
-        nonlocal running, most
-        with lock:
+        nonlocal started, running, most
+        with condition:
+            started += 1
             running += 1
             most = max(most, running)
-        time.sleep(0.02)
-        with lock:
+            condition.notify_all()
+            assert condition.wait_for(lambda: started >= 2, WAIT)
             running -= 1
         return Pass()
 
@@ -129,6 +139,80 @@ def test_the_result_is_in_topological_order_whatever_ends_first(root: Path) -> N
 
     assert [r.element.id for r in result] == ["e1", "e2", "e3", "s", "c"]
     assert result.result("s").blocked_by == ("e1", "e2")
+
+
+def test_the_values_are_in_the_order_of_their_producers_whatever_ends_first(
+    root: Path,
+) -> None:
+    second_done = threading.Event()
+
+    def first() -> Outcome:
+        assert second_done.wait(WAIT)
+        return Pass()
+
+    def second() -> Outcome:
+        second_done.set()
+        return Pass()
+
+    result = run(THREE, _library(first, second, Pass), root=root, jobs=3)
+
+    assert [(name, value.produced_by) for name, value in result.values.entries()] == [
+        ("v1", "e1"),
+        ("v2", "e2"),
+        ("v3", "e3"),
+    ]
+
+
+# e4 supports s2, which supports the sub-conclusion k; k, e1 and e2 support s, which
+# supports c. The topological order is e4, e1, e2, s2, k, s, c: with two jobs, e4 and e1
+# start; once e4 fails, e2 takes its thread, ahead of s2, which needs none.
+BRANCHES = model(
+    element("c", CONCLUSION),
+    element("e4", EVIDENCE),
+    element("e1", EVIDENCE),
+    element("e2", EVIDENCE),
+    element("s", STRATEGY),
+    element("k", SUB_CONCLUSION),
+    element("s2", STRATEGY),
+    relations=[("s", "c"), ("k", "s"), ("e1", "s"), ("e2", "s"), ("s2", "k"), ("e4", "s2")],
+)
+
+
+def test_what_needs_no_step_is_decided_while_every_thread_is_busy(root: Path) -> None:
+    k_decided = threading.Event()
+
+    class Watching(_Watching):
+        def element_decided(self, result: ElementResult) -> None:
+            if result.element.id == "k":
+                k_decided.set()
+
+    @evidence("e4", observes={"log": "e3.txt"}, produces=["v4"])
+    def fails_at_once(log: Path) -> Outcome:
+        return Fail(f"{log.name} says no")
+
+    @strategy("s2", consumes=["v4"])
+    def judges(v4: str) -> Outcome:
+        return Pass() if v4 else Fail("no")
+
+    @evidence("e1", observes={"log": "e1.txt"}, produces=["v1"])
+    def first(log: Path) -> Outcome:
+        # Runs while e2 does, so both threads are busy until k is decided.
+        return Pass(v1=log.name) if k_decided.wait(WAIT) else Fail("k waited for a thread")
+
+    @evidence("e2", observes={"log": "e2.txt"}, produces=["v2"])
+    def second(log: Path) -> Outcome:
+        return Pass(v2=log.name) if k_decided.wait(WAIT) else Fail("k waited for a thread")
+
+    @strategy("s", consumes=["v1", "v2"])
+    def gates(v1: str, v2: str) -> Outcome:
+        return Pass() if v1 and v2 else Fail("no")
+
+    registry = _registry(fails_at_once, judges, first, second, gates)
+    result = run(BRANCHES, registry, root=root, jobs=2, listener=Watching())
+
+    assert result.result("e1").status is Status.PASS
+    assert result.result("e2").status is Status.PASS
+    assert result.result("k").blocked_by == ("e4",)
 
 
 def test_one_job_calls_each_step_on_the_thread_that_runs_the_run(root: Path) -> None:
@@ -178,8 +262,25 @@ def test_an_interrupt_on_a_step_s_thread_stops_the_run(root: Path) -> None:
         run(THREE, _library(_interrupt, Pass, recorded), root=root, jobs=1)
     assert called == []
 
+
+def test_an_interrupted_run_waits_for_the_steps_still_running(root: Path) -> None:
+    second_started = threading.Event()
+    ended: list[str] = []
+
+    def interrupts() -> Outcome:
+        assert second_started.wait(WAIT)
+        raise KeyboardInterrupt
+
+    def slow() -> Outcome:
+        second_started.set()
+        time.sleep(0.05)
+        ended.append("e2")
+        return Pass()
+
     with pytest.raises(KeyboardInterrupt):
-        run(THREE, _library(_interrupt, Pass, Pass), root=root, jobs=2)
+        run(THREE, _library(interrupts, slow, Pass), root=root, jobs=2)
+    # e2 ended before run returned, while its library was still imported; e3 never started.
+    assert ended == ["e2"]
 
 
 def test_a_runner_bug_on_a_step_s_thread_reaches_the_caller(
