@@ -105,19 +105,30 @@ def _rerun(baseline: Document | None, now: Document, root: Path) -> dict[str, st
         rerun.setdefault(change.element, f"{change.path} {change.kind}")
     for unchecked in impact.unverified(baseline):
         rerun.setdefault(unchecked.element, f"{unchecked.declared} cannot be checked again")
-    for element in baseline["elements"]:  # a failure is never kept: it may not be the step's
-        if element["status"] == "fail":
-            rerun.setdefault(element["id"], "it failed in the baseline")
-    supporters: dict[str, list[str]] = {}
-    for element in now["elements"]:
-        for supported in element["supports"]:
-            supporters.setdefault(supported, []).append(element["id"])
+    for failed in _failed(baseline):
+        rerun.setdefault(failed, "it failed in the baseline")
+    supporters = _supporters(now)
     while True:
         _above(now, supporters, rerun)
         needed = dict(_producers(now, recorded, rerun))
         if not needed:
             return rerun
         rerun.update(needed)
+
+
+def _failed(baseline: Document) -> Iterator[str]:
+    """The elements that failed in ``baseline``: a failure is never kept, since it may not
+    be the step's, such as a network that was down."""
+    return (element["id"] for element in baseline["elements"] if element["status"] == "fail")
+
+
+def _supporters(now: Document) -> dict[str, list[str]]:
+    """The supporters of each element of ``now``, by its id."""
+    supporters: dict[str, list[str]] = {}
+    for element in now["elements"]:
+        for supported in element["supports"]:
+            supporters.setdefault(supported, []).append(element["id"])
+    return supporters
 
 
 def _unusable(baseline: Document, now: Document) -> str | None:

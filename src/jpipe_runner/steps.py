@@ -437,7 +437,8 @@ class _Fingerprints:
         files = tuple(dict.fromkeys((*([library] if library else []), *step.code)))
         if files not in self._taken:
             self._taken[files] = _sha256(files) if step.code else None
-        return replace(step, library_sha256=self._taken[files])
+        # replace returns a Step, which mypy checks; Sonar types it as any dataclass.
+        return replace(step, library_sha256=self._taken[files])  # NOSONAR
 
 
 def _sha256(files: tuple[str, ...]) -> str | None:
