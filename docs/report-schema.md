@@ -27,7 +27,7 @@ is a new major version.
 |---|---|---|
 | 1.0 | 4.0.0 | |
 | 2.0 | 4.1.0 | added an element's `sources`, `inputs` and `observations`, and `declared`, `value` and `read` on each of its [artifacts](#artifacts); removed `dataflow`, as the runner draws one diagram, the dataflow, whose path is `diagram` |
-| 2.1 | 4.5.0 | added `selection`, and an element's `reused` and `library_sha256`, for [incremental runs](#incremental-runs) |
+| 2.1 | 4.5.0 | added `selection`, an element's `reused` and `library_sha256`, and a produced value's `type` when JSON reads it back as another, for [incremental runs](#incremental-runs) |
 
 `jpipe-runner impact` and `jpipe-runner status` read a report of version 1.x as well: the
 one field 2.0 removed is one they never read, so a report saved by an earlier runner, such
