@@ -168,6 +168,11 @@ stores its first and loads its second."""
 _EVERY_LOCAL = frozenset({"locals", "vars", "eval", "exec"})
 """The builtins that reach a function's local variables without loading them by name."""
 
+_EVERY_LOCAL_ATTRIBUTE = _EVERY_LOCAL | {"f_locals"}
+"""The same builtins read as attributes (``builtins.locals``), and a frame's ``f_locals``,
+as ``sys._getframe()`` or ``inspect.currentframe()`` return it. Any object's attribute of
+one of these names counts: a missed warning is the safe way to be wrong."""
+
 
 def _code(function: Callable[..., Any]) -> CodeType | None:
     """The code of the function ``function`` declares, under its wrappers, if it has one."""
@@ -186,7 +191,7 @@ def _named(code: CodeType) -> tuple[str, ...]:
 def _read(code: CodeType) -> frozenset[str]:
     """The local variables ``code`` reads: those it loads, and those a nested function
     reads (its cell variables); every one if it calls ``locals()``, ``vars()``, ``eval()``
-    or ``exec()``.
+    or ``exec()``, by name or as ``builtins.locals()``, or reads a frame's ``f_locals``.
 
     An instruction on a variable that this does not know how to read, as a later version of
     Python may add, counts as a read of every variable it names: a missed warning is the
@@ -196,7 +201,9 @@ def _read(code: CodeType) -> frozenset[str]:
     read = set(code.co_cellvars)
     for instruction in dis.get_instructions(code):
         name, value = instruction.opname, instruction.argval
-        if name in ("LOAD_GLOBAL", "LOAD_NAME") and value in _EVERY_LOCAL:
+        if (name in ("LOAD_GLOBAL", "LOAD_NAME") and value in _EVERY_LOCAL) or (
+            name in ("LOAD_ATTR", "LOAD_METHOD") and value in _EVERY_LOCAL_ATTRIBUTE
+        ):
             return frozenset(code.co_varnames)
         if instruction.opcode not in _VARIABLES or name == "LOAD_FAST_AND_CLEAR":
             continue

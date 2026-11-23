@@ -29,6 +29,7 @@ bound more than once (JP007).
 
 from collections.abc import Iterator
 from dataclasses import dataclass
+from functools import cached_property
 
 from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.model import Element, Justification, Origin
@@ -96,7 +97,7 @@ class Binding:
     step: Step
     designators: tuple[str, ...]
 
-    @property
+    @cached_property
     def origin(self) -> Origin | None:
         """The origin of the element that the step's ids designate, with the step's kind:
         the element as the step was written for it, before composition changed its kind.

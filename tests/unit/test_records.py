@@ -18,6 +18,11 @@ def test_a_builtin_type_is_named_alone() -> None:
     assert type_name(int) == "int"
 
 
+def test_a_type_whose_module_is_not_a_name_is_named_by_it_as_it_is() -> None:
+    nowhere = type("Thing", (), {"__module__": None})
+    assert type_name(nowhere) == "None.Thing"
+
+
 def test_a_path_is_named_by_pathlib_on_every_version() -> None:
     # Python 3.13 defines it in pathlib._local.
     assert type_name(type(Path())) in ("pathlib.PosixPath", "pathlib.WindowsPath")
