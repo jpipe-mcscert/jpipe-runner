@@ -429,3 +429,63 @@ def test_a_step_s_thread_is_a_daemon_that_sees_the_run_s_context(root: Path) -> 
     assert result.verdict is Verdict.PASS
     assert precision == [50, 50, 50]
     assert daemons == [True, True, True]
+
+
+class _Deciding(_Holding):
+    """A listener that, told that e2 is decided, holds the run's thread until e1's thread
+    has ended: an abort e1 sends then arrives while the listener runs."""
+
+    def __init__(self, threads: dict[str, threading.Thread]) -> None:
+        super().__init__(threads)
+        self.deciding = threading.Event()
+
+    def source_observed(self, element: Element, source: str, reachable: bool) -> None:
+        pass  # does not hold the run's thread here
+
+    def element_decided(self, result: ElementResult) -> None:
+        if result.element.id == "e2":
+            self.deciding.set()
+            _ended(self.steps, "e1")
+
+
+def test_an_interrupt_sent_while_the_listener_runs_starts_no_step(root: Path) -> None:
+    # e2's decision frees a thread; e1 interrupts while the listener is told of it. The
+    # run must read the interrupt before it starts e3 on that thread.
+    threads: dict[str, threading.Thread] = {}
+    listener = _Deciding(threads)
+
+    def interrupts() -> Outcome:
+        threads["e1"] = threading.current_thread()
+        assert listener.deciding.wait(WAIT)
+        raise KeyboardInterrupt
+
+    registry = _library(interrupts, Pass, Pass)
+    with pytest.raises(KeyboardInterrupt):
+        run(THREE, registry, root=root, jobs=2, listener=listener)
+    assert sorted(listener.started) == ["e1", "e2"]
+
+
+def test_each_step_s_decimal_flags_are_its_own(root: Path) -> None:
+    contexts: list[decimal.Context] = []
+    inexact: list[bool] = []
+    both = threading.Barrier(2, timeout=WAIT)
+
+    def divides() -> Outcome:
+        context = decimal.getcontext()
+        both.wait()  # neither has divided yet
+        inexact.append(context.flags[decimal.Inexact])
+        contexts.append(context)
+        both.wait()
+        _ = decimal.Decimal(1) / decimal.Decimal(3)
+        return Pass() if context.flags[decimal.Inexact] else Fail("no flag")
+
+    with decimal.localcontext() as caller:
+        caller.prec = 50
+        result = run(THREE, _library(divides, divides, Pass), root=root, jobs=2)
+
+        assert result.verdict is Verdict.PASS, result.diagnostics
+        assert not caller.flags[decimal.Inexact]
+        assert inexact == [False, False]
+        assert contexts[0] is not contexts[1]
+        assert caller not in contexts
+        assert [context.prec for context in contexts] == [50, 50]

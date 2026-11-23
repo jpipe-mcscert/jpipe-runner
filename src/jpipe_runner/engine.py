@@ -33,6 +33,7 @@ thread that runs ``run``, whatever the number of jobs, an element after all its
 supporters, so it needs no lock.
 """
 
+import decimal
 import logging
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextvars import copy_context
@@ -311,6 +312,8 @@ class _Run:
         self._decided_at: dict[int, ElementResult] = {}
         self._bound_at: dict[int, Binding] = {}
         self._threads: list[Thread] = []
+        # The messages read from _inbox, not handled yet.
+        self._collected: list[_Sighted | _Attempt] = []
         self._inbox: SimpleQueue[_Sighted | _Attempt | BaseException] = SimpleQueue()
         self._running = 0
         for element in self._order:
@@ -339,6 +342,9 @@ class _Run:
             while self._decidable:
                 self._decide(self._decided_at.pop(heappop(self._decidable)))
             while self._ready and self._running < self._jobs:
+                # What the listener did since the last messages were read may have let a
+                # thread send an abort: it is raised before any other step starts.
+                self._collect()
                 self._take(heappop(self._ready))
             if self._running:
                 for message in self._messages():
@@ -400,28 +406,42 @@ class _Run:
                 thread.start()
 
     def _work(self, binding: Binding, arguments: dict[str, Any], context: Context) -> None:
-        """What a step's thread does: try ``binding``'s step, and tell this run."""
+        """What a step's thread does: try ``binding``'s step, and tell this run. The step gets
+        a decimal context of its own, with the settings of the run's, so that the flags its
+        arithmetic sets reach neither another step nor the caller."""
+        decimal.setcontext(decimal.getcontext().copy())
         try:
             self._inbox.put(_attempt(binding, arguments, context, self._inbox.put))
         # Whatever escapes is the runner's bug, or a step that raised KeyboardInterrupt: the
-        # thread that runs the run raises it again (_messages).
+        # thread that runs the run raises it again (_keep).
         except BaseException as error:  # NOSONAR
             self._inbox.put(error)
 
     def _messages(self) -> list["_Sighted | _Attempt"]:
-        """The messages from the steps' threads: the next, and every other already sent.
-        If one is an exception, it is raised before any is handled, so that a run stopped
-        while another step ended starts no step in its place."""
-        messages = [self._next()]
+        """The messages from the steps' threads: those already collected, or the next, and
+        every other already sent. An exception among them is raised before any is handled,
+        so that a run stopped while another step ended starts no step in its place."""
+        if not self._collected:
+            self._keep(self._next())
+        self._collect()
+        messages, self._collected = self._collected, []
+        return messages
+
+    def _collect(self) -> None:
+        """Keep every message the steps' threads have sent, without waiting."""
         while True:
             try:
-                messages.append(self._inbox.get_nowait())
+                message = self._inbox.get_nowait()
             except Empty:
-                break
-        for message in messages:
-            if isinstance(message, BaseException):
-                raise message
-        return [message for message in messages if not isinstance(message, BaseException)]
+                return
+            self._keep(message)
+
+    def _keep(self, message: "_Sighted | _Attempt | BaseException") -> None:
+        """Keep ``message`` to handle, or raise it if it is an exception: the runner's bug,
+        or a step that raised KeyboardInterrupt."""
+        if isinstance(message, BaseException):
+            raise message
+        self._collected.append(message)
 
     def _next(self) -> "_Sighted | _Attempt | BaseException":
         """The next message from a step's thread. The wait is cut short now and then, so

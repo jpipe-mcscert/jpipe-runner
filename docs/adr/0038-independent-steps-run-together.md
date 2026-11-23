@@ -69,8 +69,10 @@ step is called there, so the elements are decided in ADR-0021's order and the ev
 those it wrote. With more, up to `N` steps run at a time, each on a thread of its own,
 which observes its artifacts, says so, calls the step and hands back what it returned or
 raised. The thread starts in a copy of the run's context variables (`contextvars`), so a
-step sees `decimal`'s context, or a library's own context variable, as it would with one
-job; what a library keeps per thread (`threading.local`) it does not see. Everything
+step sees a library's own context variable as it would with one job, and with a copy of
+`decimal`'s context, which has the run's settings: the flags its arithmetic sets reach no
+other step, and not the caller. What a library keeps per thread (`threading.local`) it does
+not see. Everything
 else stays on the run's thread: reading the values the step consumes, the listener and
 its events, judging the outcome, storing the values and recording the result. The engine
 holds no lock, and the listener is called from one thread, as ADR-0030 says.
