@@ -127,7 +127,7 @@
           "$ref": "#/$defs/names"
         },
         "library_sha256": {
-          "description": "The SHA-256 of the file that declares its step, or null if it is unbound or its step has no file: what tells an incremental run that the step's code changed (ADR-0039). New in 2.1.",
+          "description": "The SHA-256 of the file that declares its step, taken when the library was imported, and of the file that defines its function after it, if another; or null if it is unbound or its step has no file: what tells an incremental run that the step's code changed (ADR-0039). New in 2.1.",
           "type": ["string", "null"],
           "pattern": "^[0-9a-f]{64}$"
         },
@@ -178,13 +178,16 @@
       }
     },
     "value": {
-      "description": "A produced value: the value itself if it is JSON, otherwise its Python repr and type.",
+      "description": "A produced value: the value itself if it is JSON, with its type if JSON reads it back as another (since 2.1), otherwise its Python repr and type.",
       "oneOf": [
         {
           "type": "object",
           "required": ["value"],
           "additionalProperties": false,
-          "properties": {"value": true}
+          "properties": {
+            "value": true,
+            "type": {"type": "string", "minLength": 1}
+          }
         },
         {
           "type": "object",

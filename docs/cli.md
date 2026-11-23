@@ -286,11 +286,12 @@ argument's**, as a full run's would be, and so is the exit code.
   something the report cannot check again: a hidden value, or one only the library's own
   observable can see;
 - whose step library changed: the report records the SHA-256 of the file that declares each
-  step, so editing a library runs its steps again;
+  step, taken when the library was imported, so editing a library runs its steps again;
 - whose step declares something else than last time, or is another step;
 - above one that runs again, up to the conclusion;
-- whose value a step that runs again consumes, when the report holds that value only as its
-  `repr`, such as a `Path`: only a value written as JSON can be passed on.
+- whose value a step that runs again consumes, when the report cannot pass that value as it
+  was produced: it holds a `Path` only as its `repr`, and a tuple as JSON, which reads it
+  back as a list. Only a value JSON reads back as it was is passed on.
 
 Everything runs again when the baseline ran no step, is a run of another justification, or
 of a model whose elements or relations differ, and when `REPORT` does not exist, so that the

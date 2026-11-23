@@ -6,6 +6,7 @@ the command line (#124).
 """
 
 import datetime
+import enum
 import hashlib
 import json
 from collections import OrderedDict
@@ -22,6 +23,7 @@ from jpipe_runner.json_report import SCHEMA, SCHEMA_VERSION, document, dumps, en
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import InvalidJustificationError
 from jpipe_runner.observables import Observation, Obstacle
+from jpipe_runner.records import Decoded
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.steps import StepRegistry, step_of
 from tests.anchored import run
@@ -273,6 +275,14 @@ class Opaque:
         raise RuntimeError("no repr")
 
 
+class Level(enum.IntEnum):
+    HIGH = 2
+
+
+class Name(str):
+    __slots__ = ()
+
+
 @pytest.mark.parametrize(
     ("value", "written"),
     [
@@ -280,8 +290,18 @@ class Opaque:
         pytest.param(True, {"value": True}, id="bool"),
         pytest.param(92.5, {"value": 92.5}, id="float"),
         pytest.param("2.0", {"value": "2.0"}, id="str"),
-        pytest.param((1, [2, {"a": "b"}]), {"value": [1, [2, {"a": "b"}]]}, id="nested"),
-        pytest.param(OrderedDict(a=1), {"value": {"a": 1}}, id="a mapping"),
+        pytest.param([1, [2, {"a": "b"}]], {"value": [1, [2, {"a": "b"}]]}, id="nested"),
+        # JSON reads these back as another type: the report names theirs.
+        pytest.param(
+            (1, [2, {"a": "b"}]), {"value": [1, [2, {"a": "b"}]], "type": "tuple"}, id="a tuple"
+        ),
+        pytest.param([1, (2,)], {"value": [1, [2]], "type": "list"}, id="a tuple in a list"),
+        pytest.param(
+            OrderedDict(a=1), {"value": {"a": 1}, "type": "collections.OrderedDict"}, id="a mapping"
+        ),
+        pytest.param(Level.HIGH, {"value": 2, "type": f"{__name__}.Level"}, id="an enum"),
+        pytest.param(Name("x"), {"value": "x", "type": f"{__name__}.Name"}, id="a str subclass"),
+        pytest.param(Decoded([1], "tuple"), {"value": [1], "type": "tuple"}, id="decoded"),
         pytest.param(float("nan"), {"repr": "nan", "type": "float"}, id="NaN"),
         pytest.param({1: "a"}, {"repr": "{1: 'a'}", "type": "dict"}, id="a key that is not str"),
         pytest.param(

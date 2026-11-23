@@ -32,7 +32,6 @@ from jpipe_runner.observables import (
     Observation,
     dependencies,
     described,
-    digest,
     drawn_as,
 )
 
@@ -125,7 +124,7 @@ class ElementReport:
                 consumes=step.consumes,
                 inputs=inputs,
                 produces=step.produces,
-                library_sha256=_sha256(step.file),
+                library_sha256=step.library_sha256,
             )
         if result is not None:
             report = replace(
@@ -140,16 +139,6 @@ class ElementReport:
                 reused=result.reused,
             )
         return report
-
-
-def _sha256(file: Path | None) -> str | None:
-    """The SHA-256 of ``file``, or ``None`` if there is none, or it cannot be read."""
-    if file is None:
-        return None
-    try:
-        return digest(file)[0]
-    except OSError:
-        return None
 
 
 def reached_every_time(sources: Iterable[tuple[str, bool]]) -> dict[str, bool]:

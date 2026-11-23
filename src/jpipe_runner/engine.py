@@ -54,7 +54,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_trac
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.observables import Context, Observation
 from jpipe_runner.outcomes import Fail, NotAnOutcomeError, Outcome, Pass, Skip, as_outcome
-from jpipe_runner.records import Uncopied, snapshot
+from jpipe_runner.records import Decoded, Uncopied, snapshot
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
 from jpipe_runner.validation import ValidationContext, ValidationReport
@@ -199,6 +199,9 @@ class RunResult:
     elements: tuple[ElementResult, ...]
     """One per element, in topological order. Empty when validation stopped the run."""
     values: ValueStore
+    """The values produced, by their producers. In an incremental run, those of an element
+    reused are the baseline's as JSON reads them, and only those it holds as they were
+    produced (ADR-0039): ``produced``, on each element, has every one."""
     strict: bool = False
     """Whether validation counted warnings as errors."""
     dry_run: bool = False
@@ -488,10 +491,10 @@ class _Run:
             result = replace(result, inputs=self._dataflow.received(element.id))
         _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
         if result.reused:
-            # The values the baseline holds as JSON: one it holds as a repr has no consumer
-            # that reruns, since its producer then reruns too.
+            # The values the baseline holds as they were produced: one it holds otherwise
+            # has no consumer that reruns, since its producer then reruns too.
             for name, value in result.produced.items():
-                if not isinstance(value, Uncopied):
+                if not isinstance(value, Uncopied | Decoded):
                     self._values.put(name, value, element.id)
         self._results[element.id] = result
         self._listener.element_decided(result)

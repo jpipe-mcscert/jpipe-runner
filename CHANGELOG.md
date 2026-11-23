@@ -14,8 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   changed, as `jpipe-runner status` finds them, or whose observations the report cannot
   check again; the steps whose library file or declarations changed; and everything above
   those, up to the conclusion. Every other element is taken as the baseline decided it,
-  with its values, which the steps that run again receive as JSON decodes them; a value
-  the baseline holds only as its `repr` makes its producer run again. The verdict and the
+  with its values, which the steps that run again receive as the baseline holds them; a
+  value it cannot pass as it was produced, one it holds only as its `repr`, or as JSON
+  that reads it back as another type, such as a tuple, makes its producer run again. The verdict and the
   exit code are the whole argument's. A baseline that does not exist runs everything, so
   a pipeline can always pass the report it caches, and `--report` may name the baseline
   itself. The text report marks what was reused, and says how much ran again
@@ -25,8 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **The JSON report is version 2.1, and the events 1.1.** The report adds `selection`,
   what an incremental run ran again and why, null for a full run, and, for each element,
-  `reused` and `library_sha256`, the SHA-256 of the file that declares its step. Within
-  2.x, these are new optional fields: a reader that ignores fields it does not know, as the
+  `reused` and `library_sha256`, the SHA-256 of the file that declares its step; a
+  produced value that is JSON gives its `type` when JSON reads it back as another, such
+  as a tuple. Within 2.x, these are new optional fields: a reader that ignores fields it does not know, as the
   schema asks, needs no change. The events write elements as the report does, so their
   `report_schema_version` is `"2.1"`. `impact` and `status` read reports of 2.0 as before
   ([`report-schema.md`](docs/report-schema.md#versioning)).

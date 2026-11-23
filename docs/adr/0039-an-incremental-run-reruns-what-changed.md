@@ -65,22 +65,25 @@ special case. A file that is not a report of a version this runner reads is a us
 - its step's declarations differ from the baseline's: the step it is bound to, the ids that
   bind it, what it observes, consumes and produces, and where each input comes from;
 - its step's library changed: the report records, for each bound element, the SHA-256 of
-  the file that declares its step (`library_sha256`, new in report 2.1); one the baseline
-  does not record, or a step with no file, counts as changed;
+  the file that declares its step (`library_sha256`, new in report 2.1): the file its
+  decorator is applied in, and the one that defines its function after it, if another,
+  read as the library is imported, so that it is the code that ran. One the baseline does
+  not record, or a step with no file, counts as changed;
 - something it observed changed since, as `jpipe-runner status` finds it: a file changed,
   vanished, appeared or was added to a glob, or an environment variable changed; or what it
   observed cannot be checked from the report, because it is hidden or observed by the
   library's own observable;
 - it is above an element that reruns: everything an element supports, up to the
   conclusion;
-- a step that reruns consumes a value it produced, and the baseline holds that value only as
-  its `repr`: a `repr` cannot be passed to a step.
+- a step that reruns consumes a value it produced, and the baseline cannot pass that value
+  as it was produced: it holds it only as its `repr`, or as JSON that reads it back as
+  another type, such as a tuple as a list. The report gives such a value its `type`
+  beside its `value` (new in report 2.1), so that the run can tell.
 
 The rest is **reused**: the element is decided as the baseline decided it, before any step
 it supports runs, with the baseline's status, reason, `blocked_by`, `ran`, observed files
-and diagnostics, tracebacks included. Its produced values, which the baseline holds as JSON,
-are passed to the steps that rerun and consume them, as JSON decodes them: a tuple comes
-back as a list. Since what reruns is closed upwards, an element reused has only reused
+and diagnostics, tracebacks included. Its produced values are passed to the steps that rerun
+and consume them as the baseline holds them, which is as they were produced. Since what reruns is closed upwards, an element reused has only reused
 supporters, and the baseline's decision still holds.
 
 **The report** says which is which. Each element has `reused`, true when it was taken from
@@ -103,14 +106,15 @@ the report does, so `element.decided` carries `reused`.
   `impact` and `status` are.
 - Bad, because the library's file is a coarse fingerprint: changing one step reruns every
   step the file declares, and a change to a module the step imports reruns nothing.
-- Bad, because a value reused from JSON has JSON's types, which a step written for a tuple
-  or a `Path` may not expect; a value only a `repr` records reruns its producer instead.
+- Bad, because a value JSON cannot give back as it was, a tuple or a `Path`, reruns its
+  producer whenever a step that reruns consumes it.
 
 ### Confirmation
 
 - `tests/unit/test_incremental.py` checks each reason to rerun, the closure upwards, the
-  producers rerun for a `repr`, and that a run with nothing changed, given its own report,
-  reruns nothing and reports what the baseline reported.
+  producers rerun for a value the baseline cannot pass as it was produced, and that a run
+  with nothing changed, given its own report, reruns nothing and reports what the baseline
+  reported.
 - Every e2e scenario that runs its steps is run again with its golden report as the
   baseline.
 
@@ -136,7 +140,8 @@ the report does, so `element.decided` carries `reused`.
 ## More Information
 
 Issue #153, which also asked for `--incremental`, reusing the outcome of unchanged evidence.
-The report's schema goes to 2.1: `selection` and, for each element, `reused` and
-`library_sha256`, all optional to a reader. `impact` and `status` read 2.1 as they read
+The report's schema goes to 2.1: `selection`; for each element, `reused` and
+`library_sha256`; and a value's `type` beside its `value` when JSON loses it; all optional
+to a reader. `impact` and `status` read 2.1 as they read
 2.0. The GitHub Action ([ADR-0012](0012-extract-the-github-action.md)) can cache the report
 and pass it; that is for its own repository.

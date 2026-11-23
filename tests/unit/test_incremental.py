@@ -149,6 +149,54 @@ def test_a_value_the_baseline_holds_as_json_reaches_a_step_that_runs_again(
     assert again["elements"][0]["reused"] is True  # e1, first in topological order
 
 
+def _element(document: Document, element_id: str) -> Document:
+    return next(each for each in document["elements"] if each["id"] == element_id)
+
+
+def _typed(first: Document) -> Document:
+    """``first``, as if e1 had produced its text as a ``Text``, a ``str`` subclass."""
+    return _changed(first, "e1", produced={"text": {"value": "one", "type": "steps.Text"}})
+
+
+def test_a_value_json_reads_back_as_another_type_reruns_its_producer(
+    library: Library,
+) -> None:
+    _, first = library.run()
+    (library.root / "e2.txt").write_text("changed", encoding="utf-8")
+    library.calls.clear()
+
+    _, again = library.run(Baseline("base.json", _typed(first), library.root))
+
+    assert _rerun(again)["e1"] == (
+        "s consumes 'text', which the baseline records only as JSON, not as a steps.Text"
+    )
+    assert sorted(library.called()) == ["e1", "e2", "s"]
+
+
+def test_a_reused_value_with_its_type_is_reported_with_it(library: Library) -> None:
+    _, first = library.run()
+    typed = _typed(first)
+
+    result, again = library.run(Baseline("base.json", typed, library.root))
+
+    assert library.called() == ["e1", "e2", "s"]  # the first run only
+    assert _element(again, "e1")["produced"] == {"text": {"value": "one", "type": "steps.Text"}}
+    assert "text" not in result.values  # it cannot reach a step as it was produced
+
+
+def test_a_producer_that_recorded_no_value_is_reused(library: Library) -> None:
+    _, first = library.run()
+    failed = _changed(first, "e1", status="fail", reason="broken", produced={})
+    (library.root / "e2.txt").write_text("changed", encoding="utf-8")
+    library.calls.clear()
+
+    _, again = library.run(Baseline("base.json", failed, library.root))
+
+    assert _rerun(again) == {"e2": "e2.txt changed", "s": "e2 runs again", "c": "s runs again"}
+    assert library.called() == ["e2"]  # s is not run: e1 did not pass
+    assert _element(again, "s")["status"] == "skip"
+
+
 def _changed(first: Document, element_id: str, **fields: Any) -> Document:
     changed = copy.deepcopy(first)
     for each in changed["elements"]:
@@ -440,20 +488,20 @@ def first(log):
 
 
 @pytest.mark.parametrize(
-    ("filename", "file"),
+    "filename",
     [
-        pytest.param("<prompt>", None, id="typed-at-a-prompt"),
-        pytest.param("absent/steps.py", Path("absent/steps.py"), id="file-gone"),
+        pytest.param("<prompt>", id="typed-at-a-prompt"),
+        pytest.param("absent/steps.py", id="file-gone"),
     ],
 )
 def test_a_step_whose_file_cannot_be_read_has_no_library_sha256(
-    tmp_path: Path, filename: str, file: Path | None
+    tmp_path: Path, filename: str
 ) -> None:
     namespace: dict[str, Any] = {}
     exec(compile(_TYPED, filename, "exec"), namespace)
     step = step_of(namespace["first"])
     assert step is not None
-    assert step.file == file
+    assert step.library_sha256 is None
 
     planned = run(MODEL, StepRegistry([step]), root=tmp_path, dry_run=True)
     (first, *_) = json_report.document(RunReport.of(planned, tmp_path))["elements"]

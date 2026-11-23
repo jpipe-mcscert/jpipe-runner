@@ -1,6 +1,7 @@
 import builtins
 import dis
 import functools
+import hashlib
 import importlib
 import inspect
 import sys
@@ -20,6 +21,8 @@ from jpipe_runner.observables import Context, Env, File, Observable, Sighting
 from jpipe_runner.steps import Artifact, Input, Produced, Step, StepRegistry, Unread, step_of
 
 HERE = Path(__file__).parent
+SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+"""This file's SHA-256: the fingerprint of the steps it declares."""
 """Where the steps of these tests are declared: what their paths are relative to."""
 
 
@@ -87,7 +90,7 @@ def test_the_decorator_is_the_kind(
 
     inputs = tuple(Input(name, name) for name in consumes)
     assert step_of(decorator(function)) == Step(
-        kind, ("m:x",), function, inputs, produces, directory=HERE
+        kind, ("m:x",), function, inputs, produces, directory=HERE, library_sha256=SHA256
     )
 
 
@@ -468,7 +471,33 @@ def test_a_wrapper_of_a_step_is_the_step() -> None:
     def logged() -> Outcome:
         return inner()
 
-    assert step_of(logged) == Step(Kind.EVIDENCE, ("m:e",), logged, directory=HERE)
+    assert step_of(logged) == Step(
+        Kind.EVIDENCE, ("m:e",), logged, directory=HERE, library_sha256=SHA256
+    )
+
+
+def test_a_step_made_elsewhere_is_fingerprinted_by_both_files(tmp_path: Path) -> None:
+    helpers, library = tmp_path / "helpers.py", tmp_path / "library.py"
+    helpers.write_text(
+        "from jpipe_runner import Pass\n"
+        "def make(threshold):\n"
+        "    def check():\n"
+        "        return Pass()\n"
+        "    return check\n",
+        encoding="utf-8",
+    )
+    library.write_text("step = evidence('m:e')(make(0.8))\n", encoding="utf-8")
+    namespace: dict[str, Any] = {"evidence": evidence}
+    for file in (helpers, library):
+        exec(compile(file.read_text(encoding="utf-8"), str(file), "exec"), namespace)
+
+    step = step_of(namespace["step"])
+
+    # The library applies the decorator, so a new threshold is a new fingerprint; helpers
+    # defines the function, so a new body is one too.
+    both = library.read_bytes() + helpers.read_bytes()
+    assert step is not None
+    assert step.library_sha256 == hashlib.sha256(both).hexdigest()
 
 
 @pytest.mark.parametrize("candidate", [None, 1, "m:e", print, _no_parameters], ids=repr)

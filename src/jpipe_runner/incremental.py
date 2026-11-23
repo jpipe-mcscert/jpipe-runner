@@ -8,7 +8,8 @@ another justification, or the model changed), when its step's declarations or it
 library changed, when something it observed changed since, as ``jpipe-runner status``
 finds it, or cannot be checked from the report, and when it is above an element that runs
 again. A step that runs again receives the values of the elements reused as the baseline
-holds them, as JSON; one it holds only as a ``repr`` makes its producer run again.
+holds them, as JSON; one it holds only as a ``repr``, or as JSON that reads it back as
+another type, such as a tuple as a list, makes its producer run again.
 
 What runs again is closed upwards, so an element reused has only reused supporters, and the
 baseline's decision still holds. It is reused whole: its status, reason, ``blocked_by``,
@@ -25,7 +26,7 @@ from jpipe_runner import impact, json_report
 from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.engine import ElementResult, RunResult, Status
 from jpipe_runner.observables import HIDDEN, Observation, Obstacle
-from jpipe_runner.records import Uncopied
+from jpipe_runner.records import Decoded, Uncopied
 from jpipe_runner.report import RunReport, Selection
 from jpipe_runner.rules import RULES
 
@@ -142,23 +143,23 @@ def _changed(element: Document, recorded: Document) -> Iterator[str]:
 
 
 def _above(now: Document, rerun: dict[str, str]) -> None:
-    """Add to ``rerun`` every element above one in it, naming the supporter that reruns."""
+    """Add to ``rerun`` every element above one in it, naming a supporter that reruns."""
     supporters: dict[str, list[str]] = {}
     for element in now["elements"]:
         for supported in element["supports"]:
             supporters.setdefault(supported, []).append(element["id"])
-    for element in now["elements"]:  # in topological order: supporters first
-        if element["id"] not in rerun:
-            running = [s for s in supporters.get(element["id"], ()) if s in rerun]
-            if running:
-                rerun[element["id"]] = f"{running[0]} runs again"
+    for above in impact.above(now, list(rerun)):  # supporters first
+        if above not in rerun:
+            running = next(s for s in supporters[above] if s in rerun)
+            rerun[above] = f"{running} runs again"
 
 
 def _producers(
     now: Document, recorded: Mapping[str, Document], rerun: Mapping[str, str]
 ) -> Iterator[tuple[str, str]]:
-    """Each element reused that a step running again consumes a value from, held by the
-    baseline only as its ``repr``, and why it must run again."""
+    """Each element reused that a step running again consumes a value from that the
+    baseline cannot pass as it was produced, and why it must run again: one it holds only
+    as its ``repr``, or as JSON that reads it back as another type."""
     for element in now["elements"]:
         if element["id"] not in rerun:
             continue
@@ -166,13 +167,14 @@ def _producers(
             producer, variable = received["produced_by"], received["variable"]
             if producer in rerun:
                 continue
-            value = recorded[producer]["produced"].get(variable, {})
-            if "value" not in value:
-                yield (
-                    producer,
-                    f"{element['id']} consumes {variable!r}, which the baseline records only "
-                    "as its repr",
-                )
+            value = recorded[producer]["produced"].get(variable)
+            if value is None or "type" not in value:  # none produced, or JSON as it was
+                continue
+            held = "its repr" if "repr" in value else f"JSON, not as a {value['type']}"
+            yield (
+                producer,
+                f"{element['id']} consumes {variable!r}, which the baseline records only as {held}",
+            )
 
 
 def _decoded(
@@ -206,10 +208,13 @@ def _decoded(
 
 
 def _value(encoded: Mapping[str, Any]) -> Any:
-    """A value as the report wrote it (``json_report.encoded``): itself, or its ``repr``."""
-    if "value" in encoded:
-        return encoded["value"]
-    return Uncopied(encoded["repr"], encoded["type"])
+    """A value as the report wrote it (``json_report.encoded``): itself, itself with the
+    type it had, or its ``repr``."""
+    if "repr" in encoded:
+        return Uncopied(encoded["repr"], encoded["type"])
+    if "type" in encoded:
+        return Decoded(encoded["value"], encoded["type"])
+    return encoded["value"]
 
 
 _UNREACHED = "the baseline recorded it as unreachable"

@@ -110,7 +110,7 @@ was drawn under it.
 | `reused` | boolean | whether an incremental run took it from its baseline, as decided there, rather than run it again |
 | `bound_to` | string or null | its step, `module.function`; null if it has none |
 | `bound_by` | array of strings | the step's ids that designate this element, as the step names them |
-| `library_sha256` | string or null | the SHA-256 of the file that declares its step; null if it is unbound, or its step has no file. An incremental run runs a step again when it differs |
+| `library_sha256` | string or null | the SHA-256 of the file that declares its step, taken when the library was imported; when its function is defined in another file, of the two files, that one second. Null if it is unbound, or its step has no file. An incremental run runs a step again when it differs |
 | `observes` | array of strings | the files, as globs, that what its step observes depends on: a change to one reaches the element. A wildcard in the name of a directory the runner put in front of a declared path is escaped: `app/[[]slug]/*.md` |
 | `sources` | array of strings | everything its step declares it observes: a path or a glob, escaped as in `observes`, a file and a JSON Pointer (`package.json#/version`), an environment variable (`env:CI`) |
 | `consumes`, `produces` | arrays of strings | the variables its step declares, each once |
@@ -127,7 +127,11 @@ binding raises: where did this element come from, and which of its ids did my st
 Each produced value is an object, in one of two forms:
 
 - `{"value": ...}` when the value is JSON as it is: null, a boolean, a number, a string, or
-  a list or a mapping with string keys of such values;
+  a list or a mapping with string keys of such values. When JSON reads it back as another
+  type, such as a tuple as a list, an enum as its value, or a subclass of `str` as a `str`,
+  at any depth, `type` names its own type, as below: `{"value": [1, 2], "type": "tuple"}`
+  (since 2.1). An [incremental run](#incremental-runs) cannot pass such a value on, and
+  runs its producer again;
 - `{"repr": ..., "type": ...}` otherwise, such as a `Path`, a `datetime`, a set, an object,
   or a float that is not finite. `repr` is Python's `repr()` of the value, made the same on
   every run: a path under the directory the runner runs in is shown relative to it, the
@@ -141,8 +145,9 @@ such as a lock or an open file, is recorded then as its `repr` and type, so the 
 the [event](events.md#elementdecided) that previews it, say what it was when produced
 ([ADR-0033](adr/0033-a-value-is-recorded-as-it-was-seen.md)).
 
-So `.produced.tests_pass.value` reads a value whatever it is, and the presence of `repr`
-says that it could not be written as JSON.
+So `.produced.tests_pass.value` reads a value whatever it is, the presence of `repr`
+says that it could not be written as JSON, and the presence of `type` says that JSON does
+not give it back as it was.
 
 ## Artifacts
 
