@@ -39,17 +39,17 @@ verdict: fail
 While it ran, `run.jsonl` received one line per event:
 
 ```jsonl
-{"event": "run.started", "seq": 0, "elapsed_ms": 0, "schema_version": "1.0", "report_schema_version": "2.0", "justification": "release", "elements": ["release:e1", "release:e2", "release:s", "release:c"], "strict": false, "dry_run": false}
+{"event": "run.started", "seq": 0, "elapsed_ms": 0, "schema_version": "1.1", "report_schema_version": "2.1", "justification": "release", "elements": ["release:e1", "release:e2", "release:s", "release:c"], "strict": false, "dry_run": false}
 {"event": "validation.ended", "seq": 1, "elapsed_ms": 1, "passed": true, "diagnostics": []}
 {"event": "diagram.drawn", "seq": 2, "elapsed_ms": 71, "path": "/tmp/jpipe-runner-i7ba5753/diagram.svg"}
 {"event": "element.started", "seq": 3, "elapsed_ms": 71, "id": "release:e1"}
 {"event": "source.observed", "seq": 4, "elapsed_ms": 71, "id": "release:e1", "source": "mock/junit.xml", "reachable": true}
-{"event": "element.decided", "seq": 5, "elapsed_ms": 71, "element": {"id": "release:e1", "label": "The test suite passes", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "fail", "reason": "mock/junit.xml: 2 tests failed", "blocked_by": [], "ran": true, "bound_to": "steps.the_test_suite_passes", "bound_by": ["release:e1"], "observes": ["mock/junit.xml"], "sources": ["mock/junit.xml"], "consumes": [], "inputs": {}, "produces": ["tests_pass"], "produced": {}, "artifacts": [{"path": "mock/junit.xml", "declared": "mock/junit.xml", "reachable": true, "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b", "size": 187}], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 5, "elapsed_ms": 71, "element": {"id": "release:e1", "label": "The test suite passes", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "fail", "reason": "mock/junit.xml: 2 tests failed", "blocked_by": [], "ran": true, "reused": false, "bound_to": "steps.the_test_suite_passes", "bound_by": ["release:e1"], "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b", "observes": ["mock/junit.xml"], "sources": ["mock/junit.xml"], "consumes": [], "inputs": {}, "produces": ["tests_pass"], "produced": {}, "artifacts": [{"path": "mock/junit.xml", "declared": "mock/junit.xml", "reachable": true, "sha256": "f757d068913cf325e044ecb63ebb0cfb4a1ccedef54f59aee2285dd22097642b", "size": 187}], "observations": []}, "diagnostics": []}
 {"event": "element.started", "seq": 6, "elapsed_ms": 71, "id": "release:e2"}
 {"event": "source.observed", "seq": 7, "elapsed_ms": 72, "id": "release:e2", "source": "mock/CHANGELOG.md", "reachable": true}
-{"event": "element.decided", "seq": 8, "elapsed_ms": 72, "element": {"id": "release:e2", "label": "The changelog is up to date", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "pass", "reason": null, "blocked_by": [], "ran": true, "bound_to": "steps.the_changelog_is_up_to_date", "bound_by": ["release:e2"], "observes": ["mock/CHANGELOG.md"], "sources": ["mock/CHANGELOG.md"], "consumes": [], "inputs": {}, "produces": ["changelog_ok"], "produced": {"changelog_ok": {"value": true}}, "artifacts": [{"path": "mock/CHANGELOG.md", "declared": "mock/CHANGELOG.md", "reachable": true, "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402", "size": 4}], "observations": []}, "diagnostics": []}
-{"event": "element.decided", "seq": 9, "elapsed_ms": 72, "element": {"id": "release:s", "label": "All release gates pass", "kind": "strategy", "aliases": [], "supports": ["release:c"], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": "steps.all_release_gates_pass", "bound_by": ["release:s"], "observes": [], "sources": [], "consumes": ["tests_pass", "changelog_ok"], "inputs": {"tests_pass": {"variable": "tests_pass", "produced_by": "release:e1"}, "changelog_ok": {"variable": "changelog_ok", "produced_by": "release:e2"}}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
-{"event": "element.decided", "seq": 10, "elapsed_ms": 72, "element": {"id": "release:c", "label": "Version 2.0 is ready to ship", "kind": "conclusion", "aliases": [], "supports": [], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "bound_to": null, "bound_by": [], "observes": [], "sources": [], "consumes": [], "inputs": {}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 8, "elapsed_ms": 72, "element": {"id": "release:e2", "label": "The changelog is up to date", "kind": "evidence", "aliases": [], "supports": ["release:s"], "status": "pass", "reason": null, "blocked_by": [], "ran": true, "reused": false, "bound_to": "steps.the_changelog_is_up_to_date", "bound_by": ["release:e2"], "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b", "observes": ["mock/CHANGELOG.md"], "sources": ["mock/CHANGELOG.md"], "consumes": [], "inputs": {}, "produces": ["changelog_ok"], "produced": {"changelog_ok": {"value": true}}, "artifacts": [{"path": "mock/CHANGELOG.md", "declared": "mock/CHANGELOG.md", "reachable": true, "sha256": "d526eb4e878a23ef26ae190031b4efd2d58ed66789ac049ea3dbaf74c9df7402", "size": 4}], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 9, "elapsed_ms": 72, "element": {"id": "release:s", "label": "All release gates pass", "kind": "strategy", "aliases": [], "supports": ["release:c"], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "reused": false, "bound_to": "steps.all_release_gates_pass", "bound_by": ["release:s"], "library_sha256": "5adc748170474a86f844f3a3c351999cf1aaacd5da0b8ab98241bd89bea5ff7b", "observes": [], "sources": [], "consumes": ["tests_pass", "changelog_ok"], "inputs": {"tests_pass": {"variable": "tests_pass", "produced_by": "release:e1"}, "changelog_ok": {"variable": "changelog_ok", "produced_by": "release:e2"}}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
+{"event": "element.decided", "seq": 10, "elapsed_ms": 72, "element": {"id": "release:c", "label": "Version 2.0 is ready to ship", "kind": "conclusion", "aliases": [], "supports": [], "status": "skip", "reason": "not run: release:e1 did not pass", "blocked_by": ["release:e1"], "ran": false, "reused": false, "bound_to": null, "bound_by": [], "library_sha256": null, "observes": [], "sources": [], "consumes": [], "inputs": {}, "produces": [], "produced": {}, "artifacts": [], "observations": []}, "diagnostics": []}
 {"event": "run.ended", "seq": 11, "elapsed_ms": 73, "verdict": "fail", "exit_code": 1, "summary": {"elements": 4, "pass": 1, "fail": 1, "skip": 2, "not_run": 0, "errors": 0, "warnings": 0}, "report": "report.json", "diagram": null}
 ```
 
@@ -106,8 +106,8 @@ ends without `run.ended`, and stderr says why; so does a report that cannot be p
 
 ## Versioning
 
-`run.started` gives two versions. `schema_version`, `"1.0"`, is the version of the events.
-`report_schema_version`, `"2.0"`, is the version of the
+`run.started` gives two versions. `schema_version`, `"1.1"`, is the version of the events.
+`report_schema_version`, `"2.1"`, is the version of the
 [report's schema](report-schema.md#versioning), which the elements and the diagnostics of
 the events follow. Within a major version, a minor version only adds optional fields, or
 events: **ignore the fields and the events you do not know**. Renaming or removing a
@@ -116,6 +116,7 @@ field or an event, or changing what one means, is a new major version.
 | Version | Runner | Changed |
 |---|---|---|
 | 1.0 | 4.1.0 | |
+| 1.1 | 4.5.0 | elements follow the report's schema 2.1: each says whether an [incremental run](cli.md#incremental-runs) `reused` it, and gives its `library_sha256` |
 
 The schema is strict: it lists every field the runner writes, so the runner cannot add one
 without documenting it.
@@ -137,8 +138,8 @@ file held something other than a run's events, which gets it once they are.
 
 | Field | Type | |
 |---|---|---|
-| `schema_version` | string | `"1.0"`, the version of the events |
-| `report_schema_version` | string | `"2.0"`, the version of the report's schema that elements and diagnostics follow |
+| `schema_version` | string | `"1.1"`, the version of the events |
+| `report_schema_version` | string | `"2.1"`, the version of the report's schema that elements and diagnostics follow |
 | `justification` | string or null | the justification's name; null if the model was refused |
 | `elements` | array of strings | every element's id, each after the elements that support it, as the report lists them; empty if the model was refused |
 | `strict` | boolean | whether the run is strict (`--strict`) |

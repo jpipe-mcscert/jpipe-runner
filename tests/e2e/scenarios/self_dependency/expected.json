@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "self_dependency",
   "verdict": "invalid",
   "strict": false,
@@ -26,10 +26,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.function_a",
       "bound_by": [
         "S1"
       ],
+      "library_sha256": "2491e3e1895a19c8f86565566a223310dd91c350d2abd4ff191ed0acd47274c6",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -60,10 +62,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.function_b",
       "bound_by": [
         "S2"
       ],
+      "library_sha256": "2491e3e1895a19c8f86565566a223310dd91c350d2abd4ff191ed0acd47274c6",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -92,10 +96,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.final_check",
       "bound_by": [
         "C1"
       ],
+      "library_sha256": "2491e3e1895a19c8f86565566a223310dd91c350d2abd4ff191ed0acd47274c6",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -128,5 +134,6 @@
       "traceback": null
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

@@ -363,7 +363,8 @@ def test_a_report_of_a_later_minor_version_is_read_and_its_new_fields_ignored(
     tmp_path: Path,
 ) -> None:
     document = json.loads(json_report.dumps(RunReport("m", Verdict.PASS)))
-    document |= {"schema_version": "2.1", "duration": 3.5}
+    major, _, minor = json_report.SCHEMA_VERSION.partition(".")
+    document |= {"schema_version": f"{major}.{int(minor) + 1}", "duration": 3.5}
     path = tmp_path / "report.json"
     path.write_text(json.dumps(document), encoding="utf-8")
 

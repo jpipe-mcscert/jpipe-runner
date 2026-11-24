@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "readiness",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_test_suite_passes",
       "bound_by": [
         "readiness:suite"
       ],
+      "library_sha256": "676738976f4e0ff8c6c958536e926715a858a902c8af3776897fb2c1ff5b529c",
       "observes": [
         "mock/junit.xml"
       ],
@@ -68,10 +70,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.coverage_is_above_80",
       "bound_by": [
         "readiness:coverage"
       ],
+      "library_sha256": "676738976f4e0ff8c6c958536e926715a858a902c8af3776897fb2c1ff5b529c",
       "observes": [
         "mock/coverage.txt"
       ],
@@ -111,10 +115,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_suite_passes_with_high_coverage",
       "bound_by": [
         "readiness:testing"
       ],
+      "library_sha256": "676738976f4e0ff8c6c958536e926715a858a902c8af3776897fb2c1ff5b529c",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -148,10 +154,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_changelog_is_up_to_date",
       "bound_by": [
         "readiness:changelog"
       ],
+      "library_sha256": "676738976f4e0ff8c6c958536e926715a858a902c8af3776897fb2c1ff5b529c",
       "observes": [
         "mock/CHANGELOG.md"
       ],
@@ -191,10 +199,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_docs_are_current",
       "bound_by": [
         "readiness:docs"
       ],
+      "library_sha256": "676738976f4e0ff8c6c958536e926715a858a902c8af3776897fb2c1ff5b529c",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -223,10 +233,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_code_is_tested",
       "bound_by": [
         "readiness:quality:tested"
       ],
+      "library_sha256": "676738976f4e0ff8c6c958536e926715a858a902c8af3776897fb2c1ff5b529c",
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -254,8 +266,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -277,10 +291,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.all_release_gates_pass",
       "bound_by": [
         "readiness:quality:gates"
       ],
+      "library_sha256": "676738976f4e0ff8c6c958536e926715a858a902c8af3776897fb2c1ff5b529c",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -307,8 +323,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -320,5 +338,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

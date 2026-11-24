@@ -167,7 +167,8 @@ and nothing runs:
 ```console
 $ jpipe-runner --library steps.py --diagram release.txt justification.json
 usage: jpipe-runner [-h] -l PATH [-p DIR] [--strict] [--dry-run] [--jobs N]
-                    [--json] [--report PATH] [--events PATH] [--diagram PATH]
+                    [--incremental REPORT] [--json] [--report PATH]
+                    [--events PATH] [--diagram PATH]
                     [--colour {auto,always,never}] [-v | -q] [--version]
                     JUSTIFICATION
 jpipe-runner: error: --diagram release.txt: the suffix of the file is its format, one of dot, gif, jpeg, jpg, pdf, png, svg

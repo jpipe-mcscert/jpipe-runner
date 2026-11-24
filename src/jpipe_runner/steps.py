@@ -27,11 +27,13 @@ ADR-0037), since a step that never reads an input is not a mistake its import ca
 """
 
 import dis
+import hashlib
 import inspect
 import keyword
 import re
+import sys
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import CodeType, ModuleType
 from typing import Any, NamedTuple, TypeVar
@@ -107,6 +109,14 @@ class Step:
     """The artifacts it observes, passed to the function by name. Only evidence observes."""
     directory: Path = Path()
     """The directory of the file that declares it: what the paths it observes are relative to."""
+    code: tuple[str, ...] = field(default=(), compare=False)
+    """The files its code is in: the one its decorator is applied in, then the one that
+    defines its function, if another. A name in ``<>``, such as ``<stdin>``, is no file."""
+    library_sha256: str | None = field(default=None, compare=False)
+    """The SHA-256 of the files that declare it, so that an incremental run reruns a step
+    whose code changed (ADR-0039): the library that exposes it, then its ``code``, each
+    once, read as the registry is built, right after the import. ``None`` if one of its
+    ``code`` is no file, or cannot be read."""
 
     @property
     def name(self) -> str:
@@ -278,14 +288,28 @@ class StepRegistry:
     list it.
     """
 
-    def __init__(self, steps: Iterable[Step]) -> None:
-        self._steps = tuple(dict.fromkeys(steps))
+    def __init__(
+        self, steps: Iterable[Step], libraries: Mapping[Step, str | None] | None = None
+    ) -> None:
+        """``steps``, each fingerprinted once, with the file of the module that exposes it,
+        when ``libraries`` gives one, and its code."""
+        fingerprints, exposed_in = _Fingerprints(), libraries or {}
+        self._steps = tuple(
+            fingerprints.of(step, exposed_in.get(step)) for step in dict.fromkeys(steps)
+        )
 
     @classmethod
     def from_modules(cls, modules: Iterable[ModuleType]) -> "StepRegistry":
-        """The steps defined in, or imported into, the namespaces of ``modules``."""
-        found = (step_of(value) for module in modules for value in vars(module).values())
-        return cls(step for step in found if step is not None)
+        """The steps defined in, or imported into, the namespaces of ``modules``, each
+        fingerprinted with the first module that exposes it."""
+        exposed: dict[Step, ModuleType] = {}
+        for module in modules:
+            for value in vars(module).values():
+                if (step := step_of(value)) is not None:
+                    exposed.setdefault(step, module)
+        return cls(
+            exposed, {step: getattr(module, "__file__", None) for step, module in exposed.items()}
+        )
 
     @property
     def steps(self) -> tuple[Step, ...]:
@@ -334,7 +358,16 @@ def _declare(
                 f"{existing.ids}: one function is one step"
             )
         _check_signature(kind, function, inputs, observes)
-        step = Step(kind, ids, function, inputs, produced, observes, _declared_in(function))
+        step = Step(
+            kind,
+            ids,
+            function,
+            inputs,
+            produced,
+            observes,
+            _declared_in(function),
+            _code_in(sys._getframe(1).f_code.co_filename, function),
+        )
         setattr(function, _STEP, step)
         return function
 
@@ -383,6 +416,57 @@ def _declared_in(function: Callable[..., Any]) -> Path:
     directory."""
     filename = inspect.unwrap(function).__code__.co_filename
     return Path() if filename.startswith("<") else Path(filename).parent
+
+
+def _code_in(applied_in: str, function: Callable[..., Any]) -> tuple[str, ...]:
+    """``applied_in``, the file a decorator is applied in, then the file that defines
+    ``function``, if another."""
+    defined_in = getattr(inspect.unwrap(function), "__code__", None)
+    filename = defined_in.co_filename if isinstance(defined_in, CodeType) else "<>"
+    return tuple(dict.fromkeys((applied_in, filename)))
+
+
+class _Fingerprints:
+    """The SHA-256 of files, read together, each set read once."""
+
+    def __init__(self) -> None:
+        self._taken: dict[tuple[str, ...], str | None] = {}
+
+    def of(self, step: Step, library: str | None = None) -> Step:
+        """``step``, with the SHA-256 of ``library``, the file of the module that exposes
+        it, if it has one, of its code, and of every wrapper around it."""
+        exposed = [library] if library else []
+        files = tuple(dict.fromkeys((*exposed, *step.code, *_wrapped_in(step.function))))
+        if files not in self._taken:
+            self._taken[files] = _sha256(files) if step.code else None
+        # replace returns a Step, which mypy checks; Sonar types it as any dataclass.
+        return replace(step, library_sha256=self._taken[files])  # NOSONAR
+
+
+def _wrapped_in(function: Callable[..., Any]) -> Iterator[str]:
+    """The file of ``function``, and of every function it wraps (``functools.wraps``)."""
+    seen: set[int] = set()
+    current: object = function
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        code = getattr(current, "__code__", None)
+        if isinstance(code, CodeType):
+            yield code.co_filename
+        current = getattr(current, "__wrapped__", None)
+
+
+def _sha256(files: tuple[str, ...]) -> str | None:
+    """The SHA-256 of ``files``, one after the other, or ``None`` if one is no file, or
+    cannot be read."""
+    if any(file.startswith("<") for file in files):
+        return None
+    hashed = hashlib.sha256()
+    try:
+        for file in files:
+            hashed.update(Path(file).read_bytes())
+    except OSError:
+        return None
+    return hashed.hexdigest()
 
 
 def _is_name(name: object) -> bool:

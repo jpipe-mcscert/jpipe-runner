@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.4.0;
+`jpipe-runner` checks *jPipe justifications* by running them (v4, latest release 4.5.0;
 v3 frozen at 3.6.0). A justification, compiled by the jPipe compiler to JSON,
 argues a claim from evidence and strategies; a **step library** binds a Python function to
 each element (`@evidence`, `@strategy`, `@sub_conclusion`, `@conclusion`). The runner
@@ -36,6 +36,7 @@ cli.main                      argv → run | impact | status; exit codes 0–4 (
   ├─ loader.load              compiler JSON → model.Justification; JP001–JP004 (ADR-0001)
   ├─ libraries.imported       step libraries imported as modules → steps.StepRegistry;
   │                           JP020, JP021 (ADR-0020)
+  ├─ incremental.Baseline     --incremental: what an earlier report lets the run reuse (ADR-0039)
   ├─ engine.run               (ADR-0021)
   │    ├─ validation + rules  binding.BindingTable, then every rule; JP005–JP016, JP018
   │    ├─ artifacts.observe   what an evidence observes (observables.py), SHA-256; JP019
@@ -212,8 +213,7 @@ Python/Poetry/graphviz setup is a composite action at
 
 ## Backlog
 
-The backlog is the GitHub issues. #153, running only the evidence a change affects, has
-no milestone and three design questions to settle first.
+The backlog is the GitHub issues.
 
 ## Notes for Maintainers
 

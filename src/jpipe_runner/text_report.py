@@ -1,7 +1,8 @@
 """The text report: a run as a person reads it in a terminal, in the manner of Cucumber.
 
 Each element is a line, supporters first: a symbol for its status, its kind, its label,
-and its id as a comment. An element that did not pass says why underneath, and a failed
+and its id as a comment, marked when an incremental run reused it. An element that did not
+pass says why underneath, and a failed
 evidence names the files it observed. Then come the diagnostics, each with its fix and,
 for an exception, its traceback; then the summary, and the verdict last.
 
@@ -18,7 +19,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity
 from jpipe_runner.engine import Status, Verdict
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import HIDDEN, Observation
-from jpipe_runner.report import ElementReport, RunReport, Trace
+from jpipe_runner.report import ElementReport, RunReport, Selection, Trace
 
 _SYMBOLS = {Status.PASS: "✔", Status.FAIL: "✘", Status.SKIP: "-"}
 _ASCII_SYMBOLS = {Status.PASS: "+", Status.FAIL: "x", Status.SKIP: "-"}
@@ -101,6 +102,8 @@ class _Text:
         for element, status in shown:
             line = f"{_INDENT}{self._symbols[status]} {_keyword(element.kind):<{kinds}}  "
             line += f"{element.label:<{labels}}  # {element.id}"
+            if element.reused:
+                line += " (reused)"
             colour = _STATUS_COLOURS[status]
             yield self._paint(line, colour)
             for detail in self._details(element):
@@ -156,6 +159,8 @@ class _Text:
             yield f"{_plural(len(self._report.diagnostics), 'diagnostic')} ({counts})"
         if self._report.strict:
             yield "strict: warnings count as errors"
+        if (selection := self._report.selection) is not None:
+            yield _incremental(selection, summary.elements)
         if self._report.diagram is not None:
             yield f"diagram: {self._report.diagram}"
         verdict = f"verdict: {self._report.verdict}"
@@ -169,6 +174,18 @@ class _Text:
         if not self._colour or colour is None:
             return text
         return f"\033[{colour}m{text}\033[0m"
+
+
+def _incremental(selection: Selection, elements: int) -> str:
+    """What an incremental run ran again, and where the rest came from."""
+    if not selection.rerun:
+        return f"incremental: nothing changed since {selection.baseline}, every element reused"
+    if len(selection.rerun) == elements:
+        reasons = set(selection.rerun.values())
+        why = f" ({reasons.pop()})" if len(reasons) == 1 else ""
+        return f"incremental: every element ran again{why}"
+    ran = f"{len(selection.rerun)} of {_plural(elements, 'element')}"
+    return f"incremental: {ran} ran again, the rest reused from {selection.baseline}"
 
 
 def _keyword(kind: Kind) -> str:

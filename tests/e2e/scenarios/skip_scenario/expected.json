@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "conditional",
   "verdict": "skip",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": "the optional feature is disabled",
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.optional_feature",
       "bound_by": [
         "S1"
       ],
+      "library_sha256": "fd078eb41592b1a4688622439a12d37b25feec683da7162de92eed04edbaf86d",
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -52,10 +54,12 @@
         "S1"
       ],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.use_feature_result",
       "bound_by": [
         "C1"
       ],
+      "library_sha256": "fd078eb41592b1a4688622439a12d37b25feec683da7162de92eed04edbaf86d",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -74,5 +78,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

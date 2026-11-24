@@ -13,6 +13,7 @@ report shows, are relative to the working directory.
 """
 
 import argparse
+import contextlib
 import glob
 import logging
 import os
@@ -21,6 +22,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
+import uuid
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout, suppress
 from dataclasses import dataclass
@@ -28,7 +30,16 @@ from enum import IntEnum
 from pathlib import Path
 from typing import Any, NoReturn
 
-from jpipe_runner import __version__, diagram, engine, impact, json_report, loader, text_report
+from jpipe_runner import (
+    __version__,
+    diagram,
+    engine,
+    impact,
+    incremental,
+    json_report,
+    loader,
+    text_report,
+)
 from jpipe_runner.binding import BindingTable
 from jpipe_runner.diagnostics import shown_path
 from jpipe_runner.engine import RunResult, Verdict
@@ -178,6 +189,12 @@ def parser() -> argparse.ArgumentParser:
         help="run up to N steps at a time, each on a thread of its own, when the argument "
         "does not order them; auto runs one per CPU (default: 1)",
     )
+    run.add_argument(
+        "--incremental",
+        metavar="REPORT",
+        help="run again only what changed since the run REPORT, the JSON report of an "
+        "earlier run, records, and reuse the rest; if REPORT does not exist, run everything",
+    )
     outputs = parser.add_argument_group("outputs")
     outputs.add_argument(
         "--json",
@@ -270,7 +287,7 @@ def impact_parser() -> argparse.ArgumentParser:
         help="the files that differ from the git revision REF, and those git does not track",
     )
     _add_logging(parser)
-    parser.set_defaults(strict=False, dry_run=True, jobs=1)
+    parser.set_defaults(strict=False, dry_run=True, jobs=1, incremental=None, baseline=None)
     return parser
 
 
@@ -361,28 +378,59 @@ def main(argv: Sequence[str] | None = None) -> int:
             return ExitCode.IO
 
 
+def _check_run(command: argparse.ArgumentParser, options: argparse.Namespace) -> None:
+    """Refuse, before anything runs, what the run cannot do: the outputs that could not be
+    written, or that would overwrite what it reads, and a baseline that is no report."""
+    options.baseline = _baseline(command, options)
+    _check_outputs(command, options)
+
+
+def _baseline(
+    command: argparse.ArgumentParser, options: argparse.Namespace
+) -> incremental.Baseline | None:
+    """The baseline of an incremental run, read before anything runs, if one is given
+    (ADR-0039). One that cannot be read is an ``OSError``."""
+    if options.incremental is None:
+        return None
+    if options.dry_run:
+        command.error("--incremental and --dry-run: a dry run calls no step, so reuses none")
+    try:
+        return incremental.Baseline.read(options.incremental, Path())
+    except impact.InvalidReportError as error:
+        command.error(f"--incremental {error}")
+
+
 def _check_outputs(command: argparse.ArgumentParser, options: argparse.Namespace) -> None:
     """Refuse, before anything runs, the outputs that could not be written, or that would
-    overwrite what the run reads."""
-    outputs = _outputs(options)
+    overwrite what the run reads. The report may replace the baseline it was compared with,
+    which was read already."""
     read = {identity(library): "a step library" for library in _libraries(options.library)}
     read[identity(options.justification)] = "the justification"
+    with_baseline = dict(read)
+    if options.incremental is not None:
+        with_baseline[identity(Path(options.incremental))] = "the baseline"
     seen: dict[object, str] = {}
-    for flag, path in outputs.items():
+    for flag, path in _outputs(options).items():
         if path is None:
             continue
-        if path.is_dir():
-            command.error(f"{flag} {path}: a directory, where a file is expected")
-        suffix = path.suffix.removeprefix(".").lower()
-        if flag == "--diagram" and suffix not in diagram.FORMATS:
-            formats = ", ".join(diagram.FORMATS)
-            command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
+        _check_output(command, flag, path)
         written = identity(path)
-        if (input_ := read.get(written)) is not None:
+        reads = read if flag == "--report" else with_baseline
+        if (input_ := reads.get(written)) is not None:
             command.error(f"{flag} {path}: {input_}, which the run reads")
         if (same := seen.get(written)) is not None:
             command.error(f"{same} and {flag} both write {path}")
         seen[written] = flag
+
+
+def _check_output(command: argparse.ArgumentParser, flag: str, path: Path) -> None:
+    """Refuse an output that is a directory, or a diagram in a format Graphviz lacks."""
+    if path.is_dir():
+        command.error(f"{flag} {path}: a directory, where a file is expected")
+    suffix = path.suffix.removeprefix(".").lower()
+    if flag == "--diagram" and suffix not in diagram.FORMATS:
+        formats = ", ".join(diagram.FORMATS)
+        command.error(f"{flag} {path}: the suffix of the file is its format, one of {formats}")
 
 
 def _outputs(options: argparse.Namespace) -> dict[str, Path | None]:
@@ -682,11 +730,13 @@ def _report(
                 dry_run=options.dry_run,
                 listener=stream,
                 jobs=options.jobs,
+                reuse=None if options.baseline is None else options.baseline.reuse,
             )
     except LibraryLoadError as error:
         report = RunReport.not_imported(justification, error, strict=options.strict, root=root)
         return justification, report
-    return justification, RunReport.of(result, root)
+    selection = None if options.baseline is None else options.baseline.selection
+    return justification, RunReport.of(result, root, selection)
 
 
 def _libraries(patterns: Sequence[str]) -> list[Path]:
@@ -728,13 +778,24 @@ def _draw(
 
 
 def _save(path: Path | None, report: RunReport) -> bool:
-    """Write the JSON report to ``path``, if one is given; whether it was written."""
+    """Write the JSON report to ``path``, if one is given; whether it was written. It is
+    written whole or not at all, so that a report an incremental run reads as its baseline
+    is never cut short."""
     if path is None:
         return True
+    # A name of its own, created here and nowhere else, with the permissions of any file.
+    written, created = path.with_name(f".{path.name}.{uuid.uuid4().hex}.writing"), False
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json_report.dumps(report), encoding="utf-8")
+        descriptor = os.open(written, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        created = True
+        with open(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json_report.dumps(report))
+        written.replace(path)
     except OSError as error:
+        if created:
+            with contextlib.suppress(OSError):
+                written.unlink()
         # An error is one line on stderr, not a traceback (ADR-0023).
         _LOG.error("cannot write the report to %s: %s", path, _reason(error))  # NOSONAR
         return False
@@ -929,7 +990,7 @@ class _Command:
     run: Callable[[argparse.Namespace], int]
 
 
-_RUN = _Command(parser, _check_outputs, _run)
+_RUN = _Command(parser, _check_run, _run)
 _SUBCOMMANDS = {
     "impact": _Command(impact_parser, _check_since, _impact),
     "status": _Command(status_parser, _check_nothing, _status),

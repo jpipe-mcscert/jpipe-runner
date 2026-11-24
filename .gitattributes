@@ -1,3 +1,5 @@
-# The scenarios' mock files are artifacts whose SHA-256 docs/end-to-end.md quotes: keep
-# their bytes as committed, whatever the checkout's line endings.
+# The scenarios' mock files are artifacts whose SHA-256 docs/end-to-end.md quotes, and their
+# step libraries are files whose SHA-256 the golden reports and the docs quote
+# (library_sha256): keep their bytes as committed, whatever the checkout's line endings.
 tests/e2e/scenarios/**/mock/** -text
+tests/e2e/scenarios/**/*.py -text

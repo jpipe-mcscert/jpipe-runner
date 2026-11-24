@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "release",
   "verdict": "fail",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": "mock/junit.xml, observed as 'report', does not exist",
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.the_test_suite_passes",
       "bound_by": [
         "release:e1"
       ],
+      "library_sha256": "a07237fa9250e17edbeee58b356c7b3a91a5af78f8b134f44c3c539e14590de5",
       "observes": [
         "mock/junit.xml"
       ],
@@ -64,10 +66,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.the_changelog_is_up_to_date",
       "bound_by": [
         "release:e2"
       ],
+      "library_sha256": "a07237fa9250e17edbeee58b356c7b3a91a5af78f8b134f44c3c539e14590de5",
       "observes": [
         "mock/CHANGELOG.md"
       ],
@@ -109,10 +113,12 @@
         "release:e1"
       ],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.all_release_gates_pass",
       "bound_by": [
         "release:s"
       ],
+      "library_sha256": "a07237fa9250e17edbeee58b356c7b3a91a5af78f8b134f44c3c539e14590de5",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -146,8 +152,10 @@
         "release:e1"
       ],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -168,5 +176,6 @@
       "traceback": null
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

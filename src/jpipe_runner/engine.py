@@ -33,6 +33,7 @@ thread that runs ``run``, whatever the number of jobs, an element after all its
 supporters, so it needs no lock.
 """
 
+import copy
 import decimal
 import logging
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -54,7 +55,7 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path, user_trac
 from jpipe_runner.model import Element, Justification
 from jpipe_runner.observables import Context, Observation
 from jpipe_runner.outcomes import Fail, NotAnOutcomeError, Outcome, Pass, Skip, as_outcome
-from jpipe_runner.records import snapshot
+from jpipe_runner.records import Decoded, Uncopied, snapshot
 from jpipe_runner.rules import RULES
 from jpipe_runner.steps import StepRegistry
 from jpipe_runner.validation import ValidationContext, ValidationReport
@@ -131,6 +132,14 @@ class ElementResult:
     inputs: tuple[Received, ...] = ()
     """What each parameter of its step receives, and from which element: whether the step
     was called or not."""
+    reused: bool = False
+    """Whether it was taken from the baseline of an incremental run, as it was decided
+    there, rather than run again (ADR-0039)."""
+
+
+Reuse = Callable[["RunResult"], Mapping[str, ElementResult]]
+"""What an incremental run takes from its baseline: given the result a dry run would have
+returned, the result of each element not to run again, by id (ADR-0039)."""
 
 
 class RunListener(Protocol):
@@ -191,6 +200,9 @@ class RunResult:
     elements: tuple[ElementResult, ...]
     """One per element, in topological order. Empty when validation stopped the run."""
     values: ValueStore
+    """The values produced, by their producers. In an incremental run, those of an element
+    reused are the baseline's as JSON reads them, and only those it holds as they were
+    produced (ADR-0039): ``produced``, on each element, has every one."""
     strict: bool = False
     """Whether validation counted warnings as errors."""
     dry_run: bool = False
@@ -234,6 +246,7 @@ def run(
     dry_run: bool = False,
     listener: RunListener | None = None,
     jobs: int = 1,
+    reuse: Reuse | None = None,
 ) -> RunResult:
     """Validate ``registry`` against ``justification``, then run it if nothing is an error.
 
@@ -244,6 +257,9 @@ def run(
     imported with ``libraries.imported`` happens inside that context. ``listener`` is told
     of the run as it goes. ``jobs`` is how many steps may run at a time: with more than
     one, each on a thread of its own; the result is the same, in the same order (ADR-0038).
+    ``reuse``, for an incremental run, is asked once validation passed which elements to
+    take as they are, with their values, rather than run again; what reruns is closed
+    upwards, so an element reused has only reused supporters (ADR-0039).
     """
     if jobs < 1:
         raise ValueError(f"a run needs at least one job, not {jobs}")
@@ -263,9 +279,10 @@ def run(
     if dry_run:
         _LOG.info("validation passed: a dry run calls no step")
         return planned
+    reused = {} if reuse is None else reuse(planned)
     listener.steps_starting(planned)
     values = ValueStore()
-    elements = _Run(ctx, values, root, listener, jobs).execute()
+    elements = _Run(ctx, values, root, listener, jobs, reused).execute()
     # The values in the order of their producers, whatever order the steps ended in.
     values = values.sorted_by([result.element.id for result in elements])
     return replace(planned, elements=elements, values=values, dry_run=False)  # NOSONAR
@@ -292,6 +309,7 @@ class _Run:
         root: Path,
         listener: RunListener,
         jobs: int,
+        reused: Mapping[str, ElementResult],
     ) -> None:
         self._model = ctx.justification
         self._bindings = ctx.bindings
@@ -300,6 +318,7 @@ class _Run:
         self._root = root
         self._listener = listener
         self._jobs = jobs
+        self._reused = reused
         self._results: dict[str, ElementResult] = {}
         self._order = self._model.topological_order()
         self._position = {element.id: i for i, element in enumerate(self._order)}
@@ -367,6 +386,8 @@ class _Run:
     def _settled(self, element: Element) -> ElementResult | Binding:
         """What ``element``, whose supporters are all decided, is without calling a step,
         or the binding whose step must be called."""
+        if (reused := self._reused.get(element.id)) is not None:
+            return reused
         binding = self._bindings.binding_for(element.id)
         supporters = self._model.supporters(element.id)
         if binding is None and not supporters:
@@ -470,6 +491,13 @@ class _Run:
         if result.binding is not None:
             result = replace(result, inputs=self._dataflow.received(element.id))
         _LOG.info("%s %s: %s", result.status, element.id, result.reason or "")
+        if result.reused:
+            # The values the baseline holds as they were produced: one it holds otherwise
+            # has no consumer that reruns, since its producer then reruns too. Each is a
+            # copy, as a step's are: a consumer that changes it changes nothing reported.
+            for name, value in result.produced.items():
+                if not isinstance(value, Uncopied | Decoded):
+                    self._values.put(name, copy.deepcopy(value), element.id)
         self._results[element.id] = result
         self._listener.element_decided(result)
         for supported in self._model.supported(element.id):

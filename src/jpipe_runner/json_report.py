@@ -23,10 +23,10 @@ from typing import Any
 
 from jpipe_runner.diagnostics import Diagnostic
 from jpipe_runner.observables import HIDDEN, Observation
-from jpipe_runner.records import Uncopied, canonical_repr, type_name
-from jpipe_runner.report import ElementReport, RunReport, Summary, Trace
+from jpipe_runner.records import Decoded, Uncopied, canonical_repr, type_name
+from jpipe_runner.report import ElementReport, RunReport, Selection, Summary, Trace
 
-SCHEMA_VERSION = "2.0"
+SCHEMA_VERSION = "2.1"
 
 SCHEMA: dict[str, Any] = json.loads(
     files("jpipe_runner").joinpath("schema/report.schema.json").read_text(encoding="utf-8")
@@ -44,7 +44,14 @@ def document(report: RunReport) -> dict[str, Any]:
         "elements": [element(each, report.root) for each in report.elements],
         "diagnostics": [diagnostic(each, report.root) for each in report.diagnostics],
         "diagram": report.diagram,
+        "selection": _selection(report.selection),
     }
+
+
+def _selection(selection: Selection | None) -> dict[str, Any] | None:
+    if selection is None:
+        return None
+    return {"baseline": selection.baseline, "rerun": dict(selection.rerun)}
 
 
 def dumps(report: RunReport) -> str:
@@ -78,8 +85,10 @@ def element(element: ElementReport, root: Path = Path()) -> dict[str, Any]:
         "reason": element.reason,
         "blocked_by": list(element.blocked_by),
         "ran": element.ran,
+        "reused": element.reused,
         "bound_to": element.step,
         "bound_by": list(element.designators),
+        "library_sha256": element.library_sha256,
         "observes": list(element.observes),
         "sources": list(element.sources),
         "consumes": list(element.consumes),
@@ -153,15 +162,20 @@ def _trace(trace: Trace) -> dict[str, Any]:
 
 
 def encoded(value: Any, root: Path = Path()) -> dict[str, Any]:
-    """A produced value, as the report writes it: ``{"value": ...}`` if it is JSON, and
-    ``{"repr": ..., "type": ...}`` otherwise, with a canonical ``repr`` (paths shown
-    relative to ``root``). One that could not be copied is written as it was when the run
-    saw it (``records.Uncopied``)."""
+    """A produced value, as the report writes it: ``{"value": ...}`` if it is JSON, with
+    its ``type`` if JSON reads it back as another, and ``{"repr": ..., "type": ...}``
+    otherwise, with a canonical ``repr`` (paths shown relative to ``root``). One that could
+    not be copied is written as it was when the run saw it (``records.Uncopied``), and one
+    taken from an earlier report as that report wrote it (``records.Decoded``)."""
     if isinstance(value, Uncopied):
         return {"repr": value.repr, "type": value.type}
-    if _is_json(value, set()):
-        return {"value": _plain(value)}
-    return {"repr": canonical_repr(value, root), "type": type_name(type(value))}
+    if isinstance(value, Decoded):
+        return {"value": value.value, "type": value.type}
+    if not _is_json(value, set()):
+        return {"repr": canonical_repr(value, root), "type": type_name(type(value))}
+    if _exact(value):
+        return {"value": value}
+    return {"value": _plain(value), "type": type_name(type(value))}
 
 
 def _is_json(value: Any, seen: set[int]) -> bool:
@@ -180,6 +194,18 @@ def _is_json(value: Any, seen: set[int]) -> bool:
     if isinstance(value, Mapping):
         return all(isinstance(key, str) and _is_json(v, seen) for key, v in value.items())
     return all(_is_json(item, seen) for item in value)
+
+
+def _exact(value: Any) -> bool:
+    """Whether JSON reads ``value``, which is JSON, back as it is: no tuple, enum, subclass
+    or mapping other than a ``dict``, at any depth."""
+    if type(value) in (type(None), bool, int, float, str):
+        return True
+    if type(value) is list:
+        return all(_exact(item) for item in value)
+    return type(value) is dict and all(
+        type(key) is str and _exact(item) for key, item in value.items()
+    )
 
 
 def _writable(value: int) -> bool:

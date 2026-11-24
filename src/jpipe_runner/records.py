@@ -50,6 +50,18 @@ class Uncopied:
         return self.repr
 
 
+@dataclass(frozen=True)
+class Decoded:
+    """A value an earlier run's report recorded as JSON, read back as another type than the
+    one it had, such as a tuple, read back as a list (ADR-0039). It keeps that type, so
+    that a report reusing the value writes it as the earlier one did."""
+
+    value: Any
+    """The value, as JSON reads it back."""
+    type: str
+    """The qualified name of the type it had."""
+
+
 def snapshot(value: Any, root: Path) -> Any:
     """``value`` as it is now, for the report: a deep copy, or, if it cannot be copied, an
     ``Uncopied`` holding its canonical ``repr`` (paths shown relative to ``root``) and its

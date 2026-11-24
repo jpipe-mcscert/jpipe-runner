@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "vaccination_campaign",
   "verdict": "pass",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.list_of_scheduled_events_with_dates_and_venues",
       "bound_by": [
         "event_calendar"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/event_calendar.csv"
       ],
@@ -68,10 +70,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.recorded_testimonials_from_trusted_figures",
       "bound_by": [
         "testimonial_videos"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/testimonial_videos_list.txt"
       ],
@@ -111,10 +115,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.set_of_preapproved_social_media_posts_and_graphics",
       "bound_by": [
         "social_posts"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/social_posts.json"
       ],
@@ -154,10 +160,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.roster_of_trained_vaccination_staff_for_mobile_units",
       "bound_by": [
         "trained_staff"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/staff_roster.csv"
       ],
@@ -197,10 +205,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.written_commitments_from_local_leaders_to_participate",
       "bound_by": [
         "leader_commitments"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/leader_commitments.txt"
       ],
@@ -240,10 +250,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.involve_respected_local_leaders_in_advocacy",
       "bound_by": [
         "trusted_voices"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -277,10 +289,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.list_of_trained_community_speakers",
       "bound_by": [
         "speakers_list"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/speakers_list.csv"
       ],
@@ -320,10 +334,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.host_informational_events_in_public_gathering_spaces",
       "bound_by": [
         "community_events"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -357,10 +373,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.approved_extendedhours_operation_schedule",
       "bound_by": [
         "schedule_plan"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/schedule_plan.txt"
       ],
@@ -400,10 +418,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.three_operational_mobile_medical_units",
       "bound_by": [
         "fleet_available"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/fleet_info.json"
       ],
@@ -443,10 +463,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.deploy_mobile_vaccination_units_to_remote_areas",
       "bound_by": [
         "mobile_units"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -480,8 +502,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -503,10 +527,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.public_safety_report_approved_by_health_authority",
       "bound_by": [
         "safety_report"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/safety_report.*"
       ],
@@ -546,8 +572,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -569,8 +597,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -592,10 +622,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.keep_vaccination_centres_open_during_evenings_and_weekends",
       "bound_by": [
         "extended_hours"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -624,10 +656,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.frequently_asked_questions_document",
       "bound_by": [
         "faq_document"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/faq_document.txt"
       ],
@@ -667,10 +701,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.publish_transparent_and_accessible_safety_data",
       "bound_by": [
         "transparent_info"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -704,8 +740,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -727,8 +765,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -750,10 +790,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.approved_press_release_document",
       "bound_by": [
         "press_release"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [
         "mock/press_release.txt"
       ],
@@ -793,10 +835,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.distribute_information_through_local_media_and_social_channels",
       "bound_by": [
         "media_outreach"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -830,8 +874,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -853,10 +899,12 @@
       "reason": null,
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.use_multiple_coordinated_outreach_and_delivery_approaches",
       "bound_by": [
         "multi_pronged"
       ],
+      "library_sha256": "7bd0aecbc66348779a0788b75253efdd0646dff88c511d817e76433bcb1ecd7f",
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -876,8 +924,10 @@
       "reason": null,
       "blocked_by": [],
       "ran": false,
+      "reused": false,
       "bound_to": null,
       "bound_by": [],
+      "library_sha256": null,
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -889,5 +939,6 @@
     }
   ],
   "diagnostics": [],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

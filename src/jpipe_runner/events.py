@@ -40,7 +40,7 @@ from jpipe_runner.model import Element, Justification
 from jpipe_runner.report import ElementReport, RunReport
 from jpipe_runner.validation import ValidationReport
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 SCHEMA: dict[str, Any] = json.loads(
     files("jpipe_runner").joinpath("schema/events.schema.json").read_text(encoding="utf-8")

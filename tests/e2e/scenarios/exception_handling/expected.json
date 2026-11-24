@@ -1,5 +1,5 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "justification": "error_prone",
   "verdict": "fail",
   "strict": false,
@@ -25,10 +25,12 @@
       "reason": "the step raised ZeroDivisionError at steps.py, line 17: division by zero",
       "blocked_by": [],
       "ran": true,
+      "reused": false,
       "bound_to": "steps.divide_by_number",
       "bound_by": [
         "S1"
       ],
+      "library_sha256": "54926ab1396d72d45a3e471767915c9b6c0fb37b785d7171bdc708698751ea13",
       "observes": [],
       "sources": [],
       "consumes": [],
@@ -52,10 +54,12 @@
         "S1"
       ],
       "ran": false,
+      "reused": false,
       "bound_to": "steps.validate_division_result",
       "bound_by": [
         "C1"
       ],
+      "library_sha256": "54926ab1396d72d45a3e471767915c9b6c0fb37b785d7171bdc708698751ea13",
       "observes": [],
       "sources": [],
       "consumes": [
@@ -95,5 +99,6 @@
       }
     }
   ],
-  "diagram": null
+  "diagram": null,
+  "selection": null
 }

@@ -27,7 +27,13 @@ from jpipe_runner.diagnostics import Diagnostic, Severity, shown_path
 from jpipe_runner.engine import ElementResult, RunResult, Status, Verdict
 from jpipe_runner.libraries import LibraryLoadError
 from jpipe_runner.model import Element, InvalidJustificationError, Justification, Kind
-from jpipe_runner.observables import Context, Observation, dependencies, described, drawn_as
+from jpipe_runner.observables import (
+    Context,
+    Observation,
+    dependencies,
+    described,
+    drawn_as,
+)
 
 _NOTHING: Mapping[str, Any] = MappingProxyType({})
 
@@ -75,6 +81,11 @@ class ElementReport:
     """The values its step produced, by variable."""
     artifacts: tuple[Observation, ...] = ()
     """What its step observed, files and others, recorded just before the call."""
+    library_sha256: str | None = None
+    """The SHA-256 of the file that declares its step, if it is bound to one that has a
+    file: what tells an incremental run that the step's code changed (ADR-0039)."""
+    reused: bool = False
+    """Whether an incremental run took it from its baseline rather than run it again."""
 
     @classmethod
     def of(
@@ -113,6 +124,7 @@ class ElementReport:
                 consumes=step.consumes,
                 inputs=inputs,
                 produces=step.produces,
+                library_sha256=step.library_sha256,
             )
         if result is not None:
             report = replace(
@@ -124,6 +136,7 @@ class ElementReport:
                 produced=result.produced,
                 artifacts=result.observed,
                 reached=MappingProxyType(reached_every_time(result.reached)),
+                reused=result.reused,
             )
         return report
 
@@ -195,6 +208,17 @@ class Trace:
 
 
 @dataclass(frozen=True)
+class Selection:
+    """What an incremental run ran again, and why (ADR-0039)."""
+
+    baseline: str
+    """The report it compared with, as the command line gave it."""
+    rerun: Mapping[str, str]
+    """Each element that ran again, in topological order, and why; every other element
+    was reused."""
+
+
+@dataclass(frozen=True)
 class RunReport:
     """What a run concluded, for every element of its model, and every diagnostic."""
 
@@ -210,12 +234,17 @@ class RunReport:
     """Whether validation counted warnings as errors."""
     diagram: str | None = None
     """Where the diagram of the run, its dataflow, was written, if it was."""
+    selection: Selection | None = None
+    """What an incremental run ran again, or ``None`` for a full run (ADR-0039)."""
     root: Path = field(default=Path(), compare=False)
     """The directory the run observed artifacts from: tracebacks are shown relative to it."""
 
     @classmethod
-    def of(cls, result: RunResult, root: Path = Path()) -> "RunReport":
-        """The report of ``result``, a run whose artifacts were observed under ``root``."""
+    def of(
+        cls, result: RunResult, root: Path = Path(), selection: Selection | None = None
+    ) -> "RunReport":
+        """The report of ``result``, a run whose artifacts were observed under ``root``, and,
+        for an incremental run, what it ran again, ``selection``."""
         results = {element.element.id: element for element in result.elements}
         return cls(
             result.justification.name,
@@ -229,6 +258,7 @@ class RunReport:
             ),
             result.diagnostics,
             result.strict,
+            selection=selection,
             root=root,
         )
 
