@@ -7,31 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.5.0] - 2026-11-23
+
 ### Added
 - **`--incremental REPORT` runs again only what changed since an earlier run.** Given the
   JSON report of that run, the baseline, the runner calls again the evidence whose files
   changed, vanished, appeared or were added to a glob, or whose environment variables
   changed, as `jpipe-runner status` finds them, or whose observations the report cannot
-  check again; the steps whose library file or declarations changed; and everything above
-  those, up to the conclusion. Every other element is taken as the baseline decided it,
+  check again; the steps whose library file or declarations changed; the elements that
+  failed, since a failure may not be the step's; and everything above those, up to the
+  conclusion. Every other element is taken as the baseline decided it,
   with its values, which the steps that run again receive as the baseline holds them; a
   value it cannot pass as it was produced, one it holds only as its `repr`, or as JSON
-  that reads it back as another type, such as a tuple, makes its producer run again. The verdict and the
-  exit code are the whole argument's. A baseline that does not exist runs everything, so
-  a pipeline can always pass the report it caches, and `--report` may name the baseline
-  itself. The text report marks what was reused, and says how much ran again
+  that reads it back as another type, such as a tuple, makes its producer run again. The
+  verdict and the exit code are the whole argument's. A baseline that does not exist runs
+  everything, so a pipeline can always pass the report it caches, and `--report` may name
+  the baseline itself. The text report marks what was reused, and says how much ran again
   ([`cli.md`](docs/cli.md#incremental-runs),
   [ADR-0039](docs/adr/0039-an-incremental-run-reruns-what-changed.md), #153).
 
 ### Changed
 - **The JSON report is version 2.1, and the events 1.1.** The report adds `selection`,
   what an incremental run ran again and why, null for a full run, and, for each element,
-  `reused` and `library_sha256`, the SHA-256 of the file that declares its step; a
+  `reused` and `library_sha256`, the SHA-256 of the files that declare its step; a
   produced value that is JSON gives its `type` when JSON reads it back as another, such
-  as a tuple. Within 2.x, these are new optional fields: a reader that ignores fields it does not know, as the
-  schema asks, needs no change. The events write elements as the report does, so their
-  `report_schema_version` is `"2.1"`. `impact` and `status` read reports of 2.0 as before
-  ([`report-schema.md`](docs/report-schema.md#versioning)).
+  as a tuple. Within 2.x, these are new optional fields: a reader that ignores fields it
+  does not know, as the schema asks, needs no change. The events write elements as the
+  report does, so their `report_schema_version` is `"2.1"`. `impact` and `status` read
+  reports of 2.0 as before ([`report-schema.md`](docs/report-schema.md#versioning)).
+
+_Contributors: Sébastien Mosser._
 
 ## [4.4.0] - 2026-11-23
 
@@ -864,7 +869,8 @@ _Contributors: Jason Lyu, Sébastien Mosser, Nicolas Lacroix._
 
 _Contributors: Jason Lyu._
 
-[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.4.0...HEAD
+[Unreleased]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.5.0...HEAD
+[4.5.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.4.0...v4.5.0
 [4.4.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.3.0...v4.4.0
 [4.3.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.2.0...v4.3.0
 [4.2.0]: https://github.com/jpipe-mcscert/jpipe-runner/compare/v4.1.0...v4.2.0

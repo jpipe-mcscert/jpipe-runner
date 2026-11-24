@@ -78,10 +78,12 @@ def test_an_incremental_run_with_nothing_changed_reports_what_its_baseline_did(
     selection = report.pop("selection")
     if golden["verdict"] in ("pass", "fail", "skip"):
         assert selection["baseline"] == "../baseline.json"
-        # Only what the report cannot check again runs again: a hidden value, or one only
-        # its library can observe.
+        # Only what failed, or what the report cannot check again, runs again: a hidden
+        # value, or one only its library can observe.
         assert all(
-            "cannot be checked again" in why or " runs again" in why
+            why == "it failed in the baseline"
+            or "cannot be checked again" in why
+            or " runs again" in why
             for why in selection["rerun"].values()
         ), selection["rerun"]
     for element in report["elements"]:

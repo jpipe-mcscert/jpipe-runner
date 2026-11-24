@@ -11,7 +11,7 @@ from jpipe_runner.engine import Status, Verdict
 from jpipe_runner.model import Kind
 from jpipe_runner.observables import Observation, Obstacle
 from jpipe_runner.records import Uncopied
-from jpipe_runner.report import ElementReport, RunReport
+from jpipe_runner.report import ElementReport, RunReport, Selection
 from jpipe_runner.text_report import render, use_colour, use_unicode
 from tests.unit.validation.builders import CONCLUSION, EVIDENCE, STRATEGY
 
@@ -279,3 +279,30 @@ def test_symbols_are_unicode_when_the_stream_can_encode_them(
     encoding: str | None, unicode: bool
 ) -> None:
     assert use_unicode(_Stream(False, encoding)) is unicode
+
+
+@pytest.mark.parametrize(
+    ("rerun", "line"),
+    [
+        pytest.param({}, "nothing changed since b.json, every element reused", id="none"),
+        pytest.param({"e": "x changed"}, "1 of 2 elements ran again, the rest reused", id="some"),
+        pytest.param(
+            {"e": "there is no baseline", "c": "there is no baseline"},
+            "every element ran again (there is no baseline)",
+            id="all-for-one-reason",
+        ),
+        pytest.param(
+            {"e": "x changed", "c": "e runs again"},
+            "every element ran again\n",
+            id="all-for-their-own-reasons",
+        ),
+    ],
+)
+def test_an_incremental_run_says_how_much_ran_again(rerun: dict[str, str], line: str) -> None:
+    elements = (
+        ElementReport("e", "E", Kind.EVIDENCE, status=Status.PASS),
+        ElementReport("c", "C", Kind.CONCLUSION, status=Status.PASS),
+    )
+    report = RunReport("j", Verdict.PASS, elements, selection=Selection("b.json", rerun))
+
+    assert line in render(report, colour=False)

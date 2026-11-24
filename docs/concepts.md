@@ -150,7 +150,7 @@ and no report.
 ### Incremental run
 
 A run that calls again only the steps whose files, code or declarations changed since an
-earlier run, and what they support, and takes every other element as that run decided
+earlier run, those that failed, and what they support, and takes every other element as that run decided
 it, from its JSON report, the **baseline** (`--incremental REPORT`). Its verdict is the
 whole argument's; its report says which elements were **reused**
 ([`cli.md`](cli.md#incremental-runs)).

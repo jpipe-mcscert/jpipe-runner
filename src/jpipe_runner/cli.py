@@ -13,6 +13,7 @@ report shows, are relative to the working directory.
 """
 
 import argparse
+import contextlib
 import glob
 import logging
 import os
@@ -21,6 +22,7 @@ import shutil
 import sys
 import tempfile
 import textwrap
+import uuid
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout, suppress
 from dataclasses import dataclass
@@ -776,13 +778,24 @@ def _draw(
 
 
 def _save(path: Path | None, report: RunReport) -> bool:
-    """Write the JSON report to ``path``, if one is given; whether it was written."""
+    """Write the JSON report to ``path``, if one is given; whether it was written. It is
+    written whole or not at all, so that a report an incremental run reads as its baseline
+    is never cut short."""
     if path is None:
         return True
+    # A name of its own, created here and nowhere else, with the permissions of any file.
+    written, created = path.with_name(f".{path.name}.{uuid.uuid4().hex}.writing"), False
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json_report.dumps(report), encoding="utf-8")
+        descriptor = os.open(written, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        created = True
+        with open(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(json_report.dumps(report))
+        written.replace(path)
     except OSError as error:
+        if created:
+            with contextlib.suppress(OSError):
+                written.unlink()
         # An error is one line on stderr, not a traceback (ADR-0023).
         _LOG.error("cannot write the report to %s: %s", path, _reason(error))  # NOSONAR
         return False

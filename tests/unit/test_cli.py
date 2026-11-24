@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 from jsonschema import Draft202012Validator
 
-from jpipe_runner import __version__, diagram, engine, impact, json_report, loader
+from jpipe_runner import __version__, cli, diagram, engine, impact, json_report, loader
 from jpipe_runner.cli import ExitCode, exit_code, main
 from jpipe_runner.engine import RunResult, Verdict, run
 from jpipe_runner.libraries import imported
@@ -274,6 +274,20 @@ def test_report_and_json_write_the_same_report(
     assert (release / "report.json").read_text(encoding="utf-8") == out
 
 
+def test_a_report_is_written_whole_with_the_permissions_of_any_file(
+    release: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (release / "other.json").write_text("{}", encoding="utf-8")
+    (release / "report.json").write_text("old", encoding="utf-8")
+
+    _main(capsys, "--report", "report.json", *RELEASE)
+
+    report = release / "report.json"
+    assert json.loads(report.read_text(encoding="utf-8"))["verdict"] == "pass"
+    assert report.stat().st_mode == (release / "other.json").stat().st_mode
+    assert not list(release.glob(".report.json.*"))  # nothing left of the writing
+
+
 def test_a_report_that_cannot_be_written_exits_4_after_printing_the_report(
     release: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -282,6 +296,16 @@ def test_a_report_that_cannot_be_written_exits_4_after_printing_the_report(
     assert code == ExitCode.IO
     assert out.endswith("verdict: pass\n")
     assert "cannot write the report" in err
+    assert not list(release.glob("**/.report.json.*"))
+
+
+def test_a_report_that_cannot_replace_its_file_leaves_nothing_behind(tmp_path: Path) -> None:
+    (tmp_path / "report.json").mkdir()  # written, it cannot replace a directory
+
+    saved = cli._save(tmp_path / "report.json", RunReport("j", Verdict.PASS, ()))
+
+    assert not saved
+    assert [path.name for path in tmp_path.iterdir()] == ["report.json"]
 
 
 # --- Running -------------------------------------------------------------------------------

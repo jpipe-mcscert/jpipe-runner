@@ -6,14 +6,15 @@ it, and says which elements to take as the baseline decided them, rather than ru
 An element runs again when the baseline cannot stand for this run (it ran no step, it is of
 another justification, or the model changed), when its step's declarations or its
 library changed, when something it observed changed since, as ``jpipe-runner status``
-finds it, or cannot be checked from the report, and when it is above an element that runs
-again. A step that runs again receives the values of the elements reused as the baseline
+finds it, or cannot be checked from the report, when it failed there, and when it is
+above an element that runs again. A step that runs again receives the values of the elements reused as the baseline
 holds them, as JSON; one it holds only as a ``repr``, or as JSON that reads it back as
 another type, such as a tuple as a list, makes its producer run again.
 
 What runs again is closed upwards, so an element reused has only reused supporters, and the
 baseline's decision still holds. It is reused whole: its status, reason, ``blocked_by``,
-what it observed, produced and reported, tracebacks included.
+what it observed, produced and reported. An element that failed always runs again: its
+failure may not be its step's, such as a network that was down.
 """
 
 import logging
@@ -104,12 +105,30 @@ def _rerun(baseline: Document | None, now: Document, root: Path) -> dict[str, st
         rerun.setdefault(change.element, f"{change.path} {change.kind}")
     for unchecked in impact.unverified(baseline):
         rerun.setdefault(unchecked.element, f"{unchecked.declared} cannot be checked again")
+    for failed in _failed(baseline):
+        rerun.setdefault(failed, "it failed in the baseline")
+    supporters = _supporters(now)
     while True:
-        _above(now, rerun)
+        _above(now, supporters, rerun)
         needed = dict(_producers(now, recorded, rerun))
         if not needed:
             return rerun
         rerun.update(needed)
+
+
+def _failed(baseline: Document) -> Iterator[str]:
+    """The elements that failed in ``baseline``: a failure is never kept, since it may not
+    be the step's, such as a network that was down."""
+    return (element["id"] for element in baseline["elements"] if element["status"] == "fail")
+
+
+def _supporters(now: Document) -> dict[str, list[str]]:
+    """The supporters of each element of ``now``, by its id."""
+    supporters: dict[str, list[str]] = {}
+    for element in now["elements"]:
+        for supported in element["supports"]:
+            supporters.setdefault(supported, []).append(element["id"])
+    return supporters
 
 
 def _unusable(baseline: Document, now: Document) -> str | None:
@@ -142,12 +161,8 @@ def _changed(element: Document, recorded: Document) -> Iterator[str]:
         yield "its step's library changed"
 
 
-def _above(now: Document, rerun: dict[str, str]) -> None:
+def _above(now: Document, supporters: Mapping[str, list[str]], rerun: dict[str, str]) -> None:
     """Add to ``rerun`` every element above one in it, naming a supporter that reruns."""
-    supporters: dict[str, list[str]] = {}
-    for element in now["elements"]:
-        for supported in element["supports"]:
-            supporters.setdefault(supported, []).append(element["id"])
     for above in impact.above(now, list(rerun)):  # supporters first
         if above not in rerun:
             running = next(s for s in supporters[above] if s in rerun)
@@ -170,11 +185,13 @@ def _producers(
             value = recorded[producer]["produced"].get(variable)
             if value is None or "type" not in value:  # none produced, or JSON as it was
                 continue
-            held = "its repr" if "repr" in value else f"JSON, not as a {value['type']}"
-            yield (
-                producer,
-                f"{element['id']} consumes {variable!r}, which the baseline records only as {held}",
+            held = (
+                "only as its repr"
+                if "repr" in value
+                else f"as JSON that does not give back the {value['type']} it was"
             )
+            consumer = element["id"]
+            yield producer, f"{consumer} consumes {variable!r}, which the baseline records {held}"
 
 
 def _decoded(
@@ -258,12 +275,12 @@ def _reached(
 
 
 def _diagnostic(recorded: Mapping[str, Any]) -> Diagnostic:
-    """A diagnostic as the report wrote it, with its traceback as recorded."""
+    """A diagnostic as the report wrote it: a warning, since an element an error was about
+    failed, and runs again; so none carries a traceback."""
     return Diagnostic(
         recorded["code"],
         Severity(recorded["severity"]),
         recorded["message"],
         recorded["element"],
         recorded["fix"],
-        recorded=recorded["traceback"],
     )

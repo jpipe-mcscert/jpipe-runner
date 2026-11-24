@@ -90,7 +90,7 @@ def test_the_decorator_is_the_kind(
 
     inputs = tuple(Input(name, name) for name in consumes)
     assert step_of(decorator(function)) == Step(
-        kind, ("m:x",), function, inputs, produces, directory=HERE, library_sha256=SHA256
+        kind, ("m:x",), function, inputs, produces, directory=HERE
     )
 
 
@@ -471,33 +471,106 @@ def test_a_wrapper_of_a_step_is_the_step() -> None:
     def logged() -> Outcome:
         return inner()
 
-    assert step_of(logged) == Step(
-        Kind.EVIDENCE, ("m:e",), logged, directory=HERE, library_sha256=SHA256
-    )
+    assert step_of(logged) == Step(Kind.EVIDENCE, ("m:e",), logged, directory=HERE)
 
 
-def test_a_step_made_elsewhere_is_fingerprinted_by_both_files(tmp_path: Path) -> None:
+def _library(file: Path, namespace: dict[str, Any]) -> ModuleType:
+    """The module of ``file``, executed with ``namespace``, as a library is imported."""
+    module = ModuleType(file.stem)
+    module.__file__ = str(file)
+    module.__dict__.update(namespace)
+    exec(compile(file.read_text(encoding="utf-8"), str(file), "exec"), module.__dict__)
+    return module
+
+
+_CHECK = "def check():\n    return Pass()\n"
+
+
+@pytest.mark.parametrize(
+    ("factory", "call"),
+    [
+        # The library applies the decorator to a function the factory defines.
+        pytest.param(
+            f"def make(threshold):\n    {_CHECK.replace(chr(10), chr(10) + '    ')}return check\n",
+            "step = evidence('m:e')(make(0.8))\n",
+            id="function-made-elsewhere",
+        ),
+        # The factory declares the step itself: only the library holds the threshold.
+        pytest.param(
+            "def make(threshold):\n"
+            "    @evidence('m:e')\n"
+            f"    {_CHECK.replace(chr(10), chr(10) + '    ')}return check\n",
+            "step = make(0.8)\n",
+            id="step-made-elsewhere",
+        ),
+    ],
+)
+def test_a_step_is_fingerprinted_with_the_library_that_exposes_it(
+    tmp_path: Path, factory: str, call: str
+) -> None:
+    helpers, library = tmp_path / "helpers.py", tmp_path / "library.py"
+    helpers.write_text(f"from jpipe_runner import Pass, evidence\n{factory}", encoding="utf-8")
+    library.write_text(call, encoding="utf-8")
+    made = _library(helpers, {})
+    module = _library(library, {"evidence": evidence, "make": made.make})
+
+    (step,) = StepRegistry.from_modules([module])
+
+    # A new threshold in the library, or a new body in helpers, is a new fingerprint.
+    both = library.read_bytes() + helpers.read_bytes()
+    assert step.library_sha256 == hashlib.sha256(both).hexdigest()
+
+
+def test_a_step_is_fingerprinted_with_its_wrappers(tmp_path: Path) -> None:
     helpers, library = tmp_path / "helpers.py", tmp_path / "library.py"
     helpers.write_text(
-        "from jpipe_runner import Pass\n"
-        "def make(threshold):\n"
-        "    def check():\n"
-        "        return Pass()\n"
-        "    return check\n",
+        "import functools\n"
+        "def logged(function):\n"
+        "    @functools.wraps(function)\n"
+        "    def wrapper(*args, **kwargs):\n"
+        "        return function(*args, **kwargs)\n"
+        "    return wrapper\n",
         encoding="utf-8",
     )
-    library.write_text("step = evidence('m:e')(make(0.8))\n", encoding="utf-8")
-    namespace: dict[str, Any] = {"evidence": evidence}
-    for file in (helpers, library):
-        exec(compile(file.read_text(encoding="utf-8"), str(file), "exec"), namespace)
+    library.write_text(
+        "@logged\n@evidence('m:e')\ndef check():\n    return Pass()\n", encoding="utf-8"
+    )
+    wrapping = _library(helpers, {})
+    module = _library(library, {"evidence": evidence, "Pass": Pass, "logged": wrapping.logged})
 
-    step = step_of(namespace["step"])
+    (step,) = StepRegistry.from_modules([module])
 
-    # The library applies the decorator, so a new threshold is a new fingerprint; helpers
-    # defines the function, so a new body is one too.
+    # A new wrapper in helpers is a new fingerprint.
     both = library.read_bytes() + helpers.read_bytes()
-    assert step is not None
     assert step.library_sha256 == hashlib.sha256(both).hexdigest()
+
+
+def test_a_step_whose_library_cannot_be_read_has_no_fingerprint(tmp_path: Path) -> None:
+    @evidence("m:e")
+    def check() -> Outcome:
+        return Pass()
+
+    step = step_of(check)
+    assert step is not None
+
+    (registered,) = StepRegistry([step], {step: str(tmp_path / "gone.py")})
+
+    assert registered.library_sha256 is None
+
+
+def test_a_step_is_fingerprinted_once_its_registry_is_built() -> None:
+    @evidence("m:e")
+    def check() -> Outcome:
+        return Pass()
+
+    step = step_of(check)
+    assert step is not None
+    assert step.library_sha256 is None
+
+    (registered,) = StepRegistry([step])
+
+    assert registered == step  # the fingerprint is not what the step is
+    assert registered.library_sha256 == SHA256
 
 
 @pytest.mark.parametrize("candidate", [None, 1, "m:e", print, _no_parameters], ids=repr)
