@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [4.5.0] - 2026-11-23
+## [4.5.0] - 2026-11-24
 
 ### Added
 - **`--incremental REPORT` runs again only what changed since an earlier run.** Given the
